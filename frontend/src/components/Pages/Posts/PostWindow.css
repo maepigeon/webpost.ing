@@ -1,0 +1,21 @@
+.windowHeader {
+    padding: 20px;
+}
+
+.window {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+}
+.postsViewerContainer {
+    max-width: 1000px;
+}
+
+.newPostButton {
+    margin-bottom: 20px;
+    background-color: rgb(78, 145, 226);
+    color: black;
+}

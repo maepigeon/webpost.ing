@@ -1,0 +1,65 @@
+# FRONT END
+# Logs
+frontend/logs
+frontend/*.log
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*
+frontend/lerna-debug.log*
+
+frontend/node_modules
+frontend/dist
+frontend/dist-ssr
+frontend/*.local
+
+# Editor directories and files
+frontend/.vscode/*
+frontend/!.vscode/extensions.json
+frontend/.idea
+frontend/frontend/.DS_Store
+frontend/*.suo
+frontend/*.ntvs*
+frontend/*.njsproj
+frontend/*.sln
+frontend/*.sw?
+
+
+# SERVER
+server/HELP.md
+server/target/
+server/!.mvn/wrapper/maven-wrapper.jar
+server/!**/src/main/**/target/
+server/!**/src/test/**/target/
+
+### STS ###
+server/.apt_generated
+server/.classpath
+server/.factorypath
+server/.project
+server/.settings
+server/.springBeans
+server/.sts4-cache
+
+### IntelliJ IDEA ###
+server/.idea
+server/*.iws
+server/*.iml
+server/*.ipr
+
+### NetBeans ###
+server/nbproject/private/
+server/nbbuild/
+server/dist/
+server/nbdist/
+server/.nb-gradle/
+server/build/
+server/!**/src/main/**/build/
+server/!**/src/test/**/build/
+
+### VS Code ###
+server/.vscode/
+
+
+server/!**/src/main/**/resources/application.properties
+

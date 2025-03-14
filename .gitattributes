@@ -1,0 +1,2 @@
+server/mvnw text eol=lf
+server/*.cmd text eol=crlf
