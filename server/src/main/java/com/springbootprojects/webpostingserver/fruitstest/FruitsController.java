@@ -1,4 +1,4 @@
-package com.springbootprojects.webpostingserver;
+package com.springbootprojects.webpostingserver.fruitstest;
 
 import org.json.JSONObject;
 import org.springframework.web.bind.annotation.CrossOrigin;
