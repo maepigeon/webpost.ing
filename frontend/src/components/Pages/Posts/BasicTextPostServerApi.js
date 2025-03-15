@@ -3,7 +3,7 @@ import axios from 'axios';
 //update
 export function UPDATE_POST(id, titleField, descriptionField, publishedField) {
   console.log("updating post with id: " + id) 
-  const promise = axios.put("http://localhost:8080/api/tutorials/" + id,
+  const promise = axios.put("http://localhost:8080/api/posts/" + id,
   {
       id: id,
       title: titleField,
@@ -17,7 +17,7 @@ export function UPDATE_POST(id, titleField, descriptionField, publishedField) {
 //delete
 export function DELETE_POST(id) {
   console.log("deleting post with id: " + id)
-  const promise = axios.delete("http://localhost:8080/api/tutorials/" + id);
+  const promise = axios.delete("http://localhost:8080/api/posts/" + id);
   const dataPromise = promise.then((response) => response.data);
   return dataPromise;
 }
@@ -25,7 +25,7 @@ export function DELETE_POST(id) {
 
 //read
 export function READ_POSTS () {
-  const promise = axios.get("http://localhost:8080/api/tutorials");
+  const promise = axios.get("http://localhost:8080/api/posts");
   const dataPromise = promise.then((response) => response.data);
   console.log("reading all posts");
   return dataPromise;
@@ -36,7 +36,7 @@ export function READ_POSTS () {
 //update
 export function CREATE_POST() {
   console.log("creating a new post") ;
-  const promise = axios.post("http://localhost:8080/api/tutorials",
+  const promise = axios.post("http://localhost:8080/api/posts",
   {
     id: 1,
     title: "Title",

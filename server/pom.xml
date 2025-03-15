@@ -9,10 +9,10 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.springbootprojects</groupId>
-    <artifactId>rest-service-tutorial</artifactId>
+    <artifactId>server</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>rest-service-tutorial</name>
-    <description>rest-service-tutorial</description>
+    <name>rest-service-post</name>
+    <description>rest-service-post</description>
     <url/>
     <licenses>
         <license/>

@@ -1,4 +1,4 @@
-package com.springbootprojects.restservicetutorial;
+package com.springbootprojects.webpostingserver;
 
 import org.json.JSONObject;
 import org.springframework.web.bind.annotation.CrossOrigin;
