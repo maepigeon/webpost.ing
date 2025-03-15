@@ -1,8 +1,9 @@
-package com.springbootprojects.restservicetutorial.tutorial.controller;
+package com.springbootprojects.webpostingserver.posts.controller;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import com.springbootprojects.webpostingserver.posts.model.Post;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,79 +18,78 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.springbootprojects.restservicetutorial.tutorial.model.Tutorial;
-import com.springbootprojects.restservicetutorial.tutorial.repository.TutorialRepository;
+import com.springbootprojects.webpostingserver.posts.repository.PostRepository;
 
 @CrossOrigin(origins = "http://localhost:5173")
 @RestController
 @RequestMapping("/api")
-public class TutorialController {
+public class PostController {
 
     @Autowired
-    TutorialRepository tutorialRepository;
+    PostRepository postRepository;
 
-    @GetMapping("/tutorials")
-    public ResponseEntity<List<Tutorial>> getAllTutorials(@RequestParam(required = false) String title) {
+    @GetMapping("/posts")
+    public ResponseEntity<List<Post>> getAllTutorials(@RequestParam(required = false) String title) {
         try {
-            List<Tutorial> tutorials = new ArrayList<Tutorial>();
+            List<Post> posts = new ArrayList<Post>();
 
             if (title == null)
-                tutorialRepository.findAll().forEach(tutorials::add);
+                postRepository.findAll().forEach(posts::add);
             else
-                tutorialRepository.findByTitleContaining(title).forEach(tutorials::add);
+                postRepository.findByTitleContaining(title).forEach(posts::add);
 
-            if (tutorials.isEmpty()) {
+            if (posts.isEmpty()) {
                 return new ResponseEntity<>(HttpStatus.NO_CONTENT);
             }
 
-            return new ResponseEntity<>(tutorials, HttpStatus.OK);
+            return new ResponseEntity<>(posts, HttpStatus.OK);
         } catch (Exception e) {
             return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
-    @GetMapping("/tutorials/{id}")
-    public ResponseEntity<Tutorial> getTutorialById(@PathVariable("id") long id) {
-        Tutorial tutorial = tutorialRepository.findById(id);
+    @GetMapping("/posts/{id}")
+    public ResponseEntity<Post> getTutorialById(@PathVariable("id") long id) {
+        Post post = postRepository.findById(id);
 
-        if (tutorial != null) {
-            return new ResponseEntity<>(tutorial, HttpStatus.OK);
+        if (post != null) {
+            return new ResponseEntity<>(post, HttpStatus.OK);
         } else {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
     }
 
-    @PostMapping("/tutorials")
-    public ResponseEntity<String> createTutorial(@RequestBody Tutorial tutorial) {
+    @PostMapping("/posts")
+    public ResponseEntity<String> createTutorial(@RequestBody Post post) {
         try {
-            tutorialRepository.save(new Tutorial(tutorial.getTitle(), tutorial.getDescription(), false));
+            postRepository.save(new Post(post.getTitle(), post.getDescription(), false));
             return new ResponseEntity<>("Tutorial was created successfully.", HttpStatus.CREATED);
         } catch (Exception e) {
             return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
-    @PutMapping("/tutorials/{id}")
-    public ResponseEntity<String> updateTutorial(@PathVariable("id") long id, @RequestBody Tutorial tutorial) {
-        Tutorial _tutorial = tutorialRepository.findById(id);
+    @PutMapping("/posts/{id}")
+    public ResponseEntity<String> updateTutorial(@PathVariable("id") long id, @RequestBody Post post) {
+        Post _post = postRepository.findById(id);
 
-        if (_tutorial != null) {
-            _tutorial.setId(id);
-            _tutorial.setTitle(tutorial.getTitle());
-            _tutorial.setDescription(tutorial.getDescription());
-            _tutorial.setPublished(tutorial.isPublished());
+        if (_post != null) {
+            _post.setId(id);
+            _post.setTitle(post.getTitle());
+            _post.setDescription(post.getDescription());
+            _post.setPublished(post.isPublished());
 
-            tutorialRepository.update(_tutorial);
+            postRepository.update(_post);
             return new ResponseEntity<>("Tutorial was updated successfully.", HttpStatus.OK);
         } else {
             return new ResponseEntity<>("Cannot find Tutorial with id=" + id, HttpStatus.NOT_FOUND);
         }
     }
 
-    @DeleteMapping("/tutorials/{id}")
+    @DeleteMapping("/posts/{id}")
     public ResponseEntity<String> deleteTutorial(@PathVariable("id") long id) {
         try {
-            int result = tutorialRepository.deleteById(id);
+            int result = postRepository.deleteById(id);
             if (result == 0) {
                 return new ResponseEntity<>("Cannot find Tutorial with id=" + id, HttpStatus.OK);
             }
@@ -99,10 +99,10 @@ public class TutorialController {
         }
     }
 
-    @DeleteMapping("/tutorials")
+    @DeleteMapping("/posts")
     public ResponseEntity<String> deleteAllTutorials() {
         try {
-            int numRows = tutorialRepository.deleteAll();
+            int numRows = postRepository.deleteAll();
             return new ResponseEntity<>("Deleted " + numRows + " Tutorial(s) successfully.", HttpStatus.OK);
         } catch (Exception e) {
             return new ResponseEntity<>("Cannot delete tutorials.", HttpStatus.INTERNAL_SERVER_ERROR);
@@ -110,15 +110,15 @@ public class TutorialController {
 
     }
 
-    @GetMapping("/tutorials/published")
-    public ResponseEntity<List<Tutorial>> findByPublished() {
+    @GetMapping("/posts/published")
+    public ResponseEntity<List<Post>> findByPublished() {
         try {
-            List<Tutorial> tutorials = tutorialRepository.findByPublished(true);
+            List<Post> posts = postRepository.findByPublished(true);
 
-            if (tutorials.isEmpty()) {
+            if (posts.isEmpty()) {
                 return new ResponseEntity<>(HttpStatus.NO_CONTENT);
             }
-            return new ResponseEntity<>(tutorials, HttpStatus.OK);
+            return new ResponseEntity<>(posts, HttpStatus.OK);
         } catch (Exception e) {
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
         }

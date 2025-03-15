@@ -1,26 +1,26 @@
-package com.springbootprojects.restservicetutorial.tutorial.model;
+package com.springbootprojects.webpostingserver.posts.model;
 
 
 
-public class Tutorial {
+public class Post {
 
     private long id;
     private String title;
     private String description;
     private boolean published;
 
-    public Tutorial() {
+    public Post() {
 
     }
 
-    public Tutorial(long id, String title, String description, boolean published) {
+    public Post(long id, String title, String description, boolean published) {
         this.id = id;
         this.title = title;
         this.description = description;
         this.published = published;
     }
 
-    public Tutorial(String title, String description, boolean published) {
+    public Post(String title, String description, boolean published) {
         this.title = title;
         this.description = description;
         this.published = published;
