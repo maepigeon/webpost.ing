@@ -23,7 +23,7 @@ public class JdbcPostRepository implements PostRepository {
 
     @Override
     public int update(Post post) {
-        return jdbcTemplate.update("UPDATE posts SET title=?, description=?, published=? WHERE id=?",
+        return jdbcTemplate.update("UPDATE posts SET title=?, description=?, published=?, date=? WHERE id=?",
                 new Object[] { post.getTitle(), post.getDescription(), post.isPublished(), post.getId() });
     }
 
