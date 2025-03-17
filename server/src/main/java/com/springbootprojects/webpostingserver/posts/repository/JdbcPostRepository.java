@@ -15,18 +15,33 @@ public class JdbcPostRepository implements PostRepository {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    /**
+     * Saves a post to the database
+     * @param post - the post to save to the database
+     * @return
+     */
     @Override
     public int save(Post post) {
         return jdbcTemplate.update("INSERT INTO posts (title, description, published) VALUES(?,?,?)",
-                new Object[] { post.getTitle(), post.getDescription(), post.isPublished() });
+                new Object[] { post.getTitle(), post.getDescription(), post.isPublished()});
     }
 
+    /**
+     * Updates the post's data in the database
+     * @param post - the post to be updated
+     * @return
+     */
     @Override
     public int update(Post post) {
-        return jdbcTemplate.update("UPDATE posts SET title=?, description=?, published=?, date=? WHERE id=?",
+        return jdbcTemplate.update("UPDATE posts SET title=?, description=?, published=? WHERE id=?",
                 new Object[] { post.getTitle(), post.getDescription(), post.isPublished(), post.getId() });
     }
 
+    /**
+     *
+     * @param id
+     * @return
+     */
     @Override
     public Post findById(Long id) {
         try {

@@ -7,7 +7,7 @@ import ContentEditable from 'react-contenteditable';
 
 function BasicTextPost(props) {
     var postdata = props.postdata;
-
+    
     const Modes = Object.freeze({
         VIEW: 0,
         EDIT: 1,
@@ -98,9 +98,19 @@ function BasicTextPost(props) {
     // Returns the BasicTextPost component
     return (
         <div className="post basicTextPost">
+            <div className="datestring">
+                <p>id: {postdata.id}, Date Uploaded: {postdata.date}</p>
+            </div>
             <div className="horizontalContentBox">
                 <div className="leftContent">
-                    <p>id: {postdata.id}</p>
+                    {
+                        <>
+                            <p>save</p>
+                            <p>upvote</p>
+                            <p>downvt</p>
+                            <p>share</p>
+                        </>
+                    }
                 </div>
 
                 <div className="rightContent">

@@ -5,7 +5,8 @@ import '../PostWindow.css';
 
 
 function PostsViewer() {
-    const [postsArray, setPostsArray] = useState([]);    
+    const [postsArray, setPostsArray] = useState([]);  
+    
 
     useEffect(() => {
       refreshPosts();
@@ -13,7 +14,11 @@ function PostsViewer() {
     function refreshPosts() {
         console.log("refreshing state.")
         READ_POSTS().then(data => {
-          setPostsArray(data);
+          setPostsArray(data.sort(
+            function(a,b) {
+              return new Date(b.date) - new Date(a.date);
+            }
+          ));
         }).catch(err => console.log(response));
     }
 
