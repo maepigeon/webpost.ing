@@ -7,7 +7,7 @@ function Navbar() {
     <nav className="navBar">
       <Navbutton label={"home"} route={"/"} />
       <Navbutton label={"viewPosts"} route={"/routes/PostsViewer"} />
-      <Navbutton label={"viewPost"} route={"/routes/PostViewer"} />
+      <Navbutton label={"editPost"} route={"/routes/PostEditor"} />
       <Navbutton label={"editProfile"} route={"/routes/ProfileEditor"} />
       <Navbutton label={"readProfile"} route={"/routes/ProfileViewer"} />
       <Navbutton label={"editSettings"} route={"/routes/UserSettingsEditor"} />

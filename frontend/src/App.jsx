@@ -11,7 +11,7 @@ import Registration from './components/Pages/Auth/Registration/Registration'
 import Logout from './components/Pages/Auth/Logout/Logout'
 import AdminPanel from './components/Pages/Auth/AdminPanel/AdminPanel'
 import UserSettingsEditor from './components/Pages/UserSettingsEditor/UserSettingsEditor'
-import PostViewer from './components/Pages/Posts/PostViewer/PostViewer';
+import PostEditor from './components/Pages/Posts/PostsViewer/PostEditor';
 import PostsViewer from './components/Pages/Posts/PostsViewer/PostsViewer';
 import ProfileEditor from './components/Pages/Profile/ProfileEditor/ProfileEditor';
 import ProfileViewer from './components/Pages/Profile/ProfileViewer/ProfileViewer';
@@ -27,7 +27,7 @@ function App() {
       <Routes>
         <Route index element={ <Home />} />
         <Route path="/routes" element={<Home />} />
-        <Route path="/routes/PostViewer" element={<PostViewer />} />
+        <Route path="/routes/PostEditor" element={<PostEditor />} />
         <Route path="/routes/PostsViewer" element={<PostsViewer />} />
         <Route path="/routes/ProfileViewer" element={<ProfileViewer />} />
         <Route path="/routes/ProfileEditor" element={<ProfileEditor />} />
