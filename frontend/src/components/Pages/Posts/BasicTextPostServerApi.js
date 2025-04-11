@@ -24,24 +24,31 @@ export function DELETE_POST(id) {
 
 
 //read
-export function READ_POSTS () {
+export function READ_POSTS() {
   const promise = axios.get("http://localhost:8080/api/posts");
   const dataPromise = promise.then((response) => response.data);
   console.log("reading all posts");
   return dataPromise;
 };
 
+export function READ_POST(id) {
+  const promise = axios.get("http://localhost:8080/api/posts/" + id + "");
+  const dataPromise = promise.then((response) => response.data);
+  console.log("reading post " + id);
+  return dataPromise;
+}
 
 
-//update
-export function CREATE_POST() {
+
+//create
+export function CREATE_POST(id, titleField, descriptionField, publishedField) {
   console.log("creating a new post") ;
   const promise = axios.post("http://localhost:8080/api/posts",
   {
-    id: 1,
-    title: "Title",
-    description: "Description",
-    published: false
+    id: id,
+    title: titleField,
+    description: descriptionField,
+    published: publishedField
   });
   const dataPromise = promise.then((response) => response.data);
   console.log("created POST");

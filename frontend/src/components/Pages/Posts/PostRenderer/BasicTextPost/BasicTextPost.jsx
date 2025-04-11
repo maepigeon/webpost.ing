@@ -1,22 +1,30 @@
-import {UPDATE_POST, DELETE_POST} from '../../BasicTextPostServerApi.js'
+import {UPDATE_POST, DELETE_POST, CREATE_POST} from '../../BasicTextPostServerApi.js'
 import {useState, useRef, React} from 'react';
+import { Link } from 'react-router-dom';
 import './BasicTextPost.css'
-import sanitizeHtml from 'sanitize-html';
 import ContentEditable from 'react-contenteditable';
 
 
 function BasicTextPost(props) {
     var postdata = props.postdata;
+    var editMode = props.editMode;
     
     const Modes = Object.freeze({
         VIEW: 0,
         EDIT: 1,
+        NEW: 2
     });
 
-    const [currentPostMode, setCurrentPostMode] = useState(Modes.VIEW);
+    const [currentPostMode, setCurrentPostMode] = useState(editMode ? Modes.EDIT : Modes.VIEW);
 
     const submitEditPost = () => {
         UPDATE_POST(postdata.id, titlehtml.current, descriptionhtml.current, postdata.published).then(
+        () => {props.updatePostsFlagCallback();}
+        );
+        setCurrentPostMode(Modes.VIEW);
+    }
+    const submitNewPost = () => {
+        CREATE_POST(postdata.id, titlehtml.current, descriptionhtml.current, postdata.published).then(
         () => {props.updatePostsFlagCallback();}
         );
         setCurrentPostMode(Modes.VIEW);
@@ -36,19 +44,7 @@ function BasicTextPost(props) {
 
 
     const Editable = ({editEventHandler, typeTag, initialContent}) => {
-        console.log("Initial Content: " + initialContent);
         const content = initialContent;
-    
-       /*const onContentChange = useCallback(evt => {
-            const sanitizeConf = {
-                allowedTags: ["b", "i", "a", "p", "h1"],
-                allowedAttributes: { a: ["href"] }
-            };
-            var sanitizedHTML = sanitizeHtml(evt.currentTarget.innerHTML, sanitizeConf);
-            setContent(sanitizedHTML);
-            setEditableField(sanitizedHTML);
-        }, [])*/
-    
         return (
             <ContentEditable
                 onChange={editEventHandler}
@@ -83,7 +79,11 @@ function BasicTextPost(props) {
     // Component for the edit / cancel edit button
     function editButtonRender(postMode) {
         if (postMode == Modes.VIEW) {
-            return(<button onClick={() => setCurrentPostMode(Modes.EDIT) }>Edit</button>);
+            return(
+                <Link to={"/routes/PostEditor"} state={{postID: postdata.id}}>
+                    <button onClick={() => setCurrentPostMode(Modes.EDIT)}> Edit </button>
+                </Link>
+                );
         }
         else if (postMode == Modes.EDIT) {
             return(
@@ -93,13 +93,21 @@ function BasicTextPost(props) {
                 </>
                 );
         }
+        else if (postMode == Modes.NEW) {
+            return(
+                <>
+                    <button onClick={() => setCurrentPostMode(Modes.VIEW) }>Delete Draft</button>
+                    <button onClick={() => submitNewPost() }>Post</button>
+                </>
+                );
+        }
     }
 
     // Returns the BasicTextPost component
     return (
         <div className="post basicTextPost">
             <div className="datestring">
-                <p>id: {postdata.id}, Date Uploaded: {postdata.date}</p>
+                <p>id: {postdata.id}, Date Uploaded: {postdata.date} (UTC)</p>
             </div>
             <div className="horizontalContentBox">
                 <div className="leftContent">
