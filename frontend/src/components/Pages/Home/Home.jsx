@@ -7,7 +7,7 @@ function Home() {
                 Welcome to webpost.ing
             </h1>
             <p>
-                A free social media platform for creating and sharing blogs, articles, bulletin boards, and robust user profiles.
+                Created by Mae Pigeon - @maepigeon
             </p>
         </div>
     );

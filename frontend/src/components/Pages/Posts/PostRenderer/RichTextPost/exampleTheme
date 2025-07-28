@@ -1,0 +1,15 @@
+export const exampleTheme = {
+
+    heading: {
+      h1: 'editor-h1',
+      h2: 'editor-h2',
+      h3: 'editor-h3'
+    },
+    text: {
+      ltr: 'ltr',
+      rtl: 'rtl',
+      paragraph: 'editor-paragraph',
+      bold: "textBold",
+      italic: "textItalic",
+    }
+  };
