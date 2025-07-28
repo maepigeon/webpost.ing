@@ -38,8 +38,6 @@ export function READ_POST(id) {
   return dataPromise;
 }
 
-
-
 //create
 export function CREATE_POST(id, titleField, descriptionField, publishedField) {
   console.log("creating a new post") ;

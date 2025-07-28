@@ -1,0 +1,55 @@
+
+.editor-contenteditable {
+    width: 500px;
+    height: 300px;
+    text-align: left;
+}
+
+.toolbar-wrapper {
+  display: flex;
+}
+
+.editor-h1 {
+  font-size: 48px;
+}
+.editor-h2 {
+  font-size: 24px;
+}
+.editor-h3 {
+  font-size: 16px;
+}
+
+.ltr {
+    text-align: left;
+}
+
+.rtl {
+  text-align: right;
+}
+
+.textBold {
+  color: yellow;
+  font-weight: bold;
+}
+.textItalic {
+  color: cyan;
+  font-style: italic;
+}
+
+.editor-placeholder {
+  width: 500px;
+  height: 300px;
+  text-align: left;
+  color: #999;
+  overflow: hidden;
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  user-select: none;
+  pointer-events: none;
+}
+
+.editor-paragraph {
+  margin: 0 0 15px 0;
+  position: relative;
+}

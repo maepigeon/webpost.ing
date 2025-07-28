@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import axios from 'axios';
+
 
 function Login() {
   const [username, setUsername] = useState('');
@@ -9,13 +11,38 @@ function Login() {
     event.preventDefault();
     // Basic validation (replace with your actual authentication logic)
     if (username === '' || password === '') {
-      setError('Please fill all the fields.');
+      setError('Please fill in all the fields and try again.');
       return;
     }
     // Send login request to your backend here 
-    console.log('Login data:', { username, password });
-
+    LOGIN_ATTEMPT(username, password);
   };
+  function LOGIN_ATTEMPT(username, password) {
+    const promise = axios.post("http://localhost:8080/api/loginSessionAttempt",
+    {
+      username: username,
+      password: password
+    },
+    {
+        withCredentials: true
+    });
+    const dataPromise = promise.then((response) => response.data);
+    try {
+      console.log("Welcome, " + username)
+      console.log(dataPromise);
+    } catch (error) {
+      console.log("Authentication failed...")
+      console.log(error);
+    }
+      /*var passwordMatch = dataPromise.data.passwordMatch;
+    var id = dataPromise.data.userID;
+    console.log("Sorry, that username was not found.");
+    console.log("User exists! " + id);
+    console.log("Password was " + passwordMatch ? "Correct - Logging you in!" : "Incorrect - Please try again.");
+    */
+    return dataPromise;
+  }
+  
 
   return (
     <div className="form-container">

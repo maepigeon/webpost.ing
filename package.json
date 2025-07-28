@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "@lexical/react": "^0.31.0",
+    "@lexical/selection": "^0.31.0",
+    "lexical": "^0.31.0"
+  }
+}
