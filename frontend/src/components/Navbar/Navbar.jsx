@@ -1,5 +1,6 @@
 import React from 'react';
 import Navbutton from './Navbutton/Navbutton';
+import Userdata from '../Pages/Auth/Userdata/Userdata';
 import './Navbar.css'
 
 function Navbar() {
@@ -11,8 +12,10 @@ function Navbar() {
 
       <Navbutton label={"Edit Post"} route={"/routes/ProfileEditor"} />
       <Navbutton label={"Read Post"} route={"/routes/ProfileViewer"} />
-      <br></br>
-      <p>Welcome, Guest </p>
+      <br>
+      </br>
+      <Userdata></Userdata>
+      
       <Navbutton label={"Select User"} route={"/routes/Login"} />
       <Navbutton label={"Log out"} route={"/routes/Logout"} />
       <br></br>

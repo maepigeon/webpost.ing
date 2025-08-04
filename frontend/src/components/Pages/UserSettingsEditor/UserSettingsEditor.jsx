@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
+import Counter from "../Test/Counter"
 
 function UserSettingsEditor() {
     return (
         <h1>
-            Settings
+            <Counter />
         </h1>
     );
 }

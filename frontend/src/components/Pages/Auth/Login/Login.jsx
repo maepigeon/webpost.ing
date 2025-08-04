@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 
 
+
 function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -26,20 +27,15 @@ function Login() {
     {
         withCredentials: true
     });
-    const dataPromise = promise.then((response) => response.data);
-    try {
-      console.log("Welcome, " + username)
-      console.log(dataPromise);
-    } catch (error) {
-      console.log("Authentication failed...")
-      console.log(error);
-    }
-      /*var passwordMatch = dataPromise.data.passwordMatch;
-    var id = dataPromise.data.userID;
-    console.log("Sorry, that username was not found.");
-    console.log("User exists! " + id);
-    console.log("Password was " + passwordMatch ? "Correct - Logging you in!" : "Incorrect - Please try again.");
-    */
+    const dataPromise = promise.then(
+      (response) => {
+        localStorage.setItem("userName", username);
+        window.location.reload();
+        response.data;
+      })
+    .catch(error => {
+      console.log("Failed to log in user " + username + ". " + error);
+    });
     return dataPromise;
   }
   
