@@ -1,6 +1,6 @@
 import { useState, useEffect, React } from 'react';
 import axios from "axios";
-
+import Counter from "./Counter";
 import './Tests.css';
 
 function Test() {
@@ -20,7 +20,8 @@ function Test() {
   
 
     return (
-        <div className="card">
+        <>
+          <div className="card">
             <h2>TestGetFruits: Fruits from the backend server</h2>
             {array.map((fruit, index) => (
                 <div key={index}>
@@ -28,6 +29,9 @@ function Test() {
                 </div>
             ))} 
         </div> 
+            <Counter />
+        </>
+      
     );
 }
 

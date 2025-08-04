@@ -2,7 +2,7 @@ import React from 'react';
 
 function Home() {
     return (
-        <div id="homePage" class="page">
+        <div id="homePage" className="page">
             <h1>
                 Welcome to webpost.ing
             </h1>

@@ -36,6 +36,22 @@ public class JdbcLoginRepository implements LoginRepository {
     }
 
     private boolean isTokenExpired(AuthSession authSession) {
+        return LocalDate.now().compareTo(authSession.expires) > 0;
+    }
+
+
+    // Attempts to log the user out
+    public boolean logout(String username, String token) {
+        try {
+            AuthSession authSession = authorize(username, token);
+            if (authSession != null) {
+                System.out.println("Logged out " + username + " and removed corresponding server session");
+                loginMap.remove(username);
+                return true;
+            }
+        } catch (Exception ex) {
+                System.out.println("Tried to log out user " + username + " but no login session found on server. Attempting to delete cookie. Exception: " + ex.getMessage());
+        }
         return false;
     }
 
@@ -46,7 +62,7 @@ public class JdbcLoginRepository implements LoginRepository {
      * @param password
      * @return
      */
-    private int authenticate(String username, String password) {
+    public int authenticate(String username, String password) {
         List<LoginInfo> loginInfo = jdbcTemplate.query("SELECT userdata.* from users userdata WHERE userdata.username = ? AND userdata.password = ?;",
                 BeanPropertyRowMapper.newInstance(LoginInfo.class), username, password);
         // If the user is authenticated, store a new auth token in the map of logged in users
@@ -67,32 +83,31 @@ public class JdbcLoginRepository implements LoginRepository {
      * @param token
      * @return
      */
-    public boolean authorize(String username, String token) {
+    public AuthSession authorize(String username, String token) {
         //get the user's authorization token
         AuthSession authSession;
         try {
             authSession = loginMap.get(username);
         } catch (Exception e) {
             System.out.println("Username " + username + " not found. " + e.getMessage());
-            return false;
+            return null;
+        }
+        if (authSession == null) {
+            return null;
         }
         //check token expiration
         if (isTokenExpired(authSession)) {
-            logout(username);
-            return false;
+            logout(username, token);
+            return null;
         }
         //authorize action if not expired and token matches server
-        return authSession.token.equals(token);
+        if (authSession.token.equals(token)) {
+            System.out.println("Authorized user " + username + " to do something");
+            return authSession;
+        } else {
+            return null;
+        }
     }
-
-    /**
-     * Logs the user out
-     * @param username
-     */
-    public void logout(String username) {
-        loginMap.remove(username);
-    }
-
 
 
     /**
