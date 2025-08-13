@@ -11,16 +11,7 @@ import com.springbootprojects.webpostingserver.posts.repository.LoginRepository;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.springbootprojects.webpostingserver.posts.repository.PostRepository;
 import com.springbootprojects.webpostingserver.posts.repository.LoginRepository;
@@ -32,6 +23,9 @@ import com.springbootprojects.webpostingserver.posts.repository.LoginRepository;
 public class PostController {
     @Autowired
     PostRepository postRepository;
+
+    @Autowired
+    LoginRepository loginRepository;
 
     @GetMapping("/posts")
     public ResponseEntity<List<Post>> getAllPosts(@RequestParam(required = false) String title) {
@@ -64,14 +58,37 @@ public class PostController {
         }
     }
 
-    @PostMapping("/posts")
-    public ResponseEntity<String> createPost(@RequestBody Post post) {
-        try {
-            postRepository.save(new Post(post.getTitle(), post.getDescription(), false));
-            return new ResponseEntity<>("Post was created successfully.", HttpStatus.CREATED);
-        } catch (Exception e) {
-            return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+    @GetMapping("/user/{username}")
+    public ResponseEntity<List<Post>> getPostsByUser(@PathVariable("username") String username) {
+        System.out.println("Attempting to get posts by user: " + username);
+        List<Post> posts = postRepository.getPostsFromUsername(username);
+
+        if (posts != null) {
+            System.out.println("Found posts: " + posts.size());
+            return new ResponseEntity<>(posts, HttpStatus.OK);
+        } else {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
+    }
+
+    @PostMapping("/posts")
+    public ResponseEntity<String> createPost(@RequestBody Post post, @CookieValue(name = "username") String username, @CookieValue(name = "authToken") String token) {
+        AuthSession loginResult = loginRepository.authorize(username, token);
+        System.out.println("Attempting to create a new post");
+        if (loginResult != null) {
+            System.out.println("Authorized post creation for user " + username);
+            try {
+                int userId = loginResult.userId;
+                System.out.println("User ID: " + userId);
+                postRepository.save(post, userId);
+                return new ResponseEntity<>("Post was created successfully.", HttpStatus.CREATED);
+            } catch (Exception e) {
+                System.out.println("Post creation failed: " + e.getMessage());
+                return new ResponseEntity<>("Failed to create post", HttpStatus.INTERNAL_SERVER_ERROR);
+            }
+        }
+        System.out.println("Attempted to create a new post as user " + username + " with a token " + token + ", but authorization failed.");
+        return new ResponseEntity<>(null, HttpStatus.FORBIDDEN);
     }
 
     @PutMapping("/posts/{id}")
@@ -79,7 +96,7 @@ public class PostController {
         Post _post = postRepository.findById(id);
 
         if (_post != null) {
-            _post.setId(id);
+            _post.setId((int)id);
             _post.setTitle(post.getTitle());
             _post.setDescription(post.getDescription());
             _post.setPublished(post.isPublished());

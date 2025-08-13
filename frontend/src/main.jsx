@@ -4,23 +4,20 @@ import './index.css'
 import App from './App.jsx'
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
-
 import { Provider } from 'react-redux'
-import store from './store/store';
-// src/reducers/index.js
-const initialState = {
-  counter: 0
-};
+import { configureStore } from '@reduxjs/toolkit'
+import rootReducer from './reducers'
 
-const root = document.getElementById('root');
-const rootInstance = createRoot(root);
+const store = configureStore({
+  reducer: rootReducer
+})
 
-rootInstance.render(
+createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
       <Provider store={store}>
           <App/>
       </Provider>
     </BrowserRouter>
-  </StrictMode>,
+  </StrictMode>
 )

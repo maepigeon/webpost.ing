@@ -17,6 +17,10 @@ function BasicTextPost(props) {
 
     const [currentPostMode, setCurrentPostMode] = useState(editMode ? Modes.EDIT : Modes.VIEW);
 
+    const goToPost = () => {
+        console.log("Going to post # " + postdata.id)
+    }
+
     const submitEditPost = () => {
         UPDATE_POST(postdata.id, titlehtml.current, descriptionhtml.current, postdata.published).then(
         () => {props.updatePostsFlagCallback();}
@@ -75,12 +79,19 @@ function BasicTextPost(props) {
                 </>);
         }
     }
+    function goButtonRender(postID) {
+        return(
+            <Link to={"/routes/RichTextViewer"} state={{postID: postdata.id}}>
+                <button onClick={() => goToPost()}> Go </button>
+            </Link>
+            );
+    }
 
     // Component for the edit / cancel edit button
     function editButtonRender(postMode) {
         if (postMode == Modes.VIEW) {
             return(
-                <Link to={"/routes/PostEditor"} state={{postID: postdata.id}}>
+                <Link to={"/routes/RichTextEditor"} state={{postID: postdata.id}}>
                     <button onClick={() => setCurrentPostMode(Modes.EDIT)}> Edit </button>
                 </Link>
                 );
@@ -110,17 +121,6 @@ function BasicTextPost(props) {
                 <p>id: {postdata.id}, Date Uploaded: {postdata.date} (UTC)</p>
             </div>
             <div className="horizontalContentBox">
-                <div className="leftContent">
-                    {
-                        <>
-                            <p>save</p>
-                            <p>upvote</p>
-                            <p>downvt</p>
-                            <p>share</p>
-                        </>
-                    }
-                </div>
-
                 <div className="rightContent">
                     {renderPostDataFields(currentPostMode)}
                 </div>
@@ -132,12 +132,16 @@ function BasicTextPost(props) {
                     </p>
                     <button onClick={() => {
                             DELETE_POST(postdata.id).then( 
-                            () => {props.updatePostsFlagCallback();}
+                            () => {
+                                props.updatePostsFlagCallback();
+                                window.location.reload();
+                            }
                             );
                         }}> 
                         Delete
                     </button>
                     { editButtonRender(currentPostMode) }
+                    { goButtonRender(postdata.id) }
                 </div>
             </div>
         </div>

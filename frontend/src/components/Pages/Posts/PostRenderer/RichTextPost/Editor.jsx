@@ -1,8 +1,9 @@
 import {$getRoot, $getSelection, $isRangeSelection} from 'lexical';
 import {useEffect, useState} from 'react';
 import './Editor.css'
+import TitleBar from "./TitleBar"
+ 
 import {exampleTheme} from './exampleTheme';
-import {AutoFocusPlugin} from '@lexical/react/LexicalAutoFocusPlugin';
 import {LexicalComposer} from '@lexical/react/LexicalComposer';
 import {useLexicalComposerContext} from '@lexical/react/LexicalComposerContext';
 import {RichTextPlugin} from '@lexical/react/LexicalRichTextPlugin';
@@ -14,13 +15,25 @@ import {$createHeadingNode} from '@lexical/rich-text';
 import { HeadingNode } from '@lexical/rich-text';
 import {ListPlugin} from '@lexical/react/LexicalListPlugin';
 import {INSERT_ORDERED_LIST_COMMAND, INSERT_UNORDERED_LIST_COMMAND, ListNode, ListItemNode} from '@lexical/list';
+import {READ_POST, CREATE_POST} from '../../BasicTextPostServerApi.js';
+import {useParams} from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
-const initialConfig = {
+
+const initialConfig = localStorage.getItem("currentPostState") == null ? {
   namespace: 'MyEditor', 
   theme: exampleTheme, 
   onError,
-  nodes: [HeadingNode, ListNode, ListItemNode]
+  nodes: [HeadingNode, ListNode, ListItemNode],
+} : {
+  namespace: 'MyEditor', 
+  theme: exampleTheme, 
+  onError,
+  nodes: [HeadingNode, ListNode, ListItemNode],
+  editorState: localStorage.getItem("currentPostState")
 };
+
+
 
 function ListToolbarPlugin() {
   const [editor] = useLexicalComposerContext();
@@ -33,7 +46,7 @@ function ListToolbarPlugin() {
     editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined);
   };
   return <>{listTags.map((tag) => (
-    <button onClick={() =>{onClick(tag)}}>{tag.toUpperCase()}</button>
+    <button key={tag} onClick={() =>{onClick(tag)}}>{tag.toUpperCase()}</button>
     ))}</>;
 }
 
@@ -76,34 +89,125 @@ function MyOnChangePlugin({ onChange }) {
     return null;
 }
 
-
-
 // Catch any errors that occur during Lexical updates and log them
-// or throw them as needed. If you don't throw them, Lexical will
+// or throw them as needed. If you don't throw them, Lexical \ll
 // try to recover gracefully without losing user data.
 function onError(error) {
   console.error(error);
 }
 
-export default function Editor() {
+function LoadEditorStatePlugin() {
+  const [editor] = useLexicalComposerContext();
+  const onClick = () => {
+    console.log("loading saved editor state");
+    var loadedEditor = localStorage.getItem("currentPostState");
+    console.log(loadedEditor)
+    const editorState = editor.parseEditorState(loadedEditor);
+    editor.setEditorState(editorState);
+  }
+  return <button onClick = {onClick} >Load Editor State</button>;
+}
+
+function LoadPostFromServerPlugin() {
+  let { id } = useParams();
+  console.log("URL ID: " + id);
+  const [editor] = useLexicalComposerContext();
+  var loadedEditor;
+  const onClick = () => {
+    console.log("loading saved editor state");
+    READ_POST(id).then(
+      (data) => {
+        console.log("Post data: " + JSON.stringify(data));
+        localStorage.setItem("currentPostTitle", data.postTitle);
+        //postTitle = data.postTitle;
+        const editorState = editor.parseEditorState(data.description);
+        editor.setEditorState(editorState);
+      }
+      );
+  }
+  return <button onClick = {onClick} >Load Post From Server</button>;
+}
+
+function SaveEditorStatePlugin() {
+  const [editor] = useLexicalComposerContext();
+  const onClick = () => {
+    console.log("saving editor state");
+    const editorStateRaw = editor.getEditorState();
+    const editorState = JSON.stringify(editorStateRaw.toJSON());
+    console.log(editorState);
+    localStorage.setItem("currentPostState", editorState);
+  }
+  return <button onClick = {onClick} >Save Editor State</button>;
+}
+
+function SubmitButtonPlugin() {
+  const [editor] = useLexicalComposerContext();
+  const postTitle = localStorage.getItem("currentPostTitle");
+  if (postTitle == "") {postTitle = "Default Post Title"}
+  const onClick = () => {
+    const editorStateRaw = editor.getEditorState();
+    const editorState = JSON.stringify(editorStateRaw.toJSON());
+    console.log("uploading to server: " + editorState)
+    CREATE_POST(1, postTitle, editorState, true).then(
+      () => {console.log("Post uploaded. Do a callback here.")}
+      );
+      const navigate = useNavigate();
+      navigate("/PostsViewer");
+    }
+  return <button type="submit" className='submitButton' onClick={ onClick }>Upload</button>
+}
+
+
+
+export default function RichTextEditor() {
   const [editorState, setEditorState] = useState();
+  var postTitleFromLocal = localStorage.getItem("currentPostTitle");
+
+  const [postTitle, setPostTitle] = useState(
+    (postTitleFromLocal == null || postTitleFromLocal == "") ? "POST TITLE" : postTitleFromLocal
+  );
+
   function onChange(editorState) {
     // Call toJSON on the EditorState object, which produces a serialization safe string
     const editorStateJSON = editorState.toJSON();
     // However, we still have a JavaScript object, so we need to convert it to an actual string with JSON.stringify
     setEditorState(JSON.stringify(editorStateJSON));
+
+    var postTitleFromLocal = localStorage.getItem("currentPostTitle");
+    setPostTitle((postTitleFromLocal == null || postTitleFromLocal == "") ? "POST TITLE" : postTitleFromLocal);
+  
+
   }
+
+
   return (
-    <LexicalComposer initialConfig={initialConfig}>
-      <ToolbarPlugin/>
-      <ListPlugin/>
-      <RichTextPlugin
-        contentEditable={<ContentEditable className='editor-contenteditable'/>}
-        placeholder={<div className='placeholder'>Enter some text...</div>}
-        ErrorBoundary={LexicalErrorBoundary}
-      />
-      <HistoryPlugin />
-      {/*<MyOnChangePlugin onChange={onChange}/>*/}
-    </LexicalComposer>
-  );
+      <>
+        <div className='editor'>
+          <TitleBar postdata={{id: 1, title: postTitle, published: false}} 
+              updatePostsFlagCallback={()=>{console.log("RETURNING TO POST VIEW")}} editMode={true} />
+        </div>
+           
+        <LexicalComposer initialConfig={initialConfig}>
+              <LoadPostFromServerPlugin/>
+              <LoadEditorStatePlugin/>
+              <SaveEditorStatePlugin/>
+              <div className='editor'>
+                <ToolbarPlugin/>
+              </div>
+              <ListPlugin/>
+              <div className='editor'>
+                <RichTextPlugin
+                  contentEditable={<ContentEditable className='editor-contenteditable'/>}
+                  placeholder={<div className='placeholder'>Enter some text...</div>}
+                  ErrorBoundary={LexicalErrorBoundary}
+                />
+              </div>
+
+              <HistoryPlugin />
+              {<MyOnChangePlugin onChange={onChange}/>}
+              <SubmitButtonPlugin />
+            
+        </LexicalComposer>
+      </>
+   );
 }

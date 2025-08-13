@@ -5,11 +5,13 @@ import java.util.List;
 import com.springbootprojects.webpostingserver.posts.model.Post;
 
 public interface PostRepository {
-    int save(Post book);
+    int save(Post post, int userId);
 
-    int update(Post book);
+    int update(Post post);
 
     Post findById(Long id);
+
+    List<Post> getPostsFromUsername(String username);
 
     int deleteById(Long id);
 

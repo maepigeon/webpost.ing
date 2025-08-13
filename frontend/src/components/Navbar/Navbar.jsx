@@ -10,8 +10,8 @@ function Navbar() {
       <Navbutton label={"<User>'s profile"} route={"/routes/UserSettingsEditor"} />
       <Navbutton label={"Your profile"} route={"/routes/UserSettingsEditor"} />
 
-      <Navbutton label={"Edit Post"} route={"/routes/ProfileEditor"} />
-      <Navbutton label={"Read Post"} route={"/routes/ProfileViewer"} />
+      <Navbutton label={"Edit Post"} route={"/routes/RichTextEditor"} />
+      <Navbutton label={"Read Post"} route={"/routes/RichTextViewer"} />
       <br>
       </br>
       <Userdata></Userdata>

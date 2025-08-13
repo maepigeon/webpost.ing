@@ -11,7 +11,7 @@ import java.util.Date;
  */
 public class Post {
 
-    private long id;
+    private int id;
     private String title;
     private String description;
     private boolean published;
@@ -22,7 +22,7 @@ public class Post {
 
     }
 
-    public Post(long id, String title, String description, boolean published, Date date) {
+    public Post(int id, String title, String description, boolean published, Date date) {
         this.id = id;
         this.title = title;
         this.description = description;
@@ -36,11 +36,11 @@ public class Post {
         this.published = published;
     }
 
-    public void setId(long id) {
+    public void setId(int id) {
         this.id = id;
     }
 
-    public long getId() {
+    public int getId() {
         return id;
     }
 

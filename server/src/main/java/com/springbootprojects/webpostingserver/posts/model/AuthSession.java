@@ -13,6 +13,7 @@ public class AuthSession {
     public String token;
     public LocalDate expires;
     public HttpStatus loginHttpStatusCodeResult;
+    public int userId;
     public AuthSession(String username) {
         this.username = username;
     }

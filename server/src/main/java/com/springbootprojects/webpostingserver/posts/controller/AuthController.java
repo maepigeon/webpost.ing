@@ -48,6 +48,18 @@ public class AuthController {
                 .body("");
     }
 
+    @PostMapping("/authorizeSession")
+    public ResponseEntity<Object> authorizeSession(@CookieValue(name = "username") String username, @CookieValue(name = "authToken") String token, HttpServletResponse response) {
+        AuthSession loginResult = loginRepository.authorize(username, token);
+        if (loginResult != null) {
+            return ResponseEntity.ok()
+                    .body(username);
+        } else {
+            return ResponseEntity.ok()
+                    .body("");
+        }
+    }
+
 
     @PostMapping("/loginSessionAttempt")
     public ResponseEntity<Object> loginSessionAttempt(@RequestBody LoginInfo loginInfo, HttpServletResponse response) {
