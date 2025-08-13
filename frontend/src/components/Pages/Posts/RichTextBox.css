@@ -5,3 +5,8 @@
     padding: 2rem;
     text-align: center;
 }
+
+.submitButton {
+    background-color: lightgreen;
+    color: black;
+}

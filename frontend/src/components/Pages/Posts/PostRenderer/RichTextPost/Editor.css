@@ -1,8 +1,17 @@
+.editor {
+  display: flex;
+justify-content: center;
+align-items: center;
+}
+
 
 .editor-contenteditable {
     width: 500px;
-    height: 300px;
+    height:fit-content;
     text-align: left;
+    border-color: black;
+    border-width: 2px;
+    border-style: solid;
 }
 
 .toolbar-wrapper {

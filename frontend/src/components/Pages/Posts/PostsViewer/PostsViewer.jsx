@@ -1,19 +1,22 @@
 import { useState, useEffect, React} from 'react';
-import {CREATE_POST, READ_POSTS} from '../BasicTextPostServerApi.js'
+import {CREATE_POST, READ_POSTS, READ_POSTS_BY_USER} from '../BasicTextPostServerApi.js'
 import BasicTextPost from '../PostRenderer/BasicTextPost/BasicTextPost.jsx';
 import '../PostWindow.css';
+import {useParams} from "react-router-dom";
 
 
 function PostsViewer() {
     const [postsArray, setPostsArray] = useState([]);  
-    
+    const { username } = useParams();
+
 
     useEffect(() => {
       refreshPosts();
     },[]);
     function refreshPosts() {
         console.log("refreshing state.")
-        READ_POSTS().then(data => {
+        console.log("username from url: " + username);
+        READ_POSTS_BY_USER(username).then(data => {
           setPostsArray(data.sort(
             function(a,b) {
               return new Date(b.date) - new Date(a.date);

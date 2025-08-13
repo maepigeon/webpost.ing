@@ -121,11 +121,12 @@ public class JdbcLoginRepository implements LoginRepository {
         authSession.expires = LocalDate.now().plusDays(1);
         authSession.token = "-1";
 
-
+        // Verify the credentials are not empty
         if (loginInfo.getUsername().isEmpty() || loginInfo.getPassword().isEmpty()) {
             authSession.loginHttpStatusCodeResult = HttpStatus.BAD_REQUEST;
         }
-        if (authenticate(loginInfo.getUsername(), loginInfo.getPassword()) > 0) {
+        authSession.userId = authenticate(loginInfo.getUsername(), loginInfo.getPassword());
+        if (authSession.userId > 0) {
             String authToken;
             if (loginMap.get(loginInfo.getUsername()) != null) {
                 authToken = loginMap.get(loginInfo.getUsername()).token;

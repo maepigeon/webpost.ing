@@ -13,20 +13,19 @@ function Logout() {
 }
 
 function LOGOUT_ATTEMPT() {
-    axios.defaults.withCredentials = true
     console.log("attempting to logout");
     if (localStorage.getItem("userName") != null) {
     const promise = axios.post("http://localhost:8080/api/logoutSessionAttempt");
 
     const dataPromise = promise.then(
         (response) => {
-            localStorage.removeItem("userName");
             console.log(response.data);
-            window.location.reload();
         })
       .catch(error => {
         console.log("Failed to log out user. " + error);
       });
+      localStorage.removeItem("userName");
+      window.location.reload();
     }
 }
 

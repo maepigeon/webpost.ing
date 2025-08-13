@@ -22,6 +22,31 @@ export function DELETE_POST(id) {
   return dataPromise;
 }
 
+export function AUTHORIZE_SESSION() {
+  console.log("attempting to authorize session");
+  const promise = axios.post("http://localhost:8080/api/authorizeSession");
+  const dataPromise = promise.then((response) => response.data);
+  promise.then((response) => {
+    if (response.data == null || response.data == "") {
+      console.log("Session is NOT authorized.");
+      localStorage.removeItem("userName");
+      window.location.reload();
+    } else {
+      console.log("Session is authorized: " + response.data)
+    }
+  });
+  return dataPromise;
+};
+
+
+//get posts created by a specified user
+export function READ_POSTS_BY_USER(username) {
+  const promise = axios.get("http://localhost:8080/api/user/" + username + "");
+  const dataPromise = promise.then((response) => response.data);
+  console.log("reading all posts");
+  return dataPromise;
+};
+
 
 //read
 export function READ_POSTS() {
@@ -31,12 +56,14 @@ export function READ_POSTS() {
   return dataPromise;
 };
 
+//get a post by its id in the database
 export function READ_POST(id) {
   const promise = axios.get("http://localhost:8080/api/posts/" + id + "");
   const dataPromise = promise.then((response) => response.data);
   console.log("reading post " + id);
   return dataPromise;
 }
+
 
 //create
 export function CREATE_POST(id, titleField, descriptionField, publishedField) {
