@@ -57,6 +57,17 @@ public class PostController {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
     }
+    @GetMapping("/UserFromPostID/{id}")
+    public ResponseEntity<String> getUserByPostID(@PathVariable("id") long id) {
+        LoginInfo userLogin = postRepository.getUsernameFromPostId((int)id);
+
+        if (userLogin != null) {
+            System.out.println("User " +  userLogin.getUsername() + " found using post ID " + id);
+            return new ResponseEntity<>(userLogin.getUsername(), HttpStatus.OK);
+        } else {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+    }
 
     @GetMapping("/user/{username}")
     public ResponseEntity<List<Post>> getPostsByUser(@PathVariable("username") String username) {
@@ -111,6 +122,7 @@ public class PostController {
 
     @DeleteMapping("/posts/{id}")
     public ResponseEntity<String> deletePost(@PathVariable("id") long id) {
+        System.out.println("Attempting to delete post with id: " + id);
         try {
             int result = postRepository.deleteById(id);
             if (result == 0) {

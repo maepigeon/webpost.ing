@@ -11,6 +11,8 @@ import { HeadingNode } from '@lexical/rich-text';
 import {ListNode, ListItemNode} from '@lexical/list';
 import TitleBar from './TitleBar';
 import {useParams} from "react-router-dom";
+import {READ_POST, CREATE_POST, GET_USER_FROM_POST} from '../../BasicTextPostServerApi.js';
+
 
 
 
@@ -55,16 +57,15 @@ function onError(error) {
 }
 
 function LoadEditorStatePlugin() {
-  let { id } = useParams();
-  console.log("URL ID: " + id);
   const [editor] = useLexicalComposerContext();
   const onClick = () => {
     console.log("loading saved editor state");
-    var loadedEditor = localStorage.getItem("currentPostState");
+    var loadedEditor = localStorage.getItem("currentPostData");
     console.log(loadedEditor)
     const editorState = editor.parseEditorState(loadedEditor);
     editor.setEditorState(editorState);
   }
+  onClick();
   return <button onClick = {onClick} >Load Editor State</button>;
 }
 export default function RichTextViewer() {
@@ -76,24 +77,59 @@ export default function RichTextViewer() {
     setEditorState(JSON.stringify(editorStateJSON));
   }
 
+  let { id } = useParams();
+  const [postTitle, setPostTitle] = useState("DEFAULT POST TITLE");
+  const [postDate, setPostDate] = useState("");
+  const [postPublished, setPostPublished] = useState(false);
+  const [postAuthor, setPostAuthor] = useState("");
+  //const [editor] = useLexicalComposerContext();
+
+  console.log("URL ID: " + id);
+  const refreshPost = () => {
+    console.log("loading saved editor state");
+    READ_POST(id).then(
+      (data) => {
+        console.log("Post data: " + JSON.stringify(data));
+        console.log("TITLE: " + data.title);
+        setPostTitle(data.title);
+        console.log("DATE: " + data.date);
+        setPostDate(data.date);
+        setPostPublished(data.published);
+        GET_USER_FROM_POST(id).then(
+          (user_data) => {
+            console.log("USER: " + user_data);
+            setPostAuthor(user_data);
+          });
+         localStorage.setItem("currentPostData", data.description);
+
+         
+        //  const loadedEditor = data.description;
+        //  const editorState = editor.parseEditorState(loadedEditor);
+        //  editor.setEditorState(editorState);
+      }
+      );
+  }
+
+  refreshPost();
   return (
     <>
         <div className='editor'>
-          <TitleBar postdata={{id: 1, title: localStorage.getItem("currentPostTitle"), published: true}} 
+          <TitleBar postdata={{id: id, title: postTitle, published: postPublished, date: postDate, author: postAuthor}} 
               updatePostsFlagCallback={()=>{console.log("RETURNING TO POST VIEW")}} editMode={false} />
         </div>
         <LexicalComposer initialConfig={initialConfig}>
-                <LoadEditorStatePlugin/>
-                <div className='editor'>
-                    <RichTextPlugin
-                        contentEditable={<ContentEditable className='editor-contenteditable'/>}
-                        placeholder={<div className='placeholder'>Enter some text...</div>}
-                        ErrorBoundary={LexicalErrorBoundary}
-                    />
-                </div>
+              <button onClick = {refreshPost} >Refresh</button>
+              <LoadEditorStatePlugin/>
+              <div className='editor'>
+                  <RichTextPlugin
+                      contentEditable={<ContentEditable className='editor-contenteditable'/>}
+                      placeholder={<div className='placeholder'>Enter some text...</div>}
+                      ErrorBoundary={LexicalErrorBoundary}
+                  />
+              </div>
 
-                <HistoryPlugin />
-                {<MyOnChangePlugin onChange={onChange}/>}
+              <HistoryPlugin />
+              {<MyOnChangePlugin onChange={onChange}/>}
         </LexicalComposer>
     </>);
 }
