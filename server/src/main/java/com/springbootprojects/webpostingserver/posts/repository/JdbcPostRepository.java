@@ -99,6 +99,7 @@ public class JdbcPostRepository implements PostRepository {
 
     @Override
     public int deleteById(Long id) {
+        jdbcTemplate.update("DELETE FROM users_posts_junctions WHERE post_id=?", id);
         return jdbcTemplate.update("DELETE FROM posts WHERE id=?", id);
     }
 

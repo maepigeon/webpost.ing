@@ -64,7 +64,7 @@ function BasicTextPost(props) {
             return( 
                 <>
                     <h1>{postdata.title}</h1>
-                    <p>{postdata.description}</p>
+                    {/*<p>{postdata.description}</p>*/}
                 </>);
         }
         else if (postMode == Modes.EDIT) {
@@ -79,36 +79,44 @@ function BasicTextPost(props) {
                 </>);
         }
     }
-    function goButtonRender(postID) {
+    function goButtonRender() {
+        if (postdata.id == 0) {
         return(
             <Link to={"/routes/RichTextViewer"} state={{postID: postdata.id}}>
                 <button onClick={() => goToPost()}> Go </button>
             </Link>
             );
+        } else {
+            return(
+                <Link to={"/routes/RichTextViewer/"+[postdata.id+""]} state={{postID: postdata.id}}>
+                    <button onClick={() => goToPost()}> Go </button>
+                </Link>
+                );
+        }
     }
 
     // Component for the edit / cancel edit button
     function editButtonRender(postMode) {
         if (postMode == Modes.VIEW) {
+            if (postdata.id == 0) {
+                return(
+                    <Link to={"/routes/RichTextEditor"} state={{postID: postdata.id}}>
+                        <button onClick={() => setCurrentPostMode(Modes.EDIT)}> Edit </button>
+                    </Link>
+                    );
+            } else {
             return(
-                <Link to={"/routes/RichTextEditor"} state={{postID: postdata.id}}>
+                <Link to={"/routes/RichTextEditor/"+postdata.id+""} state={{postID: postdata.id}}>
                     <button onClick={() => setCurrentPostMode(Modes.EDIT)}> Edit </button>
                 </Link>
                 );
+            }
         }
         else if (postMode == Modes.EDIT) {
             return(
                 <>
                     <button onClick={() => setCurrentPostMode(Modes.VIEW) }>Cancel Edit</button>
                     <button onClick={() => submitEditPost() }>Submit</button>
-                </>
-                );
-        }
-        else if (postMode == Modes.NEW) {
-            return(
-                <>
-                    <button onClick={() => setCurrentPostMode(Modes.VIEW) }>Delete Draft</button>
-                    <button onClick={() => submitNewPost() }>Post</button>
                 </>
                 );
         }

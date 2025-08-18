@@ -1,5 +1,5 @@
 import {$getRoot, $getSelection, $isRangeSelection} from 'lexical';
-import {useEffect, useState} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import './Editor.css'
 import TitleBar from "./TitleBar"
  
@@ -15,7 +15,7 @@ import {$createHeadingNode} from '@lexical/rich-text';
 import { HeadingNode } from '@lexical/rich-text';
 import {ListPlugin} from '@lexical/react/LexicalListPlugin';
 import {INSERT_ORDERED_LIST_COMMAND, INSERT_UNORDERED_LIST_COMMAND, ListNode, ListItemNode} from '@lexical/list';
-import {READ_POST, CREATE_POST} from '../../BasicTextPostServerApi.js';
+import {READ_POST, CREATE_POST, GET_USER_FROM_POST} from '../../BasicTextPostServerApi.js';
 import {useParams} from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 
@@ -100,7 +100,7 @@ function LoadEditorStatePlugin() {
   const [editor] = useLexicalComposerContext();
   const onClick = () => {
     console.log("loading saved editor state");
-    var loadedEditor = localStorage.getItem("currentPostState");
+    var loadedEditor = localStorage.getItem("currentPostData");
     console.log(loadedEditor)
     const editorState = editor.parseEditorState(loadedEditor);
     editor.setEditorState(editorState);
@@ -108,25 +108,6 @@ function LoadEditorStatePlugin() {
   return <button onClick = {onClick} >Load Editor State</button>;
 }
 
-function LoadPostFromServerPlugin() {
-  let { id } = useParams();
-  console.log("URL ID: " + id);
-  const [editor] = useLexicalComposerContext();
-  var loadedEditor;
-  const onClick = () => {
-    console.log("loading saved editor state");
-    READ_POST(id).then(
-      (data) => {
-        console.log("Post data: " + JSON.stringify(data));
-        localStorage.setItem("currentPostTitle", data.postTitle);
-        //postTitle = data.postTitle;
-        const editorState = editor.parseEditorState(data.description);
-        editor.setEditorState(editorState);
-      }
-      );
-  }
-  return <button onClick = {onClick} >Load Post From Server</button>;
-}
 
 function SaveEditorStatePlugin() {
   const [editor] = useLexicalComposerContext();
@@ -137,17 +118,18 @@ function SaveEditorStatePlugin() {
     console.log(editorState);
     localStorage.setItem("currentPostState", editorState);
   }
+  onClick();
   return <button onClick = {onClick} >Save Editor State</button>;
 }
 
 function SubmitButtonPlugin() {
   const [editor] = useLexicalComposerContext();
-  const postTitle = localStorage.getItem("currentPostTitle");
-  if (postTitle == "") {postTitle = "Default Post Title"}
   const onClick = () => {
     const editorStateRaw = editor.getEditorState();
     const editorState = JSON.stringify(editorStateRaw.toJSON());
     console.log("uploading to server: " + editorState)
+    const postTitle = localStorage.getItem("currentPostTitle");
+    console.log("New post title: " + postTitle);
     CREATE_POST(1, postTitle, editorState, true).then(
       () => {console.log("Post uploaded. Do a callback here.")}
       );
@@ -157,38 +139,62 @@ function SubmitButtonPlugin() {
   return <button type="submit" className='submitButton' onClick={ onClick }>Upload</button>
 }
 
-
-
 export default function RichTextEditor() {
   const [editorState, setEditorState] = useState();
-  var postTitleFromLocal = localStorage.getItem("currentPostTitle");
+  let { id } = useParams();
+  const [postDate, setPostDate] = useState("");
+  const [postPublished, setPostPublished] = useState(false);
+  const titlehtml = useRef("Title");
+  const [postAuthor, setPostAuthor] = useState("");
 
-  const [postTitle, setPostTitle] = useState(
-    (postTitleFromLocal == null || postTitleFromLocal == "") ? "POST TITLE" : postTitleFromLocal
-  );
+
 
   function onChange(editorState) {
     // Call toJSON on the EditorState object, which produces a serialization safe string
     const editorStateJSON = editorState.toJSON();
     // However, we still have a JavaScript object, so we need to convert it to an actual string with JSON.stringify
     setEditorState(JSON.stringify(editorStateJSON));
-
-    var postTitleFromLocal = localStorage.getItem("currentPostTitle");
-    setPostTitle((postTitleFromLocal == null || postTitleFromLocal == "") ? "POST TITLE" : postTitleFromLocal);
-  
-
   }
 
+  console.log("URL ID: " + id);
+  const refreshPost = () => {
+    console.log("loading saved editor state");
+    READ_POST(id).then(
+      (data) => {
+        console.log("Post data: " + JSON.stringify(data));
+        console.log("TITLE: " + data.title);
+        titlehtml.current = data.title;
+        console.log("TITLEHTML current: " + data.title);
+        console.log("DATE: " + data.date);
+        setPostDate(data.date);
+        setPostPublished(data.published);
+        GET_USER_FROM_POST(id).then(
+          (user_data) => {
+            console.log("USER: " + user_data);
+            setPostAuthor(user_data);
+          });
+        console.log("DESCRIPTION: " + data.description);
+        localStorage.setItem("currentPostData", data.description);
+      }
+      );
+  }
+  refreshPost();
 
   return (
       <>
         <div className='editor'>
-          <TitleBar postdata={{id: 1, title: postTitle, published: false}} 
-              updatePostsFlagCallback={()=>{console.log("RETURNING TO POST VIEW")}} editMode={true} />
+          <TitleBar postdata={{id: id, title: titlehtml.current, published: postPublished, date: postDate, author: postAuthor}} 
+              handleEditTitleCallback={(event)=>{
+                if (event.target.value) {
+
+                  titlehtml.current = event.target.value;
+                  localStorage.setItem("currentPostTitle", titlehtml.current);
+                  console.log("UPDATED POST TITLE: " + localStorage.getItem("currentPostTitle"));
+
+                }}} editMode={true} />
         </div>
-           
         <LexicalComposer initialConfig={initialConfig}>
-              <LoadPostFromServerPlugin/>
+              <button onClick = {refreshPost} >Refresh</button>
               <LoadEditorStatePlugin/>
               <SaveEditorStatePlugin/>
               <div className='editor'>
@@ -205,8 +211,7 @@ export default function RichTextEditor() {
 
               <HistoryPlugin />
               {<MyOnChangePlugin onChange={onChange}/>}
-              <SubmitButtonPlugin />
-            
+              <SubmitButtonPlugin />    
         </LexicalComposer>
       </>
    );

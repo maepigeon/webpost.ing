@@ -63,11 +63,22 @@ export function READ_POST(id) {
   console.log("reading post " + id);
   return dataPromise;
 }
+//get a post by its id in the database
+export function GET_USER_FROM_POST(id) {
+  const promise = axios.get("http://localhost:8080/api/UserFromPostID/" + id + "");
+  const dataPromise = promise.then((response) => 
+  {
+    console.log("got user " + response + " from post id " + id);
+    return response.data;
+  });
+  return dataPromise;
+}
 
 
 //create
 export function CREATE_POST(id, titleField, descriptionField, publishedField) {
-  console.log("creating a new post") ;
+  console.log("creating a new post, title:" + titleField);
+  if (titleField == "undefined") {titleField = "Undefined title";}
   const promise = axios.post("http://localhost:8080/api/posts",
   {
     id: id,
