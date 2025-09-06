@@ -15,9 +15,9 @@ import {$createHeadingNode} from '@lexical/rich-text';
 import { HeadingNode } from '@lexical/rich-text';
 import {ListPlugin} from '@lexical/react/LexicalListPlugin';
 import {INSERT_ORDERED_LIST_COMMAND, INSERT_UNORDERED_LIST_COMMAND, ListNode, ListItemNode} from '@lexical/list';
-import {READ_POST, CREATE_POST, GET_USER_FROM_POST} from '../../BasicTextPostServerApi.js';
+import {READ_POST, CREATE_POST, UPDATE_POST, GET_USER_FROM_POST} from '../../BasicTextPostServerApi.js';
 import {useParams} from "react-router-dom";
-import { useNavigate } from "react-router-dom";
+import SubmitButton from './SubmitButton';
 
 
 const initialConfig = localStorage.getItem("currentPostState") == null ? {
@@ -95,7 +95,7 @@ function MyOnChangePlugin({ onChange }) {
 function onError(error) {
   console.error(error);
 }
-
+var hasLoadedEditor = false;
 function LoadEditorStatePlugin() {
   const [editor] = useLexicalComposerContext();
   const onClick = () => {
@@ -105,10 +105,13 @@ function LoadEditorStatePlugin() {
     const editorState = editor.parseEditorState(loadedEditor);
     editor.setEditorState(editorState);
   }
+  if (!hasLoadedEditor) {
+    onClick();
+    hasLoadedEditor = true;
+  }
   return <button onClick = {onClick} >Load Editor State</button>;
 }
-
-
+/*
 function SaveEditorStatePlugin() {
   const [editor] = useLexicalComposerContext();
   const onClick = () => {
@@ -120,24 +123,9 @@ function SaveEditorStatePlugin() {
   }
   onClick();
   return <button onClick = {onClick} >Save Editor State</button>;
-}
+}*/
 
-function SubmitButtonPlugin() {
-  const [editor] = useLexicalComposerContext();
-  const onClick = () => {
-    const editorStateRaw = editor.getEditorState();
-    const editorState = JSON.stringify(editorStateRaw.toJSON());
-    console.log("uploading to server: " + editorState)
-    const postTitle = localStorage.getItem("currentPostTitle");
-    console.log("New post title: " + postTitle);
-    CREATE_POST(1, postTitle, editorState, true).then(
-      () => {console.log("Post uploaded. Do a callback here.")}
-      );
-      const navigate = useNavigate();
-      navigate("/PostsViewer");
-    }
-  return <button type="submit" className='submitButton' onClick={ onClick }>Upload</button>
-}
+var loadedPost = false;
 
 export default function RichTextEditor() {
   const [editorState, setEditorState] = useState();
@@ -146,8 +134,17 @@ export default function RichTextEditor() {
   const [postPublished, setPostPublished] = useState(false);
   const titlehtml = useRef("Title");
   const [postAuthor, setPostAuthor] = useState("");
+  
+  
 
-
+  //Called on page load - get the post data from the server
+  useEffect(() => {
+    let ignore = false;
+    
+    if (!ignore)  refreshPost()
+    return () => { ignore = true; }
+    },[]);
+    
 
   function onChange(editorState) {
     // Call toJSON on the EditorState object, which produces a serialization safe string
@@ -156,29 +153,27 @@ export default function RichTextEditor() {
     setEditorState(JSON.stringify(editorStateJSON));
   }
 
-  console.log("URL ID: " + id);
   const refreshPost = () => {
-    console.log("loading saved editor state");
+    console.log("REFRESHING POST");
     READ_POST(id).then(
       (data) => {
         console.log("Post data: " + JSON.stringify(data));
-        console.log("TITLE: " + data.title);
         titlehtml.current = data.title;
-        console.log("TITLEHTML current: " + data.title);
-        console.log("DATE: " + data.date);
+        localStorage.setItem("currentPostTitle", data.title);
         setPostDate(data.date);
         setPostPublished(data.published);
         GET_USER_FROM_POST(id).then(
           (user_data) => {
-            console.log("USER: " + user_data);
             setPostAuthor(user_data);
           });
-        console.log("DESCRIPTION: " + data.description);
         localStorage.setItem("currentPostData", data.description);
+        loadedPost = true;
+        hasLoadedEditor = false;
+        LoadEditorStatePlugin();
       }
       );
   }
-  refreshPost();
+
 
   return (
       <>
@@ -196,7 +191,7 @@ export default function RichTextEditor() {
         <LexicalComposer initialConfig={initialConfig}>
               <button onClick = {refreshPost} >Refresh</button>
               <LoadEditorStatePlugin/>
-              <SaveEditorStatePlugin/>
+              {/*<SaveEditorStatePlugin/>*/}
               <div className='editor'>
                 <ToolbarPlugin/>
               </div>
@@ -211,7 +206,8 @@ export default function RichTextEditor() {
 
               <HistoryPlugin />
               {<MyOnChangePlugin onChange={onChange}/>}
-              <SubmitButtonPlugin />    
+              <SubmitButton  postid={id}/>
+  
         </LexicalComposer>
       </>
    );

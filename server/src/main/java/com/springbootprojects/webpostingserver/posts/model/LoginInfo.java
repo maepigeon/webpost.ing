@@ -20,6 +20,10 @@ public class LoginInfo {
 
     }
 
+    public boolean compareUsername(String username) {
+        return this.username.equals(username);
+    }
+
 
     public void setId(int id) {this.id = id;}
 

@@ -30,8 +30,7 @@ function Login() {
     const dataPromise = promise.then(
       (response) => {
         localStorage.setItem("userName", username);
-        window.location.reload();
-        response.data;
+        window.location.href = "./PostsViewer/"+username;
       })
     .catch(error => {
       console.log("Failed to log in user " + username + ". " + error);

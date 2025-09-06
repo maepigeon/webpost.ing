@@ -66,7 +66,7 @@ function LoadEditorStatePlugin() {
     editor.setEditorState(editorState);
   }
   onClick();
-  return <button onClick = {onClick} >Load Editor State</button>;
+  return <button onClick = {onClick} >Render Loaded Editor State</button>;
 }
 export default function RichTextViewer() {
   const [editorState, setEditorState] = useState();
@@ -82,7 +82,6 @@ export default function RichTextViewer() {
   const [postDate, setPostDate] = useState("");
   const [postPublished, setPostPublished] = useState(false);
   const [postAuthor, setPostAuthor] = useState("");
-  //const [editor] = useLexicalComposerContext();
 
   console.log("URL ID: " + id);
   const refreshPost = () => {

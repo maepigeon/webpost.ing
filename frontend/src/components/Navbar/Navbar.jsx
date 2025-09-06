@@ -11,7 +11,7 @@ function authorize() {
 
 function PostViewerPlugin() {
   const username = localStorage.getItem("userName");
-  if (authorize) {
+  if (authorize()) {
     return <Navbutton label={"My Profile"} route={"/routes/PostsViewer/"+username} />
   }
 }
@@ -22,22 +22,27 @@ function LogoutPlugin() {
   }
 }
 
+function NewPost() {
+  if (authorize()) {
+    return   <Navbutton label={"New Post"} route={"/routes/RichTextEditor"} />
+  }
+}
+function Login() {
+  if (!authorize()) {
+    return   <Navbutton label={"Log In"} route={"/routes/Login"} />
+  }
+}
+
 function Navbar() {
 
   return (
     <nav className="navBar">
-      <Navbutton label={"Home"} route={"/"} />
-      <Navbutton label={"<User>'s Profile"} route={"/routes/PostsViewer"} />
-      <PostViewerPlugin />
-
-      <Navbutton label={"Edit Post"} route={"/routes/RichTextEditor"} />
-      <Navbutton label={"Read Post"} route={"/routes/RichTextViewer"} />
-      <br>
-      </br>
       <Userdata></Userdata>
-      
-      <Navbutton label={"Log In"} route={"/routes/Login"} />
+      <Login/>
       <LogoutPlugin />
+      <Navbutton label={"Home"} route={"/"} />
+      <PostViewerPlugin />
+      <NewPost />
     </nav>
   );
 }

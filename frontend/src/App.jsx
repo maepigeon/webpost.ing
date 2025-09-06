@@ -9,7 +9,6 @@ import Login from './components/Pages/Auth/Login/Login'
 import Registration from './components/Pages/Auth/Registration/Registration'
 import Logout from './components/Pages/Auth/Logout/Logout'
 import AdminPanel from './components/Pages/Auth/AdminPanel/AdminPanel'
-import UserSettingsEditor from './components/Pages/UserSettingsEditor/UserSettingsEditor'
 import PostEditor from './components/Pages/Posts/PostsViewer/PostEditor';
 import PostsViewer from './components/Pages/Posts/PostsViewer/PostsViewer';
 import RichTextEditor from './components/Pages/Posts/PostRenderer/RichTextPost/Editor';
@@ -41,7 +40,6 @@ function App() {
         <Route path="/routes/RichTextViewer/:id" element={<RichTextViewer />} />
         <Route path="/routes/RichTextEditor" element={<RichTextEditor />} />
         <Route path="/routes/RichTextEditor/:id" element={<RichTextEditor />} />
-        <Route path="/routes/UserSettingsEditor" element={<UserSettingsEditor />} />
         <Route path="/routes/Login" element={<Login />} />
         <Route path="/routes/Logout" element={<Logout />} />
         <Route path="/routes/AdminPanel" element={<AdminPanel />} />

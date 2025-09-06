@@ -24,6 +24,10 @@
 }
 
 
+p {
+  display: block;
+  color: blue;
+}
 
 .under-construction {
   color: #888;

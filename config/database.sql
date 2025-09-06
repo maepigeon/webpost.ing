@@ -12,7 +12,12 @@ CREATE TABLE users (
 );
 
 INSERT INTO users ("username", "password")
-VALUES ('ketchup', 'meow');
+VALUES ('mae', 'meow');
+
+INSERT INTO users ("username", "password")
+VALUES ('strky', 'sexybunwolf');
+
+SELECT "id", "username", "registration_date" FROM users;
 
 
 SELECT * FROM posts;
@@ -32,8 +37,11 @@ CREATE TABLE posts (
     "date" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
 );
 
+INSERT INTO posts (title, description, published) 
+VALUES('title','description',true) RETURNING "id";
+
 INSERT INTO posts ("title", "description", "published")
-VALUES ('The post name', 'Meow meow meow meow', true);
+VALUES ('The post name', 'Meow meow meow meow', true) RETURNING "id";
 
 ALTER TABLE posts 
 ALTER COLUMN "description" TYPE VARCHAR(1048575);
@@ -55,7 +63,7 @@ CREATE TABLE users_posts_junctions (
 );
 
 INSERT INTO users_posts_junctions ("post_id", "user_id")
-VALUES (22, 1);
+VALUES (30, 1);
 
 INSERT INTO users_posts_junctions ("post_id", "user_id")
 VALUES (23, 2);
@@ -71,8 +79,8 @@ where "user_id" = 1;
 SELECT post.*
 FROM posts post
 INNER JOIN users_posts_junctions junction ON junction.post_id = post.id
-INNER JOIN users "user" ON "user".id = junction.user_id
-WHERE "user".username = 'ketchup';
+INNER JOIN users selected_user ON selected_user.id = junction.user_id
+WHERE selected_user.username = 'ketchup';
 
 SELECT post.*
 FROM posts post
@@ -80,10 +88,16 @@ INNER JOIN users_posts_junctions junction ON junction.post_id = post.id
 INNER JOIN users "user" ON "user".id = junction.user_id
 WHERE "user".username = 'invalid';
 
+DELETE FROM users_posts_junctions WHERE post_id=99;
+
 
 /* Get authors of post by post id */
-SELECT "user".*
-FROM users "user"
-INNER JOIN users_posts_junctions junction ON junction.user_id = "user".id
+SELECT selected_user.*
+FROM users selected_user
+INNER JOIN users_posts_junctions junction ON junction.user_id = selected_user.id
 INNER JOIN posts post ON post.id = junction.post_id
 WHERE post.id = 22;
+
+SELECT userdata.*
+from users userdata
+WHERE userdata.username = 'ketchup' AND userdata.password = 'meow';
