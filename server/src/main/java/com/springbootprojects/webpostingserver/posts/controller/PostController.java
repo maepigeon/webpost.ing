@@ -7,6 +7,7 @@ import com.springbootprojects.webpostingserver.posts.model.AuthSession;
 import com.springbootprojects.webpostingserver.posts.model.Post;
 import com.springbootprojects.webpostingserver.posts.model.LoginInfo;
 
+import com.springbootprojects.webpostingserver.posts.repository.JdbcLoginRepository;
 import com.springbootprojects.webpostingserver.posts.repository.LoginRepository;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -83,8 +84,13 @@ public class PostController {
     }
 
     @PostMapping("/posts")
-    public ResponseEntity<String> createPost(@RequestBody Post post, @CookieValue(name = "username") String username, @CookieValue(name = "authToken") String token) {
-        AuthSession loginResult = loginRepository.authorize(username, token);
+    public ResponseEntity<Object> createPost(@RequestBody Post post, @CookieValue(name = "username") String username, @CookieValue(name = "authToken") String token) {
+        AuthSession loginResult;
+        try {
+            loginResult = loginRepository.authorize(username, token);
+        } catch (JdbcLoginRepository.TokenExpiredException ex) {
+            return loginRepository.deleteCookie();
+        }
         System.out.println("Attempting to create a new post");
         if (loginResult != null) {
             System.out.println("Authorized post creation for user " + username);
@@ -121,19 +127,39 @@ public class PostController {
     }
 
     @DeleteMapping("/posts/{id}")
-    public ResponseEntity<String> deletePost(@PathVariable("id") long id) {
-        System.out.println("Attempting to delete post with id: " + id);
-        try {
-            int result = postRepository.deleteById(id);
-            if (result == 0) {
-                return new ResponseEntity<>("Cannot find Post with id=" + id, HttpStatus.OK);
+    public ResponseEntity<Object> deletePost(@PathVariable("id") long id,
+                         @CookieValue(name = "username") String username, @CookieValue(name = "authToken") String token) {
+        //Authorize the user
+        AuthSession loginResult;
+        try {loginResult = loginRepository.authorize(username, token);}
+        catch (JdbcLoginRepository.TokenExpiredException ex) {
+            return loginRepository.deleteCookie();
+        }
+        System.out.println("Attempting delete a post");
+        if (loginResult != null) {
+            System.out.println("User " + username + " authorized. Attempting to delete post with id: " + id + ". Validating ownership...");
+            LoginInfo postOwner = postRepository.getUsernameFromPostId((int)id);
+            if (postOwner.compareUsername(username) == false) {
+                System.out.println("User " + username + " not authorized to delete " + postOwner.getUsername() + "'s post with ID:" + id);
+                return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
             }
-            return new ResponseEntity<>("Post was deleted successfully.", HttpStatus.OK);
-        } catch (Exception e) {
-            return new ResponseEntity<>("Cannot delete Post.", HttpStatus.INTERNAL_SERVER_ERROR);
+
+            try {
+                int result = postRepository.deleteById(id);
+                if (result == 0) {
+                    return new ResponseEntity<>("Cannot find Post with id=" + id, HttpStatus.OK);
+                }
+                return new ResponseEntity<>("Post was deleted successfully.", HttpStatus.OK);
+            } catch (Exception e) {
+                return new ResponseEntity<>("Cannot delete Post.", HttpStatus.INTERNAL_SERVER_ERROR);
+            }
+        } else {
+            return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
         }
     }
 
+    /**
+     * Delete all posts
     @DeleteMapping("/posts")
     public ResponseEntity<String> deleteAllPosts() {
         try {
@@ -142,8 +168,7 @@ public class PostController {
         } catch (Exception e) {
             return new ResponseEntity<>("Cannot delete Posts.", HttpStatus.INTERNAL_SERVER_ERROR);
         }
-
-    }
+    }*/
     @GetMapping("/posts/published")
     public ResponseEntity<List<Post>> findByPublished() {
         try {

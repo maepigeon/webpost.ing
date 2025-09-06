@@ -1,8 +1,10 @@
 package com.springbootprojects.webpostingserver.posts.repository;
 
 import com.springbootprojects.webpostingserver.posts.model.AuthSession;
+import com.springbootprojects.webpostingserver.posts.model.Post;
+import com.springbootprojects.webpostingserver.posts.model.User;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.*;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -17,6 +19,27 @@ import java.util.*;
 
 @Repository
 public class JdbcLoginRepository implements LoginRepository {
+
+    public ResponseEntity<Object> deleteCookie() {
+        HttpCookie deleteTokenCookie = ResponseCookie.from("authToken", "token")
+                .httpOnly(true)
+                .sameSite("None")
+                .secure(true)
+                .path("/")
+                .maxAge(0)
+                .build();
+        HttpCookie deleteUsernameCookie = ResponseCookie.from("username", "username")
+                .httpOnly(true)
+                .sameSite("None")
+                .secure(true)
+                .path("/")
+                .maxAge(0)
+                .build();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, deleteTokenCookie.toString())
+                .header(HttpHeaders.SET_COOKIE, deleteUsernameCookie.toString())
+                .body("");
+    }
 
     /**
      * Maps usernames to authentication token data
@@ -39,10 +62,20 @@ public class JdbcLoginRepository implements LoginRepository {
         return LocalDate.now().compareTo(authSession.expires) > 0;
     }
 
+    public List<User> getAllUsers() {
+        return jdbcTemplate.query("SELECT \"id\", \"username\", \"registration_date\" FROM users;",
+                BeanPropertyRowMapper.newInstance(User.class));
+    }
+
 
     // Attempts to log the user out
     public boolean logout(String username, String token) {
         try {
+            //If token expired, logout
+            if (loginMap.get(username) != null && isTokenExpired(loginMap.get(username))) {
+                loginMap.remove(username);
+            }
+            //If user is authorized, logout
             AuthSession authSession = authorize(username, token);
             if (authSession != null) {
                 System.out.println("Logged out " + username + " and removed corresponding server session");
@@ -83,7 +116,14 @@ public class JdbcLoginRepository implements LoginRepository {
      * @param token
      * @return
      */
-    public AuthSession authorize(String username, String token) {
+    public AuthSession authorize(String username, String token) throws TokenExpiredException {
+
+        //If token expired, logout
+        if (loginMap.get(username) != null && isTokenExpired(loginMap.get(username))) {
+            loginMap.remove(username);
+            throw new TokenExpiredException();
+        }
+
         //get the user's authorization token
         AuthSession authSession;
         try {
@@ -93,11 +133,6 @@ public class JdbcLoginRepository implements LoginRepository {
             return null;
         }
         if (authSession == null) {
-            return null;
-        }
-        //check token expiration
-        if (isTokenExpired(authSession)) {
-            logout(username, token);
             return null;
         }
         //authorize action if not expired and token matches server
@@ -142,5 +177,11 @@ public class JdbcLoginRepository implements LoginRepository {
             authSession.loginHttpStatusCodeResult = HttpStatus.FORBIDDEN;
         }
         return authSession;
+    }
+
+    public class TokenExpiredException extends Exception {
+        public TokenExpiredException() {
+            super("Session token is expired");
+        }
     }
 }

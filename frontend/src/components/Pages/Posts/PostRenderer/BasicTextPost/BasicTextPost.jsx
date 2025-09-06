@@ -8,6 +8,7 @@ import ContentEditable from 'react-contenteditable';
 function BasicTextPost(props) {
     var postdata = props.postdata;
     var editMode = props.editMode;
+    var hasModifyPermissions = props.hasModifyPermissions;
     
     const Modes = Object.freeze({
         VIEW: 0,
@@ -95,8 +96,33 @@ function BasicTextPost(props) {
         }
     }
 
+     // Component for the delete button
+     function deleteButtonRender() {
+        if (!hasModifyPermissions) {
+            return <></>
+        }
+        else {
+            return(
+                <button onClick={() => {
+                        DELETE_POST(postdata.id).then( 
+                        () => {
+                            props.updatePostsFlagCallback();
+                            window.location.reload();
+                        }
+                        );
+                    }}> 
+                    Delete
+                </button>
+                );
+            }
+        }
+
+
     // Component for the edit / cancel edit button
     function editButtonRender(postMode) {
+        if (!hasModifyPermissions) {
+            return <></>
+        }
         if (postMode == Modes.VIEW) {
             if (postdata.id == 0) {
                 return(
@@ -138,16 +164,7 @@ function BasicTextPost(props) {
                     <p>
                         Published: {JSON.stringify(postdata.published)}
                     </p>
-                    <button onClick={() => {
-                            DELETE_POST(postdata.id).then( 
-                            () => {
-                                props.updatePostsFlagCallback();
-                                window.location.reload();
-                            }
-                            );
-                        }}> 
-                        Delete
-                    </button>
+                    {deleteButtonRender()}
                     { editButtonRender(currentPostMode) }
                     { goButtonRender(postdata.id) }
                 </div>

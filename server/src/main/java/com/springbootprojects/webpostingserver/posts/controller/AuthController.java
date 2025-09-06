@@ -2,6 +2,9 @@ package com.springbootprojects.webpostingserver.posts.controller;
 
 import com.springbootprojects.webpostingserver.posts.model.AuthSession;
 import com.springbootprojects.webpostingserver.posts.model.LoginInfo;
+import com.springbootprojects.webpostingserver.posts.model.Post;
+import com.springbootprojects.webpostingserver.posts.model.User;
+import com.springbootprojects.webpostingserver.posts.repository.JdbcLoginRepository;
 import com.springbootprojects.webpostingserver.posts.repository.LoginRepository;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,6 +14,7 @@ import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Collectors;
 
 @CrossOrigin(origins = "http://localhost:5173", allowCredentials = "true")
@@ -21,21 +25,35 @@ public class AuthController {
     @Autowired
     LoginRepository loginRepository;
 
+    @GetMapping("getAllUsers")
+    public ResponseEntity<List<User>> getAllUsers() {
+        System.out.println("getAllUsers: " + loginRepository.getAllUsers().toString());
+        return new ResponseEntity<>(loginRepository.getAllUsers(), HttpStatus.OK);
+    }
+
     @PostMapping("logoutSessionAttempt")
     public ResponseEntity<Object> logoutSessionAttempt(@CookieValue(name = "username") String username, @CookieValue(name = "authToken") String token, HttpServletResponse response) {
-        AuthSession loginResult = loginRepository.authorize(username, token);
+        AuthSession loginResult = null;
+        boolean tokenExpired = false;
+        try {
+            loginResult = loginRepository.authorize(username, token);
+        } catch (JdbcLoginRepository.TokenExpiredException e) {
+            System.out.println(e.getMessage());
+            tokenExpired = true;
+        }
         if (loginResult != null) {
             loginRepository.logout(username, token);
         }
 
-        HttpCookie tokenCookie = ResponseCookie.from("authToken", "token")
+        // Delete the cookie by setting maxAge to 0
+        HttpCookie deleteTokenCookie = ResponseCookie.from("authToken", "token")
                 .httpOnly(true)
                 .sameSite("None")
                 .secure(true)
                 .path("/")
                 .maxAge(0)
                 .build();
-        HttpCookie usernameCookie = ResponseCookie.from("username", "username")
+        HttpCookie deleteUsernameCookie = ResponseCookie.from("username", "username")
                 .httpOnly(true)
                 .sameSite("None")
                 .secure(true)
@@ -43,20 +61,27 @@ public class AuthController {
                 .maxAge(0)
                 .build();
         return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, tokenCookie.toString())
-                .header(HttpHeaders.SET_COOKIE, usernameCookie.toString())
+                .header(HttpHeaders.SET_COOKIE, deleteTokenCookie.toString())
+                .header(HttpHeaders.SET_COOKIE, deleteUsernameCookie.toString())
                 .body("");
     }
 
+
     @PostMapping("/authorizeSession")
     public ResponseEntity<Object> authorizeSession(@CookieValue(name = "username") String username, @CookieValue(name = "authToken") String token, HttpServletResponse response) {
-        AuthSession loginResult = loginRepository.authorize(username, token);
+        AuthSession loginResult = null;
+        try {
+            loginResult = loginRepository.authorize(username, token);
+        } catch (JdbcLoginRepository.TokenExpiredException e) {
+            System.out.println(e.getMessage());
+            // Delete the cookie by setting maxAge to 0
+            return loginRepository.deleteCookie();
+        }
         if (loginResult != null) {
             return ResponseEntity.ok()
                     .body(username);
         } else {
-            return ResponseEntity.ok()
-                    .body("");
+            return loginRepository.deleteCookie();
         }
     }
 

@@ -1,19 +1,5 @@
 import axios from 'axios';
 
-//update
-export function UPDATE_POST(id, titleField, descriptionField, publishedField) {
-  console.log("updating post with id: " + id) 
-  const promise = axios.put("http://localhost:8080/api/posts/" + id,
-  {
-      id: id,
-      title: titleField,
-      description: descriptionField,
-      published: publishedField
-  });
-  const dataPromise = promise.then((response) => response.data);
-  return dataPromise;
-}
-
 //delete
 export function DELETE_POST(id) {
   console.log("deleting post with id: " + id)
@@ -37,6 +23,19 @@ export function AUTHORIZE_SESSION() {
   });
   return dataPromise;
 };
+
+// Gets a list of all users, including user name, user id, and account creation date
+export function GET_ALL_USERS() {
+  const promise = axios.get("http://localhost:8080/api/getAllUsers");
+  console.log("reading all posts");
+
+  const dataPromise = promise.then(
+    (response) => {
+    console.log(response);
+    return response.data
+    });
+  return dataPromise;
+}
 
 
 //get posts created by a specified user
@@ -88,5 +87,18 @@ export function CREATE_POST(id, titleField, descriptionField, publishedField) {
   });
   const dataPromise = promise.then((response) => response.data);
   console.log("created POST");
+  return dataPromise;
+}
+//update
+export function UPDATE_POST(id, titleField, descriptionField, publishedField) {
+  console.log("updating post with id: " + id) 
+  const promise = axios.put("http://localhost:8080/api/posts/" + id,
+  {
+      id: id,
+      title: titleField,
+      description: descriptionField,
+      published: publishedField
+  });
+  const dataPromise = promise.then((response) => response.data);
   return dataPromise;
 }
