@@ -11,8 +11,8 @@ By default,
 SSL configuration (optional):
 TODO
 
-Build Instructions:
-
+**Build Instructions:
+**
 The front-end is built with React and Node.js. 
 Use the following command to run the front-end project:
 npm run dev
