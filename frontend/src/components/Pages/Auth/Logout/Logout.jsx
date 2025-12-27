@@ -1,6 +1,8 @@
 import React, { useEffect } from 'react';
 import axios from 'axios';
 
+//var baseUrl = "http://localhost:8080";
+var baseUrl = "/api";
 
 function Logout() {
     useEffect(() => {LOGOUT_ATTEMPT()}, []);
@@ -15,7 +17,7 @@ function Logout() {
 function LOGOUT_ATTEMPT() {
     console.log("attempting to logout");
     if (localStorage.getItem("userName") != null) {
-    const promise = axios.post("http://localhost:8080/api/logoutSessionAttempt");
+    const promise = axios.post(baseUrl + "/api/logoutSessionAttempt");
 
     const dataPromise = promise.then(
         (response) => {

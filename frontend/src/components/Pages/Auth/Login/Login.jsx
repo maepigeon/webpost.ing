@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
+//var baseUrl = "http://localhost:8080";
+var baseUrl = "/api";
 
 
 function Login() {
@@ -19,7 +21,7 @@ function Login() {
     LOGIN_ATTEMPT(username, password);
   };
   function LOGIN_ATTEMPT(username, password) {
-    const promise = axios.post("http://localhost:8080/api/loginSessionAttempt",
+    const promise = axios.post(baseUrl + "/api/loginSessionAttempt",
     {
       username: username,
       password: password
@@ -33,6 +35,7 @@ function Login() {
         window.location.href = "./PostsViewer/"+username;
       })
     .catch(error => {
+      alert("Failed to log in user " + username + ". " + error);	
       console.log("Failed to log in user " + username + ". " + error);
     });
     return dataPromise;
