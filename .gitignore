@@ -31,6 +31,7 @@ server/target/
 server/!.mvn/wrapper/maven-wrapper.jar
 server/!**/src/main/**/target/
 server/!**/src/test/**/target/
+server/src/main/resources/application.properties
 
 ### STS ###
 server/.apt_generated
@@ -61,5 +62,4 @@ server/!**/src/test/**/build/
 server/.vscode/
 
 
-server/src/main/resources/application.properties
 
