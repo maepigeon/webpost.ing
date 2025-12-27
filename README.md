@@ -20,3 +20,14 @@ npm run dev
 The server is a Java Spring Boot project. 
 Use the following command to run the server:
 ./mvnw spring-boot:run
+
+
+NOTE: server/src/main/resources/application.properties should be configured as follows:
+spring.application.name=webpostingserver
+
+spring.datasource.url=jdbc:postgresql://localhost:5432/webposting
+spring.datasource.username=postgres
+spring.datasource.password=catsRcool12345
+
+#spring.datasource.hikari.connection-timeout=20000
+#spring.datasource.hikari.maximum-pool-size=5
