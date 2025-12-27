@@ -101,9 +101,12 @@ function LoadEditorStatePlugin() {
   const onClick = () => {
     console.log("loading saved editor state");
     var loadedEditor = localStorage.getItem("currentPostData");
-    console.log(loadedEditor)
-    const editorState = editor.parseEditorState(loadedEditor);
-    editor.setEditorState(editorState);
+    if (loadedEditor != null) {
+	console.log(loadedEditor)
+    	const editorState = editor.parseEditorState(loadedEditor);
+    	console.log("debugging, editorStateJSON: " + JSON.stringify(editorStateJSON));
+    	editor.setEditorState(editorState);
+    }
   }
   if (!hasLoadedEditor) {
     onClick();
@@ -147,10 +150,21 @@ export default function RichTextEditor() {
     
 
   function onChange(editorState) {
-    // Call toJSON on the EditorState object, which produces a serialization safe string
-    const editorStateJSON = editorState.toJSON();
-    // However, we still have a JavaScript object, so we need to convert it to an actual string with JSON.stringify
-    setEditorState(JSON.stringify(editorStateJSON));
+    if (editorState == null) {
+	console.log("WARNING: EDITORSTATE IS NULL");
+    } else {
+	console.log("editorState not null: " + editorState);
+    }
+
+    try {
+	    // Call toJSON on the EditorState object, which produces a serialization safe string
+	    const editorStateString = JSON.stringify(editorState);
+	    // However, we still have a JavaScript object, so we need to convert it to an actual string with JSON.stringify
+	    console.log("debugging, editorStateString: " + editorStateString);	
+	    setEditorState(JSON.parse(editorStateString));
+    } catch ( e) {
+	console.log("failed to load the editor in the richTextEditor module" + e);
+    }
   }
 
   const refreshPost = () => {
@@ -173,7 +187,6 @@ export default function RichTextEditor() {
       }
       );
   }
-
 
   return (
       <>

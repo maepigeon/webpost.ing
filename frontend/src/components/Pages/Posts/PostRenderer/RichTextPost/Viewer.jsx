@@ -59,11 +59,13 @@ function onError(error) {
 function LoadEditorStatePlugin() {
   const [editor] = useLexicalComposerContext();
   const onClick = () => {
-    console.log("loading saved editor state");
+    console.log("loading cached editor state");
     var loadedEditor = localStorage.getItem("currentPostData");
     console.log(loadedEditor)
     const editorState = editor.parseEditorState(loadedEditor);
-    editor.setEditorState(editorState);
+    if (editorState != null) {
+	  editor.setEditorState(editorState);
+    }
   }
   onClick();
   return <button onClick = {onClick} >Render Loaded Editor State</button>;
@@ -74,7 +76,13 @@ export default function RichTextViewer() {
     // Call toJSON on the EditorState object, which produces a serialization safe string
     const editorStateJSON = editorState.toJSON();
     // However, we still have a JavaScript object, so we need to convert it to an actual string with JSON.stringify
-    setEditorState(JSON.stringify(editorStateJSON));
+    try {
+	if (editorStateJSON != null) {
+	  setEditorState(JSON.stringify(editorStateJSON));
+    	}
+    } catch (exception) {
+	    console.log("Editor state set failed in viewer: " + exception);
+    }
   }
 
   let { id } = useParams();

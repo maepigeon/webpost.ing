@@ -4,7 +4,7 @@ import {AUTHORIZE_SESSION} from "./components/Pages/Posts/BasicTextPostServerApi
 
 import { Routes, Route, Navigate } from 'react-router-dom';
 
-import Navbar from './components/NavBar/Navbar';
+import Navbar from './components/Navbar/Navbar';
 import Login from './components/Pages/Auth/Login/Login'
 import Registration from './components/Pages/Auth/Registration/Registration'
 import Logout from './components/Pages/Auth/Logout/Logout'

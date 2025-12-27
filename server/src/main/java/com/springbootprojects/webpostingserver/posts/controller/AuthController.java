@@ -88,12 +88,14 @@ public class AuthController {
 
     @PostMapping("/loginSessionAttempt")
     public ResponseEntity<Object> loginSessionAttempt(@RequestBody LoginInfo loginInfo, HttpServletResponse response) {
-        AuthSession loginResult = loginRepository.login(loginInfo);
+        System.out.println("Attempting to login user");
+	AuthSession loginResult = loginRepository.login(loginInfo);
         try {
             switch (loginResult.loginHttpStatusCodeResult) {
                 case HttpStatus.FORBIDDEN:
+		    System.out.println("Failed to authenticate, error 403");
                     return new ResponseEntity<>("Failed to authenticate: Incorrect login information, loginResult: ." + loginResult, HttpStatus.FORBIDDEN);
-                case HttpStatus.OK:
+   		case HttpStatus.OK:
                     System.out.println("AUTHENTICATION OK!! : Logging in user: " + loginInfo.getUsername());
                     HttpCookie tokenCookie = ResponseCookie.from("authToken", loginResult.token)
                             .httpOnly(true)
@@ -115,6 +117,7 @@ public class AuthController {
                             .header(HttpHeaders.SET_COOKIE, usernameCookie.toString())
                             .body(loginResult.username);
                 default:
+		    System.out.println("Failed to authenticate, bad request");
                     return new ResponseEntity<>("Failed to authenticate:  Bad request, loginResult: " + loginResult, HttpStatus.BAD_REQUEST);
             }
 
