@@ -104,7 +104,6 @@ function LoadEditorStatePlugin() {
     if (loadedEditor != null) {
 	console.log(loadedEditor)
     	const editorState = editor.parseEditorState(loadedEditor);
-    	console.log("debugging, editorStateJSON: " + JSON.stringify(editorStateJSON));
     	editor.setEditorState(editorState);
     }
   }

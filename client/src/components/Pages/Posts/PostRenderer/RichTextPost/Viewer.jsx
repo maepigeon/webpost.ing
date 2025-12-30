@@ -62,9 +62,9 @@ function LoadEditorStatePlugin() {
     console.log("loading cached editor state");
     var loadedEditor = localStorage.getItem("currentPostData");
     console.log(loadedEditor)
-    const editorState = editor.parseEditorState(loadedEditor);
-    if (editorState != null) {
-	  editor.setEditorState(editorState);
+    if (loadedEditor != null) {
+    	    const editorState = editor.parseEditorState(loadedEditor);
+	    editor.setEditorState(editorState);
     }
   }
   onClick();
