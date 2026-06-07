@@ -1,10 +1,29 @@
+:root {
+  --navbar-height: 48px;
+}
+
+html {
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  background-color: #ece9e2; /* warm base so the page is never a harsh white void */
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  background-repeat: repeat;
+  background-attachment: fixed;
+  background-color: transparent; /* transparent so html base shows through pattern gaps */
+}
+
 #root {
   margin: 0 auto;
   padding: 0;
   width: 100%;
   text-align: center;
-  position: absolute;
-  top: 0px;
+  min-height: 100vh;
 }
 
 
@@ -29,6 +48,52 @@ p {
   color: blue;
 }
 
+button {
+  cursor: pointer;
+  transition: filter 0.15s, transform 0.1s;
+}
+
+button:hover {
+  filter: brightness(0.88);
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
 .under-construction {
   color: #888;
+}
+
+/* Home page user list */
+.user-list {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0 24px;
+}
+
+.userProfileLink {
+  display: block;
+  width: 220px;
+  text-align: center;
+  padding: 10px 18px;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  color: #333;
+  font-weight: 500;
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.userProfileLink:hover {
+  background: #f0f0f0;
+  border-color: #999;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+  color: #111;
+  text-decoration: none;
 }

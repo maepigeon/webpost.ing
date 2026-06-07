@@ -1,103 +1,272 @@
-SELECT * FROM users;
+-- =============================================================
+-- webpost.ing — PostgreSQL schema
+-- Run with: psql -U <user> -d <db> -f config/database.sql
+-- =============================================================
 
-DROP TABLE users;
 
-/* Create the users table, username must be unique */
+-- -------------------------------------------------------------
+-- USERS
+-- Stores account credentials and registration date.
+-- Passwords are stored as plain strings (no hashing yet).
+-- -------------------------------------------------------------
 CREATE TABLE users (
-    "id" SERIAL PRIMARY KEY,
-    "username" VARCHAR(32) NOT NULL,
-  	"password" VARCHAR(32) NOT NULL,
-    "registration_date" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-  	UNIQUE ("username")
+    id                SERIAL PRIMARY KEY,
+    username          VARCHAR(32)              NOT NULL,
+    password          VARCHAR(32)              NOT NULL,
+    registration_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    background_pattern VARCHAR(2000)           DEFAULT NULL,
+    is_admin          BOOLEAN                  NOT NULL DEFAULT FALSE,
+    role              VARCHAR(20)              NOT NULL DEFAULT 'user',
+    UNIQUE (username)
 );
 
-INSERT INTO users ("username", "password")
-VALUES ('mae', 'meow');
 
-INSERT INTO users ("username", "password")
-VALUES ('strky', 'sexybunwolf');
+-- -------------------------------------------------------------
+-- ROLE_LIMITS
+-- Default storage and post-rate limits per user role.
+-- -------------------------------------------------------------
+CREATE TABLE role_limits (
+    role               VARCHAR(20) PRIMARY KEY,
+    max_storage_bytes  BIGINT  NOT NULL DEFAULT 52428800,   -- 50 MB
+    max_posts_per_day  INTEGER NOT NULL DEFAULT 20
+);
 
-SELECT "id", "username", "registration_date" FROM users;
+INSERT INTO role_limits(role, max_storage_bytes, max_posts_per_day) VALUES
+    ('user',       52428800,   20),
+    ('trusted',    524288000, 100),
+    ('restricted', 5242880,     2),
+    ('admin',      -1,         -1);  -- -1 = unlimited
 
 
-SELECT * FROM posts;
-
-/* Create the posts table
-	Title: Post title
-  Description: Post description
-  Published: True if visible to other users
-*/
+-- -------------------------------------------------------------
+-- POSTS
+-- description stores the full Lexical editor JSON state.
+-- Image uploads are stored on disk; paths are embedded in the
+-- JSON (e.g. /uploads/<uuid>.jpg).
+-- -------------------------------------------------------------
 CREATE TABLE posts (
-    "id" SERIAL PRIMARY KEY,
-
-    "title" VARCHAR(255) NOT NULL,
-    "description" VARCHAR(1048575) NOT NULL,
-
-    "published" BOOL NOT NULL,
-    "date" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    id               SERIAL PRIMARY KEY,
+    title            VARCHAR(255) NOT NULL,
+    description      TEXT         NOT NULL,
+    published        BOOL         NOT NULL,
+    date             TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    edited_at        TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+    background_pattern VARCHAR(2000) DEFAULT NULL
 );
 
-INSERT INTO posts (title, description, published) 
-VALUES('title','description',true) RETURNING "id";
 
-INSERT INTO posts ("title", "description", "published")
-VALUES ('The post name', 'Meow meow meow meow', true) RETURNING "id";
-
-ALTER TABLE posts 
-ALTER COLUMN "description" TYPE VARCHAR(1048575);
-
-
-DROP TABLE users_posts_junctions;
-
-SELECT * FROM users_posts_junctions;
-
-
-/* Stores the relation between users and posts (authorship) */
+-- -------------------------------------------------------------
+-- USERS_POSTS_JUNCTIONS
+-- Tracks which user authored which post.
+-- -------------------------------------------------------------
 CREATE TABLE users_posts_junctions (
-    "id" SERIAL PRIMARY KEY,
-    "post_id" INTEGER NOT NULL,
-    "user_id" INTEGER NOT NULL,
-  	UNIQUE ("post_id", "user_id"),
-    CONSTRAINT "posts_fk" FOREIGN KEY("post_id") REFERENCES "posts"("id"),
-    CONSTRAINT "users_fk" FOREIGN KEY("user_id") REFERENCES "users"("id")
+    id      SERIAL  PRIMARY KEY,
+    post_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    UNIQUE (post_id, user_id),
+    CONSTRAINT posts_fk FOREIGN KEY (post_id) REFERENCES posts (id),
+    CONSTRAINT users_fk FOREIGN KEY (user_id) REFERENCES users (id)
 );
 
-INSERT INTO users_posts_junctions ("post_id", "user_id")
-VALUES (30, 1);
 
-INSERT INTO users_posts_junctions ("post_id", "user_id")
-VALUES (23, 2);
-
-SELECT * FROM users_posts_junctions
-WHERE "post_id" = 22;
-
-SELECT * FROM users_posts_junctions
-where "user_id" = 1;
-
-
-/* Get posts from user by username*/
-SELECT post.*
-FROM posts post
-INNER JOIN users_posts_junctions junction ON junction.post_id = post.id
-INNER JOIN users selected_user ON selected_user.id = junction.user_id
-WHERE selected_user.username = 'ketchup';
-
-SELECT post.*
-FROM posts post
-INNER JOIN users_posts_junctions junction ON junction.post_id = post.id
-INNER JOIN users "user" ON "user".id = junction.user_id
-WHERE "user".username = 'invalid';
-
-DELETE FROM users_posts_junctions WHERE post_id=99;
+-- -------------------------------------------------------------
+-- UPLOADS
+-- Tracks every file uploaded to disk.
+-- filename is the UUID-based name stored under the uploads/ dir.
+-- -------------------------------------------------------------
+CREATE TABLE uploads (
+    id           SERIAL PRIMARY KEY,
+    filename     VARCHAR(255)             NOT NULL UNIQUE,
+    user_id      INTEGER                  NOT NULL,
+    original_name VARCHAR(255)            DEFAULT NULL,
+    size_bytes   BIGINT                   NOT NULL DEFAULT 0,
+    uploaded_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    CONSTRAINT uploads_user_fk FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+);
 
 
-/* Get authors of post by post id */
-SELECT selected_user.*
-FROM users selected_user
-INNER JOIN users_posts_junctions junction ON junction.user_id = selected_user.id
-INNER JOIN posts post ON post.id = junction.post_id
-WHERE post.id = 22;
+-- -------------------------------------------------------------
+-- POST_REACTIONS
+-- Multiple reactions per user per post are allowed.
+-- PK includes reaction so each (user, emoji) pair is unique.
+-- -------------------------------------------------------------
+CREATE TABLE post_reactions (
+    post_id  INTEGER     NOT NULL,
+    user_id  INTEGER     NOT NULL,
+    reaction VARCHAR(20) NOT NULL,
+    PRIMARY KEY (post_id, user_id, reaction),
+    CONSTRAINT post_reactions_post_fk FOREIGN KEY (post_id) REFERENCES posts (id) ON DELETE CASCADE,
+    CONSTRAINT post_reactions_user_fk FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+);
 
-SELECT userdata.*
-from users userdata
-WHERE userdata.username = 'ketchup' AND userdata.password = 'meow';
+
+-- -------------------------------------------------------------
+-- FOLLOWS
+-- -------------------------------------------------------------
+CREATE TABLE follows (
+    follower_id INTEGER NOT NULL,
+    followed_id INTEGER NOT NULL,
+    PRIMARY KEY (follower_id, followed_id),
+    CONSTRAINT follows_follower_fk FOREIGN KEY (follower_id) REFERENCES users (id) ON DELETE CASCADE,
+    CONSTRAINT follows_followed_fk FOREIGN KEY (followed_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+
+-- -------------------------------------------------------------
+-- DISCUSSIONS
+-- One discussion per post. style controls the display mode.
+--   'threaded' — tree with upvotes (default)
+--   'flat'     — chronological flat list
+-- -------------------------------------------------------------
+CREATE TABLE discussions (
+    id                SERIAL PRIMARY KEY,
+    post_id           INTEGER NOT NULL UNIQUE,
+    enabled           BOOLEAN NOT NULL DEFAULT TRUE,
+    reactions_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    style             VARCHAR(20) NOT NULL DEFAULT 'threaded',
+    CONSTRAINT discussions_post_fk FOREIGN KEY (post_id) REFERENCES posts (id) ON DELETE CASCADE
+);
+
+
+-- -------------------------------------------------------------
+-- COMMENTS
+-- -------------------------------------------------------------
+CREATE TABLE comments (
+    id            SERIAL PRIMARY KEY,
+    discussion_id INTEGER NOT NULL,
+    parent_id     INTEGER DEFAULT NULL,
+    user_id       INTEGER NOT NULL,
+    content       TEXT    NOT NULL,
+    score         INTEGER NOT NULL DEFAULT 0,
+    created_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    edited_at     TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+    CONSTRAINT comments_discussion_fk FOREIGN KEY (discussion_id) REFERENCES discussions (id) ON DELETE CASCADE,
+    CONSTRAINT comments_parent_fk     FOREIGN KEY (parent_id)     REFERENCES comments   (id) ON DELETE CASCADE,
+    CONSTRAINT comments_user_fk       FOREIGN KEY (user_id)       REFERENCES users       (id) ON DELETE CASCADE
+);
+
+
+-- -------------------------------------------------------------
+-- COMMENT_VOTES
+-- -------------------------------------------------------------
+CREATE TABLE comment_votes (
+    comment_id INTEGER NOT NULL,
+    user_id    INTEGER NOT NULL,
+    vote       SMALLINT NOT NULL CHECK (vote IN (-1, 1)),
+    PRIMARY KEY (comment_id, user_id),
+    CONSTRAINT comment_votes_comment_fk FOREIGN KEY (comment_id) REFERENCES comments (id) ON DELETE CASCADE,
+    CONSTRAINT comment_votes_user_fk    FOREIGN KEY (user_id)    REFERENCES users    (id) ON DELETE CASCADE
+);
+
+
+-- -------------------------------------------------------------
+-- COMMENT_REACTIONS
+-- Multiple reactions per user per comment are allowed.
+-- -------------------------------------------------------------
+CREATE TABLE comment_reactions (
+    comment_id INTEGER     NOT NULL,
+    user_id    INTEGER     NOT NULL,
+    reaction   VARCHAR(20) NOT NULL,
+    PRIMARY KEY (comment_id, user_id, reaction),
+    CONSTRAINT comment_reactions_comment_fk FOREIGN KEY (comment_id) REFERENCES comments (id) ON DELETE CASCADE,
+    CONSTRAINT comment_reactions_user_fk    FOREIGN KEY (user_id)    REFERENCES users    (id) ON DELETE CASCADE
+);
+
+
+-- -------------------------------------------------------------
+-- POST_UPLOADS
+-- Junction table: which uploads are currently referenced in each post's content.
+-- Synced on every post save/update by scanning the Lexical JSON for /uploads/ paths.
+-- Enables orphan detection: uploads with no matching post_uploads row are deletable.
+-- -------------------------------------------------------------
+CREATE TABLE post_uploads (
+    post_id   INTEGER NOT NULL,
+    upload_id INTEGER NOT NULL,
+    PRIMARY KEY (post_id, upload_id),
+    CONSTRAINT post_uploads_post_fk   FOREIGN KEY (post_id)   REFERENCES posts   (id) ON DELETE CASCADE,
+    CONSTRAINT post_uploads_upload_fk FOREIGN KEY (upload_id) REFERENCES uploads (id) ON DELETE CASCADE
+);
+
+
+-- -------------------------------------------------------------
+-- NOTIFICATIONS
+-- -------------------------------------------------------------
+CREATE TABLE notifications (
+    id           SERIAL PRIMARY KEY,
+    recipient_id INTEGER     NOT NULL,
+    type         VARCHAR(32) NOT NULL,
+    actor_username VARCHAR(32) NOT NULL,
+    post_id      INTEGER     DEFAULT NULL,
+    comment_id   INTEGER     DEFAULT NULL,
+    is_read      BOOLEAN     NOT NULL DEFAULT FALSE,
+    created_at   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    CONSTRAINT notifications_recipient_fk FOREIGN KEY (recipient_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+
+-- =============================================================
+-- MIGRATIONS
+-- Apply these in order on existing databases.
+-- Always take a backup first: pg_dump -Fc mydb > backup.dump
+-- =============================================================
+
+-- Migration 001 — description type change
+--   ALTER TABLE posts ALTER COLUMN description TYPE TEXT;
+
+-- Migration 002 — add background_pattern columns
+--   ALTER TABLE posts ADD COLUMN background_pattern VARCHAR(2000) DEFAULT NULL;
+--   ALTER TABLE users ADD COLUMN background_pattern VARCHAR(2000) DEFAULT NULL;
+
+-- Migration 003 — add is_admin to users
+--   ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Migration 004 — add edited_at to posts
+--   ALTER TABLE posts ADD COLUMN edited_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+
+-- Migration 005 — create uploads tracking table
+--   CREATE TABLE uploads (
+--       id            SERIAL PRIMARY KEY,
+--       filename      VARCHAR(255) NOT NULL UNIQUE,
+--       user_id       INTEGER      NOT NULL,
+--       original_name VARCHAR(255) DEFAULT NULL,
+--       size_bytes    BIGINT       NOT NULL DEFAULT 0,
+--       uploaded_at   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+--       CONSTRAINT uploads_user_fk FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+--   );
+
+-- Migration 006 — add style column to discussions
+--   ALTER TABLE discussions ADD COLUMN style VARCHAR(20) NOT NULL DEFAULT 'threaded';
+
+-- Migration 007 — allow multiple reactions per user per post
+--   ALTER TABLE post_reactions DROP CONSTRAINT post_reactions_pkey;
+--   ALTER TABLE post_reactions ADD PRIMARY KEY (post_id, user_id, reaction);
+
+-- Migration 008 — allow multiple reactions per user per comment
+--   -- Only if comment_reactions was already created with old schema:
+--   ALTER TABLE comment_reactions DROP CONSTRAINT comment_reactions_pkey;
+--   ALTER TABLE comment_reactions ADD PRIMARY KEY (comment_id, user_id, reaction);
+
+-- Migration 011 — add last_visited to users
+--   ALTER TABLE users ADD COLUMN last_visited TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+
+-- Migration 010 — post_uploads junction table
+--   CREATE TABLE post_uploads (
+--       post_id   INTEGER NOT NULL,
+--       upload_id INTEGER NOT NULL,
+--       PRIMARY KEY (post_id, upload_id),
+--       CONSTRAINT post_uploads_post_fk   FOREIGN KEY (post_id)   REFERENCES posts   (id) ON DELETE CASCADE,
+--       CONSTRAINT post_uploads_upload_fk FOREIGN KEY (upload_id) REFERENCES uploads (id) ON DELETE CASCADE
+--   );
+
+-- Migration 009 — add role column and role_limits table
+--   ALTER TABLE users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'user';
+--   CREATE TABLE role_limits (
+--       role               VARCHAR(20) PRIMARY KEY,
+--       max_storage_bytes  BIGINT  NOT NULL DEFAULT 52428800,
+--       max_posts_per_day  INTEGER NOT NULL DEFAULT 20
+--   );
+--   INSERT INTO role_limits(role, max_storage_bytes, max_posts_per_day) VALUES
+--       ('user',       52428800,   20),
+--       ('trusted',    524288000, 100),
+--       ('restricted', 5242880,     2),
+--       ('admin',      -1,         -1);

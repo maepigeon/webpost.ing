@@ -1,0 +1,270 @@
+.admin-panel {
+  max-width: 1000px;
+  margin: 32px auto;
+  padding: 0 16px 64px;
+  font-family: inherit;
+}
+
+.admin-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin-bottom: 16px;
+  border-bottom: 2px solid #e0e0e0;
+  padding-bottom: 10px;
+}
+
+.admin-flash {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+  border-radius: 6px;
+  padding: 10px 16px;
+  margin-bottom: 14px;
+  font-size: 0.92rem;
+}
+
+.admin-denied {
+  color: #b00;
+  font-weight: 600;
+}
+
+/* Tabs */
+.admin-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 22px;
+}
+
+.admin-tab {
+  padding: 8px 20px;
+  border: 1px solid #ccc;
+  background: #f5f5f5;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.admin-tab:hover {
+  background: #e8e8e8;
+}
+
+.admin-tab--active {
+  background: #333;
+  color: #fff;
+  border-color: #333;
+}
+
+/* Create form */
+.admin-create-form {
+  background: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 16px 20px 14px;
+  margin-bottom: 20px;
+}
+
+.admin-create-form h3 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+.admin-create-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-create-row input {
+  flex: 1;
+  min-width: 140px;
+  padding: 7px 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 0.9rem;
+}
+
+.admin-create-row button {
+  padding: 7px 18px;
+  background: #2e7d32;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.admin-create-row button:disabled {
+  background: #aaa;
+  cursor: default;
+}
+
+/* Search row */
+.admin-search-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.admin-search-row input {
+  flex: 1;
+  max-width: 300px;
+  padding: 7px 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 0.9rem;
+}
+
+.admin-count {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+/* Table */
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.admin-table th {
+  text-align: left;
+  padding: 8px 10px;
+  background: #f0f0f0;
+  border-bottom: 2px solid #ddd;
+  font-weight: 600;
+}
+
+.admin-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #eee;
+  vertical-align: middle;
+}
+
+.admin-table tr:hover td {
+  background: #fafafa;
+}
+
+.admin-row--admin td:first-child {
+  font-weight: 700;
+  color: #1a3a7a;
+}
+
+.admin-table select {
+  padding: 4px 6px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.admin-table input[type="number"] {
+  padding: 4px 6px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+/* Buttons */
+.admin-btn {
+  padding: 5px 14px;
+  border: 1px solid #999;
+  background: #f5f5f5;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.admin-btn:hover {
+  background: #e5e5e5;
+}
+
+.admin-btn--danger {
+  background: #fee;
+  border-color: #e00;
+  color: #b00;
+}
+
+.admin-btn--danger:hover {
+  background: #fdd;
+}
+
+/* Stats grid */
+.admin-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.admin-stat-card {
+  background: #f5f8ff;
+  border: 1px solid #d0d8ee;
+  border-radius: 8px;
+  padding: 18px 16px 14px;
+  text-align: center;
+}
+
+.admin-stat-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #1a3a7a;
+}
+
+.admin-stat-label {
+  font-size: 0.78rem;
+  color: #555;
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Hints */
+.admin-hint {
+  color: #555;
+  font-size: 0.88rem;
+  margin-bottom: 12px;
+}
+
+.admin-hint-small {
+  color: #777;
+  font-size: 0.8rem;
+}
+
+.admin-error {
+  color: #b00;
+  font-size: 0.85rem;
+  margin: 6px 0 0;
+}
+
+.admin-empty {
+  color: #777;
+  font-style: italic;
+  margin-top: 12px;
+}
+
+/* Orphan cleanup */
+.admin-orphan-row {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.admin-orphan-row .admin-hint {
+  margin: 0;
+  flex: 1;
+  min-width: 200px;
+}
+
+/* Flagged cells */
+.admin-cell--warn {
+  color: #b84200;
+  font-weight: 700;
+}

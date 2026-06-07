@@ -1,37 +1,37 @@
 package com.springbootprojects.webpostingserver.posts.repository;
 
 import com.springbootprojects.webpostingserver.posts.model.AuthSession;
-import com.springbootprojects.webpostingserver.posts.model.Post;
+import com.springbootprojects.webpostingserver.posts.model.LoginInfo;
 import com.springbootprojects.webpostingserver.posts.model.User;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
-import com.springbootprojects.webpostingserver.posts.model.LoginInfo;
-
 
 import java.security.SecureRandom;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.*;
 
 @Repository
 public class JdbcLoginRepository implements LoginRepository {
 
-    public ResponseEntity<Object> deleteCookie() {
+    @Value("${app.dev-mode:false}")
+    private boolean devMode;
+
+    public ResponseEntity<String> deleteCookie() {
         HttpCookie deleteTokenCookie = ResponseCookie.from("authToken", "token")
                 .httpOnly(true)
-                .sameSite("None")
-                .secure(true)
+                .sameSite(devMode ? "Lax" : "None")
+                .secure(!devMode)
                 .path("/")
                 .maxAge(0)
                 .build();
         HttpCookie deleteUsernameCookie = ResponseCookie.from("username", "username")
                 .httpOnly(true)
-                .sameSite("None")
-                .secure(true)
+                .sameSite(devMode ? "Lax" : "None")
+                .secure(!devMode)
                 .path("/")
                 .maxAge(0)
                 .build();
@@ -63,8 +63,43 @@ public class JdbcLoginRepository implements LoginRepository {
     }
 
     public List<User> getAllUsers() {
-        return jdbcTemplate.query("SELECT \"id\", \"username\", \"registration_date\" FROM users;",
-                BeanPropertyRowMapper.newInstance(User.class));
+        return jdbcTemplate.query(
+            "SELECT id, username, registration_date, last_visited FROM users ORDER BY last_visited DESC NULLS LAST",
+            BeanPropertyRowMapper.newInstance(User.class));
+    }
+
+    public void touchLastVisited(String username) {
+        jdbcTemplate.update("UPDATE users SET last_visited = NOW() WHERE username = ?", username);
+    }
+
+    public String getUserBackground(String username) {
+        List<String> results = jdbcTemplate.query(
+                "SELECT background_pattern FROM users WHERE username = ?",
+                (rs, rowNum) -> rs.getString("background_pattern"),
+                username);
+        return results.isEmpty() ? null : results.get(0);
+    }
+
+    public void updateUserBackground(String username, String pattern) {
+        jdbcTemplate.update("UPDATE users SET background_pattern = ? WHERE username = ?", pattern, username);
+    }
+
+    public String getUserBio(String username) {
+        List<String> r = jdbcTemplate.query(
+                "SELECT bio FROM users WHERE username = ?",
+                (rs, rowNum) -> rs.getString("bio"),
+                username);
+        return r.isEmpty() ? null : r.get(0);
+    }
+
+    public void updateUserBio(String username, String bio) {
+        jdbcTemplate.update("UPDATE users SET bio = ? WHERE username = ?", bio, username);
+    }
+
+    public boolean isAdmin(String username) {
+        List<Boolean> r = jdbcTemplate.queryForList(
+            "SELECT is_admin FROM users WHERE username = ?", Boolean.class, username);
+        return !r.isEmpty() && Boolean.TRUE.equals(r.get(0));
     }
 
 
@@ -179,7 +214,7 @@ public class JdbcLoginRepository implements LoginRepository {
         return authSession;
     }
 
-    public class TokenExpiredException extends Exception {
+    public static class TokenExpiredException extends Exception {
         public TokenExpiredException() {
             super("Session token is expired");
         }

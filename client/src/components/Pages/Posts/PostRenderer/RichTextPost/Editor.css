@@ -1,64 +1,516 @@
+/* ── Legacy centering wrapper (used in a few places still) ──────────────── */
 .editor {
   display: flex;
-justify-content: center;
-align-items: center;
+  justify-content: center;
+  align-items: flex-start;
 }
 
+/* ── Unified post card (editor + viewer) ─────────────────────────────────── */
+
+.editor-centered {
+  display: flex;
+  justify-content: center;
+  padding: 40px 16px 48px;
+}
+
+/* Liquid-glass post card */
+.editor-post-card {
+  width: 628px;
+  max-width: calc(100vw - 32px);
+  background: rgba(255, 255, 255, 0.28);
+  backdrop-filter: blur(16px) saturate(180%) brightness(1.05);
+  -webkit-backdrop-filter: blur(16px) saturate(180%) brightness(1.05);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 20px;
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.14),
+    0 2px 0 rgba(255, 255, 255, 0.65) inset,
+    0 -1px 0 rgba(0, 0, 0, 0.04) inset;
+}
+
+/* Strip TitleBar's own card styling when inside the unified card */
+.editor-post-card .basicTextPost {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  width: 100% !important;
+  overflow: visible !important;
+}
+
+/* ── Sticky toolbar (flat band inside the card) ────────────────────────── */
+
+.toolbar-sticky {
+  position: sticky;
+  top: var(--navbar-height, 48px);
+  z-index: 150;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 16px;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(8px) saturate(140%);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
+  border-top: 1px solid rgba(0, 0, 0, 0.07);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+}
+
+/* ── Editor / viewer content area ───────────────────────────────────────── */
 
 .editor-contenteditable {
-    width: 500px;
-    height:fit-content;
-    text-align: left;
-    border-color: black;
-    border-width: 2px;
-    border-style: solid;
-}
-
-.toolbar-wrapper {
-  display: flex;
-}
-
-.editor-h1 {
-  font-size: 48px;
-}
-.editor-h2 {
-  font-size: 24px;
-}
-.editor-h3 {
-  font-size: 16px;
-}
-
-.ltr {
-    text-align: left;
-}
-
-.rtl {
-  text-align: right;
-}
-
-.textBold {
-  color: yellow;
-  font-weight: bold;
-}
-.textItalic {
-  color: cyan;
-  font-style: italic;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 200px;
+  padding: 20px 24px 32px;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 0 0 20px 20px;
+  outline: none;
 }
 
 .editor-placeholder {
-  width: 500px;
-  height: 300px;
-  text-align: left;
-  color: #999;
+  color: #aaa;
   overflow: hidden;
   position: absolute;
-  top: 15px;
-  left: 15px;
+  top: 20px;
+  left: 24px;
   user-select: none;
   pointer-events: none;
 }
 
+/* ── Toolbar controls ────────────────────────────────────────────────────── */
+
+.toolbar-sticky button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.toolbar-divider {
+  display: inline-block;
+  width: 1px;
+  height: 20px;
+  background: #ccc;
+  margin: 0 4px;
+  vertical-align: middle;
+}
+
+.toolbar-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.toolbar-color-picker {
+  width: 28px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.toolbar-select {
+  height: 24px;
+  font-size: 13px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+/* Background pattern popup */
+.toolbar-bg-wrapper {
+  position: relative;
+}
+
+.toolbar-bg-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 400;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  padding: 12px;
+  min-width: 320px;
+}
+
+/* Image button — blue tint */
+.toolbar-btn-image {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #93c5fd;
+  font-weight: 500;
+}
+
+.toolbar-btn-image:hover {
+  background: #bfdbfe;
+  border-color: #1d4ed8;
+}
+
+/* Save Draft button — amber outline */
+.toolbar-btn-draft {
+  background: transparent;
+  color: #92400e;
+  border: 1px solid #d97706;
+  font-weight: 500;
+}
+
+.toolbar-btn-draft:hover {
+  background: #fef3c7;
+}
+
+/* Publish button — light green with dark text */
+.toolbar-btn-save {
+  background: #bbf7d0;
+  color: #14532d;
+  border: 1px solid #86efac;
+  font-weight: 600;
+}
+
+.toolbar-btn-save:hover {
+  background: #86efac;
+}
+
+/* ── Collapsible toolbar sections ───────────────────────────────────────── */
+
+.toolbar-collapsible {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolbar-collapse-toggle {
+  font-size: 11px;
+  color: #666;
+  background: rgba(0,0,0,0.05);
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 2px 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.toolbar-collapse-toggle:hover {
+  background: rgba(0,0,0,0.10);
+}
+
+.toolbar-collapsible-body {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── Format buttons (bold/italic/underline/etc.) ─────────────────────────── */
+
+.toolbar-fmt-btn {
+  min-width: 26px;
+  height: 26px;
+  padding: 0 5px;
+  font-size: 13px;
+  background: transparent;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.toolbar-fmt-btn.active {
+  background: rgba(26,115,232,0.15);
+  border-color: #1a73e8;
+  color: #1a73e8;
+}
+
+.toolbar-fmt-btn:hover {
+  background: rgba(0,0,0,0.06);
+}
+
+/* ── Math blocks (KaTeX) ─────────────────────────────────────────────────── */
+
+.editor-math-block {
+  margin: 16px 0;
+  padding: 12px 4px;
+  text-align: center;
+  overflow-x: auto;
+  position: relative;
+}
+
+.editor-math-editable {
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.editor-math-editable:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.editor-math-editing {
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+}
+
+.editor-math-controls {
+  top: 4px;
+}
+
+.editor-math-input {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  resize: vertical;
+  min-height: 60px;
+  margin-bottom: 6px;
+}
+
+.editor-math-edit-btns {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+/* ── Block-level typography ──────────────────────────────────────────────── */
+
+.editor-h1 { font-size: 48px; }
+.editor-h2 { font-size: 24px; }
+.editor-h3 { font-size: 16px; }
+
+.ltr { text-align: left; }
+.rtl { text-align: right; }
+
+.textBold          { font-weight: bold; }
+.textItalic        { font-style: italic; }
+.textUnderline     { text-decoration: underline; }
+.textStrikethrough { text-decoration: line-through; }
+.textSubscript     { font-size: 0.75em; vertical-align: sub; }
+.textSuperscript   { font-size: 0.75em; vertical-align: super; }
+.textCode          { font-family: 'Courier New', monospace; background: rgba(0,0,0,0.08); padding: 1px 4px; border-radius: 3px; }
+
 .editor-paragraph {
   margin: 0 0 15px 0;
   position: relative;
+}
+
+/* ── Code blocks ─────────────────────────────────────────────────────────── */
+
+.editor-code {
+  display: block;
+  background: #1e1e1e;
+  color: #d4d4d4;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  padding: 32px 16px 12px;
+  border-radius: 6px;
+  margin: 12px 0;
+  overflow-x: auto;
+  white-space: pre;
+  tab-size: 2;
+  position: relative;
+}
+
+/* Light mode code block */
+.editor-code.code-light {
+  background: #f8f8f2;
+  color: #24292e;
+}
+.editor-code.code-light .token-keyword    { color: #d73a49; }
+.editor-code.code-light .token-function   { color: #6f42c1; }
+.editor-code.code-light .token-string,
+.editor-code.code-light .token-selector   { color: #032f62; }
+.editor-code.code-light .token-comment    { color: #6a737d; font-style: italic; }
+.editor-code.code-light .token-property   { color: #005cc5; }
+.editor-code.code-light .token-variable,
+.editor-code.code-light .token-attr       { color: #e36209; }
+.editor-code.code-light[data-highlight-language]::before {
+  background: rgba(0,0,0,0.05);
+  border-bottom-color: rgba(0,0,0,0.08);
+  color: #666;
+}
+
+
+/* Language label shown at the top of code blocks */
+.editor-code[data-highlight-language]::before {
+  content: attr(data-highlight-language);
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 4px 14px;
+  background: rgba(255,255,255,0.07);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px 6px 0 0;
+  font-size: 11px;
+  font-family: system-ui, sans-serif;
+  color: #888;
+  text-transform: lowercase;
+  letter-spacing: 0.5px;
+}
+
+/* Copy overlay button on code blocks (viewer) */
+.code-copy-overlay-btn {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  background: rgba(80,80,80,0.75);
+  color: #ddd;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  z-index: 10;
+  line-height: 1.6;
+  backdrop-filter: blur(4px);
+}
+.code-copy-overlay-btn:hover {
+  background: rgba(100,100,100,0.9);
+  color: #fff;
+  filter: none;
+}
+
+.token-keyword    { color: #569cd6; }
+.token-function   { color: #dcdcaa; }
+.token-string,
+.token-selector   { color: #ce9178; }
+.token-comment    { color: #6a9955; font-style: italic; }
+.token-property   { color: #b5cea8; }
+.token-operator   { color: #d4d4d4; }
+.token-attr       { color: #9cdcfe; }
+.token-variable   { color: #9cdcfe; }
+.token-punctuation { color: #d4d4d4; }
+
+/* ── Links ───────────────────────────────────────────────────────────────── */
+
+.editor-link {
+  color: #1a73e8;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.editor-link:hover {
+  color: #1558b0;
+}
+
+/* Floating link toolbar — appears above text selection */
+.floating-link-toolbar {
+  position: fixed;
+  z-index: 500;
+  transform: translateX(-50%);
+  background: rgba(30,30,30,0.92);
+  backdrop-filter: blur(8px);
+  border-radius: 6px;
+  padding: 4px 6px;
+  display: flex;
+  gap: 4px;
+  pointer-events: auto;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+}
+
+.floating-link-toolbar button {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 13px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.floating-link-toolbar button:hover {
+  background: rgba(255,255,255,0.15);
+}
+
+/* ── Images ──────────────────────────────────────────────────────────────── */
+
+.editor-image-wrapper {
+  margin: 12px 0;
+  position: relative;
+}
+
+.editor-image-align-center { display: flex; justify-content: center; }
+.editor-image-align-left   { display: flex; justify-content: flex-start; }
+.editor-image-align-right  { display: flex; justify-content: flex-end; }
+.editor-image-align-full   { display: flex; justify-content: stretch; }
+.editor-image-align-full .editor-image { width: 100% !important; }
+
+.editor-image-frame {
+  position: relative;
+  display: inline-block;
+}
+
+.editor-image {
+  max-width: 100%;
+  border-radius: 8px;
+  display: block;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.10);
+}
+
+/* Controls bar — overlaid on top of the image */
+.editor-image-controls {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  gap: 4px;
+  background: rgba(30, 30, 30, 0.82);
+  backdrop-filter: blur(8px);
+  border-radius: 8px;
+  padding: 4px 6px;
+  white-space: nowrap;
+  pointer-events: auto;
+}
+
+.editor-image-controls button {
+  background: none;
+  border: none;
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  margin: 0;
+  line-height: 1;
+}
+
+.editor-image-controls-sep {
+  display: inline-block;
+  width: 1px;
+  height: 14px;
+  background: rgba(255,255,255,0.3);
+  margin: 0 2px;
+  vertical-align: middle;
+}
+
+.editor-image-controls button:hover,
+.editor-image-controls button.active {
+  background: rgba(255, 255, 255, 0.2);
+  filter: none;
+}
+
+/* Resize handle — bottom-right corner of the image frame */
+.editor-image-resize-handle {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 16px;
+  height: 16px;
+  background: rgba(30, 30, 30, 0.6);
+  border-radius: 3px 0 8px 0;
+  cursor: se-resize;
 }

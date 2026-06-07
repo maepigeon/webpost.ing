@@ -9,6 +9,7 @@ function BasicTextPost(props) {
     var postdata = props.postdata;
     var editMode = props.editMode;
     var hasModifyPermissions = props.hasModifyPermissions;
+    var ownerUsername = props.ownerUsername || '';
     
     const Modes = Object.freeze({
         VIEW: 0,
@@ -81,19 +82,14 @@ function BasicTextPost(props) {
         }
     }
     function goButtonRender() {
-        if (postdata.id == 0) {
+        const viewPath = ownerUsername
+            ? `/users/${ownerUsername}/${postdata.id}`
+            : `/editor/${postdata.id}`;
         return(
-            <Link to={"/routes/RichTextViewer"} state={{postID: postdata.id}}>
+            <Link to={viewPath} state={{postID: postdata.id}}>
                 <button onClick={() => goToPost()}> Go </button>
             </Link>
-            );
-        } else {
-            return(
-                <Link to={"/routes/RichTextViewer/"+[postdata.id+""]} state={{postID: postdata.id}}>
-                    <button onClick={() => goToPost()}> Go </button>
-                </Link>
-                );
-        }
+        );
     }
 
      // Component for the delete button
@@ -104,13 +100,14 @@ function BasicTextPost(props) {
         else {
             return(
                 <button onClick={() => {
-                        DELETE_POST(postdata.id).then( 
+                        if (!window.confirm('Are you sure you want to delete this post? This cannot be undone.')) return;
+                        DELETE_POST(postdata.id).then(
                         () => {
                             props.updatePostsFlagCallback();
                             window.location.reload();
                         }
                         );
-                    }}> 
+                    }}>
                     Delete
                 </button>
                 );
@@ -124,19 +121,11 @@ function BasicTextPost(props) {
             return <></>
         }
         if (postMode == Modes.VIEW) {
-            if (postdata.id == 0) {
-                return(
-                    <Link to={"/routes/RichTextEditor"} state={{postID: postdata.id}}>
-                        <button onClick={() => setCurrentPostMode(Modes.EDIT)}> Edit </button>
-                    </Link>
-                    );
-            } else {
             return(
-                <Link to={"/routes/RichTextEditor/"+postdata.id+""} state={{postID: postdata.id}}>
+                <Link to={`/editor/${postdata.id}`} state={{postID: postdata.id}}>
                     <button onClick={() => setCurrentPostMode(Modes.EDIT)}> Edit </button>
                 </Link>
-                );
-            }
+            );
         }
         else if (postMode == Modes.EDIT) {
             return(
@@ -156,14 +145,14 @@ function BasicTextPost(props) {
             </div>
             <div className="horizontalContentBox">
                 <div className="rightContent">
+                    {!postdata.published && (
+                        <span className="draft-badge">DRAFT</span>
+                    )}
                     {renderPostDataFields(currentPostMode)}
                 </div>
             </div>
             <div className="bottom-nav">
                 <div className="editor">
-                    <p>
-                        Published: {JSON.stringify(postdata.published)}
-                    </p>
                     {deleteButtonRender()}
                     { editButtonRender(currentPostMode) }
                     { goButtonRender(postdata.id) }

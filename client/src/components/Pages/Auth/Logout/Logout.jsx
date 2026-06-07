@@ -1,8 +1,6 @@
 import React, { useEffect } from 'react';
 import axios from 'axios';
-
-//var baseUrl = "http://localhost:8080";
-var baseUrl = "/api";
+import { BASE_URL as baseUrl } from '../../../../config.js';
 
 function Logout() {
     useEffect(() => {LOGOUT_ATTEMPT()}, []);
@@ -27,6 +25,7 @@ function LOGOUT_ATTEMPT() {
         console.log("Failed to log out user. " + error);
       });
       localStorage.removeItem("userName");
+      localStorage.removeItem("isAdmin");
       window.location.reload();
     }
 }

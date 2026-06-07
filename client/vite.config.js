@@ -6,9 +6,12 @@ import {resolve} from 'node:path'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: [{ find: "@", replacement: resolve(__dirname, "./src") }]
+  },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: './src/test/setup.js',
+  },
 })
-
-
-resolve: {
-  alias: [{ find: "@", replacement: resolve(__dirname, "./src") }]
-}

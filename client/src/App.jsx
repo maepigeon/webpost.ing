@@ -15,6 +15,9 @@ import RichTextEditor from './components/Pages/Posts/PostRenderer/RichTextPost/E
 import RichTextViewer from './components/Pages/Posts/PostRenderer/RichTextPost/Viewer';
 import Test from './components/Pages/Test/Test';
 import Home from './components/Pages/Home/Home';
+import ScrollToTop from './components/ScrollToTop/ScrollToTop';
+import InboxPage from './components/Social/InboxPage.jsx';
+import DiscussionPage from './components/Social/DiscussionPage.jsx';
 
 import axios from 'axios'
 
@@ -27,24 +30,29 @@ function App() {
   console.log("loading authorized session...")
 
   return (
-    <div id="appBody">      
-      <Navbar /> 
+    <div id="appBody">
+      <Navbar />
+      <ScrollToTop />
 
       <Routes>
         <Route index element={ <Home />} />
         <Route path="/routes" element={<Home />} />
-        <Route path="/routes/PostEditor" element={<PostEditor />} />
-        <Route path="/routes/PostsViewer" element={<PostsViewer />} />
+        <Route path="/users/:username" element={<PostsViewer />} />
+        <Route path="/users/:username/:id" element={<RichTextViewer />} />
+        <Route path="/users/:username/:id/discussion" element={<DiscussionPage />} />
+        <Route path="/editor" element={<RichTextEditor />} />
+        <Route path="/editor/:id" element={<RichTextEditor />} />
+        {/* Legacy redirects — keep old URLs working */}
         <Route path="/routes/PostsViewer/:username" element={<PostsViewer />} />
-        <Route path="/routes/RichTextViewer" element={<RichTextViewer />} />
         <Route path="/routes/RichTextViewer/:id" element={<RichTextViewer />} />
-        <Route path="/routes/RichTextEditor" element={<RichTextEditor />} />
         <Route path="/routes/RichTextEditor/:id" element={<RichTextEditor />} />
+        <Route path="/routes/RichTextEditor" element={<RichTextEditor />} />
         <Route path="/routes/Login" element={<Login />} />
         <Route path="/routes/Logout" element={<Logout />} />
         <Route path="/routes/AdminPanel" element={<AdminPanel />} />
         <Route path="/routes/NewAccount" element={<Registration />} />
         <Route path="/routes/Test" element={<Test /> } />
+        <Route path="/inbox" element={<InboxPage />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </div>

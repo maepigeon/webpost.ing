@@ -1,142 +1,200 @@
-import {useEffect, useState} from 'react';
-import './Editor.css'
-import {exampleTheme} from './exampleTheme';
-import {LexicalComposer} from '@lexical/react/LexicalComposer';
-import {useLexicalComposerContext} from '@lexical/react/LexicalComposerContext';
-import {RichTextPlugin} from '@lexical/react/LexicalRichTextPlugin';
-import {ContentEditable} from '@lexical/react/LexicalContentEditable';
-import {HistoryPlugin} from '@lexical/react/LexicalHistoryPlugin';
-import {LexicalErrorBoundary} from '@lexical/react/LexicalErrorBoundary';
+import { useEffect, useState } from 'react';
+import './Editor.css';
+import './Viewer.css';
+import { patternToStyle } from '../../../../PatternPicker/patterns.js';
+import { exampleTheme } from './exampleTheme';
+import { LexicalComposer } from '@lexical/react/LexicalComposer';
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
+import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
+import { ContentEditable } from '@lexical/react/LexicalContentEditable';
+import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
+import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
 import { HeadingNode } from '@lexical/rich-text';
-import {ListNode, ListItemNode} from '@lexical/list';
+import { ListNode, ListItemNode } from '@lexical/list';
+import { CodeNode, CodeHighlightNode, registerCodeHighlighting } from '@lexical/code';
 import TitleBar from './TitleBar';
-import {useParams} from "react-router-dom";
-import {READ_POST, CREATE_POST, GET_USER_FROM_POST} from '../../BasicTextPostServerApi.js';
+import { useParams, useNavigate } from 'react-router-dom';
+import {
+  READ_POST, GET_USER_FROM_POST,
+  GET_POST_FEATURES, SET_REACTIONS_ENABLED,
+} from '../../BasicTextPostServerApi.js';
+import { ImageNode } from './ImageNode.jsx';
+import { MathNode } from './MathNode.jsx';
+import ReactionBar from '../../../../Social/ReactionBar.jsx';
+import DiscussionSection from '../../../../Social/DiscussionSection.jsx';
+import { LinkNode } from '@lexical/link';
+import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
+import { ClickableLinkPlugin } from '@lexical/react/LexicalClickableLinkPlugin';
 
+const VIEWER_NODES = [HeadingNode, ListNode, ListItemNode, CodeNode, CodeHighlightNode, ImageNode, MathNode, LinkNode];
 
-
-
-
-const initialConfig = localStorage.getItem("currentPostState") == null ? {
-  namespace: 'MyEditor', 
+const initialConfig = {
+  namespace: 'MyViewer',
   editable: false,
-  theme: exampleTheme, 
+  theme: exampleTheme,
   onError,
-  nodes: [HeadingNode, ListNode, ListItemNode],
-} : {
-  namespace: 'MyEditor', 
-  editable: false,
-  theme: exampleTheme, 
-  onError,
-  nodes: [HeadingNode, ListNode, ListItemNode],
-  editorState: localStorage.getItem("currentPostState")
+  nodes: VIEWER_NODES,
 };
 
+function onError(error) { console.error(error); }
 
-// When the editor changes, you can get notified via the
-// OnChangePlugin!
-function MyOnChangePlugin({ onChange }) {
-    // Access the editor through the LexicalComposerContext
-    const [editor] = useLexicalComposerContext();
-    // Wrap our listener in useEffect to handle the teardown and avoid stale references.
-    useEffect(() => {
-      // most listeners return a teardown function that can be called to clean them up.
-      return editor.registerUpdateListener(({editorState}) => {
-        // call onChange here to pass the latest state up to the parent.
-        onChange(editorState);
-      });
-    }, [editor, onChange]);
-    return null;
-}
-
-// Catch any errors that occur during Lexical updates and log them
-// or throw them as needed. If you don't throw them, Lexical will
-// try to recover gracefully without losing user data.
-function onError(error) {
-  console.error(error);
-}
-
-function LoadEditorStatePlugin() {
+function CodeHighlightPlugin() {
   const [editor] = useLexicalComposerContext();
-  const onClick = () => {
-    console.log("loading cached editor state");
-    var loadedEditor = localStorage.getItem("currentPostData");
-    console.log(loadedEditor)
-    if (loadedEditor != null) {
-    	    const editorState = editor.parseEditorState(loadedEditor);
-	    editor.setEditorState(editorState);
-    }
-  }
-  onClick();
-  return <button onClick = {onClick} >Render Loaded Editor State</button>;
+  useEffect(() => registerCodeHighlighting(editor), [editor]);
+  return null;
 }
+
+function CopyCodePlugin() {
+  const [editor] = useLexicalComposerContext();
+  useEffect(() => {
+    const root = editor.getRootElement();
+    if (!root) return;
+    const entered = new WeakMap();
+
+    const onEnter = (e) => {
+      const el = e.target.closest('code.editor-code');
+      if (!el || entered.has(el)) return;
+      const btn = document.createElement('button');
+      btn.textContent = '⎘ Copy';
+      btn.className = 'code-copy-overlay-btn';
+      btn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        btn.remove();
+        const text = el.innerText;
+        el.appendChild(btn);
+        navigator.clipboard.writeText(text).then(() => {
+          btn.textContent = '✓';
+          setTimeout(() => { btn.textContent = '⎘ Copy'; }, 1500);
+        }).catch(() => {});
+      });
+      el.appendChild(btn);
+      entered.set(el, btn);
+      el.addEventListener('mouseleave', () => { btn.remove(); entered.delete(el); }, { once: true });
+    };
+
+    root.addEventListener('mouseenter', onEnter, true);
+    return () => root.removeEventListener('mouseenter', onEnter, true);
+  }, [editor]);
+  return null;
+}
+
+function LoadEditorStatePlugin({ ready }) {
+  const [editor] = useLexicalComposerContext();
+  useEffect(() => {
+    if (!ready) return;
+    const saved = localStorage.getItem('currentPostData');
+    if (saved) editor.setEditorState(editor.parseEditorState(saved));
+  }, [editor, ready]);
+  return null;
+}
+
 export default function RichTextViewer() {
-  const [editorState, setEditorState] = useState();
-  function onChange(editorState) {
-    // Call toJSON on the EditorState object, which produces a serialization safe string
-    const editorStateJSON = editorState.toJSON();
-    // However, we still have a JavaScript object, so we need to convert it to an actual string with JSON.stringify
-    try {
-	if (editorStateJSON != null) {
-	  setEditorState(JSON.stringify(editorStateJSON));
-    	}
-    } catch (exception) {
-	    console.log("Editor state set failed in viewer: " + exception);
-    }
-  }
+  const { id, username } = useParams();
+  const navigate = useNavigate();
 
-  let { id } = useParams();
-  const [postTitle, setPostTitle] = useState("DEFAULT POST TITLE");
-  const [postDate, setPostDate] = useState("");
+  const [postTitle, setPostTitle] = useState('Loading...');
+  const [postDate, setPostDate] = useState('');
   const [postPublished, setPostPublished] = useState(false);
-  const [postAuthor, setPostAuthor] = useState("");
+  const [postAuthor, setPostAuthor] = useState('');
+  const [backgroundPattern, setBackgroundPattern] = useState('');
+  const [dataReady, setDataReady] = useState(false);
+  const [postLoaded, setPostLoaded] = useState(false);
+  const [features, setFeatures] = useState({ reactionsEnabled: false });
 
-  console.log("URL ID: " + id);
-  const refreshPost = () => {
-    console.log("loading saved editor state");
-    READ_POST(id).then(
-      (data) => {
-        console.log("Post data: " + JSON.stringify(data));
-        console.log("TITLE: " + data.title);
-        setPostTitle(data.title);
-        console.log("DATE: " + data.date);
-        setPostDate(data.date);
-        setPostPublished(data.published);
-        GET_USER_FROM_POST(id).then(
-          (user_data) => {
-            console.log("USER: " + user_data);
-            setPostAuthor(user_data);
-          });
-         localStorage.setItem("currentPostData", data.description);
+  const me = localStorage.getItem('userName');
+  const isAuthor = me && me === postAuthor;
 
-         
-        //  const loadedEditor = data.description;
-        //  const editorState = editor.parseEditorState(loadedEditor);
-        //  editor.setEditorState(editorState);
-      }
-      );
-  }
+  useEffect(() => {
+    READ_POST(id).then(data => {
+      setPostTitle(data.title);
+      setPostDate(data.date);
+      setPostPublished(data.published);
+      setBackgroundPattern(data.backgroundPattern || '');
+      localStorage.setItem('currentPostData', data.description);
+      setDataReady(true);
+      GET_USER_FROM_POST(id).then(author => {
+        setPostAuthor(author);
+        setPostLoaded(true);
+      });
+    });
+    GET_POST_FEATURES(id)
+      .then(d => setFeatures({ reactionsEnabled: d.reactionsEnabled }))
+      .catch(() => {});
+  }, [id]);
 
-  refreshPost();
+  // Redirect non-owners away from unpublished posts
+  useEffect(() => {
+    if (!postLoaded) return;
+    if (!postPublished && me !== postAuthor) navigate('/');
+  }, [postLoaded, postPublished, me, postAuthor, navigate]);
+
+  // Apply background pattern to body for backdrop-filter
+  useEffect(() => {
+    const style = patternToStyle(backgroundPattern);
+    document.body.style.backgroundImage = style.backgroundImage || '';
+    document.body.style.backgroundSize = style.backgroundSize || 'auto';
+    document.body.style.backgroundPosition = style.backgroundPosition || 'initial';
+    return () => {
+      document.body.style.backgroundImage = '';
+      document.body.style.backgroundSize = '';
+      document.body.style.backgroundPosition = '';
+    };
+  }, [backgroundPattern]);
+
+  const toggleReactions = async () => {
+    const next = !features.reactionsEnabled;
+    await SET_REACTIONS_ENABLED(id, next).catch(() => {});
+    setFeatures(f => ({ ...f, reactionsEnabled: next }));
+  };
+
+  const authorUsername = username || postAuthor;
+
   return (
-    <>
-        <div className='editor'>
-          <TitleBar postdata={{id: id, title: postTitle, published: postPublished, date: postDate, author: postAuthor}} 
-              updatePostsFlagCallback={()=>{console.log("RETURNING TO POST VIEW")}} editMode={false} />
-        </div>
-        <LexicalComposer initialConfig={initialConfig}>
-              <button onClick = {refreshPost} >Refresh</button>
-              <LoadEditorStatePlugin/>
-              <div className='editor'>
-                  <RichTextPlugin
-                      contentEditable={<ContentEditable className='editor-contenteditable'/>}
-                      placeholder={<div className='placeholder'>Enter some text...</div>}
-                      ErrorBoundary={LexicalErrorBoundary}
-                  />
-              </div>
+    <div style={{ minHeight: '100vh' }}>
+      <LexicalComposer initialConfig={initialConfig}>
+        <CodeHighlightPlugin />
+        <CopyCodePlugin />
+        <LinkPlugin />
+        <ClickableLinkPlugin />
+        <HistoryPlugin />
+        <LoadEditorStatePlugin ready={dataReady} />
+        <div className="editor-centered">
+          <div className="editor-post-card">
+            <TitleBar
+              postdata={{ id, title: postTitle, published: postPublished, date: postDate, author: postAuthor }}
+              updatePostsFlagCallback={() => {}}
+              editMode={false}
+            />
+            <div style={{ position: 'relative' }}>
+              <RichTextPlugin
+                contentEditable={<ContentEditable className="editor-contenteditable" />}
+                placeholder={<div className="editor-placeholder">Enter some text...</div>}
+                ErrorBoundary={LexicalErrorBoundary}
+              />
+            </div>
 
-              <HistoryPlugin />
-              {<MyOnChangePlugin onChange={onChange}/>}
-        </LexicalComposer>
-    </>);
+            {/* Reactions — only if enabled */}
+            {features.reactionsEnabled && <ReactionBar postId={id} />}
+
+            {/* Reactions toggle (author only) */}
+            {isAuthor && (
+              <div className="post-footer">
+                <div className="post-author-controls">
+                  <button
+                    className={`post-toggle-btn${features.reactionsEnabled ? ' active' : ''}`}
+                    onClick={toggleReactions}
+                  >
+                    {features.reactionsEnabled ? 'Reactions on' : 'Reactions off'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Inline discussion section */}
+            <DiscussionSection postId={id} postAuthor={postAuthor} />
+          </div>
+        </div>
+      </LexicalComposer>
+    </div>
+  );
 }

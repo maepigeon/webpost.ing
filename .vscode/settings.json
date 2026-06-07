@@ -1,4 +1,5 @@
 {
+    "sql.dialect": "PostgreSQL",
     "sqltools.connections": [
         {
             "mysqlOptions": {

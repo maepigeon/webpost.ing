@@ -13,5 +13,11 @@ public interface LoginRepository {
     int authenticate(String username, String password);
     AuthSession authorize(String username, String token) throws JdbcLoginRepository.TokenExpiredException;
     public List<User> getAllUsers();
-    public ResponseEntity<Object> deleteCookie();
+    public ResponseEntity<String> deleteCookie();
+    public String getUserBackground(String username);
+    public void updateUserBackground(String username, String pattern);
+    public String getUserBio(String username);
+    public void updateUserBio(String username, String bio);
+    public boolean isAdmin(String username);
+    public void touchLastVisited(String username);
 }

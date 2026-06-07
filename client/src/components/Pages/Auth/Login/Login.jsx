@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-
-//var baseUrl = "http://localhost:8080";
-var baseUrl = "/api";
+import { BASE_URL as baseUrl } from '../../../../config.js';
+import { ADMIN_GET_STATUS } from '../../Posts/BasicTextPostServerApi.js';
 
 
 function Login() {
@@ -32,7 +31,10 @@ function Login() {
     const dataPromise = promise.then(
       (response) => {
         localStorage.setItem("userName", username);
-        window.location.href = "./PostsViewer/"+username;
+        ADMIN_GET_STATUS()
+          .then(d => localStorage.setItem("isAdmin", d.isAdmin ? "1" : "0"))
+          .catch(() => localStorage.setItem("isAdmin", "0"))
+          .finally(() => { window.location.href = "./PostsViewer/"+username; });
       })
     .catch(error => {
       alert("Failed to log in user " + username + ". " + error);	

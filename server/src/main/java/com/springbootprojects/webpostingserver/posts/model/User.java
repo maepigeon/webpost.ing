@@ -13,6 +13,8 @@ public class User {
     private String userid;
     private String username;
     private Date registrationDate;
+    private Date lastVisited;
+    private String backgroundPattern;
 
     public User(String userid, String username, Date registrationDate) {
         this.userid = userid;
@@ -54,5 +56,21 @@ public class User {
 
     public String getUserid() {
         return userid;
+    }
+
+    public Date getLastVisited() {
+        return lastVisited;
+    }
+
+    public void setLastVisited(Date lastVisited) {
+        this.lastVisited = lastVisited;
+    }
+
+    public String getBackgroundPattern() {
+        return backgroundPattern;
+    }
+
+    public void setBackgroundPattern(String backgroundPattern) {
+        this.backgroundPattern = backgroundPattern;
     }
 }

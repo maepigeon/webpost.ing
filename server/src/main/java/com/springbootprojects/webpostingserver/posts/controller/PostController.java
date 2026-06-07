@@ -1,7 +1,11 @@
 package com.springbootprojects.webpostingserver.posts.controller;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.springbootprojects.webpostingserver.posts.model.AuthSession;
 import com.springbootprojects.webpostingserver.posts.model.Post;
@@ -9,24 +13,39 @@ import com.springbootprojects.webpostingserver.posts.model.LoginInfo;
 
 import com.springbootprojects.webpostingserver.posts.repository.JdbcLoginRepository;
 import com.springbootprojects.webpostingserver.posts.repository.LoginRepository;
-import jakarta.servlet.http.HttpServletResponse;
+import com.springbootprojects.webpostingserver.posts.validator.PatternValidator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import com.springbootprojects.webpostingserver.posts.repository.PostRepository;
-import com.springbootprojects.webpostingserver.posts.repository.LoginRepository;
 
 
-@CrossOrigin(origins = "http://localhost:5173", allowCredentials = "true")
 @RestController
 @RequestMapping("/api")
 public class PostController {
-    @Autowired
-    PostRepository postRepository;
+    @Autowired PostRepository postRepository;
+    @Autowired LoginRepository loginRepository;
+    @Autowired JdbcTemplate jdbc;
 
-    @Autowired
-    LoginRepository loginRepository;
+    private static final Pattern UPLOAD_PATTERN = Pattern.compile("/uploads/([^\"\\s]+)");
+
+    private void syncPostUploads(long postId, String description) {
+        Set<String> filenames = new HashSet<>();
+        if (description != null) {
+            Matcher m = UPLOAD_PATTERN.matcher(description);
+            while (m.find()) filenames.add(m.group(1));
+        }
+        jdbc.update("DELETE FROM post_uploads WHERE post_id=?", postId);
+        for (String fn : filenames) {
+            List<Integer> ids = jdbc.queryForList("SELECT id FROM uploads WHERE filename=?", Integer.class, fn);
+            if (!ids.isEmpty()) {
+                jdbc.update("INSERT INTO post_uploads(post_id, upload_id) VALUES(?,?) ON CONFLICT DO NOTHING",
+                    postId, ids.get(0));
+            }
+        }
+    }
 
     @GetMapping("/posts")
     public ResponseEntity<List<Post>> getAllPosts(@RequestParam(required = false) String title) {
@@ -84,7 +103,7 @@ public class PostController {
     }
 
     @PostMapping("/posts")
-    public ResponseEntity<Object> createPost(@RequestBody Post post, @CookieValue(name = "username") String username, @CookieValue(name = "authToken") String token) {
+    public ResponseEntity<String> createPost(@RequestBody Post post, @CookieValue(name = "username") String username, @CookieValue(name = "authToken") String token) {
         AuthSession loginResult;
         try {
             loginResult = loginRepository.authorize(username, token);
@@ -93,11 +112,15 @@ public class PostController {
         }
         System.out.println("Attempting to create a new post");
         if (loginResult != null) {
+            if (!PatternValidator.isValid(post.getBackgroundPattern())) {
+                return new ResponseEntity<>("Invalid background pattern", HttpStatus.BAD_REQUEST);
+            }
             System.out.println("Authorized post creation for user " + username);
             try {
                 int userId = loginResult.userId;
                 System.out.println("User ID: " + userId);
-                postRepository.save(post, userId);
+                int postId = postRepository.save(post, userId);
+                syncPostUploads(postId, post.getDescription());
                 return new ResponseEntity<>("Post was created successfully.", HttpStatus.CREATED);
             } catch (Exception e) {
                 System.out.println("Post creation failed: " + e.getMessage());
@@ -109,17 +132,34 @@ public class PostController {
     }
 
     @PutMapping("/posts/{id}")
-    public ResponseEntity<String> updatePost(@PathVariable("id") long id, @RequestBody Post post) {
+    public ResponseEntity<String> updatePost(@PathVariable("id") long id, @RequestBody Post post,
+            @CookieValue(name = "username") String username, @CookieValue(name = "authToken") String token) {
+        AuthSession loginResult;
+        try {
+            loginResult = loginRepository.authorize(username, token);
+        } catch (JdbcLoginRepository.TokenExpiredException ex) {
+            return loginRepository.deleteCookie();
+        }
+        if (loginResult == null) {
+            return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
+        }
+        LoginInfo postOwner = postRepository.getUsernameFromPostId((int) id);
+        if (postOwner == null || !postOwner.compareUsername(username)) {
+            return new ResponseEntity<>("Forbidden", HttpStatus.FORBIDDEN);
+        }
+        if (!PatternValidator.isValid(post.getBackgroundPattern())) {
+            return new ResponseEntity<>("Invalid background pattern", HttpStatus.BAD_REQUEST);
+        }
         Post _post = postRepository.findById(id);
-
         if (_post != null) {
-            _post.setId((int)id);
+            _post.setId((int) id);
             _post.setTitle(post.getTitle());
             _post.setDescription(post.getDescription());
             _post.setPublished(post.isPublished());
             _post.setDate(post.getDate());
-
+            _post.setBackgroundPattern(post.getBackgroundPattern());
             postRepository.update(_post);
+            syncPostUploads(id, post.getDescription());
             return new ResponseEntity<>("Post was updated successfully.", HttpStatus.OK);
         } else {
             return new ResponseEntity<>("Cannot find Post with id=" + id, HttpStatus.NOT_FOUND);
@@ -127,7 +167,7 @@ public class PostController {
     }
 
     @DeleteMapping("/posts/{id}")
-    public ResponseEntity<Object> deletePost(@PathVariable("id") long id,
+    public ResponseEntity<String> deletePost(@PathVariable("id") long id,
                          @CookieValue(name = "username") String username, @CookieValue(name = "authToken") String token) {
         //Authorize the user
         AuthSession loginResult;

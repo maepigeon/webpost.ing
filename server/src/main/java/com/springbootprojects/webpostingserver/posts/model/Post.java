@@ -16,6 +16,7 @@ public class Post {
     private String description;
     private boolean published;
     private Date date;
+    private String backgroundPattern;
 
 
     public Post() {
@@ -74,6 +75,14 @@ public class Post {
 
     public void setDate(Date date) {
         this.date = date;
+    }
+
+    public String getBackgroundPattern() {
+        return backgroundPattern;
+    }
+
+    public void setBackgroundPattern(String backgroundPattern) {
+        this.backgroundPattern = backgroundPattern;
     }
 
 

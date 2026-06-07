@@ -1,9 +1,15 @@
 .navBar {
     background-color: black;
     position: sticky;
-    top: 0px;
-    left: 0px;
+    top: 0;
+    left: 0;
     width: 100%;
+    height: var(--navbar-height);
+    z-index: 300;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
 }
 p {
     color: white;

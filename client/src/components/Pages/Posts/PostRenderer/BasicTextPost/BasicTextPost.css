@@ -59,3 +59,16 @@ button {
     padding: 10px;
     text-align: left;
 }
+
+.draft-badge {
+    display: inline-block;
+    background: #f59e0b;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-bottom: 6px;
+    vertical-align: middle;
+}

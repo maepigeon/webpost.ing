@@ -1,28 +1,27 @@
-# FRONT END
-# Logs
-frontend/logs
-frontend/*.log
-frontend/npm-debug.log*
-frontend/yarn-debug.log*
-frontend/yarn-error.log*
-frontend/pnpm-debug.log*
-frontend/lerna-debug.log*
+# FRONT END (client/)
+client/logs
+client/*.log
+client/npm-debug.log*
+client/yarn-debug.log*
+client/yarn-error.log*
+client/pnpm-debug.log*
+client/lerna-debug.log*
+client/node_modules
+client/dist
+client/dist-ssr
+client/*.local
+client/.vscode/*
+client/.idea
+client/.DS_Store
+client/*.suo
+client/*.ntvs*
+client/*.njsproj
+client/*.sln
+client/*.sw?
 
+# Legacy frontend/ entries (directory renamed to client/)
 frontend/node_modules
 frontend/dist
-frontend/dist-ssr
-frontend/*.local
-
-# Editor directories and files
-frontend/.vscode/*
-frontend/!.vscode/extensions.json
-frontend/.idea
-frontend/frontend/.DS_Store
-frontend/*.suo
-frontend/*.ntvs*
-frontend/*.njsproj
-frontend/*.sln
-frontend/*.sw?
 
 
 # SERVER
@@ -61,5 +60,6 @@ server/!**/src/test/**/build/
 ### VS Code ###
 server/.vscode/
 
-
-
+# UPLOADS — user-uploaded files; never commit to source control
+uploads/
+server/uploads/

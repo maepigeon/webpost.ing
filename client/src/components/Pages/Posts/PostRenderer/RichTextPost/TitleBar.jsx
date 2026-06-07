@@ -42,7 +42,7 @@ function TitleBar(props) {
             return( 
                 <>
                     <h1>{postdata.title}</h1>
-                    <Link to={"/routes/PostsViewer/"+postdata.author+""}>
+                    <Link to={"/users/"+postdata.author}>
                         <h3> Author: {postdata.author}</h3>
                     </Link>
                 </>);
@@ -50,10 +50,10 @@ function TitleBar(props) {
         else if (postMode == Modes.EDIT) {
             return(
                 <>
-                    <Editable handleEditTitleCallback={handleEditTitleCallback} 
-                        typeTag="h1" initialContent={postdata.title}> 
+                    <Editable handleEditTitleCallback={handleEditTitleCallback}
+                        typeTag="h1" initialContent={postdata.title}>
                     </Editable>
-                    <Link to={"/routes/PostsViewer/"+postdata.author+""}>
+                    <Link to={"/users/"+postdata.author}>
                         <h3> Author: {postdata.author}</h3>
                     </Link>
                 </>);

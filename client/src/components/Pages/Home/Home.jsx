@@ -13,41 +13,34 @@ function Home() {
     function refreshUsers() {
       //Loads the list of all posts created by the specified user, sorted by date
       GET_ALL_USERS().then(data => {
-        console.log(data);
-        setUsersArray(data.sort(
-          function(a,b) {
-            return new Date(b.registration_date) - new Date(a.registration_date);
-          }
-        ));
-      }).catch(err => console.log(response));
+        setUsersArray(data);
+      }).catch(err => console.log(err));
     }
     return (
-        <div id="homePage" className="page">
+        <div id="homePage" className="page" style={{ minHeight: 'calc(100vh - 48px)', display: 'flex', flexDirection: 'column' }}>
             <h1>
                 Welcome to webpost.ing
             </h1>
-            <p>
-                Created by Mae Pigeon - <a href="https://www.maepigeon.com">www.maepigeon.com</a>
-            </p>
-	    <br/>
-	    <p>
-		The project source code is available on <a href="https://github.com/maepigeon/webpost.ing/">Github</a>
-	    </p>
-            <br/>
-            <h2>All Users (Select a user from the list below to view their profile)</h2>
+            <h2>All Users</h2>
+            <div className="user-list" style={{ flex: 1 }}>
             {
             /* Display all users, with links to their profiles */
-           (!usersArray || !Array.isArray(usersArray) || !usersArray.length || usersArray.length == 0) 
+           (!usersArray || !Array.isArray(usersArray) || !usersArray.length || usersArray.length == 0)
             ? (<p> No users found. The server could be down. Please contact Mae if you think this page is broken.</p>)
             : usersArray.map((record, index) => (
-                <div className='userProfileLink' key={index}>
-                    <Link to={"/routes/PostsViewer/"+record.username+""}>
-                        <p> {record.username}</p>
-                    </Link>
-                </div>
+                <Link className='userProfileLink' key={index} to={"/users/"+record.username}>
+                    {record.username}
+                </Link>
               ))
-
-          } 
+          }
+            </div>
+            <footer style={{ padding: '16px 0 24px', borderTop: '1px solid rgba(0,0,0,0.1)', fontSize: '0.85rem' }}>
+                <p style={{ color: '#888', margin: 0 }}>
+                    Created by <a href="https://www.maepigeon.com" style={{ color: '#555' }}>Mae Pigeon</a>
+                    {' · '}
+                    <a href="https://github.com/maepigeon/webpost.ing/" style={{ color: '#555' }}>GitHub</a>
+                </p>
+            </footer>
         </div>
     );
 }

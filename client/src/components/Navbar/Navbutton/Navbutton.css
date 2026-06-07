@@ -1,8 +1,21 @@
 .navButton {
     background-color: greenyellow;
     color: black;
-    padding: 10px;
-    margin: 5px;
+    padding: 8px 12px;
+    margin: 4px;
     border-radius: 5px;
-    border: 1px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 14px;
+    white-space: nowrap;
+    line-height: 1.2;
+    transition: filter 0.12s;
 }
+
+.navButton:hover { filter: brightness(0.9); }
+
+.navButton--yellow  { background-color: #FFD700; }
+.navButton--blue    { background-color: #4a90e2; color: #fff; }
+.navButton--pink    { background-color: #ff85a2; }
+.navButton--orange  { background-color: #FFA55A; }
