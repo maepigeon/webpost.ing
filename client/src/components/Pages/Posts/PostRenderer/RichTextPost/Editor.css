@@ -167,16 +167,16 @@
   background: #fef3c7;
 }
 
-/* Publish button — light green with dark text */
+/* Publish / Save button — blue */
 .toolbar-btn-save {
-  background: #bbf7d0;
-  color: #14532d;
-  border: 1px solid #86efac;
+  background: #1a73e8;
+  color: #fff;
+  border: 1px solid #1558b0;
   font-weight: 600;
 }
 
 .toolbar-btn-save:hover {
-  background: #86efac;
+  background: #1558b0;
 }
 
 /* ── Collapsible toolbar sections ───────────────────────────────────────── */

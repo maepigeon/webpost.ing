@@ -452,18 +452,29 @@ public class SocialRepository {
             userId, limit);
     }
 
-    /** Returns the user's uploads with the post they appear in, most recent first. */
+    /** Returns the user's authored posts, most recent first. */
+    public List<Map<String, Object>> getUserActivityPosts(int userId, int limit) {
+        return jdbc.queryForList(
+            "SELECT p.id, p.title, p.date, p.edited_at, p.published " +
+            "FROM posts p " +
+            "JOIN users_posts_junctions j ON j.post_id = p.id " +
+            "WHERE j.user_id = ? " +
+            "ORDER BY p.date DESC LIMIT ?",
+            userId, limit);
+    }
+
+    /** Returns the user's uploads, each annotated with the post they are linked to (if any). */
     public List<Map<String, Object>> getUserActivityUploads(int userId, int limit) {
         return jdbc.queryForList(
-            "SELECT up.id, up.filename, up.original_name, up.size_bytes, up.uploaded_at, " +
-            "  p.id AS post_id, p.title AS post_title, author.username AS post_owner " +
-            "FROM uploads up " +
-            "LEFT JOIN post_uploads pu ON pu.upload_id = up.id " +
+            "SELECT u.id, u.filename, u.original_name, u.size_bytes, u.uploaded_at, " +
+            "  pu.post_id, p.title AS post_title, owner.username AS post_owner " +
+            "FROM uploads u " +
+            "LEFT JOIN post_uploads pu ON pu.upload_id = u.id " +
             "LEFT JOIN posts p ON p.id = pu.post_id " +
             "LEFT JOIN users_posts_junctions j ON j.post_id = p.id " +
-            "LEFT JOIN users author ON author.id = j.user_id " +
-            "WHERE up.user_id = ? " +
-            "ORDER BY up.uploaded_at DESC LIMIT ?",
+            "LEFT JOIN users owner ON owner.id = j.user_id " +
+            "WHERE u.user_id = ? " +
+            "ORDER BY u.uploaded_at DESC LIMIT ?",
             userId, limit);
     }
 
@@ -481,7 +492,7 @@ public class SocialRepository {
         return rows.isEmpty() ? null : rows.get(0);
     }
 
-    /** Writes a deletion log entry. Call before or after the DELETE (content must be captured before). */
+    /** Writes a deletion log entry. Call before the DELETE (content must be captured before). */
     public void logDeletion(int userId, String itemType, Map<String, Object> info) {
         String raw = info.get("content") != null ? (String) info.get("content") : null;
         String summary = raw != null ? raw.substring(0, Math.min(200, raw.length())) : null;
@@ -508,6 +519,81 @@ public class SocialRepository {
             "SELECT COALESCE(SUM(OCTET_LENGTH(content)), 0) FROM comments WHERE user_id = ?",
             Long.class, userId);
         return r != null ? r : 0L;
+    }
+
+    // ── User data export ──────────────────────────────────────────────────────
+
+    /** Builds a complete data export for a user. Never includes the password hash. */
+    public Map<String, Object> buildUserExport(String username, int userId) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("version", "1");
+        out.put("exported_at", java.time.Instant.now().toString());
+        out.put("username", username);
+
+        List<Map<String, Object>> profileRows = jdbc.queryForList(
+            "SELECT username, registration_date, background_pattern, role, bio, pattern_presets, last_visited " +
+            "FROM users WHERE id=?", userId);
+        out.put("profile", profileRows.isEmpty() ? new LinkedHashMap<>() : new LinkedHashMap<>(profileRows.get(0)));
+
+        out.put("posts", jdbc.queryForList(
+            "SELECT p.id, p.title, p.description, p.published, p.date, p.edited_at, p.background_pattern " +
+            "FROM posts p JOIN users_posts_junctions j ON j.post_id=p.id " +
+            "WHERE j.user_id=? ORDER BY p.date DESC", userId));
+
+        out.put("comments", getUserActivityComments(userId, 10000));
+        out.put("post_reactions", getUserActivityPostReactions(userId, 10000));
+        out.put("uploads", jdbc.queryForList(
+            "SELECT id, filename, original_name, size_bytes, uploaded_at FROM uploads " +
+            "WHERE user_id=? ORDER BY uploaded_at DESC", userId));
+        out.put("notifications", jdbc.queryForList(
+            "SELECT id, type, actor_username, post_id, comment_id, is_read, created_at, message " +
+            "FROM notifications WHERE recipient_id=? ORDER BY created_at DESC", userId));
+
+        return out;
+    }
+
+    /**
+     * Restores posts from an export map into the given user account.
+     * Skips posts where the exact (title + date) already exists for that user.
+     */
+    @SuppressWarnings("unchecked")
+    public int restorePostsFromExport(int userId, Map<String, Object> exportData) {
+        List<Map<String, Object>> posts = (List<Map<String, Object>>) exportData.get("posts");
+        if (posts == null || posts.isEmpty()) return 0;
+        int restored = 0;
+        for (Map<String, Object> post : posts) {
+            String title = (String) post.getOrDefault("title", "");
+            String description = (String) post.getOrDefault("description", "");
+            boolean published = Boolean.TRUE.equals(post.get("published"));
+            String bgPattern = (String) post.get("background_pattern");
+            String dateStr = post.get("date") != null ? post.get("date").toString() : null;
+
+            List<Integer> existing = jdbc.queryForList(
+                "SELECT p.id FROM posts p JOIN users_posts_junctions j ON j.post_id=p.id " +
+                "WHERE j.user_id=? AND p.title=? AND p.date=?::timestamptz",
+                Integer.class, userId, title, dateStr);
+            if (!existing.isEmpty()) continue;
+
+            KeyHolder kh = new GeneratedKeyHolder();
+            final String finalDateStr = dateStr;
+            final String finalBg = bgPattern;
+            jdbc.update(c -> {
+                PreparedStatement ps = c.prepareStatement(
+                    "INSERT INTO posts(title, description, published, date, background_pattern) " +
+                    "VALUES(?,?,?,?::timestamptz,?) RETURNING id",
+                    Statement.RETURN_GENERATED_KEYS);
+                ps.setString(1, title);
+                ps.setString(2, description);
+                ps.setBoolean(3, published);
+                if (finalDateStr != null) ps.setString(4, finalDateStr); else ps.setString(4, java.time.Instant.now().toString());
+                if (finalBg != null) ps.setString(5, finalBg); else ps.setNull(5, java.sql.Types.VARCHAR);
+                return ps;
+            }, kh);
+            int newPostId = kh.getKey().intValue();
+            jdbc.update("INSERT INTO users_posts_junctions(post_id, user_id) VALUES(?,?)", newPostId, userId);
+            restored++;
+        }
+        return restored;
     }
 
     // ── User search ───────────────────────────────────────────────────────────

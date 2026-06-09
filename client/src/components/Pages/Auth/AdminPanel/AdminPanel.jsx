@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   ADMIN_GET_STATUS, ADMIN_LIST_USERS, ADMIN_CREATE_USER, ADMIN_DELETE_USER,
   ADMIN_SET_ADMIN, ADMIN_SET_ROLE, ADMIN_GET_STATS, ADMIN_GET_ROLE_LIMITS,
-  ADMIN_SET_ROLE_LIMIT, ADMIN_GET_FLAGGED, ADMIN_CLEANUP_ORPHANS
+  ADMIN_SET_ROLE_LIMIT, ADMIN_GET_FLAGGED, ADMIN_CLEANUP_ORPHANS,
+  ADMIN_EXPORT_USER, ADMIN_IMPORT_USER
 } from '../../Posts/BasicTextPostServerApi.js';
 import './AdminPanel.css';
 
@@ -31,6 +32,9 @@ export default function AdminPanel() {
   const [limitEdits, setLimitEdits] = useState({});
   const [search, setSearch] = useState('');
   const [msg, setMsg] = useState('');
+  const [importTarget, setImportTarget] = useState('');
+  const [importResult, setImportResult] = useState(null);
+  const importFileRef = useRef(null);
 
   useEffect(() => {
     ADMIN_GET_STATUS()
@@ -174,7 +178,11 @@ export default function AdminPanel() {
                   <td>
                     <input type="checkbox" checked={!!u.is_admin} onChange={() => toggleAdmin(u.username, !!u.is_admin)} />
                   </td>
-                  <td>
+                  <td style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                    <button className="admin-btn" onClick={async () => {
+                      try { await ADMIN_EXPORT_USER(u.username); }
+                      catch { flash(`Export failed for ${u.username}.`); }
+                    }}>Export</button>
                     <button className="admin-btn admin-btn--danger" onClick={() => deleteUser(u.username)}>Delete</button>
                   </td>
                 </tr>
@@ -212,6 +220,47 @@ export default function AdminPanel() {
                 ADMIN_GET_STATS().then(setStats);
               } catch { flash('Cleanup failed.'); }
             }}>Delete Orphaned Uploads</button>
+          </div>
+
+          <div className="admin-orphan-row" style={{ marginTop: '20px' }}>
+            <p className="admin-hint">Restore a user's data from a previously exported JSON file (profile + posts).</p>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <input
+                type="text"
+                placeholder="Target username"
+                value={importTarget}
+                onChange={e => setImportTarget(e.target.value)}
+                style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '13px' }}
+              />
+              <input
+                type="file"
+                accept=".json"
+                ref={importFileRef}
+                style={{ display: 'none' }}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file || !importTarget.trim()) { flash('Enter a target username first.'); return; }
+                  try {
+                    const text = await file.text();
+                    const result = await ADMIN_IMPORT_USER(importTarget.trim(), text);
+                    setImportResult(result);
+                    flash(`Restore complete: ${result.postsRestored} posts restored.`);
+                  } catch (err) {
+                    flash(err?.response?.data?.error || 'Restore failed.');
+                  }
+                  e.target.value = '';
+                }}
+              />
+              <button className="admin-btn" onClick={() => {
+                if (!importTarget.trim()) { flash('Enter a target username first.'); return; }
+                importFileRef.current?.click();
+              }}>Restore from file…</button>
+            </div>
+            {importResult && (
+              <p className="admin-hint" style={{ marginTop: '6px' }}>
+                Last restore: profile {importResult.profileRestored ? 'restored' : 'skipped'}, {importResult.postsRestored} posts restored.
+              </p>
+            )}
           </div>
         </div>
       )}

@@ -370,3 +370,46 @@ export function GET_USER_ACTIVITY(username) {
   return axios.get(baseUrl + `/api/users/${username}/activity`, { withCredentials: true })
     .then(r => r.data);
 }
+
+// ── Data export / import ──────────────────────────────────────────────────────
+
+/** Triggers a download of the user's full data export JSON. */
+export async function EXPORT_MY_DATA(username) {
+  const resp = await axios.get(baseUrl + `/api/users/${username}/export`, {
+    withCredentials: true,
+    responseType: 'blob',
+  });
+  const url = URL.createObjectURL(new Blob([resp.data], { type: 'application/json' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${username}_data.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/** Admin: download any user's data export. */
+export async function ADMIN_EXPORT_USER(targetUsername) {
+  const resp = await axios.get(baseUrl + `/api/admin/users/${targetUsername}/export`, {
+    withCredentials: true,
+    responseType: 'blob',
+  });
+  const url = URL.createObjectURL(new Blob([resp.data], { type: 'application/json' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${targetUsername}_data.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/** Admin: restore a user's data from a previously exported JSON file. */
+export function ADMIN_IMPORT_USER(targetUsername, exportJsonString) {
+  const parsed = JSON.parse(exportJsonString);
+  return axios.post(baseUrl + `/api/admin/users/${targetUsername}/import`, parsed, {
+    withCredentials: true,
+    headers: { 'Content-Type': 'application/json' },
+  }).then(r => r.data);
+}

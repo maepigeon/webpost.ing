@@ -12,15 +12,17 @@
 -- -------------------------------------------------------------
 CREATE TABLE users (
     id                SERIAL PRIMARY KEY,
-    username          VARCHAR(32)              NOT NULL UNIQUE,
-    password          TEXT                     NOT NULL,          -- BCrypt hash (60 chars)
-    registration_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    last_visited      TIMESTAMPTZ DEFAULT NULL,
+    username          VARCHAR(32)              NOT NULL,
+    password          VARCHAR(60)              NOT NULL,
+    registration_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     background_pattern VARCHAR(2000)           DEFAULT NULL,
     is_admin          BOOLEAN                  NOT NULL DEFAULT FALSE,
     role              VARCHAR(20)              NOT NULL DEFAULT 'user',
-    bio               TEXT                     DEFAULT NULL,
-    pattern_presets   TEXT                     NOT NULL DEFAULT '{}'
+    pattern_presets   TEXT                              DEFAULT '{}',
+    last_visited      TIMESTAMP WITH TIME ZONE          DEFAULT NULL,
+    bio               VARCHAR(500)                      DEFAULT NULL,
+    bio_links         TEXT                              DEFAULT NULL,
+    UNIQUE (username)
 );
 
 
@@ -197,21 +199,22 @@ CREATE TABLE post_uploads (
 -- -------------------------------------------------------------
 CREATE TABLE notifications (
     id             SERIAL PRIMARY KEY,
-    recipient_id   INTEGER      NOT NULL,
-    type           VARCHAR(32)  NOT NULL,
-    actor_username VARCHAR(32)  NOT NULL,
-    post_id        INTEGER      DEFAULT NULL,
-    comment_id     INTEGER      DEFAULT NULL,
-    message        TEXT         DEFAULT NULL,
-    is_read        BOOLEAN      NOT NULL DEFAULT FALSE,
-    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    recipient_id   INTEGER     NOT NULL,
+    type           VARCHAR(32) NOT NULL,
+    actor_username VARCHAR(32) NOT NULL,
+    post_id        INTEGER     DEFAULT NULL,
+    comment_id     INTEGER     DEFAULT NULL,
+    is_read        BOOLEAN     NOT NULL DEFAULT FALSE,
+    created_at     TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    message        TEXT        DEFAULT NULL,
     CONSTRAINT notifications_recipient_fk FOREIGN KEY (recipient_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
 
 -- -------------------------------------------------------------
 -- DM_BLOCKS
--- recipient blocks DMs from a specific sender
+-- Tracks which users have blocked direct messages from whom.
+-- blocker_id has blocked incoming messages from blocked_id.
 -- -------------------------------------------------------------
 CREATE TABLE dm_blocks (
     blocker_id INTEGER NOT NULL,
@@ -253,3 +256,95 @@ CREATE TABLE activity_deletions (
 -- Generate a hash: htpasswd -bnBC 10 "" yourpassword | tr -d ':\n'
 -- or use: python3 -c "import bcrypt; print(bcrypt.hashpw(b'pw', bcrypt.gensalt(10)).decode())"
 -- =============================================================
+
+
+-- =============================================================
+-- MIGRATIONS
+-- For EXISTING databases only — fresh installs get all columns above.
+-- Always take a backup first: pg_dump -Fc mydb > backup.dump
+-- =============================================================
+
+-- Migration 001 — description type change
+--   ALTER TABLE posts ALTER COLUMN description TYPE TEXT;
+
+-- Migration 002 — add background_pattern columns
+--   ALTER TABLE posts ADD COLUMN background_pattern VARCHAR(2000) DEFAULT NULL;
+--   ALTER TABLE users ADD COLUMN background_pattern VARCHAR(2000) DEFAULT NULL;
+
+-- Migration 003 — add is_admin to users
+--   ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Migration 004 — add edited_at to posts
+--   ALTER TABLE posts ADD COLUMN edited_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+
+-- Migration 005 — create uploads tracking table
+--   CREATE TABLE uploads (
+--       id            SERIAL PRIMARY KEY,
+--       filename      VARCHAR(255) NOT NULL UNIQUE,
+--       user_id       INTEGER      NOT NULL,
+--       original_name VARCHAR(255) DEFAULT NULL,
+--       size_bytes    BIGINT       NOT NULL DEFAULT 0,
+--       uploaded_at   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+--       CONSTRAINT uploads_user_fk FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+--   );
+
+-- Migration 006 — add style column to discussions
+--   ALTER TABLE discussions ADD COLUMN style VARCHAR(20) NOT NULL DEFAULT 'threaded';
+
+-- Migration 007 — allow multiple reactions per user per post
+--   ALTER TABLE post_reactions DROP CONSTRAINT post_reactions_pkey;
+--   ALTER TABLE post_reactions ADD PRIMARY KEY (post_id, user_id, reaction);
+
+-- Migration 008 — allow multiple reactions per user per comment
+--   -- Only if comment_reactions was already created with old schema:
+--   ALTER TABLE comment_reactions DROP CONSTRAINT comment_reactions_pkey;
+--   ALTER TABLE comment_reactions ADD PRIMARY KEY (comment_id, user_id, reaction);
+
+-- Migration 009 — add role column and role_limits table
+--   ALTER TABLE users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'user';
+--   CREATE TABLE role_limits (...); -- see current CREATE TABLE above for full definition
+--   INSERT INTO role_limits(role, max_storage_bytes, max_posts_per_day) VALUES
+--       ('user',       52428800,   20),
+--       ('trusted',    524288000, 100),
+--       ('restricted', 5242880,     2),
+--       ('admin',      -1,         -1);
+
+-- Migration 010 — post_uploads junction table
+--   CREATE TABLE post_uploads (...); -- see current CREATE TABLE above for full definition
+
+-- Migration 011 — add last_visited to users (now in base schema)
+--   ALTER TABLE users ADD COLUMN IF NOT EXISTS last_visited TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+
+-- Migration 012 — add message to notifications (now in base schema)
+--   ALTER TABLE notifications ADD COLUMN IF NOT EXISTS message TEXT;
+
+-- Migration 013 — add pattern_presets to users (now in base schema)
+--   ALTER TABLE users ADD COLUMN IF NOT EXISTS pattern_presets TEXT DEFAULT '{}';
+
+-- Migration 014 — add bio to users (now in base schema)
+--   ALTER TABLE users ADD COLUMN IF NOT EXISTS bio VARCHAR(500) DEFAULT NULL;
+
+-- Migration 015 — create dm_blocks table (now in base schema)
+--   CREATE TABLE IF NOT EXISTS dm_blocks (
+--       blocker_id INTEGER NOT NULL,
+--       blocked_id INTEGER NOT NULL,
+--       PRIMARY KEY (blocker_id, blocked_id),
+--       CONSTRAINT dm_blocks_blocker_fk FOREIGN KEY (blocker_id) REFERENCES users (id) ON DELETE CASCADE,
+--       CONSTRAINT dm_blocks_blocked_fk FOREIGN KEY (blocked_id) REFERENCES users (id) ON DELETE CASCADE
+--   );
+
+-- Migration 016 — create activity_deletions table (now in base schema)
+--   CREATE TABLE IF NOT EXISTS activity_deletions (
+--       id          SERIAL PRIMARY KEY,
+--       user_id     INTEGER      NOT NULL,
+--       item_type   VARCHAR(32)  NOT NULL,
+--       summary     TEXT         DEFAULT NULL,
+--       post_id     INTEGER      DEFAULT NULL,
+--       post_title  VARCHAR(255) DEFAULT NULL,
+--       post_owner  VARCHAR(32)  DEFAULT NULL,
+--       deleted_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+--       CONSTRAINT activity_deletions_user_fk FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+--   );
+
+-- Migration 017 — add bio_links to users (now in base schema)
+--   ALTER TABLE users ADD COLUMN IF NOT EXISTS bio_links TEXT DEFAULT NULL;
