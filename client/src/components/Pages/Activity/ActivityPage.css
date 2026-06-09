@@ -72,6 +72,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  text-align: left;
 }
 
 .activity-item {
@@ -79,6 +80,7 @@
   border: 1px solid rgba(0,0,0,0.08);
   border-radius: 10px;
   padding: 12px 14px;
+  text-align: left;
 }
 
 .activity-item--reaction {
@@ -137,6 +139,9 @@
 
 .activity-score--pos { color: #2e7d32; }
 .activity-score--neg { color: #c62828; }
+
+.activity-badge--draft { background: rgba(255,160,0,0.15); color: #b45309; }
+.activity-badge--orphan { background: rgba(180,0,0,0.1); color: #b71c1c; }
 
 .activity-reaction-emoji { font-size: 20px; }
 

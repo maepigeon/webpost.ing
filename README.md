@@ -6,9 +6,9 @@ A blog/post creation platform built with React (Vite) + Spring Boot + PostgreSQL
 
 ## Prerequisites
 
-- Java 17+
-- Node.js 18+
-- PostgreSQL 14+
+- **Java 21 JDK** (not just JRE — `javac` must be available; check with `javac -version`)
+- **Node.js 18+** and npm
+- **PostgreSQL 14+**
 
 ---
 
@@ -16,12 +16,37 @@ A blog/post creation platform built with React (Vite) + Spring Boot + PostgreSQL
 
 PostgreSQL must be running before starting the server.
 
-**1. Create the database and tables**
+**1. Create the database and user**
 
-Run the SQL in `config/database.sql` against your PostgreSQL instance:
+On Ubuntu/Debian, the PostgreSQL superuser commands must run as the `postgres` system user:
 
 ```bash
-psql -U <your_user> -d <your_db> -f config/database.sql
+sudo -u postgres psql -c "CREATE DATABASE testdb;"
+sudo -u postgres psql -c "CREATE USER mae WITH PASSWORD 'password';"
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE testdb TO mae;"
+sudo -u postgres psql -d testdb -c "GRANT ALL ON SCHEMA public TO mae;"
+```
+
+Change `testdb`, `mae`, and `password` to whatever credentials you want — just keep them consistent with `application.properties`.
+
+**2. Load the schema**
+
+```bash
+PGPASSWORD=password psql -U mae -d testdb -h localhost -f config/database.sql
+```
+
+(`-h localhost` forces password auth instead of peer auth. `PGPASSWORD` avoids an interactive prompt.)
+
+**3. Apply required migrations**
+
+These columns are required by the current codebase but are not in the base schema file:
+
+```bash
+PGPASSWORD=password psql -U mae -d testdb -h localhost -c "
+  ALTER TABLE notifications ADD COLUMN IF NOT EXISTS message TEXT;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS pattern_presets TEXT DEFAULT '{}';
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS last_visited TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+"
 ```
 
 Key tables (see `config/database.sql` for the full schema):
@@ -34,14 +59,19 @@ Key tables (see `config/database.sql` for the full schema):
 - `follows` / `notifications` / `post_reactions` — social features
 - `role_limits` — per-role storage and post-rate limits
 
-**2. Configure the connection**
+**4. Configure the connection**
 
-Edit `server/src/main/resources/application.properties`:
+Create `server/src/main/resources/application.properties` (this file is not in the repo — you must create it):
 
 ```properties
-spring.datasource.url=jdbc:postgresql://localhost:5432/<your_db>
-spring.datasource.username=<your_user>
-spring.datasource.password=<your_password>
+spring.profiles.active=dev
+
+spring.datasource.url=jdbc:postgresql://localhost:5432/testdb
+spring.datasource.username=mae
+spring.datasource.password=password
+spring.datasource.driver-class-name=org.postgresql.Driver
+
+spring.jpa.hibernate.ddl-auto=none
 ```
 
 > **Decision required:** These credentials are not managed by the environment toggle and must be set manually for each environment.
@@ -91,8 +121,10 @@ Change `dev` → `prod` before deploying. The active profile loads the matching 
 **Backend:**
 ```bash
 cd server
-./mvnw spring-boot:run
+JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 ./mvnw spring-boot:run
 ```
+
+> **Note:** If `javac -version` shows a different version than `java -version`, set `JAVA_HOME` to the Java 21 JDK path (find it with `update-alternatives --list java`). Maven uses `javac`, not `java`.
 Runs on `http://localhost:8080`. Stop with `Ctrl+C` in the terminal, or:
 ```bash
 kill $(lsof -ti:8080)

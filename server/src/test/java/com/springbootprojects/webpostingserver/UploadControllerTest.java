@@ -13,18 +13,22 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class UploadControllerTest {
 
     @Mock LoginRepository loginRepository;
+    @Mock JdbcTemplate jdbc;
 
     @InjectMocks UploadController uploadController;
 
@@ -43,8 +47,14 @@ class UploadControllerTest {
     @Test
     void upload_validImage_returns200WithPath() throws Exception {
         when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
+        when(jdbc.queryForList(anyString(), eq(Integer.class), any())).thenReturn(List.of(1));
+        // Valid JPEG: starts with FF D8 FF magic bytes
+        byte[] jpegBytes = new byte[100];
+        jpegBytes[0] = (byte) 0xFF;
+        jpegBytes[1] = (byte) 0xD8;
+        jpegBytes[2] = (byte) 0xFF;
         MockMultipartFile file = new MockMultipartFile(
-                "file", "photo.jpg", "image/jpeg", new byte[100]);
+                "file", "photo.jpg", "image/jpeg", jpegBytes);
 
         ResponseEntity<String> resp = uploadController.uploadFile(file, "kittycat", "tok");
 
@@ -86,7 +96,7 @@ class UploadControllerTest {
         ResponseEntity<String> resp = uploadController.uploadFile(file, "kittycat", "tok");
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(resp.getBody()).contains("image");
+        assertThat(resp.getBody()).contains(".jpg");
     }
 
     @Test

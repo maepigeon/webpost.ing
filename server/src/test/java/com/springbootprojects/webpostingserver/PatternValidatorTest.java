@@ -98,12 +98,13 @@ class PatternValidatorTest {
     // ── Length limit ──────────────────────────────────────────────────────────
 
     @Test void rejects_too_long() {
-        assertThat(PatternValidator.isValid("linear-gradient(" + "a".repeat(490) + ")")).isFalse();
+        // MAX_LENGTH = 2000; "linear-gradient(" = 16 chars, ")" = 1 → need >1983 filler chars
+        assertThat(PatternValidator.isValid("linear-gradient(" + "a".repeat(1990) + ")")).isFalse();
     }
-    @Test void accepts_exactly_500_chars() {
-        // "linear-gradient(" = 16 chars, ")" = 1 char → 500 - 17 = 483 filler chars
-        String value = "linear-gradient(" + "a".repeat(483) + ")";
-        assertThat(value.length()).isEqualTo(500);
+    @Test void accepts_exactly_2000_chars() {
+        // "linear-gradient(" = 16, ")" = 1 → 2000 - 17 = 1983 filler chars
+        String value = "linear-gradient(" + "a".repeat(1983) + ")";
+        assertThat(value.length()).isEqualTo(2000);
         assertThat(PatternValidator.isValid(value)).isTrue();
     }
 }

@@ -92,9 +92,10 @@ public class AuthController {
             return loginRepository.deleteCookie();
         }
         if (session == null) return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
-        String trimmed = bio == null ? "" : bio.trim();
-        if (trimmed.length() > 500) return new ResponseEntity<>("Bio must be 500 characters or less", HttpStatus.BAD_REQUEST);
-        loginRepository.updateUserBio(username, trimmed.isBlank() ? null : trimmed);
+        // Strip HTML tags to prevent stored XSS (React also escapes on render, this is defense-in-depth)
+        String stripped = bio == null ? "" : bio.replaceAll("<[^>]*>", "").trim();
+        if (stripped.length() > 500) return new ResponseEntity<>("Bio must be 500 characters or less", HttpStatus.BAD_REQUEST);
+        loginRepository.updateUserBio(username, stripped.isBlank() ? null : stripped);
         return ResponseEntity.ok("Bio updated");
     }
 
@@ -249,9 +250,47 @@ public class AuthController {
         if (targetUserId < 0) return ResponseEntity.notFound().build();
 
         Map<String, Object> result = new java.util.LinkedHashMap<>();
-        result.put("comments", social.getUserActivityComments(targetUserId, 100));
-        result.put("reactions", social.getUserActivityPostReactions(targetUserId, 100));
+        result.put("posts", social.getUserActivityPosts(targetUserId, 200));
+        result.put("comments", social.getUserActivityComments(targetUserId, 200));
+        result.put("reactions", social.getUserActivityPostReactions(targetUserId, 200));
+        result.put("uploads", social.getUserActivityUploads(targetUserId, 200));
         return ResponseEntity.ok(result);
+    }
+
+    /** Downloads the authenticated user's full data as a JSON file. Admins can export any user. */
+    @GetMapping("/users/{username}/export")
+    public ResponseEntity<byte[]> exportUserData(
+            @PathVariable String username,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+        AuthSession session;
+        try {
+            session = loginRepository.authorize(authUsername, token);
+        } catch (JdbcLoginRepository.TokenExpiredException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+        if (!authUsername.equals(username)) {
+            Boolean isAdmin = jdbc.queryForObject("SELECT is_admin FROM users WHERE username=?", Boolean.class, authUsername);
+            if (!Boolean.TRUE.equals(isAdmin)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        int targetUserId = authUsername.equals(username) ? session.userId : social.getUserIdByUsername(username);
+        if (targetUserId < 0) return ResponseEntity.notFound().build();
+
+        try {
+            Map<String, Object> exportData = social.buildUserExport(username, targetUserId);
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+            byte[] json = mapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(exportData);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + username + "_data.json\"");
+            return new ResponseEntity<>(json, headers, HttpStatus.OK);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     @GetMapping("getAllUsers")

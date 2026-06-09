@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, React} from 'react';
-import {AUTHORIZE_SESSION, READ_POSTS_BY_USER, GET_USER_BACKGROUND, UPDATE_USER_BACKGROUND, GET_USER_BIO, UPDATE_USER_BIO, GET_USER_STORAGE, SEND_MESSAGE, GET_FOLLOWERS, GET_FOLLOWING, GET_BLOCK_MESSAGE_STATUS, BLOCK_MESSAGES, UNBLOCK_MESSAGES} from '../BasicTextPostServerApi.js'
+import {AUTHORIZE_SESSION, READ_POSTS_BY_USER, GET_USER_BACKGROUND, UPDATE_USER_BACKGROUND, GET_USER_BIO, UPDATE_USER_BIO, GET_USER_STORAGE, SEND_MESSAGE, GET_FOLLOWERS, GET_FOLLOWING, GET_BLOCK_MESSAGE_STATUS, BLOCK_MESSAGES, UNBLOCK_MESSAGES, EXPORT_MY_DATA} from '../BasicTextPostServerApi.js'
 import BasicTextPost from '../PostRenderer/BasicTextPost/BasicTextPost.jsx';
 import PatternPicker from '../../../PatternPicker/PatternPicker.jsx';
 import FollowButton from '../../../Social/FollowButton.jsx';
@@ -48,6 +48,22 @@ function StorageBar({ storage }) {
       )}
     </div>
   );
+}
+
+// Renders bio text with http/https URLs turned into clickable links
+const URL_PATTERN = /https?:\/\/[^\s<>"']+/g;
+function BioText({ text }) {
+  const parts = [];
+  let last = 0;
+  let match;
+  URL_PATTERN.lastIndex = 0;
+  while ((match = URL_PATTERN.exec(text)) !== null) {
+    if (match.index > last) parts.push(text.slice(last, match.index));
+    parts.push(<a key={match.index} href={match[0]} target="_blank" rel="noopener noreferrer" style={{ color: '#1a73e8', textDecoration: 'underline' }}>{match[0]}</a>);
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return <>{parts}</>;
 }
 
 function hasModifyPermissions(viewedUser) {
@@ -234,7 +250,7 @@ function PostsViewer() {
                     {bio ? 'Edit bio' : '+ Add bio'}
                   </button>
                 )}
-                {bio && <p style={{ margin: '0', fontSize: '14px', color: '#444', whiteSpace: 'pre-wrap' }}>{bio}</p>}
+                {bio && <p style={{ margin: '0', fontSize: '14px', color: '#444', whiteSpace: 'pre-wrap' }}><BioText text={bio} /></p>}
               </div>
             )}
 
@@ -253,6 +269,21 @@ function PostsViewer() {
             )}
 
             {storage && <StorageBar storage={storage} />}
+
+            {canEdit && (
+              <div style={{ marginTop: '10px', display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  style={{ fontSize: '12px', padding: '4px 12px' }}
+                  onClick={async () => {
+                    try { await EXPORT_MY_DATA(username); }
+                    catch { alert('Export failed. Please try again.'); }
+                  }}
+                >
+                  Download my data
+                </button>
+              </div>
+            )}
 
             {!canEdit && loggedIn && (
               <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '10px', flexWrap: 'wrap' }}>

@@ -7,6 +7,7 @@ import com.springbootprojects.webpostingserver.posts.model.Post;
 import com.springbootprojects.webpostingserver.posts.repository.JdbcLoginRepository;
 import com.springbootprojects.webpostingserver.posts.repository.LoginRepository;
 import com.springbootprojects.webpostingserver.posts.repository.PostRepository;
+import com.springbootprojects.webpostingserver.posts.repository.SocialRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,6 +16,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
@@ -24,6 +26,8 @@ class PostControllerTest {
 
     @Mock PostRepository postRepository;
     @Mock LoginRepository loginRepository;
+    @Mock SocialRepository social;
+    @Mock JdbcTemplate jdbc;
 
     @InjectMocks PostController postController;
 

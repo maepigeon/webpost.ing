@@ -28,7 +28,7 @@ import { LinkNode, $createLinkNode, $isLinkNode, TOGGLE_LINK_COMMAND } from '@le
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
 import { ClickableLinkPlugin } from '@lexical/react/LexicalClickableLinkPlugin';
 import { READ_POST, CREATE_POST, UPDATE_POST, GET_USER_FROM_POST, GET_POST_FEATURES, SET_REACTIONS_ENABLED, SET_DISCUSSION_ENABLED } from '../../BasicTextPostServerApi.js';
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useBlocker } from "react-router-dom";
 import { ImageNode, $createImageNode } from './ImageNode.jsx';
 import { MathNode, $createMathNode } from './MathNode.jsx';
 import axios from 'axios';
@@ -766,7 +766,7 @@ function FeatureTogglePlugin({ postid, features, onFeaturesChange }) {
   );
 }
 
-function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublishedChange, titleRef }) {
+function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublishedChange, titleRef, onSaved }) {
   const [editor] = useLexicalComposerContext();
   const [saveStatus, setSaveStatus] = useState('');
   const isExisting = postid > 0;
@@ -778,13 +778,13 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
 
   const save = (published) => {
     const editorState = JSON.stringify(editor.getEditorState().toJSON());
-    // titleRef.current is the live value; localStorage is a fallback for edge cases
     const postTitle = titleRef?.current || localStorage.getItem("currentPostTitle") || 'Untitled';
     if (isExisting) {
       UPDATE_POST(postid, postTitle, editorState, published, backgroundPattern)
         .then(() => {
           showStatus(published ? 'Published!' : postPublished ? 'Unpublished.' : 'Draft saved.');
           onPublishedChange(published);
+          onSaved?.();
         })
         .catch(err => {
           console.error("Save failed:", err);
@@ -794,7 +794,10 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
         });
     } else {
       CREATE_POST(1, postTitle, editorState, published, backgroundPattern)
-        .then(() => showStatus(published ? 'Post created!' : 'Draft created.'))
+        .then(() => {
+          showStatus(published ? 'Post created!' : 'Draft created.');
+          onSaved?.();
+        })
         .catch(err => {
           console.error("Create failed:", err);
           showStatus('Failed to create post.', true);
@@ -891,7 +894,7 @@ function FormatToolbarPlugin() {
   );
 }
 
-function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, postPublished, onPublishedChange, features, onFeaturesChange, titleRef }) {
+function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, postPublished, onPublishedChange, features, onFeaturesChange, titleRef, onSaved }) {
   return (
     <div className='toolbar-sticky'>
       <UndoRedoPlugin />
@@ -913,13 +916,15 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
         <LinkToolbarPlugin />
         <CodeToolbarPlugin />
         <MathToolbarPlugin />
-        <BackgroundToolbarPlugin pattern={backgroundPattern} onPatternChange={onPatternChange} username={username} />
         <ImageToolbarPlugin />
       </CollapsibleSection>
       <span className='toolbar-divider' />
-      <FeatureTogglePlugin postid={postid} features={features} onFeaturesChange={onFeaturesChange} />
+      <CollapsibleSection label="Preferences" defaultOpen={false}>
+        <BackgroundToolbarPlugin pattern={backgroundPattern} onPatternChange={onPatternChange} username={username} />
+        <FeatureTogglePlugin postid={postid} features={features} onFeaturesChange={onFeaturesChange} />
+      </CollapsibleSection>
       <span className='toolbar-divider' />
-      <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} titleRef={titleRef} />
+      <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} titleRef={titleRef} onSaved={onSaved} />
     </div>
   );
 }
@@ -963,6 +968,15 @@ export default function RichTextEditor() {
   const [dataReady, setDataReady] = useState(0);
   const [postLoaded, setPostLoaded] = useState(false);
   const [features, setFeatures] = useState({ reactionsEnabled: false, discussionEnabled: false });
+  const [isDirty, setIsDirty] = useState(false);
+  const savedOnceRef = useRef(false);
+
+  // Block navigation away from an unsaved editor
+  useBlocker(({ currentLocation, nextLocation }) => {
+    if (!isDirty) return false;
+    if (currentLocation.pathname === nextLocation.pathname) return false;
+    return !window.confirm('You have unsaved changes. Leave anyway? All unsaved data will be lost.');
+  });
 
   const me = localStorage.getItem('userName');
 
@@ -970,10 +984,12 @@ export default function RichTextEditor() {
     try {
       const editorStateString = JSON.stringify(editorState);
       setEditorState(JSON.parse(editorStateString));
+      // Mark dirty after the initial load has populated the editor
+      if (savedOnceRef.current || dataReady > 0) setIsDirty(true);
     } catch (e) {
       console.log("failed to serialize editor state: " + e);
     }
-  }, []);
+  }, [dataReady]);
 
   // For new posts, seed localStorage with the initial title so SaveToolbarPlugin has it
   useEffect(() => {
@@ -1009,6 +1025,23 @@ export default function RichTextEditor() {
   useEffect(() => {
     refreshPost();
   }, [refreshPost]);
+
+  // After a successful save, mark clean and note that at least one save has happened
+  const handleSaved = useCallback(() => {
+    savedOnceRef.current = true;
+    setIsDirty(false);
+  }, []);
+
+  // Warn the browser's own "close tab / navigate away" dialog when dirty
+  useEffect(() => {
+    const onBeforeUnload = (e) => {
+      if (!isDirty) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [isDirty]);
 
   // Apply background pattern to document.body so backdrop-filter on the glass card can blur it
   useEffect(() => {
@@ -1051,7 +1084,7 @@ export default function RichTextEditor() {
               }}
               editMode={true}
             />
-            <ToolbarPlugin postid={id} backgroundPattern={backgroundPattern} onPatternChange={setBackgroundPattern} username={postAuthor} postPublished={postPublished} onPublishedChange={setPostPublished} features={features} onFeaturesChange={setFeatures} titleRef={titlehtml} />
+            <ToolbarPlugin postid={id} backgroundPattern={backgroundPattern} onPatternChange={setBackgroundPattern} username={postAuthor} postPublished={postPublished} onPublishedChange={setPostPublished} features={features} onFeaturesChange={setFeatures} titleRef={titlehtml} onSaved={handleSaved} />
             <div style={{ position: 'relative' }}>
               <RichTextPlugin
                 contentEditable={<ContentEditable className='editor-contenteditable' />}

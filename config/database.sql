@@ -12,11 +12,14 @@
 CREATE TABLE users (
     id                SERIAL PRIMARY KEY,
     username          VARCHAR(32)              NOT NULL,
-    password          VARCHAR(32)              NOT NULL,
+    password          VARCHAR(60)              NOT NULL,
     registration_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     background_pattern VARCHAR(2000)           DEFAULT NULL,
     is_admin          BOOLEAN                  NOT NULL DEFAULT FALSE,
     role              VARCHAR(20)              NOT NULL DEFAULT 'user',
+    pattern_presets   TEXT                              DEFAULT '{}',
+    last_visited      TIMESTAMP WITH TIME ZONE          DEFAULT NULL,
+    bio               VARCHAR(500)                      DEFAULT NULL,
     UNIQUE (username)
 );
 
@@ -192,21 +195,36 @@ CREATE TABLE post_uploads (
 -- NOTIFICATIONS
 -- -------------------------------------------------------------
 CREATE TABLE notifications (
-    id           SERIAL PRIMARY KEY,
-    recipient_id INTEGER     NOT NULL,
-    type         VARCHAR(32) NOT NULL,
+    id             SERIAL PRIMARY KEY,
+    recipient_id   INTEGER     NOT NULL,
+    type           VARCHAR(32) NOT NULL,
     actor_username VARCHAR(32) NOT NULL,
-    post_id      INTEGER     DEFAULT NULL,
-    comment_id   INTEGER     DEFAULT NULL,
-    is_read      BOOLEAN     NOT NULL DEFAULT FALSE,
-    created_at   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    post_id        INTEGER     DEFAULT NULL,
+    comment_id     INTEGER     DEFAULT NULL,
+    is_read        BOOLEAN     NOT NULL DEFAULT FALSE,
+    created_at     TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    message        TEXT        DEFAULT NULL,
     CONSTRAINT notifications_recipient_fk FOREIGN KEY (recipient_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
+
+-- -------------------------------------------------------------
+-- DM_BLOCKS
+-- Tracks which users have blocked direct messages from whom.
+-- blocker_id has blocked incoming messages from blocked_id.
+-- -------------------------------------------------------------
+CREATE TABLE dm_blocks (
+    blocker_id INTEGER NOT NULL,
+    blocked_id INTEGER NOT NULL,
+    PRIMARY KEY (blocker_id, blocked_id),
+    CONSTRAINT dm_blocks_blocker_fk FOREIGN KEY (blocker_id) REFERENCES users (id) ON DELETE CASCADE,
+    CONSTRAINT dm_blocks_blocked_fk FOREIGN KEY (blocked_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
 
 -- =============================================================
 -- MIGRATIONS
--- Apply these in order on existing databases.
+-- For EXISTING databases only — fresh installs get all columns above.
 -- Always take a backup first: pg_dump -Fc mydb > backup.dump
 -- =============================================================
 
@@ -246,27 +264,35 @@ CREATE TABLE notifications (
 --   ALTER TABLE comment_reactions DROP CONSTRAINT comment_reactions_pkey;
 --   ALTER TABLE comment_reactions ADD PRIMARY KEY (comment_id, user_id, reaction);
 
--- Migration 011 — add last_visited to users
---   ALTER TABLE users ADD COLUMN last_visited TIMESTAMP WITH TIME ZONE DEFAULT NULL;
-
--- Migration 010 — post_uploads junction table
---   CREATE TABLE post_uploads (
---       post_id   INTEGER NOT NULL,
---       upload_id INTEGER NOT NULL,
---       PRIMARY KEY (post_id, upload_id),
---       CONSTRAINT post_uploads_post_fk   FOREIGN KEY (post_id)   REFERENCES posts   (id) ON DELETE CASCADE,
---       CONSTRAINT post_uploads_upload_fk FOREIGN KEY (upload_id) REFERENCES uploads (id) ON DELETE CASCADE
---   );
-
 -- Migration 009 — add role column and role_limits table
 --   ALTER TABLE users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'user';
---   CREATE TABLE role_limits (
---       role               VARCHAR(20) PRIMARY KEY,
---       max_storage_bytes  BIGINT  NOT NULL DEFAULT 52428800,
---       max_posts_per_day  INTEGER NOT NULL DEFAULT 20
---   );
+--   CREATE TABLE role_limits (...); -- see current CREATE TABLE above for full definition
 --   INSERT INTO role_limits(role, max_storage_bytes, max_posts_per_day) VALUES
 --       ('user',       52428800,   20),
 --       ('trusted',    524288000, 100),
 --       ('restricted', 5242880,     2),
 --       ('admin',      -1,         -1);
+
+-- Migration 010 — post_uploads junction table
+--   CREATE TABLE post_uploads (...); -- see current CREATE TABLE above for full definition
+
+-- Migration 011 — add last_visited to users (now in base schema)
+--   ALTER TABLE users ADD COLUMN IF NOT EXISTS last_visited TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+
+-- Migration 012 — add message to notifications (now in base schema)
+--   ALTER TABLE notifications ADD COLUMN IF NOT EXISTS message TEXT;
+
+-- Migration 013 — add pattern_presets to users (now in base schema)
+--   ALTER TABLE users ADD COLUMN IF NOT EXISTS pattern_presets TEXT DEFAULT '{}';
+
+-- Migration 014 — add bio to users (now in base schema)
+--   ALTER TABLE users ADD COLUMN IF NOT EXISTS bio VARCHAR(500) DEFAULT NULL;
+
+-- Migration 015 — create dm_blocks table (now in base schema)
+--   CREATE TABLE IF NOT EXISTS dm_blocks (
+--       blocker_id INTEGER NOT NULL,
+--       blocked_id INTEGER NOT NULL,
+--       PRIMARY KEY (blocker_id, blocked_id),
+--       CONSTRAINT dm_blocks_blocker_fk FOREIGN KEY (blocker_id) REFERENCES users (id) ON DELETE CASCADE,
+--       CONSTRAINT dm_blocks_blocked_fk FOREIGN KEY (blocked_id) REFERENCES users (id) ON DELETE CASCADE
+--   );

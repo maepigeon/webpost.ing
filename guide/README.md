@@ -12,6 +12,7 @@ A reference for anyone setting up, building, or deploying the platform from scra
 4. [Running Tests](#4-running-tests)
 5. [Production Deployment](#5-production-deployment)
 6. [Database Architecture](#6-database-architecture)
+7. [Feature Reference](#7-feature-reference)
 
 ---
 
@@ -69,42 +70,68 @@ Uploaded images are stored on disk (not in the database). The upload directory i
 
 ### Prerequisites
 
-- **Java 21+** (check with `java -version`)
+- **Java 21 JDK** — the full JDK, not just the JRE (`javac` must be present and at version 21; check with `javac -version`, not `java -version`)
 - **Node.js 18+** and npm (check with `node -v`)
-- **PostgreSQL 14+** running locally with a database and user created
+- **PostgreSQL 14+** running locally
 - **Maven wrapper** (`./mvnw`) is included in the repo — no separate Maven install needed
 
 ### Step 1 — Set up the database
 
-Create a database and user in PostgreSQL, then run the schema:
+On Ubuntu/Debian, PostgreSQL admin commands must run as the `postgres` system user:
 
 ```bash
-psql -U postgres -c "CREATE DATABASE testdb;"
-psql -U postgres -c "CREATE USER mae WITH PASSWORD 'password';"
-psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE testdb TO mae;"
-psql -U mae -d testdb -f config/database.sql
+sudo -u postgres psql -c "CREATE DATABASE testdb;"
+sudo -u postgres psql -c "CREATE USER mae WITH PASSWORD 'password';"
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE testdb TO mae;"
+sudo -u postgres psql -d testdb -c "GRANT ALL ON SCHEMA public TO mae;"
 ```
 
-> **Note:** The database name, user, and password in the schema file and `application.properties` are the defaults used in development. Change them to match your environment — there is no hardcoded assumption about the values.
+Then load the base schema (`-h localhost` forces password auth; `PGPASSWORD` avoids an interactive prompt):
+
+```bash
+PGPASSWORD=password psql -U mae -d testdb -h localhost -f config/database.sql
+```
+
+Then apply the required migrations — these columns are used by the current code but are not in the base schema:
+
+```bash
+PGPASSWORD=password psql -U mae -d testdb -h localhost -c "
+  ALTER TABLE notifications ADD COLUMN IF NOT EXISTS message TEXT;
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS pattern_presets TEXT DEFAULT '{}';
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS last_visited TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+"
+```
+
+> The database name, user, and password above are the development defaults. Change them to match your environment and update `application.properties` to match.
 
 ### Step 2 — Configure the backend
 
-Edit `server/src/main/resources/application.properties` and update the database credentials:
+`server/src/main/resources/application.properties` is **not in the repo** — you must create it. Use these development defaults:
 
 ```properties
+spring.profiles.active=dev
+
 spring.datasource.url=jdbc:postgresql://localhost:5432/testdb
 spring.datasource.username=mae
 spring.datasource.password=password
+spring.datasource.driver-class-name=org.postgresql.Driver
+
+spring.jpa.hibernate.ddl-auto=none
 ```
 
 Leave `spring.profiles.active=dev` for local development. The dev profile sets cookies without the `Secure` flag (required for HTTP) and stores uploads in a relative `uploads/` directory next to the JAR.
 
 ### Step 3 — Build the backend
 
+If your system has multiple Java versions, `javac` may default to the wrong one even when `java` is correct. Set `JAVA_HOME` explicitly:
+
 ```bash
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64   # adjust path if needed
 cd server
 ./mvnw clean package -DskipTests
 ```
+
+Verify the correct JDK path with `update-alternatives --list java`.
 
 This produces `server/target/server-0.0.1-SNAPSHOT.jar`.
 
@@ -127,10 +154,10 @@ npm run build          # outputs to client/dist/
 
 ### Step 5 — Run locally (development)
 
-Start the backend:
+Start the backend (set `JAVA_HOME` if needed, same as Step 3):
 ```bash
 cd server
-./mvnw spring-boot:run
+JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 ./mvnw spring-boot:run
 ```
 
 Start the frontend dev server (in a separate terminal):
@@ -273,23 +300,32 @@ The included `server-start.sh` is a minimal shell script that runs the JAR in th
 
 ### Database migrations
 
-The schema file (`config/database.sql`) only creates the base tables. Migrations for features added after the initial release are listed at the bottom of that file as commented-out `ALTER TABLE` statements. Before deploying a version that requires a migration, take a backup first:
+The project includes a migration tool at `tools/migrate.sh`. It tracks which migrations have been applied, backs up the database before making changes, and restores on failure.
+
+**Basic usage:**
 
 ```bash
-pg_dump -U mae testdb > backup_$(date +%Y%m%d).sql
+# Apply any pending migrations (backs up first)
+PGPASSWORD=password ./tools/migrate.sh
+
+# Preview what would run without changing anything
+PGPASSWORD=password ./tools/migrate.sh --dry-run
+
+# Custom connection
+./tools/migrate.sh -d mydb -U myuser -W mypass -h dbhost
 ```
 
-Then run the migration statements manually in `psql`.
+Migration SQL files live in `tools/migrations/` as numbered `.sql` files (e.g. `014_add_bio_to_users.sql`). Each file is idempotent (`IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS`) so they can be re-run safely. Applied migrations are tracked in a `_migrations` table in the database.
 
-**Session 2 migration (required before deploying session 2 changes):**
-```sql
-ALTER TABLE notifications ADD COLUMN IF NOT EXISTS message TEXT;
+**Before deploying:** always run `./tools/migrate.sh --dry-run` first to see what will change, then run without `--dry-run` to apply. Backups are saved to `tools/backups/`.
+
+**Testing the migration tool:**
+
+```bash
+PGPASSWORD=password ./tools/test-migrate.sh
 ```
 
-**Session 3 migration (required before deploying session 3 changes):**
-```sql
-ALTER TABLE users ADD COLUMN IF NOT EXISTS pattern_presets TEXT DEFAULT '{}';
-```
+The test suite runs 8 tests against the live database using uniquely-prefixed temp tables, so it doesn't affect real data.
 
 ---
 
@@ -299,11 +335,11 @@ The schema has two conceptual halves: the original blogging core, and the social
 
 ### Core tables
 
-**`users`** — Accounts. Each user has a username (unique, max 32 chars), a password (plain text — no hashing is implemented yet), an optional `background_pattern` column, and a `pattern_presets TEXT` column (JSON object of saved wallpaper presets, default `'{}'`).
+**`users`** — Accounts. Each user has a username (unique, max 32 chars), a BCrypt-hashed password (`VARCHAR(60)`), an optional `background_pattern`, a `pattern_presets TEXT` column (JSON object of saved wallpaper presets, default `'{}'`), a `bio VARCHAR(500)` (optional profile text with clickable URL rendering on the frontend), and `last_visited TIMESTAMP WITH TIME ZONE` (last activity timestamp).
+
+Passwords were historically stored as plain text and are migrated to BCrypt on first login. Passwords are stored as 60-char BCrypt hashes.
 
 The `background_pattern` column stores either a preset key (e.g. `"dots"`), a validated CSS gradient string, or either of those with an optional `|#RRGGBB` suffix encoding the page background color (e.g. `"dots|#1a1a2e"`). Both the frontend and backend validator strip the suffix before validating the pattern key.
-
-> **Security note:** Passwords are stored in plain text. This is a known limitation. Do not use this platform with passwords you use elsewhere.
 
 **`posts`** — Blog posts. The `description` column holds the full Lexical editor JSON state as a text blob. The `background_pattern` column works the same way as on users. Posts have a `published` flag — unpublished posts are hidden from all views except the author's editor.
 
@@ -323,14 +359,67 @@ The `background_pattern` column stores either a preset key (e.g. `"dots"`), a va
 
 **`notifications`** — Inbox entries. The `type` column is one of: `comment`, `reply`, `follow`, `reaction`, `new_post`, `message`. `actor_username` is denormalized for display without a join. `post_id` and `comment_id` are nullable links. The `message` column (TEXT, nullable) holds the body of direct user-to-user messages. Storage for this column is tracked per-user and included in the storage summary API.
 
+**`dm_blocks`** — Per-user DM blocking. `blocker_id` has blocked incoming direct messages from `blocked_id`. Cascade-deletes when either user is removed.
+
+**`_migrations`** — Created automatically by `tools/migrate.sh`. Tracks which migration files have been applied (by filename) and when.
+
 ### Entity-relationship summary
 
 ```
 users ──< users_posts_junctions >── posts
 users ──< follows >── users (self-join)
+users ──< dm_blocks >── users (self-join)
 posts ──── discussions ──< comments ──< comment_votes
                       │
 posts ──< post_reactions
 posts ──< notifications >── users (recipient)
 comments ──< notifications
+uploads ──< post_uploads >── posts
 ```
+
+---
+
+## 7. Feature Reference
+
+### Bio links
+User bios support plain text up to 500 characters. Any `http://` or `https://` URL in the bio is automatically rendered as a clickable link in the profile view. The bio editor itself is plain text — no HTML is accepted (the backend strips it).
+
+### Editor leave confirmation
+When a user has unsaved changes in the post editor, navigating away (via React Router links or browser tab close) shows a confirmation dialog. The guard is cleared after a successful save.
+
+### Editor preferences section
+The post editor toolbar has a collapsible **Preferences** section containing:
+- Wallpaper picker (sets the post's background pattern)
+- Toggle buttons for enabling/disabling comments and reactions
+
+### Activity page tabs
+The activity page (`/users/:username/activity`) shows four tabs:
+- **Posts** — all posts the user has authored, with created/edited timestamps and draft badge
+- **Comments** — comments the user has made, each linking to the post discussion with anchor `#comment-{id}`; shows edit timestamp if the comment was edited
+- **Reactions** — emoji reactions the user has placed on posts
+- **Uploads** — files the user has uploaded, showing file size and a link to the post that contains the file; if the upload is not referenced by any post it is shown with a "not in any post" badge
+
+Only the account owner and admins can view the activity page.
+
+### Data export and restore
+
+**User self-export:** Profile page shows a "Download my data" button (visible only to the owner). Clicking it downloads `{username}_data.json` containing:
+- Profile (bio, background, presets, role, dates — no password)
+- All posts (full Lexical JSON content)
+- All comments (with post context)
+- Post reactions
+- Upload metadata
+- Inbox/notifications
+
+**Admin export:** The admin panel Users tab has an **Export** button per user that downloads the same JSON.
+
+**Admin restore:** The admin panel Stats tab has a "Restore from file…" section. Enter the target username, then pick the exported JSON file. This restores:
+- Profile fields (bio, background_pattern, pattern_presets)
+- All posts from the export (posts with the same title + date are skipped to avoid duplicates)
+
+The restore is non-destructive — it does not delete existing data.
+
+**API endpoints:**
+- `GET /api/users/{username}/export` — user can export their own; admins can export any user
+- `GET /api/admin/users/{username}/export` — admin-only export
+- `POST /api/admin/users/{username}/import` — admin-only restore (JSON body = the export file)

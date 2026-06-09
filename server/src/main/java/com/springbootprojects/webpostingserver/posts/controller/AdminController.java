@@ -3,6 +3,7 @@ package com.springbootprojects.webpostingserver.posts.controller;
 import com.springbootprojects.webpostingserver.posts.model.AuthSession;
 import com.springbootprojects.webpostingserver.posts.repository.JdbcLoginRepository;
 import com.springbootprojects.webpostingserver.posts.repository.LoginRepository;
+import com.springbootprojects.webpostingserver.posts.repository.SocialRepository;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,6 +22,7 @@ public class AdminController {
 
     @Autowired private LoginRepository loginRepository;
     @Autowired private JdbcTemplate jdbc;
+    @Autowired private SocialRepository social;
     private static final BCryptPasswordEncoder bcrypt = new BCryptPasswordEncoder();
 
     @Value("${app.upload-dir:uploads}")
@@ -298,5 +300,77 @@ public class AdminController {
             Long.class, targetUsername);
 
         return ResponseEntity.ok(Map.of("uploads", uploads, "totalBytes", total != null ? total : 0L));
+    }
+
+    // ── Export user data ───────────────────────────────────────────────────────
+
+    /** Downloads full data export for any user as a JSON file. Admin only. */
+    @GetMapping("/users/{targetUsername}/export")
+    public ResponseEntity<byte[]> exportUserData(
+            @PathVariable String targetUsername,
+            @CookieValue(name = "username") String username,
+            @CookieValue(name = "authToken") String token) {
+
+        if (authorize(username, token) == null || !isAdmin(username)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+
+        int targetUserId = social.getUserIdByUsername(targetUsername);
+        if (targetUserId < 0) return ResponseEntity.notFound().build();
+
+        try {
+            Map<String, Object> exportData = social.buildUserExport(targetUsername, targetUserId);
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+            byte[] json = mapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(exportData);
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + targetUsername + "_data.json\"");
+            return new ResponseEntity<>(json, headers, HttpStatus.OK);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    // ── Import / restore user data ─────────────────────────────────────────────
+
+    /**
+     * Restores user data from a previously exported JSON file.
+     * Restores: profile (bio, background_pattern, pattern_presets) and posts.
+     * Skips posts that already exist (same title + date).
+     * Admin only.
+     */
+    @PostMapping("/users/{targetUsername}/import")
+    public ResponseEntity<Map<String, Object>> importUserData(
+            @PathVariable String targetUsername,
+            @RequestBody Map<String, Object> exportData,
+            @CookieValue(name = "username") String username,
+            @CookieValue(name = "authToken") String token) {
+
+        if (authorize(username, token) == null || !isAdmin(username)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+
+        int targetUserId = social.getUserIdByUsername(targetUsername);
+        if (targetUserId < 0) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "User not found."));
+
+        Map<String, Object> summary = new LinkedHashMap<>();
+
+        // Restore profile fields
+        @SuppressWarnings("unchecked")
+        Map<String, Object> profile = (Map<String, Object>) exportData.get("profile");
+        if (profile != null) {
+            String bio = (String) profile.get("bio");
+            String bgPattern = (String) profile.get("background_pattern");
+            String presets = (String) profile.get("pattern_presets");
+            if (bio != null) jdbc.update("UPDATE users SET bio=? WHERE id=?", bio, targetUserId);
+            if (bgPattern != null) jdbc.update("UPDATE users SET background_pattern=? WHERE id=?", bgPattern, targetUserId);
+            if (presets != null) jdbc.update("UPDATE users SET pattern_presets=? WHERE id=?", presets, targetUserId);
+            summary.put("profileRestored", true);
+        } else {
+            summary.put("profileRestored", false);
+        }
+
+        // Restore posts
+        int postsRestored = social.restorePostsFromExport(targetUserId, exportData);
+        summary.put("postsRestored", postsRestored);
+
+        return ResponseEntity.ok(summary);
     }
 }

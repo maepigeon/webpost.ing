@@ -4,6 +4,7 @@ import { GET_USER_ACTIVITY } from '../Posts/BasicTextPostServerApi.js';
 import './ActivityPage.css';
 
 function timeAgo(date) {
+  if (!date) return '';
   const s = Math.floor((Date.now() - new Date(date)) / 1000);
   if (s < 60) return `${s}s ago`;
   if (s < 3600) return `${Math.floor(s / 60)}m ago`;
@@ -11,11 +12,19 @@ function timeAgo(date) {
   return new Date(date).toLocaleDateString();
 }
 
+function fmtBytes(n) {
+  if (!n || n === 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let i = 0, v = Number(n);
+  while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+  return `${v.toFixed(1)} ${units[i]}`;
+}
+
 export default function ActivityPage() {
   const { username } = useParams();
   const navigate = useNavigate();
   const me = localStorage.getItem('userName');
-  const [tab, setTab] = useState('comments');
+  const [tab, setTab] = useState('posts');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [denied, setDenied] = useState(false);
@@ -40,8 +49,17 @@ export default function ActivityPage() {
     </div>
   );
 
+  const posts = data?.posts || [];
   const comments = data?.comments || [];
   const reactions = data?.reactions || [];
+  const uploads = data?.uploads || [];
+
+  const TABS = [
+    ['posts', `Posts (${posts.length})`],
+    ['comments', `Comments (${comments.length})`],
+    ['reactions', `Reactions (${reactions.length})`],
+    ['uploads', `Uploads (${uploads.length})`],
+  ];
 
   return (
     <div className="activity-page">
@@ -52,7 +70,7 @@ export default function ActivityPage() {
         </div>
 
         <div className="activity-tabs">
-          {[['comments', `Posts (${comments.length})`], ['reactions', `Reactions (${reactions.length})`]].map(([key, label]) => (
+          {TABS.map(([key, label]) => (
             <button
               key={key}
               className={`activity-tab${tab === key ? ' activity-tab--active' : ''}`}
@@ -61,6 +79,27 @@ export default function ActivityPage() {
           ))}
         </div>
 
+        {tab === 'posts' && (
+          <div className="activity-list">
+            {posts.length === 0 && <p className="activity-empty">No posts yet.</p>}
+            {posts.map(p => (
+              <div key={p.id} className="activity-item">
+                <div className="activity-item-meta">
+                  <span className="activity-time">{timeAgo(p.date)}</span>
+                  {p.edited_at && <span className="activity-badge">edited {timeAgo(p.edited_at)}</span>}
+                  {!p.published && <span className="activity-badge activity-badge--draft">draft</span>}
+                  <Link
+                    to={`/users/${username}/${p.id}`}
+                    className="activity-post-link"
+                  >
+                    {p.title || 'Untitled post'}
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {tab === 'comments' && (
           <div className="activity-list">
             {comments.length === 0 && <p className="activity-empty">No comments yet.</p>}
@@ -68,6 +107,7 @@ export default function ActivityPage() {
               <div key={c.id} className="activity-item">
                 <div className="activity-item-meta">
                   <span className="activity-time">{timeAgo(c.created_at)}</span>
+                  {c.edited_at && <span className="activity-badge">edited {timeAgo(c.edited_at)}</span>}
                   {c.score !== 0 && (
                     <span className={`activity-score${c.score > 0 ? ' activity-score--pos' : ' activity-score--neg'}`}>
                       {c.score > 0 ? '+' : ''}{c.score}
@@ -100,6 +140,34 @@ export default function ActivityPage() {
                   {r.post_title || 'Untitled post'}
                 </Link>
                 <span className="activity-by">by {r.post_owner}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === 'uploads' && (
+          <div className="activity-list">
+            {uploads.length === 0 && <p className="activity-empty">No uploads yet.</p>}
+            {uploads.map(u => (
+              <div key={u.id} className="activity-item">
+                <div className="activity-item-meta">
+                  <span className="activity-time">{timeAgo(u.uploaded_at)}</span>
+                  <span className="activity-badge">{fmtBytes(u.size_bytes)}</span>
+                  {u.post_id
+                    ? (
+                      <Link
+                        to={`/users/${u.post_owner}/${u.post_id}`}
+                        className="activity-post-link"
+                      >
+                        {u.post_title || 'Untitled post'}
+                      </Link>
+                    )
+                    : <span className="activity-badge activity-badge--orphan">not in any post</span>
+                  }
+                </div>
+                <p className="activity-comment-text" style={{ fontSize: '12px', color: '#777' }}>
+                  {u.original_name || u.filename}
+                </p>
               </div>
             ))}
           </div>
