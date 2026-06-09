@@ -18,7 +18,7 @@ export default function DiscussionSection({ postId, postAuthor }) {
   const [style, setStyle] = useState('threaded');
   const [loaded, setLoaded] = useState(false);
   const [comments, setComments] = useState([]);
-  const [sort, setSort] = useState('recent');
+  const [sort, setSort] = useState('votes');
   const [newComment, setNewComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -67,7 +67,10 @@ export default function DiscussionSection({ postId, postAuthor }) {
   if (!loaded) return null;
 
   const displayComments = style === 'flat'
-    ? [...flattenTree(comments)].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+    ? [...flattenTree(comments)].sort((a, b) =>
+        sort === 'votes'
+          ? (b.score ?? 0) - (a.score ?? 0) || new Date(a.createdAt) - new Date(b.createdAt)
+          : new Date(b.createdAt) - new Date(a.createdAt))
     : comments;
 
   return (

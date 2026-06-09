@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, React} from 'react';
-import {AUTHORIZE_SESSION, READ_POSTS_BY_USER, GET_USER_BACKGROUND, UPDATE_USER_BACKGROUND, GET_USER_BIO, UPDATE_USER_BIO, GET_USER_STORAGE, SEND_MESSAGE, GET_FOLLOWERS, GET_FOLLOWING, GET_BLOCK_MESSAGE_STATUS, BLOCK_MESSAGES, UNBLOCK_MESSAGES, EXPORT_MY_DATA} from '../BasicTextPostServerApi.js'
+import {AUTHORIZE_SESSION, READ_POSTS_BY_USER, GET_USER_BACKGROUND, UPDATE_USER_BACKGROUND, GET_USER_BIO, UPDATE_USER_BIO, GET_USER_BIO_LINKS, UPDATE_USER_BIO_LINKS, GET_USER_STORAGE, SEND_MESSAGE, GET_FOLLOWERS, GET_FOLLOWING, GET_BLOCK_MESSAGE_STATUS, BLOCK_MESSAGES, UNBLOCK_MESSAGES, EXPORT_MY_DATA} from '../BasicTextPostServerApi.js'
 import BasicTextPost from '../PostRenderer/BasicTextPost/BasicTextPost.jsx';
 import PatternPicker from '../../../PatternPicker/PatternPicker.jsx';
 import FollowButton from '../../../Social/FollowButton.jsx';
@@ -51,20 +51,21 @@ function StorageBar({ storage }) {
   );
 }
 
-// Renders bio text with http/https URLs turned into clickable links
-const URL_PATTERN = /https?:\/\/[^\s<>"']+/g;
+const URL_REGEX = /https?:\/\/[^\s<>"]+[^\s<>".,;:!?)/]/g;
+
 function BioText({ text }) {
+  if (!text) return null;
   const parts = [];
   let last = 0;
   let match;
-  URL_PATTERN.lastIndex = 0;
-  while ((match = URL_PATTERN.exec(text)) !== null) {
+  const re = new RegExp(URL_REGEX.source, 'g');
+  while ((match = re.exec(text)) !== null) {
     if (match.index > last) parts.push(text.slice(last, match.index));
-    parts.push(<a key={match.index} href={match[0]} target="_blank" rel="noopener noreferrer" style={{ color: '#1a73e8', textDecoration: 'underline' }}>{match[0]}</a>);
+    parts.push(<a key={match.index} href={match[0]} target="_blank" rel="noopener noreferrer" style={{ color: '#1a73e8' }}>{match[0]}</a>);
     last = match.index + match[0].length;
   }
   if (last < text.length) parts.push(text.slice(last));
-  return <>{parts}</>;
+  return <p style={{ margin: '0', fontSize: '14px', color: '#444', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{parts}</p>;
 }
 
 function hasModifyPermissions(viewedUser) {
@@ -88,6 +89,10 @@ function PostsViewer() {
     const [editingBio, setEditingBio] = useState(false);
     const [bioInput, setBioInput] = useState('');
     const [bioError, setBioError] = useState('');
+    const [bioLinks, setBioLinks] = useState([]);
+    const [editingLinks, setEditingLinks] = useState(false);
+    const [linksInput, setLinksInput] = useState([{ label: '', url: '' }, { label: '', url: '' }, { label: '', url: '' }]);
+    const [linksError, setLinksError] = useState('');
     const [storage, setStorage] = useState(null);
     const [showMessageForm, setShowMessageForm] = useState(false);
     const [messageText, setMessageText] = useState('');
@@ -122,6 +127,10 @@ function PostsViewer() {
       loadPosts(true);
       GET_USER_BACKGROUND(username).then(p => setBgPattern(p || '')).catch(() => {});
       GET_USER_BIO(username).then(b => setBio(b || '')).catch(() => {});
+      GET_USER_BIO_LINKS(username).then(d => {
+        const links = Array.isArray(d) ? d : (typeof d === 'string' ? JSON.parse(d) : []);
+        setBioLinks(links);
+      }).catch(() => {});
       if (loggedIn) GET_USER_STORAGE(username).then(setStorage).catch(() => {});
       const me = localStorage.getItem('userName');
       Promise.all([GET_FOLLOWERS(username), GET_FOLLOWING(username)])
@@ -200,6 +209,20 @@ function PostsViewer() {
       } catch { alert('Failed to send message.'); }
     }
 
+    function saveLinks() {
+      setLinksError('');
+      const filtered = linksInput.filter(l => l.url.trim());
+      for (const l of filtered) {
+        if (!l.url.startsWith('http://') && !l.url.startsWith('https://')) {
+          setLinksError('URLs must start with http:// or https://');
+          return;
+        }
+      }
+      UPDATE_USER_BIO_LINKS(username, filtered)
+        .then(() => { setBioLinks(filtered); setEditingLinks(false); })
+        .catch(err => setLinksError(err?.response?.data || 'Failed to save links.'));
+    }
+
     function saveBio() {
       const trimmed = bioInput.trim();
       setBioError('');
@@ -224,7 +247,7 @@ function PostsViewer() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
               <Heading username={username}/>
               <FollowButton username={username} />
-              {followsMe && <span style={{ fontSize: '12px', color: '#888', fontStyle: 'italic' }}>follows you</span>}
+              {followsMe && <span style={{ fontSize: '12px', color: '#555', fontStyle: 'italic' }}>follows you</span>}
             </div>
 
             {/* Bio display / edit */}
@@ -251,7 +274,59 @@ function PostsViewer() {
                     {bio ? 'Edit bio' : '+ Add bio'}
                   </button>
                 )}
-                {bio && <p style={{ margin: '0', fontSize: '14px', color: '#444', whiteSpace: 'pre-wrap' }}><BioText text={bio} /></p>}
+                {bio && <BioText text={bio} />}
+              </div>
+            )}
+
+            {/* Bio links display / edit */}
+            {editingLinks ? (
+              <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                {linksInput.map((l, i) => (
+                  <div key={i} style={{ display: 'flex', gap: '6px', width: '100%', maxWidth: '480px' }}>
+                    <input
+                      value={l.label}
+                      onChange={e => setLinksInput(prev => prev.map((x, j) => j === i ? { ...x, label: e.target.value } : x))}
+                      placeholder={`Label ${i + 1} (optional)`}
+                      maxLength={50}
+                      style={{ flex: '0 0 130px', padding: '5px 8px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '13px', boxSizing: 'border-box' }}
+                    />
+                    <input
+                      value={l.url}
+                      onChange={e => setLinksInput(prev => prev.map((x, j) => j === i ? { ...x, url: e.target.value } : x))}
+                      placeholder="https://..."
+                      maxLength={500}
+                      style={{ flex: 1, padding: '5px 8px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '13px', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                ))}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button type="button" onClick={saveLinks}>Save</button>
+                  <button type="button" onClick={() => { setEditingLinks(false); setLinksError(''); }}>Cancel</button>
+                </div>
+                {linksError && <p style={{ margin: '4px 0 0', color: '#d32f2f', fontSize: '12px' }}>{linksError}</p>}
+              </div>
+            ) : (
+              <div style={{ marginTop: '6px' }}>
+                {canEdit && (
+                  <button type="button" className="edit-bio-btn" onClick={() => {
+                    const padded = [...bioLinks];
+                    while (padded.length < 3) padded.push({ label: '', url: '' });
+                    setLinksInput(padded);
+                    setEditingLinks(true);
+                  }}>
+                    {bioLinks.length > 0 ? 'Edit links' : '+ Add links'}
+                  </button>
+                )}
+                {bioLinks.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', marginTop: '4px' }}>
+                    {bioLinks.map((l, i) => (
+                      <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
+                        style={{ fontSize: '13px', color: '#1a73e8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                        🔗 {l.label || l.url}
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -268,6 +343,7 @@ function PostsViewer() {
                 )}
               </div>
             )}
+
 
             {storage && <StorageBar storage={storage} />}
 

@@ -32,8 +32,9 @@ export default function AdminPanel() {
   const [limitEdits, setLimitEdits] = useState({});
   const [search, setSearch] = useState('');
   const [msg, setMsg] = useState('');
-  const [importTarget, setImportTarget] = useState('');
-  const [importResult, setImportResult] = useState(null);
+  const [importUsername, setImportUsername] = useState('');
+  const [importResult, setImportResult] = useState('');
+  const [importError, setImportError] = useState('');
   const importFileRef = useRef(null);
 
   useEffect(() => {
@@ -120,7 +121,7 @@ export default function AdminPanel() {
       {msg && <div className="admin-flash">{msg}</div>}
 
       <div className="admin-tabs">
-        {['users', 'stats', 'limits', 'flagged'].map(t => (
+        {['users', 'stats', 'limits', 'flagged', 'import'].map(t => (
           <button key={t} className={`admin-tab${tab === t ? ' admin-tab--active' : ''}`} onClick={() => setTab(t)}>
             {t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
@@ -222,46 +223,6 @@ export default function AdminPanel() {
             }}>Delete Orphaned Uploads</button>
           </div>
 
-          <div className="admin-orphan-row" style={{ marginTop: '20px' }}>
-            <p className="admin-hint">Restore a user's data from a previously exported JSON file (profile + posts).</p>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <input
-                type="text"
-                placeholder="Target username"
-                value={importTarget}
-                onChange={e => setImportTarget(e.target.value)}
-                style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '13px' }}
-              />
-              <input
-                type="file"
-                accept=".json"
-                ref={importFileRef}
-                style={{ display: 'none' }}
-                onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (!file || !importTarget.trim()) { flash('Enter a target username first.'); return; }
-                  try {
-                    const text = await file.text();
-                    const result = await ADMIN_IMPORT_USER(importTarget.trim(), text);
-                    setImportResult(result);
-                    flash(`Restore complete: ${result.postsRestored} posts restored.`);
-                  } catch (err) {
-                    flash(err?.response?.data?.error || 'Restore failed.');
-                  }
-                  e.target.value = '';
-                }}
-              />
-              <button className="admin-btn" onClick={() => {
-                if (!importTarget.trim()) { flash('Enter a target username first.'); return; }
-                importFileRef.current?.click();
-              }}>Restore from file…</button>
-            </div>
-            {importResult && (
-              <p className="admin-hint" style={{ marginTop: '6px' }}>
-                Last restore: profile {importResult.profileRestored ? 'restored' : 'skipped'}, {importResult.postsRestored} posts restored.
-              </p>
-            )}
-          </div>
         </div>
       )}
 
@@ -328,6 +289,47 @@ export default function AdminPanel() {
               </table>
             )
           }
+        </div>
+      )}
+      {/* ── Import tab ─────────────────────────────────────────────────── */}
+      {tab === 'import' && (
+        <div>
+          <p className="admin-hint">Restore a user from a data export (.json). Profile and posts will be imported. A new user is created if the username doesn't exist (temp password set — admin must reset).</p>
+          <div className="admin-create-form">
+            <h3>Import User Data</h3>
+            <div className="admin-create-row">
+              <input
+                placeholder="Target username"
+                value={importUsername}
+                onChange={e => setImportUsername(e.target.value)}
+                maxLength={32}
+              />
+              <input
+                type="file"
+                accept=".json,application/json"
+                ref={importFileRef}
+                style={{ fontSize: '13px' }}
+              />
+              <button onClick={async () => {
+                setImportResult(''); setImportError('');
+                const file = importFileRef.current?.files[0];
+                if (!file) { setImportError('Select a JSON export file.'); return; }
+                if (!importUsername.trim()) { setImportError('Enter a target username.'); return; }
+                try {
+                  const text = await file.text();
+                  const exportData = JSON.parse(text);
+                  const result = await ADMIN_IMPORT_USER(importUsername.trim(), exportData);
+                  setImportResult(result.message || 'Import complete.');
+                  if (importFileRef.current) importFileRef.current.value = '';
+                  setImportUsername('');
+                } catch (e) {
+                  setImportError(e.response?.data?.error || e.message || 'Import failed.');
+                }
+              }} disabled={!importUsername.trim()}>Import</button>
+            </div>
+            {importResult && <p style={{ color: '#2e7d32', fontSize: '13px', marginTop: '8px' }}>{importResult}</p>}
+            {importError && <p className="admin-error">{importError}</p>}
+          </div>
         </div>
       )}
     </div>

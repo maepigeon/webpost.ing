@@ -23,5 +23,7 @@ public interface LoginRepository {
     public String getUserPresets(String username);
     public void updateUserPresets(String username, String presetsJson);
     public long getPresetsStorageBytes(String username);
+    public String getUserBioLinks(String username);
+    public void updateUserBioLinks(String username, String bioLinksJson);
     public void deleteUser(String username);
 }

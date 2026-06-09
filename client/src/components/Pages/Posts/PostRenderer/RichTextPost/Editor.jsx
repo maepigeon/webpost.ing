@@ -410,6 +410,25 @@ function EnsureLeadingParagraphPlugin() {
   return null;
 }
 
+function EnsureTrailingParagraphPlugin() {
+  const [editor] = useLexicalComposerContext();
+  useEffect(() => {
+    return editor.registerUpdateListener(({ editorState }) => {
+      editorState.read(() => {
+        const last = $getRoot().getLastChild();
+        if (!last) return;
+        if ($isParagraphNode(last) || $isHeadingNode(last) || $isListNode(last)) return;
+        editor.update(() => {
+          const l = $getRoot().getLastChild();
+          if (!l || $isParagraphNode(l) || $isHeadingNode(l) || $isListNode(l)) return;
+          l.insertAfter($createParagraphNode());
+        });
+      });
+    });
+  }, [editor]);
+  return null;
+}
+
 // Handles Backspace/Delete on selected decorator nodes (images, math blocks)
 function DecoratorKeyboardPlugin() {
   const [editor] = useLexicalComposerContext();
@@ -732,10 +751,10 @@ function BackgroundToolbarPlugin({ pattern, onPatternChange, username }) {
   );
 }
 
-function FeatureTogglePlugin({ postid, features, onFeaturesChange }) {
+function FeatureTogglePlugin({ postid, features, onFeaturesChange, backgroundPattern, onPatternChange, username }) {
   if (!postid || postid <= 0) return null;
 
-  const toggle = async (key, setter) => {
+  const toggle = async (key) => {
     const next = !features[key];
     try {
       if (key === 'reactionsEnabled') await SET_REACTIONS_ENABLED(postid, next);
@@ -745,24 +764,25 @@ function FeatureTogglePlugin({ postid, features, onFeaturesChange }) {
   };
 
   return (
-    <span className="toolbar-collapsible">
+    <>
       <button
         className={`post-toggle-btn toolbar-fmt-btn${features.reactionsEnabled ? ' active' : ''}`}
         onClick={() => toggle('reactionsEnabled')}
         title="Toggle reactions"
         style={{ fontSize: '12px' }}
       >
-        {features.reactionsEnabled ? '❤ on' : '❤ off'}
+        {features.reactionsEnabled ? 'Reactions: on' : 'Reactions: off'}
       </button>
       <button
         className={`post-toggle-btn toolbar-fmt-btn${features.discussionEnabled ? ' active' : ''}`}
         onClick={() => toggle('discussionEnabled')}
-        title="Toggle discussion"
+        title="Toggle comments/discussion"
         style={{ fontSize: '12px' }}
       >
-        {features.discussionEnabled ? '💬 on' : '💬 off'}
+        {features.discussionEnabled ? 'Comments: on' : 'Comments: off'}
       </button>
-    </span>
+      <BackgroundToolbarPlugin pattern={backgroundPattern} onPatternChange={onPatternChange} username={username} />
+    </>
   );
 }
 
@@ -918,11 +938,14 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
         <MathToolbarPlugin />
         <ImageToolbarPlugin />
       </CollapsibleSection>
-      <span className='toolbar-divider' />
-      <CollapsibleSection label="Preferences" defaultOpen={false}>
-        <BackgroundToolbarPlugin pattern={backgroundPattern} onPatternChange={onPatternChange} username={username} />
-        <FeatureTogglePlugin postid={postid} features={features} onFeaturesChange={onFeaturesChange} />
-      </CollapsibleSection>
+      {postid > 0 && (
+        <>
+          <span className='toolbar-divider' />
+          <CollapsibleSection label="Preferences" defaultOpen={false}>
+            <FeatureTogglePlugin postid={postid} features={features} onFeaturesChange={onFeaturesChange} backgroundPattern={backgroundPattern} onPatternChange={onPatternChange} username={username} />
+          </CollapsibleSection>
+        </>
+      )}
       <span className='toolbar-divider' />
       <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} titleRef={titleRef} onSaved={onSaved} />
     </div>
@@ -936,6 +959,19 @@ function MyOnChangePlugin({ onChange }) {
       onChange(editorState);
     });
   }, [editor, onChange]);
+  return null;
+}
+
+function DirtyTrackerPlugin({ onDirty }) {
+  const [editor] = useLexicalComposerContext();
+  const initializedRef = useRef(false);
+  useEffect(() => {
+    return editor.registerUpdateListener(({ dirtyElements, dirtyLeaves }) => {
+      // Skip the first update which fires when the editor loads saved state
+      if (!initializedRef.current) { initializedRef.current = true; return; }
+      if (dirtyElements.size > 0 || dirtyLeaves.size > 0) onDirty();
+    });
+  }, [editor, onDirty]);
   return null;
 }
 
@@ -979,6 +1015,14 @@ export default function RichTextEditor() {
   });
 
   const me = localStorage.getItem('userName');
+
+  // Warn on browser close/refresh when there are unsaved changes
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (e) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
 
   const onChange = useCallback((editorState) => {
     try {
@@ -1066,11 +1110,13 @@ export default function RichTextEditor() {
         <CodeHighlightPlugin />
         <CodeHoverControlsPlugin />
         <EnsureLeadingParagraphPlugin />
+        <EnsureTrailingParagraphPlugin />
         <CodeEscapePlugin />
         <HistoryPlugin />
         <DecoratorKeyboardPlugin />
         <ImageDragPastePlugin />
         <MyOnChangePlugin onChange={onChange} />
+        <DirtyTrackerPlugin onDirty={markDirty} />
         <LoadEditorStatePlugin ready={dataReady} />
         <div className="editor-centered">
           <div className="editor-post-card">

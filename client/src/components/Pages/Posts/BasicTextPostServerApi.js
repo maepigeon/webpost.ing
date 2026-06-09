@@ -129,6 +129,18 @@ export function UPDATE_USER_BIO(username, bio) {
   }).then((response) => response.data);
 }
 
+export function GET_USER_BIO_LINKS(username) {
+  return axios.get(baseUrl + "/api/users/" + username + "/bio-links", { withCredentials: true })
+    .then((response) => response.data);
+}
+
+export function UPDATE_USER_BIO_LINKS(username, links) {
+  return axios.put(baseUrl + "/api/users/" + username + "/bio-links", JSON.stringify(links), {
+    headers: { 'Content-Type': 'application/json' },
+    withCredentials: true,
+  }).then((response) => response.data);
+}
+
 export function GET_USER_STORAGE(username) {
   return axios.get(baseUrl + "/api/users/" + username + "/storage", { withCredentials: true })
     .then((response) => response.data);
@@ -183,6 +195,10 @@ export function ADMIN_GET_FLAGGED() {
 
 export function ADMIN_CLEANUP_ORPHANS() {
   return axios.delete(baseUrl + `/api/admin/uploads/orphans`, { withCredentials: true }).then(r => r.data);
+}
+
+export function ADMIN_IMPORT_USER(username, exportData) {
+  return axios.post(baseUrl + `/api/admin/import`, { username, data: exportData }, { withCredentials: true }).then(r => r.data);
 }
 
 // ── Social: post feature flags ────────────────────────────────────────────────

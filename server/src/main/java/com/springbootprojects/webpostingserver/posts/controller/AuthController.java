@@ -99,6 +99,54 @@ public class AuthController {
         return ResponseEntity.ok("Bio updated");
     }
 
+    /** Returns a user's bio links (public). */
+    @GetMapping("/users/{username}/bio-links")
+    public ResponseEntity<String> getUserBioLinks(@PathVariable("username") String username) {
+        String links = loginRepository.getUserBioLinks(username);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(links != null ? links : "[]");
+    }
+
+    /** Updates the authenticated user's own bio links. Up to 3 links, each label max 50 chars, URL max 500 chars. */
+    @PutMapping("/users/{username}/bio-links")
+    public ResponseEntity<String> updateUserBioLinks(
+            @PathVariable("username") String username,
+            @RequestBody String body,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+        if (!authUsername.equals(username)) return new ResponseEntity<>("Forbidden", HttpStatus.FORBIDDEN);
+        AuthSession session;
+        try {
+            session = loginRepository.authorize(authUsername, token);
+        } catch (JdbcLoginRepository.TokenExpiredException e) {
+            return loginRepository.deleteCookie();
+        }
+        if (session == null) return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
+        if (body == null || body.length() > 5000)
+            return ResponseEntity.badRequest().body("Payload too large.");
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            java.util.List<java.util.Map<String, String>> links = mapper.readValue(body,
+                    mapper.getTypeFactory().constructCollectionType(java.util.List.class,
+                            mapper.getTypeFactory().constructMapType(java.util.Map.class, String.class, String.class)));
+            if (links.size() > 3) return ResponseEntity.badRequest().body("Maximum 3 links allowed.");
+            for (java.util.Map<String, String> link : links) {
+                String url = link.get("url");
+                String label = link.getOrDefault("label", "");
+                if (url == null || url.isBlank()) return ResponseEntity.badRequest().body("Each link must have a URL.");
+                if (url.length() > 500) return ResponseEntity.badRequest().body("URL too long (max 500 chars).");
+                if (label.length() > 50) return ResponseEntity.badRequest().body("Label too long (max 50 chars).");
+                if (!url.startsWith("http://") && !url.startsWith("https://"))
+                    return ResponseEntity.badRequest().body("URLs must start with http:// or https://");
+            }
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Invalid JSON.");
+        }
+        loginRepository.updateUserBioLinks(username, body);
+        return ResponseEntity.ok("Bio links updated.");
+    }
+
     /** Returns the authenticated user's saved pattern presets as JSON. */
     @GetMapping("/users/{username}/presets")
     public ResponseEntity<String> getUserPresets(

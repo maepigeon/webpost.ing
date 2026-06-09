@@ -118,6 +118,18 @@ public class JdbcLoginRepository implements LoginRepository {
         jdbcTemplate.update("UPDATE users SET bio = ? WHERE username = ?", bio, username);
     }
 
+    public String getUserBioLinks(String username) {
+        List<String> r = jdbcTemplate.query(
+                "SELECT bio_links FROM users WHERE username = ?",
+                (rs, rowNum) -> rs.getString("bio_links"),
+                username);
+        return (r.isEmpty() || r.get(0) == null) ? "[]" : r.get(0);
+    }
+
+    public void updateUserBioLinks(String username, String bioLinksJson) {
+        jdbcTemplate.update("UPDATE users SET bio_links = ? WHERE username = ?", bioLinksJson, username);
+    }
+
     public boolean isAdmin(String username) {
         List<Boolean> r = jdbcTemplate.queryForList(
             "SELECT is_admin FROM users WHERE username = ?", Boolean.class, username);

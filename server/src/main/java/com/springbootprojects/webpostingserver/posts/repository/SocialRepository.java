@@ -160,7 +160,7 @@ public class SocialRepository {
     };
 
     public List<Comment> getComments(int postId, String sort, int requestingUserId) {
-        String orderBy = "votes".equals(sort) ? "c.score DESC, c.created_at ASC" : "c.created_at ASC";
+        String orderBy = "votes".equals(sort) ? "c.score DESC, c.created_at ASC" : "c.created_at DESC";
         List<Comment> flat = jdbc.query(
             "SELECT c.id, c.discussion_id, c.parent_id, c.user_id, u.username, c.content, c.score, c.created_at, c.edited_at " +
             "FROM comments c INNER JOIN users u ON u.id=c.user_id " +

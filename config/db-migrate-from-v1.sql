@@ -24,6 +24,7 @@ ALTER TABLE users
     ADD COLUMN IF NOT EXISTS role              VARCHAR(20)   NOT NULL DEFAULT 'user',
     ADD COLUMN IF NOT EXISTS last_visited      TIMESTAMPTZ   DEFAULT NULL,
     ADD COLUMN IF NOT EXISTS bio               TEXT          DEFAULT NULL,
+    ADD COLUMN IF NOT EXISTS bio_links         TEXT          DEFAULT NULL,
     ADD COLUMN IF NOT EXISTS pattern_presets   TEXT          NOT NULL DEFAULT '{}';
 
 

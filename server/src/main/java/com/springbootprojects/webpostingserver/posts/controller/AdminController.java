@@ -281,6 +281,83 @@ public class AdminController {
         return ResponseEntity.ok(Map.of("deleted", deleted));
     }
 
+    // ── Import user data from export file ─────────────────────────────────────
+
+    @SuppressWarnings("unchecked")
+    @PostMapping("/import")
+    public ResponseEntity<Map<String, Object>> importUserData(
+            @RequestBody Map<String, Object> body,
+            @CookieValue(name = "username") String username,
+            @CookieValue(name = "authToken") String token) {
+
+        if (authorize(username, token) == null || !isAdmin(username)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+
+        String targetUsername = (String) body.get("username");
+        if (targetUsername == null || targetUsername.isBlank())
+            return ResponseEntity.badRequest().body(Map.of("error", "Username required."));
+        targetUsername = targetUsername.trim();
+        if (targetUsername.length() > 32)
+            return ResponseEntity.badRequest().body(Map.of("error", "Username too long."));
+
+        Map<String, Object> exportData = (Map<String, Object>) body.get("data");
+        if (exportData == null)
+            return ResponseEntity.badRequest().body(Map.of("error", "Export data required."));
+
+        Map<String, Object> summary = new java.util.LinkedHashMap<>();
+        boolean userCreated = false;
+
+        // Create user if they don't exist (with temp random password)
+        List<Integer> existing = jdbc.queryForList("SELECT id FROM users WHERE username=?", Integer.class, targetUsername);
+        if (existing.isEmpty()) {
+            byte[] rand = new byte[16];
+            new java.security.SecureRandom().nextBytes(rand);
+            String tempPw = bcrypt.encode(java.util.Base64.getUrlEncoder().encodeToString(rand));
+            jdbc.update("INSERT INTO users(username, password) VALUES(?,?)", targetUsername, tempPw);
+            userCreated = true;
+        }
+        summary.put("userCreated", userCreated);
+
+        // Restore profile
+        Map<String, Object> profile = (Map<String, Object>) exportData.get("profile");
+        if (profile != null) {
+            String bio = (String) profile.get("bio");
+            String bioLinks = profile.get("bioLinks") instanceof String ? (String) profile.get("bioLinks") : null;
+            String bgPattern = (String) profile.get("backgroundPattern");
+            if (bio != null && bio.length() <= 500)
+                jdbc.update("UPDATE users SET bio=? WHERE username=?", bio, targetUsername);
+            if (bioLinks != null && bioLinks.length() <= 5000)
+                jdbc.update("UPDATE users SET bio_links=? WHERE username=?", bioLinks, targetUsername);
+            if (bgPattern != null && bgPattern.length() <= 2000)
+                jdbc.update("UPDATE users SET background_pattern=? WHERE username=?", bgPattern, targetUsername);
+        }
+
+        // Restore posts
+        int postsImported = 0;
+        List<Map<String, Object>> posts = (List<Map<String, Object>>) exportData.get("posts");
+        if (posts != null) {
+            int userId = jdbc.queryForObject("SELECT id FROM users WHERE username=?", Integer.class, targetUsername);
+            for (Map<String, Object> post : posts) {
+                String title = (String) post.get("title");
+                String description = (String) post.get("description");
+                Boolean published = post.get("published") instanceof Boolean ? (Boolean) post.get("published") : false;
+                String bgPat = (String) post.get("background_pattern");
+                if (title == null) title = "Imported Post";
+                if (description == null) description = "";
+                if (title.length() > 500) title = title.substring(0, 500);
+                try {
+                    int newPostId = jdbc.queryForObject(
+                        "INSERT INTO posts(title, description, published, date, background_pattern) VALUES(?,?,?,NOW(),?) RETURNING id",
+                        Integer.class, title, description, published, bgPat);
+                    jdbc.update("INSERT INTO users_posts_junctions(user_id, post_id) VALUES(?,?)", userId, newPostId);
+                    postsImported++;
+                } catch (Exception ignored) {}
+            }
+        }
+        summary.put("postsImported", postsImported);
+        summary.put("message", "Import complete. " + (userCreated ? "New user created. " : "Existing user updated. ") + postsImported + " post(s) imported.");
+        return ResponseEntity.ok(summary);
+    }
+
     // ── Storage info for a specific user ───────────────────────────────────────
 
     @GetMapping("/users/{targetUsername}/storage")
