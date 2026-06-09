@@ -281,6 +281,16 @@ pg_dump -U mae testdb > backup_$(date +%Y%m%d).sql
 
 Then run the migration statements manually in `psql`.
 
+**Session 2 migration (required before deploying session 2 changes):**
+```sql
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS message TEXT;
+```
+
+**Session 3 migration (required before deploying session 3 changes):**
+```sql
+ALTER TABLE users ADD COLUMN IF NOT EXISTS pattern_presets TEXT DEFAULT '{}';
+```
+
 ---
 
 ## 6. Database Architecture
@@ -289,7 +299,9 @@ The schema has two conceptual halves: the original blogging core, and the social
 
 ### Core tables
 
-**`users`** — Accounts. Each user has a username (unique, max 32 chars), a password (plain text — no hashing is implemented yet), and an optional `background_pattern` column that stores either a preset key (e.g. `"dots"`) or a validated CSS gradient string.
+**`users`** — Accounts. Each user has a username (unique, max 32 chars), a password (plain text — no hashing is implemented yet), an optional `background_pattern` column, and a `pattern_presets TEXT` column (JSON object of saved wallpaper presets, default `'{}'`).
+
+The `background_pattern` column stores either a preset key (e.g. `"dots"`), a validated CSS gradient string, or either of those with an optional `|#RRGGBB` suffix encoding the page background color (e.g. `"dots|#1a1a2e"`). Both the frontend and backend validator strip the suffix before validating the pattern key.
 
 > **Security note:** Passwords are stored in plain text. This is a known limitation. Do not use this platform with passwords you use elsewhere.
 
@@ -309,7 +321,7 @@ The schema has two conceptual halves: the original blogging core, and the social
 
 **`post_reactions`** — One emoji reaction per user per post (`(post_id, user_id)` primary key). Stored as a short string (e.g. `"👍"`).
 
-**`notifications`** — Inbox entries. The `type` column is one of: `comment`, `reply`, `follow`, `reaction`. `actor_username` is denormalized for display without a join. `post_id` and `comment_id` are nullable links used to navigate to the source when a notification is clicked.
+**`notifications`** — Inbox entries. The `type` column is one of: `comment`, `reply`, `follow`, `reaction`, `new_post`, `message`. `actor_username` is denormalized for display without a join. `post_id` and `comment_id` are nullable links. The `message` column (TEXT, nullable) holds the body of direct user-to-user messages. Storage for this column is tracked per-user and included in the storage summary API.
 
 ### Entity-relationship summary
 

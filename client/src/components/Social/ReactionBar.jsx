@@ -7,6 +7,7 @@ const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 export default function ReactionBar({ postId }) {
   const [counts, setCounts] = useState({});
   const [userReactions, setUserReactions] = useState(new Set());
+  const [pickerOpen, setPickerOpen] = useState(false);
   const loggedIn = !!localStorage.getItem('userName');
 
   useEffect(() => {
@@ -42,9 +43,12 @@ export default function ReactionBar({ postId }) {
     }
   };
 
+  const activeEmojis = REACTIONS.filter(e => (counts[e] ?? 0) > 0 || userReactions.has(e));
+  const pickerEmojis = REACTIONS.filter(e => !activeEmojis.includes(e));
+
   return (
     <div className="reaction-bar reaction-bar--centered">
-      {REACTIONS.map(emoji => (
+      {activeEmojis.map(emoji => (
         <button
           key={emoji}
           className={`reaction-btn${userReactions.has(emoji) ? ' reaction-btn--active' : ''}`}
@@ -54,6 +58,25 @@ export default function ReactionBar({ postId }) {
         >
           <span className="reaction-emoji">{emoji}</span>
           {counts[emoji] ? <span className="reaction-count">{counts[emoji]}</span> : null}
+        </button>
+      ))}
+      {loggedIn && pickerEmojis.length > 0 && (
+        <button
+          className="reaction-btn reaction-expand"
+          onClick={() => setPickerOpen(o => !o)}
+          title={pickerOpen ? 'Close' : 'Add reaction'}
+        >
+          {pickerOpen ? '×' : '+'}
+        </button>
+      )}
+      {loggedIn && pickerOpen && pickerEmojis.map(emoji => (
+        <button
+          key={emoji}
+          className="reaction-btn reaction-picker-item"
+          onClick={() => { handleReact(emoji); setPickerOpen(false); }}
+          title={emoji}
+        >
+          <span className="reaction-emoji">{emoji}</span>
         </button>
       ))}
     </div>

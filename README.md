@@ -76,10 +76,11 @@ Change `dev` → `prod` before deploying. The active profile loads the matching 
 
 **What you must still change manually (owner decisions):**
 
-       What          |                  Where                           |                   Why                          
-Database credentials | `application.properties` → `spring.datasource.*` | Different per deployment; should not be shared 
-Production domain    | `SecurityConfig.java` → `setAllowedOrigins(...)` | Your domain name — only you know what it is
-Prod upload path     | `application-prod.properties` → `app.upload-dir` | Depends on your server layout; the default is a placeholder
+| What | Where | Why |
+|------|-------|-----|
+| Database credentials | `application.properties` → `spring.datasource.*` | Different per deployment; should not be shared |
+| Production domain | `SecurityConfig.java` → `setAllowedOrigins(...)` | Your domain name — only you know what it is |
+| Prod upload path | `application-prod.properties` → `app.upload-dir` | Depends on your server layout; the default is a placeholder |
 
 **Frontend environment** is automatic — Vite uses `client/.env.development` for `npm run dev` and `client/.env.production` for `npm run build`. No manual toggle needed on the frontend.
 

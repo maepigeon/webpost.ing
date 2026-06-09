@@ -10,8 +10,11 @@ public class Notification {
     private String actorUsername;
     private Integer postId;
     private Integer commentId;
+    private String message;
     private boolean isRead;
     private Date createdAt;
+    private String postTitle;
+    private String postOwner;
 
     public Notification() {}
 
@@ -27,9 +30,15 @@ public class Notification {
     public void setPostId(Integer postId) { this.postId = postId; }
     public Integer getCommentId() { return commentId; }
     public void setCommentId(Integer commentId) { this.commentId = commentId; }
+    public String getMessage() { return message; }
+    public void setMessage(String message) { this.message = message; }
     @JsonProperty("isRead")
     public boolean isRead() { return isRead; }
     public void setRead(boolean read) { isRead = read; }
     public Date getCreatedAt() { return createdAt; }
     public void setCreatedAt(Date createdAt) { this.createdAt = createdAt; }
+    public String getPostTitle() { return postTitle; }
+    public void setPostTitle(String postTitle) { this.postTitle = postTitle; }
+    public String getPostOwner() { return postOwner; }
+    public void setPostOwner(String postOwner) { this.postOwner = postOwner; }
 }

@@ -5,7 +5,10 @@ import com.springbootprojects.webpostingserver.posts.model.LoginInfo;
 import com.springbootprojects.webpostingserver.posts.model.User;
 import com.springbootprojects.webpostingserver.posts.repository.JdbcLoginRepository;
 import com.springbootprojects.webpostingserver.posts.repository.LoginRepository;
+import com.springbootprojects.webpostingserver.posts.repository.SocialRepository;
+import com.springbootprojects.webpostingserver.posts.validator.LoginRateLimiter;
 import com.springbootprojects.webpostingserver.posts.validator.PatternValidator;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,6 +29,9 @@ public class AuthController {
 
     @Autowired
     LoginRepository loginRepository;
+
+    @Autowired
+    SocialRepository social;
 
     @Autowired
     JdbcTemplate jdbc;
@@ -92,9 +98,9 @@ public class AuthController {
         return ResponseEntity.ok("Bio updated");
     }
 
-    /** Returns the authenticated user's own storage summary (uploads + post text). */
-    @GetMapping("/users/{username}/storage")
-    public ResponseEntity<Map<String, Object>> getUserStorage(
+    /** Returns the authenticated user's saved pattern presets as JSON. */
+    @GetMapping("/users/{username}/presets")
+    public ResponseEntity<String> getUserPresets(
             @PathVariable("username") String username,
             @CookieValue(name = "username") String authUsername,
             @CookieValue(name = "authToken") String token) {
@@ -106,6 +112,65 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        String presets = loginRepository.getUserPresets(username);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(presets != null ? presets : "{}");
+    }
+
+    /** Saves the authenticated user's pattern presets. Values must be valid patterns. */
+    @PutMapping("/users/{username}/presets")
+    public ResponseEntity<String> updateUserPresets(
+            @PathVariable("username") String username,
+            @RequestBody String body,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+        if (!authUsername.equals(username)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        AuthSession session;
+        try {
+            session = loginRepository.authorize(authUsername, token);
+        } catch (JdbcLoginRepository.TokenExpiredException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        if (body == null || body.length() > 50_000)
+            return ResponseEntity.badRequest().body("Presets payload too large.");
+        // Validate: must be a JSON object with string values that pass PatternValidator
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            java.util.Map<String, String> map = mapper.readValue(body,
+                    mapper.getTypeFactory().constructMapType(java.util.Map.class, String.class, String.class));
+            if (map.size() > 200) return ResponseEntity.badRequest().body("Too many presets (max 200).");
+            for (java.util.Map.Entry<String, String> e : map.entrySet()) {
+                if (e.getKey().length() > 80) return ResponseEntity.badRequest().body("Preset name too long.");
+                if (!PatternValidator.isValid(e.getValue()))
+                    return ResponseEntity.badRequest().body("Invalid pattern value for preset: " + e.getKey());
+            }
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Invalid JSON.");
+        }
+        loginRepository.updateUserPresets(username, body);
+        return ResponseEntity.ok("Presets saved.");
+    }
+
+    /** Returns storage summary for a user. Accessible by the owner or an admin. */
+    @GetMapping("/users/{username}/storage")
+    public ResponseEntity<Map<String, Object>> getUserStorage(
+            @PathVariable("username") String username,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+        AuthSession session;
+        try {
+            session = loginRepository.authorize(authUsername, token);
+        } catch (JdbcLoginRepository.TokenExpiredException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+        if (!authUsername.equals(username)) {
+            Boolean isAdmin = jdbc.queryForObject("SELECT is_admin FROM users WHERE username=?", Boolean.class, authUsername);
+            if (!Boolean.TRUE.equals(isAdmin)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
 
         Long uploadBytes = jdbc.queryForObject(
             "SELECT COALESCE(SUM(up.size_bytes),0) FROM uploads up INNER JOIN users u ON u.id=up.user_id WHERE u.username=?",
@@ -127,16 +192,65 @@ public class AuthController {
             limits = jdbc.queryForMap("SELECT max_storage_bytes, max_posts_per_day FROM role_limits WHERE role=?", role);
         } catch (Exception ignored) {}
 
+        int targetUserId = authUsername.equals(username) ? session.userId : social.getUserIdByUsername(username);
+        long notificationBytes = targetUserId > 0 ? social.getNotificationStorageBytes(targetUserId) : 0;
+        long presetsBytes = loginRepository.getPresetsStorageBytes(username);
+
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("uploadBytes", uploadBytes != null ? uploadBytes : 0L);
         result.put("uploadCount", uploadCount != null ? uploadCount : 0);
         result.put("postTextBytes", postTextBytes != null ? postTextBytes : 0L);
         result.put("postCount", postCount != null ? postCount : 0);
+        result.put("notificationBytes", notificationBytes);
+        result.put("presetsBytes", presetsBytes);
         result.put("role", role);
         if (limits != null) {
             result.put("maxStorageBytes", limits.get("max_storage_bytes"));
             result.put("maxPostsPerDay", limits.get("max_posts_per_day"));
         }
+        return ResponseEntity.ok(result);
+    }
+
+    /** Case-insensitive username search. Returns up to 20 matching usernames. */
+    @GetMapping("/search/users")
+    public ResponseEntity<List<String>> searchUsers(@RequestParam(defaultValue = "") String q) {
+        if (q.isBlank() || q.length() > 50) return ResponseEntity.ok(List.of());
+        return ResponseEntity.ok(social.searchUsers(q.trim(), 20));
+    }
+
+    /** Returns follower and following counts for a user (public). */
+    @GetMapping("/users/{username}/follow-counts")
+    public ResponseEntity<Map<String, Integer>> getFollowCounts(@PathVariable String username) {
+        int uid = social.getUserIdByUsername(username);
+        if (uid < 0) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(social.getFollowCounts(uid));
+    }
+
+    /** Returns activity (comments + reactions) for a user. Accessible by the owner or an admin. */
+    @GetMapping("/users/{username}/activity")
+    public ResponseEntity<Map<String, Object>> getUserActivity(
+            @PathVariable String username,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+        AuthSession session;
+        try {
+            session = loginRepository.authorize(authUsername, token);
+        } catch (JdbcLoginRepository.TokenExpiredException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+        if (!authUsername.equals(username)) {
+            Boolean isAdmin = jdbc.queryForObject("SELECT is_admin FROM users WHERE username=?", Boolean.class, authUsername);
+            if (!Boolean.TRUE.equals(isAdmin)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        int targetUserId = authUsername.equals(username) ? session.userId : social.getUserIdByUsername(username);
+        if (targetUserId < 0) return ResponseEntity.notFound().build();
+
+        Map<String, Object> result = new java.util.LinkedHashMap<>();
+        result.put("comments", social.getUserActivityComments(targetUserId, 100));
+        result.put("reactions", social.getUserActivityPostReactions(targetUserId, 100));
         return ResponseEntity.ok(result);
     }
 
@@ -179,17 +293,42 @@ public class AuthController {
     }
 
 
+    /** Permanently deletes a user account. Admin-only — use the admin dashboard. */
+    @DeleteMapping("/users/{username}")
+    public ResponseEntity<String> deleteAccount(
+            @PathVariable("username") String username,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+        AuthSession session;
+        try {
+            session = loginRepository.authorize(authUsername, token);
+        } catch (JdbcLoginRepository.TokenExpiredException e) {
+            return loginRepository.deleteCookie();
+        }
+        if (session == null) return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
+        Boolean isAdmin = jdbc.queryForObject("SELECT is_admin FROM users WHERE username=?", Boolean.class, authUsername);
+        if (!Boolean.TRUE.equals(isAdmin)) return new ResponseEntity<>("Forbidden", HttpStatus.FORBIDDEN);
+        loginRepository.deleteUser(username);
+        return ResponseEntity.ok("User deleted.");
+    }
+
     @PostMapping("/loginSessionAttempt")
-    public ResponseEntity<String> loginSessionAttempt(@RequestBody LoginInfo loginInfo, HttpServletResponse response) {
+    public ResponseEntity<String> loginSessionAttempt(@RequestBody LoginInfo loginInfo, HttpServletRequest request, HttpServletResponse response) {
+        String clientIp = request.getRemoteAddr();
+        if (LoginRateLimiter.isBlocked(clientIp)) {
+            return new ResponseEntity<>("Too many failed login attempts. Try again in 15 minutes.", HttpStatus.TOO_MANY_REQUESTS);
+        }
         System.out.println("Attempting to login user");
 	AuthSession loginResult = loginRepository.login(loginInfo);
         try {
             switch (loginResult.loginHttpStatusCodeResult) {
                 case HttpStatus.FORBIDDEN:
 		    System.out.println("Failed to authenticate, error 403");
+                    LoginRateLimiter.recordFailure(clientIp);
                     return new ResponseEntity<>("Failed to authenticate: Incorrect login information, loginResult: ." + loginResult, HttpStatus.FORBIDDEN);
    		case HttpStatus.OK:
                     System.out.println("AUTHENTICATION OK!! : Logging in user: " + loginInfo.getUsername());
+                    LoginRateLimiter.recordSuccess(clientIp);
                     HttpCookie tokenCookie = ResponseCookie.from("authToken", loginResult.token)
                             .httpOnly(true)
                             .sameSite(devMode ? "Lax" : "None")

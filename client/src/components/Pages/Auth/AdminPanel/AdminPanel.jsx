@@ -147,8 +147,11 @@ export default function AdminPanel() {
                 <th>Username</th>
                 <th>Role</th>
                 <th>Posts</th>
+                <th>Comments</th>
                 <th>Uploads</th>
                 <th>Post Text</th>
+                <th>Comment Text</th>
+                <th>BG Pattern</th>
                 <th>Admin</th>
                 <th>Actions</th>
               </tr>
@@ -163,8 +166,11 @@ export default function AdminPanel() {
                     </select>
                   </td>
                   <td>{u.post_count ?? 0}</td>
+                  <td>{u.comment_count ?? 0}</td>
                   <td>{fmt(Number(u.storage_bytes ?? 0))}</td>
                   <td>{fmt(Number(u.post_bytes ?? 0))}</td>
+                  <td>{fmt(Number(u.comment_bytes ?? 0))}</td>
+                  <td>{fmt(Number(u.bg_pattern_bytes ?? 0))}</td>
                   <td>
                     <input type="checkbox" checked={!!u.is_admin} onChange={() => toggleAdmin(u.username, !!u.is_admin)} />
                   </td>

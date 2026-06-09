@@ -6,6 +6,8 @@ import com.springbootprojects.webpostingserver.posts.repository.JdbcLoginReposit
 import com.springbootprojects.webpostingserver.posts.repository.LoginRepository;
 import com.springbootprojects.webpostingserver.posts.repository.PostRepository;
 import com.springbootprojects.webpostingserver.posts.repository.SocialRepository;
+import com.springbootprojects.webpostingserver.posts.validator.EmojiValidator;
+import com.springbootprojects.webpostingserver.posts.validator.RateLimiter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +18,10 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api")
 public class SocialController {
+
+    // 20 messages per hour per sender; 60 reactions per 5 min per user
+    private static final RateLimiter MSG_LIMITER      = new RateLimiter(20,  60 * 60 * 1000L, 60 * 60 * 1000L);
+    private static final RateLimiter REACTION_LIMITER = new RateLimiter(60,   5 * 60 * 1000L,  5 * 60 * 1000L);
 
     @Autowired
     private SocialRepository social;
@@ -56,7 +62,8 @@ public class SocialController {
         if (targetId < 0) return ResponseEntity.notFound().build();
 
         boolean following = social.isFollowing(session.userId, targetId);
-        return ResponseEntity.ok(Map.of("following", following));
+        boolean mutuals = following && social.isFollowing(targetId, session.userId);
+        return ResponseEntity.ok(Map.of("following", following, "mutuals", mutuals));
     }
 
     @PostMapping("/users/{username}/follow")
@@ -121,11 +128,16 @@ public class SocialController {
         AuthSession session = authorize(authUsername, token);
         if (session == null) return unauthorized();
 
+        String rkey = String.valueOf(session.userId);
+        if (REACTION_LIMITER.isBlocked(rkey))
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body("Too many reactions. Slow down.");
+
         String reaction = body.get("reaction");
-        if (reaction == null || reaction.isBlank() || reaction.length() > 10)
+        if (!EmojiValidator.isValid(reaction))
             return ResponseEntity.badRequest().body("Invalid reaction.");
 
-        social.toggleReaction(postId, session.userId, reaction);
+        social.toggleReaction(postId, session.userId, reaction.trim());
+        REACTION_LIMITER.recordUse(rkey);
         var postOwner = postRepository.getUsernameFromPostId(postId);
         if (postOwner != null && !postOwner.compareUsername(authUsername)) {
             int ownerId = social.getUserIdByUsername(postOwner.getUsername());
@@ -134,18 +146,107 @@ public class SocialController {
         return ResponseEntity.ok("Reaction toggled.");
     }
 
-    // ── Notifications ─────────────────────────────────────────────────────────
+    // ── Direct messages ───────────────────────────────────────────────────────
 
-    @GetMapping("/notifications")
-    public ResponseEntity<List<Notification>> getNotifications(
-            @RequestParam(defaultValue = "50") int limit,
+    @PostMapping("/users/{username}/message")
+    public ResponseEntity<String> sendMessage(
+            @PathVariable String username,
+            @RequestBody Map<String, String> body,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+
+        AuthSession session = authorize(authUsername, token);
+        if (session == null) return unauthorized();
+
+        String key = String.valueOf(session.userId);
+        if (MSG_LIMITER.isBlocked(key))
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body("Too many messages. Try again later.");
+
+        String message = body.get("message");
+        if (message == null || message.isBlank() || message.length() > 1000)
+            return ResponseEntity.badRequest().body("Message must be 1–1000 characters.");
+
+        int targetId = social.getUserIdByUsername(username);
+        if (targetId < 0) return ResponseEntity.notFound().build();
+        if (targetId == session.userId) return ResponseEntity.badRequest().body("Cannot message yourself.");
+
+        if (social.isMessageBlocked(targetId, session.userId))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("This user is not accepting messages from you.");
+
+        social.sendMessage(targetId, authUsername, message.trim());
+        MSG_LIMITER.recordUse(key);
+        return ResponseEntity.ok("Message sent.");
+    }
+
+    // ── DM blocks ─────────────────────────────────────────────────────────────
+
+    /** Block direct messages from {username} reaching the authenticated user. */
+    @PostMapping("/users/{username}/block-messages")
+    public ResponseEntity<String> blockMessages(
+            @PathVariable String username,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+
+        AuthSession session = authorize(authUsername, token);
+        if (session == null) return unauthorized();
+
+        int targetId = social.getUserIdByUsername(username);
+        if (targetId < 0) return ResponseEntity.notFound().build();
+        if (targetId == session.userId) return ResponseEntity.badRequest().body("Cannot block yourself.");
+
+        social.blockMessages(session.userId, targetId);
+        return ResponseEntity.ok("Messages blocked.");
+    }
+
+    /** Unblock direct messages from {username}. */
+    @DeleteMapping("/users/{username}/block-messages")
+    public ResponseEntity<String> unblockMessages(
+            @PathVariable String username,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+
+        AuthSession session = authorize(authUsername, token);
+        if (session == null) return unauthorized();
+
+        int targetId = social.getUserIdByUsername(username);
+        if (targetId < 0) return ResponseEntity.notFound().build();
+
+        social.unblockMessages(session.userId, targetId);
+        return ResponseEntity.ok("Messages unblocked.");
+    }
+
+    /** Check whether the authenticated user has blocked messages from {username}. */
+    @GetMapping("/users/{username}/block-messages")
+    public ResponseEntity<Map<String, Boolean>> getBlockStatus(
+            @PathVariable String username,
             @CookieValue(name = "username") String authUsername,
             @CookieValue(name = "authToken") String token) {
 
         AuthSession session = authorize(authUsername, token);
         if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 
-        return ResponseEntity.ok(social.getNotifications(session.userId, limit));
+        int targetId = social.getUserIdByUsername(username);
+        if (targetId < 0) return ResponseEntity.notFound().build();
+
+        boolean blocked = social.isBlockingMessages(session.userId, targetId);
+        return ResponseEntity.ok(Map.of("blocked", blocked));
+    }
+
+    // ── Notifications ─────────────────────────────────────────────────────────
+
+    @GetMapping("/notifications")
+    public ResponseEntity<List<Notification>> getNotifications(
+            @RequestParam(defaultValue = "30") int limit,
+            @RequestParam(defaultValue = "0") int offset,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+
+        AuthSession session = authorize(authUsername, token);
+        if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+        int safeLimit  = Math.min(Math.max(limit, 1), 100);
+        int safeOffset = Math.max(offset, 0);
+        return ResponseEntity.ok(social.getNotifications(session.userId, safeLimit, safeOffset));
     }
 
     @GetMapping("/notifications/unread-count")
@@ -168,8 +269,8 @@ public class SocialController {
         AuthSession session = authorize(authUsername, token);
         if (session == null) return unauthorized();
 
-        social.markRead(id, session.userId);
-        return ResponseEntity.ok("Marked read.");
+        int rows = social.markRead(id, session.userId);
+        return rows > 0 ? ResponseEntity.ok("Marked read.") : ResponseEntity.status(HttpStatus.NOT_FOUND).body("Notification not found.");
     }
 
     @PutMapping("/notifications/read-all")
@@ -193,8 +294,8 @@ public class SocialController {
         AuthSession session = authorize(authUsername, token);
         if (session == null) return unauthorized();
 
-        social.deleteNotification(id, session.userId);
-        return ResponseEntity.ok("Deleted.");
+        int rows = social.deleteNotification(id, session.userId);
+        return rows > 0 ? ResponseEntity.ok("Deleted.") : ResponseEntity.status(HttpStatus.NOT_FOUND).body("Notification not found.");
     }
 
     @DeleteMapping("/notifications")

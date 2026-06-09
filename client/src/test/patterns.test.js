@@ -1,5 +1,27 @@
 import { describe, it, expect } from 'vitest';
-import { isValidPattern, patternToStyle, PRESET_PATTERNS } from '../components/PatternPicker/patterns.js';
+import { isValidPattern, patternToStyle, PRESET_PATTERNS, extractBgColor, stripBgColor, DEFAULT_BG_COLOR } from '../components/PatternPicker/patterns.js';
+
+// ── extractBgColor / stripBgColor ─────────────────────────────────────────────
+
+describe('extractBgColor', () => {
+  it('returns null for null', () => expect(extractBgColor(null)).toBeNull());
+  it('returns null for plain preset key', () => expect(extractBgColor('dots')).toBeNull());
+  it('returns color for preset|#hex', () => expect(extractBgColor('dots|#f0e6d3')).toBe('#f0e6d3'));
+  it('returns color for |#hex (no pattern)', () => expect(extractBgColor('|#aabbcc')).toBe('#aabbcc'));
+  it('returns null if suffix is not hex', () => expect(extractBgColor('dots|red')).toBeNull());
+  it('accepts 3-char hex', () => expect(extractBgColor('grid|#abc')).toBe('#abc'));
+  it('accepts 8-char hex', () => expect(extractBgColor('grid|#aabbccdd')).toBe('#aabbccdd'));
+});
+
+describe('stripBgColor', () => {
+  it('returns null for null', () => expect(stripBgColor(null)).toBeNull());
+  it('returns value unchanged when no suffix', () => expect(stripBgColor('dots')).toBe('dots'));
+  it('strips valid |#hex suffix', () => expect(stripBgColor('dots|#f0e6d3')).toBe('dots'));
+  it('strips from gradient value', () =>
+    expect(stripBgColor('linear-gradient(red,blue)|#001122')).toBe('linear-gradient(red,blue)'));
+  it('does not strip non-hex suffix', () => expect(stripBgColor('dots|red')).toBe('dots|red'));
+  it('returns empty string for |#hex only', () => expect(stripBgColor('|#aabbcc')).toBe(''));
+});
 
 // ── isValidPattern ────────────────────────────────────────────────────────────
 
@@ -54,6 +76,15 @@ describe('isValidPattern', () => {
   it('rejects hex color', () => expect(isValidPattern('#ff0000')).toBe(false));
   it('rejects string longer than 2000 chars', () =>
     expect(isValidPattern('linear-gradient(' + 'a'.repeat(1990) + ')')).toBe(false));
+
+  // |#COLOR suffix support
+  it('accepts preset|#hex', () => expect(isValidPattern('dots|#f0e6d3')).toBe(true));
+  it('accepts gradient|#hex', () =>
+    expect(isValidPattern('linear-gradient(red,blue)|#001122')).toBe(true));
+  it('accepts |#hex alone (just a bg color, no pattern)', () =>
+    expect(isValidPattern('|#aabbcc')).toBe(true));
+  it('rejects url() even with valid suffix', () =>
+    expect(isValidPattern('url(evil.com)|#f0f0f0')).toBe(false));
 });
 
 // ── patternToStyle ────────────────────────────────────────────────────────────
@@ -103,5 +134,28 @@ describe('patternToStyle', () => {
         expect(style).toHaveProperty('backgroundImage');
       }
     }
+  });
+
+  // |#COLOR suffix support
+  it('extracts _bgColor from preset|#hex', () => {
+    const style = patternToStyle('dots|#f0e6d3');
+    expect(style).toHaveProperty('backgroundImage');
+    expect(style._bgColor).toBe('#f0e6d3');
+  });
+
+  it('extracts _bgColor from |#hex alone (no pattern)', () => {
+    const style = patternToStyle('|#aabbcc');
+    expect(style._bgColor).toBe('#aabbcc');
+    expect(style.backgroundImage).toBeUndefined();
+  });
+
+  it('no _bgColor when no suffix', () => {
+    const style = patternToStyle('dots');
+    expect(style._bgColor).toBeUndefined();
+  });
+
+  it('_bgColor absent for default color (no suffix stored)', () => {
+    const style = patternToStyle('grid');
+    expect('_bgColor' in style).toBe(false);
   });
 });

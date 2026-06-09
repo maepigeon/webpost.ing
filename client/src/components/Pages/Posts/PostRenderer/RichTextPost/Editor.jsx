@@ -3,8 +3,10 @@ import {
   $insertNodes, KEY_BACKSPACE_COMMAND, KEY_DELETE_COMMAND, KEY_ESCAPE_COMMAND,
   COMMAND_PRIORITY_EDITOR,
   UNDO_COMMAND, REDO_COMMAND, CAN_UNDO_COMMAND, CAN_REDO_COMMAND,
-  FORMAT_TEXT_COMMAND, $getNodeByKey,
+  FORMAT_TEXT_COMMAND, $getNodeByKey, $getRoot, $isParagraphNode,
 } from 'lexical';
+import { $isHeadingNode } from '@lexical/rich-text';
+import { $isListNode } from '@lexical/list';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import './Editor.css'
 import TitleBar from "./TitleBar"
@@ -20,7 +22,8 @@ import { $setBlocksType, $patchStyleText, $getSelectionStyleValueForProperty } f
 import { $createHeadingNode, HeadingNode } from '@lexical/rich-text';
 import { ListPlugin } from '@lexical/react/LexicalListPlugin';
 import { INSERT_ORDERED_LIST_COMMAND, INSERT_UNORDERED_LIST_COMMAND, ListNode, ListItemNode } from '@lexical/list';
-import { CodeNode, CodeHighlightNode, $createCodeNode, $isCodeNode, registerCodeHighlighting, getCodeLanguages, getLanguageFriendlyName, CODE_LANGUAGE_FRIENDLY_NAME_MAP } from '@lexical/code';
+import { CodeNode, CodeHighlightNode, $isCodeNode, registerCodeHighlighting, getCodeLanguages, getLanguageFriendlyName } from '@lexical/code';
+import { CustomCodeNode, $createCustomCodeNode } from './CustomCodeNode.jsx';
 import { LinkNode, $createLinkNode, $isLinkNode, TOGGLE_LINK_COMMAND } from '@lexical/link';
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
 import { ClickableLinkPlugin } from '@lexical/react/LexicalClickableLinkPlugin';
@@ -32,9 +35,8 @@ import axios from 'axios';
 import { BASE_URL } from '../../../../../config.js';
 import PatternPicker from '../../../../PatternPicker/PatternPicker.jsx';
 import { patternToStyle } from '../../../../PatternPicker/patterns.js';
-import KeyRepeatPlugin from './KeyRepeatPlugin.jsx';
 
-const EDITOR_NODES = [HeadingNode, ListNode, ListItemNode, CodeNode, CodeHighlightNode, ImageNode, MathNode, LinkNode];
+const EDITOR_NODES = [HeadingNode, ListNode, ListItemNode, CustomCodeNode, CodeHighlightNode, ImageNode, MathNode, LinkNode];
 
 const FONT_SIZES = ['12px', '14px', '16px', '18px', '24px', '32px', '48px'];
 
@@ -161,95 +163,6 @@ function CodeHighlightPlugin() {
   return null;
 }
 
-function useCodeContext() {
-  const [editor] = useLexicalComposerContext();
-  const [ctx, setCtx] = useState(null);
-  useEffect(() => {
-    return editor.registerUpdateListener(({ editorState }) => {
-      editorState.read(() => {
-        const sel = $getSelection();
-        if (!$isRangeSelection(sel)) { setCtx(null); return; }
-        let node = sel.anchor.getNode();
-        while (node) {
-          if ($isCodeNode(node)) {
-            setCtx({ nodeKey: node.getKey(), language: node.getLanguage() || '' });
-            return;
-          }
-          if (typeof node.getParent !== 'function') break;
-          node = node.getParent();
-        }
-        setCtx(null);
-      });
-    });
-  }, [editor]);
-  return ctx;
-}
-
-function CodeContextToolbar() {
-  const [editor] = useLexicalComposerContext();
-  const ctx = useCodeContext();
-  const [copied, setCopied] = useState(false);
-  const [lightMode, setLightMode] = useState(false);
-
-  useEffect(() => {
-    if (!ctx) return;
-    const el = editor.getElementByKey(ctx.nodeKey);
-    if (!el) return;
-    el.classList.toggle('code-light', lightMode);
-  }, [ctx, lightMode, editor]);
-
-  if (!ctx) return null;
-
-  const setLanguage = (lang) => {
-    editor.update(() => {
-      const node = $getNodeByKey(ctx.nodeKey);
-      if ($isCodeNode(node)) node.setLanguage(lang);
-    });
-  };
-
-  const copyCode = () => {
-    editor.getEditorState().read(() => {
-      const node = $getNodeByKey(ctx.nodeKey);
-      if (!node) return;
-      navigator.clipboard.writeText(node.getTextContent()).then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      }).catch(() => {});
-    });
-  };
-
-  return (
-    <CollapsibleSection label="Code" defaultOpen={true}>
-      <select
-        value={ctx.language}
-        onChange={e => setLanguage(e.target.value)}
-        className="toolbar-select"
-        title="Code language"
-      >
-        <option value="">Plain text</option>
-        {getCodeLanguages().map(lang => (
-          <option key={lang} value={lang}>{getLanguageFriendlyName(lang)}</option>
-        ))}
-      </select>
-      <button
-        className={`toolbar-fmt-btn${lightMode ? ' active' : ''}`}
-        onClick={() => setLightMode(m => !m)}
-        title="Toggle light/dark theme"
-        style={{ fontSize: '11px', padding: '0 6px' }}
-      >
-        {lightMode ? '☀ Light' : '🌙 Dark'}
-      </button>
-      <button
-        className="toolbar-fmt-btn"
-        onClick={copyCode}
-        title="Copy code to clipboard"
-        style={{ fontSize: '11px', padding: '0 6px' }}
-      >
-        {copied ? '✓' : '⎘ Copy'}
-      </button>
-    </CollapsibleSection>
-  );
-}
 
 function CodeEscapePlugin() {
   const [editor] = useLexicalComposerContext();
@@ -281,6 +194,218 @@ function CodeEscapePlugin() {
       },
       COMMAND_PRIORITY_EDITOR,
     );
+  }, [editor]);
+  return null;
+}
+
+function CodeHoverControlsPlugin() {
+  const [editor] = useLexicalComposerContext();
+  useEffect(() => {
+    const LANGS = getCodeLanguages();
+    // activeEl → { overlay, leaveTimer, cleanupFns }
+    const active = new WeakMap();
+
+    function removeOverlay(el) {
+      const state = active.get(el);
+      if (!state) return;
+      clearTimeout(state.leaveTimer);
+      state.overlay.remove();
+      state.cleanupFns.forEach(fn => fn());
+      active.delete(el);
+    }
+
+    function showOverlay(el) {
+      if (active.has(el)) return;
+
+      // Read Lexical node info
+      let nodeKey = null, lightMode = false, lineNumbers = false, language = '';
+      editor.getEditorState().read(() => {
+        for (const child of $getRoot().getChildren()) {
+          if ($isCodeNode(child) && editor.getElementByKey(child.getKey()) === el) {
+            nodeKey = child.getKey();
+            language = child.getLanguage() ?? '';
+            if (child instanceof CustomCodeNode) {
+              lightMode = child.getLightMode();
+              lineNumbers = child.getLineNumbers();
+            }
+            break;
+          }
+        }
+      });
+
+      const overlay = document.createElement('div');
+      overlay.className = 'code-hover-controls';
+      // Position fixed over the code block, outside any overflow:auto container
+      const rect = el.getBoundingClientRect();
+      overlay.style.position = 'fixed';
+      overlay.style.top = (rect.top + 4) + 'px';
+      overlay.style.right = (window.innerWidth - rect.right + 4) + 'px';
+      overlay.style.zIndex = '9999';
+      // Remove absolute positioning from class (handled inline above)
+      overlay.style.setProperty('position', 'fixed', 'important');
+
+      const mkBtn = (label, title, active_, onClick) => {
+        const btn = document.createElement('button');
+        btn.textContent = label;
+        btn.title = title;
+        btn.className = 'code-ctrl-btn' + (active_ ? ' active' : '');
+        btn.addEventListener('mousedown', ev => ev.preventDefault());
+        btn.addEventListener('click', ev => { ev.stopPropagation(); onClick(btn); });
+        return btn;
+      };
+
+      const sep = () => {
+        const s = document.createElement('span');
+        s.className = 'code-ctrl-sep';
+        return s;
+      };
+
+      // Language select
+      const select = document.createElement('select');
+      select.className = 'code-ctrl-select';
+      select.title = 'Code language';
+      const plainOpt = document.createElement('option');
+      plainOpt.value = '';
+      plainOpt.textContent = 'Plain text';
+      select.appendChild(plainOpt);
+      LANGS.forEach(lang => {
+        const opt = document.createElement('option');
+        opt.value = lang;
+        opt.textContent = getLanguageFriendlyName(lang);
+        select.appendChild(opt);
+      });
+      select.value = language;
+      select.addEventListener('mousedown', ev => ev.stopPropagation());
+      select.addEventListener('change', () => {
+        editor.update(() => {
+          const node = $getNodeByKey(nodeKey);
+          if ($isCodeNode(node)) node.setLanguage(select.value);
+        });
+      });
+      overlay.appendChild(select);
+      overlay.appendChild(sep());
+
+      if (nodeKey) {
+        const lightBtn = mkBtn(lightMode ? 'Light' : 'Dark', 'Toggle light/dark', lightMode, (btn) => {
+          lightMode = !lightMode;
+          editor.update(() => {
+            const node = $getNodeByKey(nodeKey);
+            if (node instanceof CustomCodeNode) node.setLightMode(lightMode);
+          });
+          btn.textContent = lightMode ? 'Light' : 'Dark';
+          btn.classList.toggle('active', lightMode);
+        });
+        overlay.appendChild(lightBtn);
+
+        const lineBtn = mkBtn(lineNumbers ? 'Lines: on' : 'Lines: off', 'Toggle line numbers', lineNumbers, (btn) => {
+          lineNumbers = !lineNumbers;
+          editor.update(() => {
+            const node = $getNodeByKey(nodeKey);
+            if (node instanceof CustomCodeNode) node.setLineNumbers(lineNumbers);
+          });
+          btn.textContent = lineNumbers ? 'Lines: on' : 'Lines: off';
+          btn.classList.toggle('active', lineNumbers);
+        });
+        overlay.appendChild(lineBtn);
+        overlay.appendChild(sep());
+
+        overlay.appendChild(mkBtn('↑', 'Move up', false, () => {
+          editor.update(() => {
+            const node = $getNodeByKey(nodeKey);
+            if (!node) return;
+            const prev = node.getPreviousSibling();
+            if (prev) { node.remove(); prev.insertBefore(node); }
+          });
+        }));
+        overlay.appendChild(mkBtn('↓', 'Move down', false, () => {
+          editor.update(() => {
+            const node = $getNodeByKey(nodeKey);
+            if (!node) return;
+            const next = node.getNextSibling();
+            if (next) { node.remove(); next.insertAfter(node); }
+          });
+        }));
+        const delBtn = mkBtn('Del', 'Delete code block', false, () => {
+          removeOverlay(el);
+          editor.update(() => { const n = $getNodeByKey(nodeKey); if (n) n.remove(); });
+        });
+        delBtn.style.color = '#ff9999';
+        overlay.appendChild(delBtn);
+        overlay.appendChild(sep());
+      }
+
+      function extractText(node) {
+        if (node.nodeType === Node.TEXT_NODE) return node.textContent;
+        if (node.nodeName === 'BR') return '\n';
+        if (node.classList?.contains('line-nums-gutter')) return '';
+        let t = '';
+        node.childNodes.forEach(c => { t += extractText(c); });
+        return t;
+      }
+      overlay.appendChild(mkBtn('Copy', 'Copy code to clipboard', false, (btn) => {
+        navigator.clipboard.writeText(extractText(el)).then(() => {
+          btn.textContent = '✓';
+          setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+        }).catch(() => {});
+      }));
+
+      document.body.appendChild(overlay);
+
+      const state = { overlay, leaveTimer: null, cleanupFns: [] };
+      active.set(el, state);
+
+      const scheduleRemove = () => {
+        state.leaveTimer = setTimeout(() => removeOverlay(el), 600);
+      };
+      const cancelRemove = () => clearTimeout(state.leaveTimer);
+
+      el.addEventListener('mouseleave', scheduleRemove);
+      el.addEventListener('mouseenter', cancelRemove);
+      overlay.addEventListener('mouseleave', scheduleRemove);
+      overlay.addEventListener('mouseenter', cancelRemove);
+      select.addEventListener('focus', cancelRemove);
+      select.addEventListener('blur', () => { if (!el.matches(':hover') && !overlay.matches(':hover')) scheduleRemove(); });
+
+      state.cleanupFns.push(
+        () => el.removeEventListener('mouseleave', scheduleRemove),
+        () => el.removeEventListener('mouseenter', cancelRemove),
+        () => overlay.removeEventListener('mouseleave', scheduleRemove),
+        () => overlay.removeEventListener('mouseenter', cancelRemove),
+      );
+    }
+
+    // Use mouseover (bubbles) for reliable delegation — simpler than capture-phase mouseenter
+    function onMouseOver(e) {
+      const el = e.target.closest('code.editor-code');
+      if (el) showOverlay(el);
+    }
+
+    return editor.registerRootListener((root, prev) => {
+      if (prev) prev.removeEventListener('mouseover', onMouseOver);
+      if (root) root.addEventListener('mouseover', onMouseOver);
+    });
+  }, [editor]);
+  return null;
+}
+
+function EnsureLeadingParagraphPlugin() {
+  const [editor] = useLexicalComposerContext();
+  useEffect(() => {
+    return editor.registerUpdateListener(({ editorState }) => {
+      editorState.read(() => {
+        const first = $getRoot().getFirstChild();
+        // Only insert a leading paragraph when the first child is a code block or decorator
+        // node (image/math). Headings and lists are acceptable as first children and
+        // inserting a paragraph before them would fight with the cursor on every Enter press.
+        if (!first) return;
+        if ($isParagraphNode(first) || $isHeadingNode(first) || $isListNode(first)) return;
+        editor.update(() => {
+          const f = $getRoot().getFirstChild();
+          if (!f || $isParagraphNode(f) || $isHeadingNode(f) || $isListNode(f)) return;
+          f.insertBefore($createParagraphNode());
+        });
+      });
+    });
   }, [editor]);
   return null;
 }
@@ -533,7 +658,7 @@ function LinkToolbarPlugin() {
         title={isLink ? 'Edit link' : 'Insert link'}
         onClick={isLink ? editLink : addLink}
       >
-        🔗 Link
+        Link
       </button>
       {showFloat && pos && (
         <div
@@ -561,7 +686,7 @@ function CodeToolbarPlugin() {
     editor.update(() => {
       const selection = $getSelection();
       if ($isRangeSelection(selection)) {
-        $setBlocksType(selection, () => $createCodeNode());
+        $setBlocksType(selection, () => $createCustomCodeNode());
       }
     });
   };
@@ -595,8 +720,8 @@ function BackgroundToolbarPlugin({ pattern, onPatternChange, username }) {
 
   return (
     <div className="toolbar-bg-wrapper" ref={wrapperRef}>
-      <button type="button" onClick={() => setOpen(o => !o)} title="Post background pattern">
-        BG
+      <button type="button" onClick={() => setOpen(o => !o)} title="Post wallpaper">
+        Wallpaper
       </button>
       {open && (
         <div className="toolbar-bg-panel">
@@ -641,7 +766,7 @@ function FeatureTogglePlugin({ postid, features, onFeaturesChange }) {
   );
 }
 
-function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublishedChange }) {
+function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublishedChange, titleRef }) {
   const [editor] = useLexicalComposerContext();
   const [saveStatus, setSaveStatus] = useState('');
   const isExisting = postid > 0;
@@ -653,7 +778,8 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
 
   const save = (published) => {
     const editorState = JSON.stringify(editor.getEditorState().toJSON());
-    const postTitle = localStorage.getItem("currentPostTitle");
+    // titleRef.current is the live value; localStorage is a fallback for edge cases
+    const postTitle = titleRef?.current || localStorage.getItem("currentPostTitle") || 'Untitled';
     if (isExisting) {
       UPDATE_POST(postid, postTitle, editorState, published, backgroundPattern)
         .then(() => {
@@ -765,7 +891,7 @@ function FormatToolbarPlugin() {
   );
 }
 
-function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, postPublished, onPublishedChange, features, onFeaturesChange }) {
+function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, postPublished, onPublishedChange, features, onFeaturesChange, titleRef }) {
   return (
     <div className='toolbar-sticky'>
       <UndoRedoPlugin />
@@ -791,11 +917,9 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
         <ImageToolbarPlugin />
       </CollapsibleSection>
       <span className='toolbar-divider' />
-      <CodeContextToolbar />
-      <span className='toolbar-divider' />
       <FeatureTogglePlugin postid={postid} features={features} onFeaturesChange={onFeaturesChange} />
       <span className='toolbar-divider' />
-      <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} />
+      <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} titleRef={titleRef} />
     </div>
   );
 }
@@ -851,6 +975,13 @@ export default function RichTextEditor() {
     }
   }, []);
 
+  // For new posts, seed localStorage with the initial title so SaveToolbarPlugin has it
+  useEffect(() => {
+    if (!id) {
+      localStorage.setItem("currentPostTitle", titlehtml.current);
+    }
+  }, [id]);
+
   const refreshPost = useCallback(() => {
     if (!id) return;
     READ_POST(id).then((data) => {
@@ -882,14 +1013,15 @@ export default function RichTextEditor() {
   // Apply background pattern to document.body so backdrop-filter on the glass card can blur it
   useEffect(() => {
     const style = patternToStyle(backgroundPattern);
-    console.log('[Editor] Applying pattern to body:', backgroundPattern, style);
     document.body.style.backgroundImage = style.backgroundImage || '';
     document.body.style.backgroundSize = style.backgroundSize || 'auto';
     document.body.style.backgroundPosition = style.backgroundPosition || 'initial';
+    document.documentElement.style.backgroundColor = style._bgColor || '';
     return () => {
       document.body.style.backgroundImage = '';
       document.body.style.backgroundSize = '';
       document.body.style.backgroundPosition = '';
+      document.documentElement.style.backgroundColor = '';
     };
   }, [backgroundPattern]);
 
@@ -899,9 +1031,10 @@ export default function RichTextEditor() {
         <ListPlugin />
         <LinkPlugin />
         <CodeHighlightPlugin />
+        <CodeHoverControlsPlugin />
+        <EnsureLeadingParagraphPlugin />
         <CodeEscapePlugin />
         <HistoryPlugin />
-        <KeyRepeatPlugin />
         <DecoratorKeyboardPlugin />
         <ImageDragPastePlugin />
         <MyOnChangePlugin onChange={onChange} />
@@ -918,7 +1051,7 @@ export default function RichTextEditor() {
               }}
               editMode={true}
             />
-            <ToolbarPlugin postid={id} backgroundPattern={backgroundPattern} onPatternChange={setBackgroundPattern} username={postAuthor} postPublished={postPublished} onPublishedChange={setPostPublished} features={features} onFeaturesChange={setFeatures} />
+            <ToolbarPlugin postid={id} backgroundPattern={backgroundPattern} onPatternChange={setBackgroundPattern} username={postAuthor} postPublished={postPublished} onPublishedChange={setPostPublished} features={features} onFeaturesChange={setFeatures} titleRef={titlehtml} />
             <div style={{ position: 'relative' }}>
               <RichTextPlugin
                 contentEditable={<ContentEditable className='editor-contenteditable' />}

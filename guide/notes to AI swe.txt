@@ -1,0 +1,22 @@
+Notes to AI SWE	
+
+
+Maintain a text guide of the codebase as a file in the project's guide folder. call it project-structure. use this to understand the code base. create summaries of each class/component/etc that you can quickly parse to help you with developing code efficiently.
+
+When you implement a feature, test that it works end-to-end fully before assuming it as complete.
+
+When you implement a feature that uses the front-end, back-end, and database or some combination, do not leave only one part implemented. Implement features fully, and double check your work.
+
+Maintain design consistency. In the guide folder, maintain a style-guide document. Use and update this to understand ui design style choices and do it consistently.
+
+Do not hack in features. If they are very hard to implement, ask me. Give me a proposal of your suggestion.
+
+Write unit tests. Run the unit tests. Maintain documentation. In the guide folder store your documentation there and use it.
+
+Security is foremost - I want this app to be resilient to cybersecurity attacks, malicious users, and user error. Also users' data privacy is also very important - make sure private user data is not available to users who it should not be available to.
+
+Maintain a priority list of tasks that you need to implement. Store these in your notes in the guide folder and use it as a scratchpad for yourself.Do not break existing features. Test that any features that may be affected by any change you make, directly or indirectly do not regress or break.
+
+Do not compromise or damage this system. This is my personal laptop, be careful with things outsite the project.
+
+Make sure deployment is easy. Provide instructions on how to setup the app, create the database and admin user, how to backup data and how to migrate data. Maintain database migration guides that work between sessions. Make sure production deployment will be secure, and any properties that need to be set for deployment are clearly documented in deployment instructions.Make sure you are reusing css for things that should maintain consistent design patterns. Design for code reuse without making code rigid. Include comments on anything non-obvious

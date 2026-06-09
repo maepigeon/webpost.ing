@@ -3,6 +3,7 @@ package com.springbootprojects.webpostingserver.posts.controller;
 import com.springbootprojects.webpostingserver.posts.model.AuthSession;
 import com.springbootprojects.webpostingserver.posts.repository.JdbcLoginRepository;
 import com.springbootprojects.webpostingserver.posts.repository.LoginRepository;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -20,6 +21,7 @@ public class AdminController {
 
     @Autowired private LoginRepository loginRepository;
     @Autowired private JdbcTemplate jdbc;
+    private static final BCryptPasswordEncoder bcrypt = new BCryptPasswordEncoder();
 
     @Value("${app.upload-dir:uploads}")
     private String uploadDir;
@@ -65,7 +67,10 @@ public class AdminController {
             "SELECT u.id, u.username, u.registration_date, u.is_admin, u.background_pattern, " +
             "  (SELECT COUNT(*) FROM users_posts_junctions j WHERE j.user_id=u.id) AS post_count, " +
             "  COALESCE((SELECT SUM(up.size_bytes) FROM uploads up WHERE up.user_id=u.id), 0) AS storage_bytes, " +
-            "  COALESCE((SELECT SUM(octet_length(p.description)) FROM posts p INNER JOIN users_posts_junctions j ON j.post_id=p.id WHERE j.user_id=u.id), 0) AS post_bytes " +
+            "  COALESCE((SELECT SUM(octet_length(p.description)) FROM posts p INNER JOIN users_posts_junctions j ON j.post_id=p.id WHERE j.user_id=u.id), 0) AS post_bytes, " +
+            "  (SELECT COUNT(*) FROM comments c WHERE c.user_id=u.id) AS comment_count, " +
+            "  COALESCE((SELECT SUM(octet_length(c.content)) FROM comments c WHERE c.user_id=u.id), 0) AS comment_bytes, " +
+            "  COALESCE(octet_length(u.background_pattern), 0) AS bg_pattern_bytes " +
             "FROM users u ORDER BY u.registration_date DESC");
         return ResponseEntity.ok(users);
     }
@@ -88,7 +93,7 @@ public class AdminController {
             return ResponseEntity.badRequest().body("Username and password must be 32 chars or less.");
 
         try {
-            jdbc.update("INSERT INTO users(username, password) VALUES(?,?)", newUsername.trim(), newPassword);
+            jdbc.update("INSERT INTO users(username, password) VALUES(?,?)", newUsername.trim(), bcrypt.encode(newPassword));
             return ResponseEntity.status(HttpStatus.CREATED).body("User created.");
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body("Username already exists.");

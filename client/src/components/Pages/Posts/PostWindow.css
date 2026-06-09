@@ -20,19 +20,129 @@
     color: black;
 }
 
-/* Liquid-glass profile header card — distinct from post cards */
+/* Liquid-glass profile header card — matches post card glass level */
 .profile-header-card {
     width: 100%;
+    margin-top: 16px;
     margin-bottom: 20px;
     padding: 20px 24px 16px;
     box-sizing: border-box;
-    background: rgba(255, 255, 255, 0.38);
-    backdrop-filter: blur(18px) saturate(160%) brightness(1.08);
-    -webkit-backdrop-filter: blur(18px) saturate(160%) brightness(1.08);
-    border: 1px solid rgba(255, 255, 255, 0.6);
+    background: rgba(255, 255, 255, 0.54);
+    backdrop-filter: blur(14px) saturate(150%) brightness(1.06);
+    -webkit-backdrop-filter: blur(14px) saturate(150%) brightness(1.06);
+    border: 1px solid rgba(255, 255, 255, 0.72);
     border-radius: 16px;
     box-shadow:
         0 8px 28px rgba(0, 0, 0, 0.10),
         0 2px 0 rgba(255, 255, 255, 0.7) inset;
     text-align: center;
+}
+
+/* Edit bio / add bio button — neoskeuomorphic to match other profile buttons */
+.edit-bio-btn {
+    background: var(--neo-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: var(--neo-border);
+    border-radius: 10px;
+    box-shadow: var(--neo-shadow);
+    padding: 4px 12px;
+    font-size: 12px;
+    color: #555;
+    cursor: pointer;
+    display: block;
+    margin: 0 auto 4px;
+    transition: box-shadow 0.15s, transform 0.12s;
+}
+.edit-bio-btn:hover {
+    box-shadow: var(--neo-shadow-hover);
+    transform: translateY(-1px);
+    color: #1a73e8;
+}
+.edit-bio-btn:active {
+    transform: translateY(0);
+    box-shadow: var(--neo-shadow-active);
+}
+
+/* ── Follow count buttons (neoskeuomorphic on glass) ─────────────────────── */
+/* ── Shared neoskeuomorphic glass token ──────────────────────────────────── */
+/* Uniform raised-glass look: bright border all the way around + symmetric   */
+/* outer lift shadow + inner surface shimmer. No directional light source.   */
+:root {
+    --neo-bg: rgba(255,255,255,0.54);
+    --neo-border: 1.5px solid rgba(255,255,255,0.82);
+    --neo-shadow:
+        0 0 0 1px rgba(255,255,255,0.45),      /* thin outer ring */
+        0 4px 14px rgba(0,0,0,0.10),            /* soft lift */
+        0 1px 4px rgba(0,0,0,0.07),             /* tighter depth */
+        inset 0 0 0 1px rgba(255,255,255,0.62); /* inner rim all around */
+    --neo-shadow-hover:
+        0 0 0 1.5px rgba(255,255,255,0.6),
+        0 6px 18px rgba(0,0,0,0.13),
+        0 2px 6px rgba(0,0,0,0.08),
+        inset 0 0 0 1px rgba(255,255,255,0.75);
+    --neo-shadow-active:
+        0 0 0 1px rgba(255,255,255,0.35),
+        0 2px 6px rgba(0,0,0,0.08),
+        inset 0 0 0 1px rgba(255,255,255,0.45),
+        inset 0 2px 8px rgba(0,0,0,0.07);
+}
+
+.follow-count-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 13px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: #444;
+    background: var(--neo-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: var(--neo-border);
+    box-shadow: var(--neo-shadow);
+    transition: box-shadow 0.15s, transform 0.12s, color 0.12s;
+}
+
+.follow-count-btn:hover {
+    color: #1a73e8;
+    box-shadow: var(--neo-shadow-hover);
+    transform: translateY(-1px);
+}
+
+.follow-count-btn:active {
+    transform: translateY(0);
+    box-shadow: var(--neo-shadow-active);
+}
+
+.follow-count-num {
+    font-weight: 700;
+    color: #222;
+}
+
+/* ── DM block button ─────────────────────────────────────────────────────── */
+.btn-block-dm   { color: #b45309; }
+.btn-unblock-dm { color: #166534; }
+
+/* ── Neoskeuomorphic profile action buttons ──────────────────────────────── */
+.profile-header-card button:not(.pattern-swatch):not(.pattern-picker-test-btn):not(.pattern-picker-apply-btn):not(.pattern-picker-save-btn):not(.pattern-user-preset-delete):not(.follow-count-btn):not(.reaction-btn):not(.comment-reaction-btn):not(.follow-btn) {
+    background: var(--neo-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: var(--neo-border);
+    border-radius: 12px;
+    box-shadow: var(--neo-shadow);
+    transition: box-shadow 0.15s, transform 0.12s;
+}
+
+.profile-header-card button:not(.pattern-swatch):not(.pattern-picker-test-btn):not(.pattern-picker-apply-btn):not(.pattern-picker-save-btn):not(.pattern-user-preset-delete):not(.follow-count-btn):not(.reaction-btn):not(.comment-reaction-btn):not(.follow-btn):hover {
+    box-shadow: var(--neo-shadow-hover);
+    transform: translateY(-1px);
+}
+
+.profile-header-card button:not(.pattern-swatch):not(.pattern-picker-test-btn):not(.pattern-picker-apply-btn):not(.pattern-picker-save-btn):not(.pattern-user-preset-delete):not(.follow-count-btn):not(.reaction-btn):not(.comment-reaction-btn):not(.follow-btn):active {
+    transform: translateY(0);
+    box-shadow: var(--neo-shadow-active);
 }

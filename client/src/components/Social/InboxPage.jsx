@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { GET_NOTIFICATIONS, MARK_NOTIFICATION_READ, MARK_ALL_READ,
          DELETE_NOTIFICATION, CLEAR_NOTIFICATIONS } from '../Pages/Posts/BasicTextPostServerApi.js';
@@ -16,13 +16,29 @@ function ActorLink({ username }) {
   );
 }
 
+function PostLink({ n }) {
+  if (!n.postOwner || !n.postId) return <span>{n.postTitle || 'your post'}</span>;
+  const anchor = n.commentId ? `#comment-${n.commentId}` : '';
+  return (
+    <Link
+      to={`/users/${n.postOwner}/${n.postId}/discussion${anchor}`}
+      className="inbox-post-link"
+      onClick={e => e.stopPropagation()}
+    >
+      {n.postTitle || 'your post'}
+    </Link>
+  );
+}
+
 function notifLabel(n) {
   const a = <ActorLink username={n.actorUsername} />;
   switch (n.type) {
-    case 'comment':  return <span>{a} commented on your post</span>;
-    case 'reply':    return <span>{a} replied to your comment</span>;
+    case 'comment':  return <span>{a} commented on your post <PostLink n={n} /></span>;
+    case 'reply':    return <span>{a} replied to your comment on <PostLink n={n} /></span>;
     case 'follow':   return <span>{a} followed you</span>;
-    case 'reaction': return <span>{a} reacted to your post</span>;
+    case 'reaction': return <span>{a} reacted to your post <PostLink n={n} /></span>;
+    case 'new_post': return <span>{a} published {n.postOwner && n.postId ? <Link to={`/users/${n.postOwner}/${n.postId}`} className="inbox-post-link" onClick={e => e.stopPropagation()}>{n.postTitle || 'a new post'}</Link> : 'a new post'}</span>;
+    case 'message':  return <span style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}><span style={{ fontWeight: 500 }}>{a} sent you a message:</span><span style={{ color: '#333' }}>{n.message || ''}</span></span>;
     default:         return <span>Notification from {a}</span>;
   }
 }
@@ -35,19 +51,50 @@ function timeAgo(date) {
   return new Date(date).toLocaleDateString();
 }
 
+const PAGE_SIZE = 30;
+
 export default function InboxPage() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const offsetRef = useRef(0);
+  const sentinelRef = useRef(null);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const highlightId = searchParams.get('highlight') ? parseInt(searchParams.get('highlight'), 10) : null;
   const highlightRef = useRef(null);
 
-  useEffect(() => {
-    GET_NOTIFICATIONS(100)
-      .then(data => { setNotifications(data); setLoading(false); })
-      .catch(() => setLoading(false));
+  const loadNotifications = useCallback((reset = false) => {
+    const offset = reset ? 0 : offsetRef.current;
+    if (reset) setLoading(true); else setLoadingMore(true);
+    GET_NOTIFICATIONS(PAGE_SIZE, offset)
+      .then(data => {
+        const page = Array.isArray(data) ? data : [];
+        setNotifications(prev => reset ? page : [...prev, ...page]);
+        offsetRef.current = offset + page.length;
+        setHasMore(page.length === PAGE_SIZE);
+        if (reset) setLoading(false); else setLoadingMore(false);
+      })
+      .catch(() => { setLoading(false); setLoadingMore(false); });
   }, []);
+
+  useEffect(() => {
+    offsetRef.current = 0;
+    setHasMore(true);
+    loadNotifications(true);
+  }, []);
+
+  useEffect(() => {
+    if (!sentinelRef.current) return;
+    const observer = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
+        loadNotifications(false);
+      }
+    }, { rootMargin: '200px' });
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, loading, loadNotifications]);
 
   // Scroll highlighted notification into view after load
   useEffect(() => {
@@ -65,6 +112,8 @@ export default function InboxPage() {
     if (!window.confirm('Clear all notifications? This cannot be undone.')) return;
     await CLEAR_NOTIFICATIONS().catch(() => {});
     setNotifications([]);
+    offsetRef.current = 0;
+    setHasMore(false);
   };
 
   const handleClick = async (n) => {
@@ -72,13 +121,23 @@ export default function InboxPage() {
       await MARK_NOTIFICATION_READ(n.id).catch(() => {});
       setNotifications(ns => ns.map(x => x.id === n.id ? { ...x, isRead: true } : x));
     }
-    if (n.postId) navigate(`/users/${n.actorUsername}/${n.postId}`);
+    if ((n.type === 'comment' || n.type === 'reply') && n.postOwner && n.postId) {
+      const anchor = n.commentId ? `#comment-${n.commentId}` : '';
+      navigate(`/users/${n.postOwner}/${n.postId}/discussion${anchor}`);
+    } else if (n.type === 'reaction' && n.postOwner && n.postId) {
+      navigate(`/users/${n.postOwner}/${n.postId}`);
+    } else if (n.type === 'new_post' && n.postId) {
+      navigate(`/users/${n.actorUsername}/${n.postId}`);
+    } else if (n.type === 'follow') {
+      navigate(`/users/${n.actorUsername}`);
+    }
   };
 
   const deleteOne = async (e, n) => {
     e.stopPropagation();
     await DELETE_NOTIFICATION(n.id).catch(() => {});
     setNotifications(ns => ns.filter(x => x.id !== n.id));
+    offsetRef.current = Math.max(0, offsetRef.current - 1);
   };
 
   const unread = notifications.filter(n => !n.isRead).length;
@@ -117,6 +176,8 @@ export default function InboxPage() {
           </div>
         </div>
       ))}
+      <div ref={sentinelRef} style={{ height: '1px' }} />
+      {loadingMore && <p className="inbox-empty">Loading…</p>}
     </div>
   );
 }

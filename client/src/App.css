@@ -2,6 +2,10 @@
   --navbar-height: 48px;
 }
 
+@media (max-width: 500px) {
+  :root { --navbar-height: 88px; }
+}
+
 html {
   min-height: 100vh;
   margin: 0;
@@ -59,6 +63,96 @@ button:hover {
 
 button:active {
   transform: scale(0.97);
+}
+
+/* ── Global neoskeuomorphic button utility class ─────────────────────────── */
+/* Use .neo-btn anywhere for the raised-glass look. The CSS vars live in
+   PostWindow.css :root so they are always available globally.              */
+.neo-btn {
+  background: var(--neo-bg, rgba(255,255,255,0.54));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1.5px solid rgba(255,255,255,0.82);
+  border-radius: 10px;
+  color: #444;
+  padding: 6px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: var(--neo-shadow,
+    0 0 0 1px rgba(255,255,255,0.45),
+    0 4px 14px rgba(0,0,0,0.10),
+    0 1px 4px rgba(0,0,0,0.07),
+    inset 0 0 0 1px rgba(255,255,255,0.62));
+  transition: box-shadow 0.15s, transform 0.12s, filter 0.12s;
+}
+.neo-btn:hover {
+  filter: none;
+  box-shadow: var(--neo-shadow-hover,
+    0 0 0 1.5px rgba(255,255,255,0.6),
+    0 6px 18px rgba(0,0,0,0.13),
+    0 2px 6px rgba(0,0,0,0.08),
+    inset 0 0 0 1px rgba(255,255,255,0.75));
+  transform: translateY(-1px);
+}
+.neo-btn:active {
+  filter: none;
+  transform: translateY(0);
+  box-shadow: var(--neo-shadow-active,
+    0 0 0 1px rgba(255,255,255,0.35),
+    0 2px 6px rgba(0,0,0,0.08),
+    inset 0 0 0 1px rgba(255,255,255,0.45),
+    inset 0 2px 8px rgba(0,0,0,0.07));
+}
+
+/* ── Auto-apply neo to content-area action buttons ───────────────────────── */
+/* Covers post cards, inbox, activity, search, viewer — skips toolbars,     */
+/* navbuttons, reactions, pattern swatches, and other special controls.     */
+.basicTextPost button:not(.reaction-btn):not(.comment-reaction-btn):not(.navButton),
+.inbox-page button:not(.reaction-btn),
+.activity-page button,
+.search-page button,
+.discussion-page button:not(.reaction-btn):not(.comment-reaction-btn),
+.editor-post-card button:not(.reaction-btn):not(.toolbar-fmt-btn),
+.admin-panel button:not(.admin-tab),
+.form-container button,
+.registration-container button {
+  background: var(--neo-bg, rgba(255,255,255,0.54));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1.5px solid rgba(255,255,255,0.82);
+  border-radius: 10px;
+  color: #444;
+  padding: 6px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: var(--neo-shadow);
+  transition: box-shadow 0.15s, transform 0.12s, filter 0.12s;
+}
+.basicTextPost button:not(.reaction-btn):not(.comment-reaction-btn):not(.navButton):hover,
+.inbox-page button:not(.reaction-btn):hover,
+.activity-page button:hover,
+.search-page button:hover,
+.discussion-page button:not(.reaction-btn):not(.comment-reaction-btn):hover,
+.editor-post-card button:not(.reaction-btn):not(.toolbar-fmt-btn):hover,
+.admin-panel button:not(.admin-tab):hover,
+.form-container button:hover,
+.registration-container button:hover {
+  filter: none;
+  box-shadow: var(--neo-shadow-hover);
+  transform: translateY(-1px);
+}
+.basicTextPost button:not(.reaction-btn):not(.comment-reaction-btn):not(.navButton):active,
+.inbox-page button:not(.reaction-btn):active,
+.activity-page button:active,
+.search-page button:active,
+.discussion-page button:not(.reaction-btn):not(.comment-reaction-btn):active,
+.editor-post-card button:not(.reaction-btn):not(.toolbar-fmt-btn):active,
+.admin-panel button:not(.admin-tab):active,
+.form-container button:active,
+.registration-container button:active {
+  filter: none;
+  transform: translateY(0);
+  box-shadow: var(--neo-shadow-active);
 }
 
 .under-construction {

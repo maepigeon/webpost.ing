@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Repository;
 
 import java.security.SecureRandom;
@@ -51,6 +52,7 @@ public class JdbcLoginRepository implements LoginRepository {
 
     private static final SecureRandom secureRandom = new SecureRandom(); //threadsafe
     private static final Base64.Encoder base64Encoder = Base64.getUrlEncoder(); //threadsafe
+    private static final BCryptPasswordEncoder bcrypt = new BCryptPasswordEncoder();
 
     private static String generateNewToken() {
         byte[] randomBytes = new byte[24];
@@ -82,6 +84,26 @@ public class JdbcLoginRepository implements LoginRepository {
 
     public void updateUserBackground(String username, String pattern) {
         jdbcTemplate.update("UPDATE users SET background_pattern = ? WHERE username = ?", pattern, username);
+    }
+
+    public String getUserPresets(String username) {
+        List<String> r = jdbcTemplate.query(
+                "SELECT pattern_presets FROM users WHERE username = ?",
+                (rs, rowNum) -> rs.getString("pattern_presets"),
+                username);
+        return (r.isEmpty() || r.get(0) == null) ? "{}" : r.get(0);
+    }
+
+    public void updateUserPresets(String username, String presetsJson) {
+        jdbcTemplate.update("UPDATE users SET pattern_presets = ? WHERE username = ?", presetsJson, username);
+    }
+
+    public long getPresetsStorageBytes(String username) {
+        List<Long> r = jdbcTemplate.query(
+                "SELECT COALESCE(octet_length(pattern_presets), 0) FROM users WHERE username = ?",
+                (rs, rowNum) -> rs.getLong(1),
+                username);
+        return r.isEmpty() ? 0L : r.get(0);
     }
 
     public String getUserBio(String username) {
@@ -131,17 +153,28 @@ public class JdbcLoginRepository implements LoginRepository {
      * @return
      */
     public int authenticate(String username, String password) {
-        List<LoginInfo> loginInfo = jdbcTemplate.query("SELECT userdata.* from users userdata WHERE userdata.username = ? AND userdata.password = ?;",
-                BeanPropertyRowMapper.newInstance(LoginInfo.class), username, password);
-        // If the user is authenticated, store a new auth token in the map of logged in users
-        if (loginInfo.isEmpty()) {
+        List<LoginInfo> loginInfo = jdbcTemplate.query(
+                "SELECT * FROM users WHERE username = ?",
+                BeanPropertyRowMapper.newInstance(LoginInfo.class), username);
+        if (loginInfo.isEmpty()) return -1;
+        if (loginInfo.size() > 1) {
+            System.out.println("Duplicate users detected for username: " + username);
             return -1;
         }
-        else if (loginInfo.size() > 1) {
-            System.out.println("Invalid login size: " + loginInfo.size() + "please review database- contains duplicate users.");
-            return -1;
+        LoginInfo user = loginInfo.getFirst();
+        String stored = user.getPassword();
+        if (stored == null) return -1;
+
+        if (stored.startsWith("$2a$") || stored.startsWith("$2b$") || stored.startsWith("$2y$")) {
+            // Already hashed — verify with BCrypt
+            return bcrypt.matches(password, stored) ? user.getID() : -1;
         } else {
-            return loginInfo.getFirst().getID();
+            // Plain-text legacy password — verify then migrate to BCrypt
+            if (!stored.equals(password)) return -1;
+            String hashed = bcrypt.encode(password);
+            jdbcTemplate.update("UPDATE users SET password = ? WHERE username = ?", hashed, username);
+            System.out.println("Migrated password to BCrypt for user: " + username);
+            return user.getID();
         }
     }
 
@@ -212,6 +245,22 @@ public class JdbcLoginRepository implements LoginRepository {
             authSession.loginHttpStatusCodeResult = HttpStatus.FORBIDDEN;
         }
         return authSession;
+    }
+
+    public void deleteUser(String username) {
+        List<Integer> ids = jdbcTemplate.queryForList("SELECT id FROM users WHERE username=?", Integer.class, username);
+        if (ids.isEmpty()) return;
+        int userId = ids.get(0);
+        // Delete owned posts via junction (posts FK has no cascade from users)
+        List<Integer> postIds = jdbcTemplate.queryForList(
+            "SELECT post_id FROM users_posts_junctions WHERE user_id=?", Integer.class, userId);
+        jdbcTemplate.update("DELETE FROM users_posts_junctions WHERE user_id=?", userId);
+        for (int postId : postIds) {
+            jdbcTemplate.update("DELETE FROM posts WHERE id=?", postId);
+        }
+        // Delete the user — cascades to uploads, reactions, follows, comments, notifications
+        jdbcTemplate.update("DELETE FROM users WHERE id=?", userId);
+        loginMap.remove(username);
     }
 
     public static class TokenExpiredException extends Exception {

@@ -1,6 +1,5 @@
 package com.springbootprojects.webpostingserver.posts.controller;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -20,6 +19,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import com.springbootprojects.webpostingserver.posts.repository.PostRepository;
+import com.springbootprojects.webpostingserver.posts.repository.SocialRepository;
 
 
 @RestController
@@ -27,6 +27,7 @@ import com.springbootprojects.webpostingserver.posts.repository.PostRepository;
 public class PostController {
     @Autowired PostRepository postRepository;
     @Autowired LoginRepository loginRepository;
+    @Autowired SocialRepository social;
     @Autowired JdbcTemplate jdbc;
 
     private static final Pattern UPLOAD_PATTERN = Pattern.compile("/uploads/([^\"\\s]+)");
@@ -50,12 +51,12 @@ public class PostController {
     @GetMapping("/posts")
     public ResponseEntity<List<Post>> getAllPosts(@RequestParam(required = false) String title) {
         try {
-            List<Post> posts = new ArrayList<>();
-
+            List<Post> posts;
             if (title == null)
-                postRepository.findAll().forEach(posts::add);
+                posts = postRepository.findByPublished(true);
             else
-                postRepository.findByTitleContaining(title).forEach(posts::add);
+                posts = postRepository.findByTitleContaining(title).stream()
+                        .filter(Post::isPublished).collect(java.util.stream.Collectors.toList());
 
             if (posts.isEmpty()) {
                 return new ResponseEntity<>(HttpStatus.NO_CONTENT);
@@ -68,15 +69,31 @@ public class PostController {
     }
 
     @GetMapping("/posts/{id}")
-    public ResponseEntity<Post> getPostById(@PathVariable("id") long id) {
+    public ResponseEntity<Post> getPostById(
+            @PathVariable("id") long id,
+            @CookieValue(name = "username", required = false) String username,
+            @CookieValue(name = "authToken", required = false) String token) {
         Post post = postRepository.findById(id);
+        if (post == null) return new ResponseEntity<>(HttpStatus.NOT_FOUND);
 
-        if (post != null) {
-            return new ResponseEntity<>(post, HttpStatus.OK);
-        } else {
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        if (!post.isPublished()) {
+            // Draft — only the owner may read it
+            if (username == null || token == null) return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            AuthSession session;
+            try {
+                session = loginRepository.authorize(username, token);
+            } catch (JdbcLoginRepository.TokenExpiredException ex) {
+                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            }
+            if (session == null) return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            LoginInfo owner = postRepository.getUsernameFromPostId((int) id);
+            if (owner == null || !owner.compareUsername(username))
+                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
+
+        return new ResponseEntity<>(post, HttpStatus.OK);
     }
+
     @GetMapping("/UserFromPostID/{id}")
     public ResponseEntity<String> getUserByPostID(@PathVariable("id") long id) {
         LoginInfo userLogin = postRepository.getUsernameFromPostId((int)id);
@@ -90,16 +107,44 @@ public class PostController {
     }
 
     @GetMapping("/user/{username}")
-    public ResponseEntity<List<Post>> getPostsByUser(@PathVariable("username") String username) {
-        System.out.println("Attempting to get posts by user: " + username);
+    public ResponseEntity<List<Post>> getPostsByUser(
+            @PathVariable("username") String username,
+            @RequestParam(defaultValue = "20") int limit,
+            @RequestParam(defaultValue = "0") int offset,
+            @CookieValue(name = "username", required = false) String authUsername,
+            @CookieValue(name = "authToken", required = false) String authToken) {
         List<Post> posts = postRepository.getPostsFromUsername(username);
+        if (posts == null) return new ResponseEntity<>(HttpStatus.NOT_FOUND);
 
-        if (posts != null) {
-            System.out.println("Found posts: " + posts.size());
-            return new ResponseEntity<>(posts, HttpStatus.OK);
-        } else {
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        boolean isOwner = false;
+        if (authUsername != null && authUsername.equals(username) && authToken != null) {
+            try {
+                isOwner = loginRepository.authorize(authUsername, authToken) != null;
+            } catch (JdbcLoginRepository.TokenExpiredException ignored) {}
         }
+
+        if (!isOwner) posts = posts.stream().filter(Post::isPublished).collect(java.util.stream.Collectors.toList());
+
+        // Sort newest first, then slice for pagination
+        posts.sort((a, b) -> b.getDate().compareTo(a.getDate()));
+        int safeLimit  = Math.min(Math.max(limit, 1), 50);
+        int safeOffset = Math.max(offset, 0);
+        int end = Math.min(safeOffset + safeLimit, posts.size());
+        List<Post> page = safeOffset >= posts.size() ? List.of() : posts.subList(safeOffset, end);
+
+        return new ResponseEntity<>(page, HttpStatus.OK);
+    }
+
+    private static ResponseEntity<String> validatePost(Post post) {
+        String title = post.getTitle();
+        String desc  = post.getDescription();
+        if (title == null || title.isBlank() || title.length() > 255)
+            return new ResponseEntity<>("Title must be 1–255 characters.", HttpStatus.BAD_REQUEST);
+        if (desc != null && desc.length() > 100_000)
+            return new ResponseEntity<>("Post content must be under 100,000 characters.", HttpStatus.BAD_REQUEST);
+        if (!PatternValidator.isValid(post.getBackgroundPattern()))
+            return new ResponseEntity<>("Invalid background pattern", HttpStatus.BAD_REQUEST);
+        return null;
     }
 
     @PostMapping("/posts")
@@ -112,15 +157,15 @@ public class PostController {
         }
         System.out.println("Attempting to create a new post");
         if (loginResult != null) {
-            if (!PatternValidator.isValid(post.getBackgroundPattern())) {
-                return new ResponseEntity<>("Invalid background pattern", HttpStatus.BAD_REQUEST);
-            }
+            ResponseEntity<String> invalid = validatePost(post);
+            if (invalid != null) return invalid;
             System.out.println("Authorized post creation for user " + username);
             try {
                 int userId = loginResult.userId;
                 System.out.println("User ID: " + userId);
                 int postId = postRepository.save(post, userId);
                 syncPostUploads(postId, post.getDescription());
+                if (post.isPublished()) social.notifyFollowers(userId, username, postId);
                 return new ResponseEntity<>("Post was created successfully.", HttpStatus.CREATED);
             } catch (Exception e) {
                 System.out.println("Post creation failed: " + e.getMessage());
@@ -147,11 +192,11 @@ public class PostController {
         if (postOwner == null || !postOwner.compareUsername(username)) {
             return new ResponseEntity<>("Forbidden", HttpStatus.FORBIDDEN);
         }
-        if (!PatternValidator.isValid(post.getBackgroundPattern())) {
-            return new ResponseEntity<>("Invalid background pattern", HttpStatus.BAD_REQUEST);
-        }
+        ResponseEntity<String> invalid = validatePost(post);
+        if (invalid != null) return invalid;
         Post _post = postRepository.findById(id);
         if (_post != null) {
+            boolean wasPublished = _post.isPublished();
             _post.setId((int) id);
             _post.setTitle(post.getTitle());
             _post.setDescription(post.getDescription());
@@ -160,6 +205,11 @@ public class PostController {
             _post.setBackgroundPattern(post.getBackgroundPattern());
             postRepository.update(_post);
             syncPostUploads(id, post.getDescription());
+            // Notify followers when a draft is published for the first time
+            if (!wasPublished && post.isPublished()) {
+                int authorId = social.getUserIdByUsername(username);
+                if (authorId > 0) social.notifyFollowers(authorId, username, (int) id);
+            }
             return new ResponseEntity<>("Post was updated successfully.", HttpStatus.OK);
         } else {
             return new ResponseEntity<>("Cannot find Post with id=" + id, HttpStatus.NOT_FOUND);

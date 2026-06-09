@@ -18,6 +18,8 @@ import Home from './components/Pages/Home/Home';
 import ScrollToTop from './components/ScrollToTop/ScrollToTop';
 import InboxPage from './components/Social/InboxPage.jsx';
 import DiscussionPage from './components/Social/DiscussionPage.jsx';
+import SearchPage from './components/Pages/Search/SearchPage.jsx';
+import ActivityPage from './components/Pages/Activity/ActivityPage.jsx';
 
 import axios from 'axios'
 
@@ -53,6 +55,8 @@ function App() {
         <Route path="/routes/NewAccount" element={<Registration />} />
         <Route path="/routes/Test" element={<Test /> } />
         <Route path="/inbox" element={<InboxPage />} />
+        <Route path="/search" element={<SearchPage />} />
+        <Route path="/activity/:username" element={<ActivityPage />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </div>

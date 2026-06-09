@@ -4,12 +4,30 @@
     top: 0;
     left: 0;
     width: 100%;
-    height: var(--navbar-height);
+    min-height: var(--navbar-height);
     z-index: 300;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
+    gap: 2px 0;
+}
+
+/* Personal nav group — My Profile, Activity, Inbox, bell */
+.navGroup {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    background: rgba(180, 140, 230, 0.15);
+    border: 1px solid rgba(180, 140, 230, 0.35);
+    border-radius: 8px;
+    padding: 2px 4px;
+    margin: 2px;
+}
+
+@media (max-width: 500px) {
+    .navBar { padding: 6px 8px; }
 }
 p {
     color: white;

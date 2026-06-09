@@ -16,6 +16,8 @@
 .navButton:hover { filter: brightness(0.9); }
 
 .navButton--yellow  { background-color: #FFD700; }
-.navButton--blue    { background-color: #4a90e2; color: #fff; }
+.navButton--blue    { background-color: #90c2f5; color: #000; }
 .navButton--pink    { background-color: #ff85a2; }
 .navButton--orange  { background-color: #FFA55A; }
+.navButton--purple  { background-color: #c9b3e8; color: #000; }
+.navButton--teal    { background-color: #3dbfbf; color: #000; }

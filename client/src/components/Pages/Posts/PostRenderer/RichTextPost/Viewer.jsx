@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import './Editor.css';
 import './Viewer.css';
 import { patternToStyle } from '../../../../PatternPicker/patterns.js';
@@ -11,9 +11,10 @@ import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
 import { HeadingNode } from '@lexical/rich-text';
 import { ListNode, ListItemNode } from '@lexical/list';
-import { CodeNode, CodeHighlightNode, registerCodeHighlighting } from '@lexical/code';
+import { CodeHighlightNode, registerCodeHighlighting } from '@lexical/code';
+import { CustomCodeNode } from './CustomCodeNode.jsx';
 import TitleBar from './TitleBar';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   READ_POST, GET_USER_FROM_POST,
   GET_POST_FEATURES, SET_REACTIONS_ENABLED,
@@ -21,12 +22,11 @@ import {
 import { ImageNode } from './ImageNode.jsx';
 import { MathNode } from './MathNode.jsx';
 import ReactionBar from '../../../../Social/ReactionBar.jsx';
-import DiscussionSection from '../../../../Social/DiscussionSection.jsx';
 import { LinkNode } from '@lexical/link';
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
 import { ClickableLinkPlugin } from '@lexical/react/LexicalClickableLinkPlugin';
 
-const VIEWER_NODES = [HeadingNode, ListNode, ListItemNode, CodeNode, CodeHighlightNode, ImageNode, MathNode, LinkNode];
+const VIEWER_NODES = [HeadingNode, ListNode, ListItemNode, CustomCodeNode, CodeHighlightNode, ImageNode, MathNode, LinkNode];
 
 const initialConfig = {
   namespace: 'MyViewer',
@@ -44,39 +44,6 @@ function CodeHighlightPlugin() {
   return null;
 }
 
-function CopyCodePlugin() {
-  const [editor] = useLexicalComposerContext();
-  useEffect(() => {
-    const root = editor.getRootElement();
-    if (!root) return;
-    const entered = new WeakMap();
-
-    const onEnter = (e) => {
-      const el = e.target.closest('code.editor-code');
-      if (!el || entered.has(el)) return;
-      const btn = document.createElement('button');
-      btn.textContent = '⎘ Copy';
-      btn.className = 'code-copy-overlay-btn';
-      btn.addEventListener('click', (ev) => {
-        ev.stopPropagation();
-        btn.remove();
-        const text = el.innerText;
-        el.appendChild(btn);
-        navigator.clipboard.writeText(text).then(() => {
-          btn.textContent = '✓';
-          setTimeout(() => { btn.textContent = '⎘ Copy'; }, 1500);
-        }).catch(() => {});
-      });
-      el.appendChild(btn);
-      entered.set(el, btn);
-      el.addEventListener('mouseleave', () => { btn.remove(); entered.delete(el); }, { once: true });
-    };
-
-    root.addEventListener('mouseenter', onEnter, true);
-    return () => root.removeEventListener('mouseenter', onEnter, true);
-  }, [editor]);
-  return null;
-}
 
 function LoadEditorStatePlugin({ ready }) {
   const [editor] = useLexicalComposerContext();
@@ -99,7 +66,7 @@ export default function RichTextViewer() {
   const [backgroundPattern, setBackgroundPattern] = useState('');
   const [dataReady, setDataReady] = useState(false);
   const [postLoaded, setPostLoaded] = useState(false);
-  const [features, setFeatures] = useState({ reactionsEnabled: false });
+  const [features, setFeatures] = useState({ reactionsEnabled: false, discussionEnabled: false });
 
   const me = localStorage.getItem('userName');
   const isAuthor = me && me === postAuthor;
@@ -118,7 +85,7 @@ export default function RichTextViewer() {
       });
     });
     GET_POST_FEATURES(id)
-      .then(d => setFeatures({ reactionsEnabled: d.reactionsEnabled }))
+      .then(d => setFeatures({ reactionsEnabled: d.reactionsEnabled, discussionEnabled: d.discussionEnabled }))
       .catch(() => {});
   }, [id]);
 
@@ -134,12 +101,75 @@ export default function RichTextViewer() {
     document.body.style.backgroundImage = style.backgroundImage || '';
     document.body.style.backgroundSize = style.backgroundSize || 'auto';
     document.body.style.backgroundPosition = style.backgroundPosition || 'initial';
+    document.documentElement.style.backgroundColor = style._bgColor || '';
     return () => {
       document.body.style.backgroundImage = '';
       document.body.style.backgroundSize = '';
       document.body.style.backgroundPosition = '';
+      document.documentElement.style.backgroundColor = '';
     };
   }, [backgroundPattern]);
+
+  // Attach copy bars to code blocks after content loads.
+  // Bars are appended to document.body with position:fixed so Lexical's
+  // reconciler never touches them, and overflow:auto on .editor-code never clips them.
+  const contentRef = useRef(null);
+  useEffect(() => {
+    if (!dataReady) return;
+    const bars = [];
+
+    // Walk the code element's DOM extracting text, handling <br> as \n.
+    // innerText on a detached/styled node is unreliable for newlines.
+    function extractText(node) {
+      if (node.nodeType === Node.TEXT_NODE) return node.textContent;
+      if (node.nodeName === 'BR') return '\n';
+      if (node.classList?.contains('line-nums-gutter')) return '';
+      let t = '';
+      node.childNodes.forEach(child => { t += extractText(child); });
+      return t;
+    }
+
+    // 400 ms — well past CodeHighlightPlugin's two-cycle transform settle
+    const timer = setTimeout(() => {
+      const root = contentRef.current;
+      if (!root) return;
+      const codes = root.querySelectorAll('code.editor-code');
+      if (!codes.length) return;
+
+      const containerRect = root.getBoundingClientRect();
+
+      codes.forEach(code => {
+        const codeRect = code.getBoundingClientRect();
+        const bar = document.createElement('div');
+        bar.className = 'code-copy-bar';
+        bar.style.position = 'absolute';
+        bar.style.zIndex = '10';
+        // Overlay the top strip of the code block (where the language label is)
+        bar.style.top = (codeRect.top - containerRect.top) + 'px';
+        bar.style.left = (codeRect.left - containerRect.left) + 'px';
+        bar.style.width = codeRect.width + 'px';
+
+        const btn = document.createElement('button');
+        btn.textContent = 'Copy';
+        btn.className = 'code-copy-bar-btn';
+        btn.addEventListener('click', () => {
+          const text = extractText(code);
+          navigator.clipboard.writeText(text).then(() => {
+            btn.textContent = '✓ Copied';
+            setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+          }).catch(() => {});
+        });
+        bar.appendChild(btn);
+        root.appendChild(bar);
+        bars.push({ bar, code });
+      });
+    }, 400);
+
+    return () => {
+      clearTimeout(timer);
+      bars.forEach(({ bar }) => bar.remove());
+    };
+  }, [dataReady]);
 
   const toggleReactions = async () => {
     const next = !features.reactionsEnabled;
@@ -153,7 +183,6 @@ export default function RichTextViewer() {
     <div style={{ minHeight: '100vh' }}>
       <LexicalComposer initialConfig={initialConfig}>
         <CodeHighlightPlugin />
-        <CopyCodePlugin />
         <LinkPlugin />
         <ClickableLinkPlugin />
         <HistoryPlugin />
@@ -165,7 +194,7 @@ export default function RichTextViewer() {
               updatePostsFlagCallback={() => {}}
               editMode={false}
             />
-            <div style={{ position: 'relative' }}>
+            <div style={{ position: 'relative' }} ref={contentRef}>
               <RichTextPlugin
                 contentEditable={<ContentEditable className="editor-contenteditable" />}
                 placeholder={<div className="editor-placeholder">Enter some text...</div>}
@@ -190,8 +219,17 @@ export default function RichTextViewer() {
               </div>
             )}
 
-            {/* Inline discussion section */}
-            <DiscussionSection postId={id} postAuthor={postAuthor} />
+            {/* Discussion page link — only shown when discussion is enabled */}
+            {features.discussionEnabled && (
+              <div style={{ padding: '0 24px 16px', textAlign: 'center' }}>
+                <Link
+                  to={`/users/${authorUsername}/${id}/discussion`}
+                  style={{ fontSize: '14px', color: '#1a73e8', textDecoration: 'none', fontWeight: 500 }}
+                >
+                  Discussion
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </LexicalComposer>

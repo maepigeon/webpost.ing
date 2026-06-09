@@ -66,6 +66,11 @@ public class PatternValidator {
             Pattern.CASE_INSENSITIVE
     );
 
+    /** Hex color suffix appended after a pipe: e.g. "dots|#f0e6d3" */
+    private static final Pattern BG_COLOR_SUFFIX = Pattern.compile(
+            "\\|#[0-9a-fA-F]{3,8}$"
+    );
+
     /**
      * Returns true if the pattern is safe to store and render.
      * A return value of false should produce a 400 Bad Request.
@@ -74,11 +79,14 @@ public class PatternValidator {
         if (pattern == null || pattern.isBlank()) return true;
         if (pattern.length() > MAX_LENGTH) return false;
         if (BLOCKED.matcher(pattern).find()) return false;
-        String trimmed = pattern.trim().toLowerCase();
-        if (PRESETS.contains(trimmed)) return true;
-        if (PAW_COLOR.matcher(pattern.trim()).matches()) return true;
-        if (STARS_COLORS.matcher(pattern.trim()).matches()) return true;
-        if (STARS_ONE_COLOR.matcher(pattern.trim()).matches()) return true;
-        return GRADIENT_START.matcher(pattern).find();
+        // Strip trailing |#COLOR suffix before validating the pattern key
+        String core = BG_COLOR_SUFFIX.matcher(pattern.trim()).replaceFirst("").trim();
+        if (core.isEmpty()) return true; // just a color, no pattern
+        String trimmedLower = core.toLowerCase();
+        if (PRESETS.contains(trimmedLower)) return true;
+        if (PAW_COLOR.matcher(core).matches()) return true;
+        if (STARS_COLORS.matcher(core).matches()) return true;
+        if (STARS_ONE_COLOR.matcher(core).matches()) return true;
+        return GRADIENT_START.matcher(core).find();
     }
 }

@@ -41,11 +41,9 @@ export function GET_ALL_USERS() {
 
 
 //get posts created by a specified user
-export function READ_POSTS_BY_USER(username) {
-  const promise = axios.get(baseUrl + "/api/user/" + username + "");
-  const dataPromise = promise.then((response) => response.data);
-  console.log("reading all posts");
-  return dataPromise;
+export function READ_POSTS_BY_USER(username, limit = 20, offset = 0) {
+  return axios.get(baseUrl + `/api/user/${username}`, { params: { limit, offset }, withCredentials: true })
+    .then(r => r.data);
 };
 
 
@@ -243,6 +241,21 @@ export function GET_FOLLOWING(username) {
     .then(r => r.data);
 }
 
+export function GET_BLOCK_MESSAGE_STATUS(username) {
+  return axios.get(baseUrl + `/api/users/${username}/block-messages`, { withCredentials: true })
+    .then(r => r.data);
+}
+
+export function BLOCK_MESSAGES(username) {
+  return axios.post(baseUrl + `/api/users/${username}/block-messages`, {}, { withCredentials: true })
+    .then(r => r.data);
+}
+
+export function UNBLOCK_MESSAGES(username) {
+  return axios.delete(baseUrl + `/api/users/${username}/block-messages`, { withCredentials: true })
+    .then(r => r.data);
+}
+
 // ── Social: discussions & comments ───────────────────────────────────────────
 
 export function GET_DISCUSSION_STATUS(postId) {
@@ -297,8 +310,8 @@ export function REMOVE_COMMENT_REACTION(commentId) {
 
 // ── Social: notifications ─────────────────────────────────────────────────────
 
-export function GET_NOTIFICATIONS(limit = 50) {
-  return axios.get(baseUrl + `/api/notifications`, { params: { limit }, withCredentials: true })
+export function GET_NOTIFICATIONS(limit = 30, offset = 0) {
+  return axios.get(baseUrl + `/api/notifications`, { params: { limit, offset }, withCredentials: true })
     .then(r => r.data);
 }
 
@@ -324,5 +337,36 @@ export function DELETE_NOTIFICATION(id) {
 
 export function CLEAR_NOTIFICATIONS() {
   return axios.delete(baseUrl + `/api/notifications`, { withCredentials: true })
+    .then(r => r.data);
+}
+
+export function SEND_MESSAGE(username, message) {
+  return axios.post(baseUrl + `/api/users/${username}/message`, { message }, { withCredentials: true })
+    .then(r => r.data);
+}
+
+export function DELETE_ACCOUNT(username) {
+  return axios.delete(baseUrl + `/api/users/${username}`, { withCredentials: true })
+    .then(r => r.data);
+}
+
+// ── Search ────────────────────────────────────────────────────────────────────
+
+export function SEARCH_USERS(q) {
+  return axios.get(baseUrl + `/api/search/users`, { params: { q }, withCredentials: true })
+    .then(r => r.data);
+}
+
+// ── Follow counts ─────────────────────────────────────────────────────────────
+
+export function GET_FOLLOW_COUNTS(username) {
+  return axios.get(baseUrl + `/api/users/${username}/follow-counts`, { withCredentials: true })
+    .then(r => r.data);
+}
+
+// ── Activity ──────────────────────────────────────────────────────────────────
+
+export function GET_USER_ACTIVITY(username) {
+  return axios.get(baseUrl + `/api/users/${username}/activity`, { withCredentials: true })
     .then(r => r.data);
 }

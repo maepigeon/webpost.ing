@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { PRESET_PATTERNS, isValidPattern, patternToStyle, findPresetByImage, pawImage, PAW_DEFAULT_COLOR, starsImage, STARS_DEFAULT_COLOR, STARS_DEFAULT_BG } from './patterns.js';
+import { PRESET_PATTERNS, isValidPattern, patternToStyle, findPresetByImage, pawImage, PAW_DEFAULT_COLOR, starsImage, STARS_DEFAULT_COLOR, STARS_DEFAULT_BG, extractBgColor, stripBgColor, DEFAULT_BG_COLOR } from './patterns.js';
+import { BASE_URL } from '../../config.js';
 import './PatternPicker.css';
 
 // ── Color helpers ────────────────────────────────────────────────────────────
@@ -108,56 +109,80 @@ function ColorEditors({ css, onChange }) {
  *   username    — if provided, user presets are loaded from / saved to the backend
  */
 export default function PatternPicker({ value, onChange, username }) {
-  // Reflect the active value's CSS in the custom input
+  // Append |#COLOR suffix only when the color differs from the default
+  const withBgColor = (pattern, color) => {
+    if (!color || color === DEFAULT_BG_COLOR) return pattern || '';
+    return (pattern || '') + '|' + color;
+  };
+
+  // Reflect the active value's CSS in the custom input (strips |#COLOR first)
   const cssForValue = (v) => {
-    if (!v || v === 'none') return '';
-    if (v in PRESET_PATTERNS) return PRESET_PATTERNS[v].backgroundImage || '';
-    if (v.startsWith('paw-print:')) return pawImage(v.slice('paw-print:'.length).trim());
-    if (v.startsWith('stars:')) {
-      const rest = v.slice('stars:'.length);
+    const p = stripBgColor(v) || '';
+    if (!p || p === 'none') return '';
+    if (p in PRESET_PATTERNS) return PRESET_PATTERNS[p].backgroundImage || '';
+    if (p.startsWith('paw-print:')) return pawImage(p.slice('paw-print:'.length).trim());
+    if (p.startsWith('stars:')) {
+      const rest = p.slice('stars:'.length);
       const idx = rest.indexOf(':');
       const sc = idx >= 0 ? rest.slice(0, idx) : rest;
       const bc = idx >= 0 ? rest.slice(idx + 1) : STARS_DEFAULT_BG;
       return starsImage(sc, bc);
     }
-    return v;
+    return p;
   };
 
   const [customInput, setCustomInput] = useState(() => cssForValue(value));
   const [customError, setCustomError] = useState('');
   const [inputDirty, setInputDirty] = useState(false);
   const [previewStyle, setPreviewStyle] = useState(null);
+  const [bgColor, setBgColor] = useState(() => extractBgColor(value) || DEFAULT_BG_COLOR);
+
+  // Sync bgColor when the value prop changes from outside
+  useEffect(() => {
+    const fromValue = extractBgColor(value);
+    setBgColor(fromValue || DEFAULT_BG_COLOR);
+  }, [value]);
 
   // User-saved presets — loaded from backend (or localStorage as fallback)
   const [userPresets, setUserPresets] = useState({});
   const [saveName, setSaveName] = useState('');
   const [showSave, setShowSave] = useState(false);
+  const [presetSaveError, setPresetSaveError] = useState('');
 
   // Load user presets on mount
   useEffect(() => {
-    if (username) {
-      fetch(`/api/users/${username}/presets`, { credentials: 'include' })
-        .then(r => r.ok ? r.json() : null)
-        .then(data => { if (data) setUserPresets(data); })
-        .catch(() => {
-          // Fall back to localStorage
-          try { setUserPresets(JSON.parse(localStorage.getItem('userPatternPresets') || '{}')); }
-          catch { /* ignore */ }
-        });
-    } else {
+    const loadFromStorage = () => {
       try { setUserPresets(JSON.parse(localStorage.getItem('userPatternPresets') || '{}')); }
       catch { /* ignore */ }
+    };
+    if (username) {
+      fetch(`${BASE_URL}/api/users/${username}/presets`, { credentials: 'include' })
+        .then(r => {
+          if (r.ok) return r.json();
+          loadFromStorage();
+          return null;
+        })
+        .then(data => { if (data) setUserPresets(data); })
+        .catch(loadFromStorage);
+    } else {
+      loadFromStorage();
     }
   }, [username]);
 
   const saveUserPresets = (updated) => {
     setUserPresets(updated);
+    setPresetSaveError('');
     if (username) {
-      fetch(`/api/users/${username}/presets`, {
+      fetch(`${BASE_URL}/api/users/${username}/presets`, {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updated),
+      }).then(r => {
+        if (!r.ok) {
+          r.text().then(msg => setPresetSaveError(`Preset save failed: ${msg || r.status}`));
+          localStorage.setItem('userPatternPresets', JSON.stringify(updated));
+        }
       }).catch(() => localStorage.setItem('userPatternPresets', JSON.stringify(updated)));
     } else {
       localStorage.setItem('userPatternPresets', JSON.stringify(updated));
@@ -170,7 +195,7 @@ export default function PatternPicker({ value, onChange, username }) {
     setCustomError('');
     setPreviewStyle(null);
     setCustomInput(PRESET_PATTERNS[key].backgroundImage || '');
-    onChange(key === 'none' ? '' : key);
+    onChange(withBgColor(key === 'none' ? '' : key, bgColor));
   };
 
   const handleUserPreset = (css) => {
@@ -189,12 +214,13 @@ export default function PatternPicker({ value, onChange, username }) {
   };
 
   const extractParameterizedKey = useCallback((css, v) => {
-    const isPaw = typeof v === 'string' && (v === 'paw-print' || v.startsWith('paw-print:'));
+    const base = typeof v === 'string' ? stripBgColor(v) : '';
+    const isPaw = base === 'paw-print' || base.startsWith('paw-print:');
     if (isPaw) {
       const m = css.match(/rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+(?:\s*,\s*[\d.]+)?\s*\)|#[0-9a-fA-F]{3,8}/i);
       if (m) return `paw-print:${m[0]}`;
     }
-    const isStars = typeof v === 'string' && (v === 'stars' || v.startsWith('stars:'));
+    const isStars = base === 'stars' || base.startsWith('stars:');
     if (isStars) {
       const colors = parseColors(css);
       if (colors.length >= 1) {
@@ -213,18 +239,18 @@ export default function PatternPicker({ value, onChange, username }) {
       const paramKey = extractParameterizedKey(newCss, value);
       if (paramKey) {
         setPreviewStyle(patternToStyle(paramKey));
-        onChange(paramKey);
+        onChange(withBgColor(paramKey, bgColor));
         setInputDirty(false);
         return;
       }
       setPreviewStyle(patternToStyle(newCss));
-      onChange(newCss);
+      onChange(withBgColor(newCss, bgColor));
       setInputDirty(false);
     } else {
       setInputDirty(true);
       setPreviewStyle(null);
     }
-  }, [onChange, value, extractParameterizedKey]);
+  }, [onChange, value, extractParameterizedKey, bgColor, withBgColor]);
 
   const handleTest = () => {
     const v = customInput.trim();
@@ -252,18 +278,17 @@ export default function PatternPicker({ value, onChange, username }) {
 
   const handleApply = () => {
     const v = customInput.trim();
-    if (!v) { onChange(''); setInputDirty(false); return; }
+    if (!v) { onChange(withBgColor('', bgColor)); setInputDirty(false); return; }
     const paramKey = extractParameterizedKey(v, value);
     if (paramKey) {
-      onChange(paramKey);
+      onChange(withBgColor(paramKey, bgColor));
       setInputDirty(false);
       setPreviewStyle(null);
       return;
     }
-    // If CSS exactly matches a preset's backgroundImage, store the preset key instead
     const matchedKey = findPresetByImage(v);
     if (matchedKey) {
-      onChange(matchedKey === 'none' ? '' : matchedKey);
+      onChange(withBgColor(matchedKey === 'none' ? '' : matchedKey, bgColor));
       setInputDirty(false);
       setPreviewStyle(null);
       return;
@@ -272,7 +297,7 @@ export default function PatternPicker({ value, onChange, username }) {
       setCustomError('Only CSS gradient functions are allowed. URL and script values are blocked.');
       return;
     }
-    onChange(v);
+    onChange(withBgColor(v, bgColor));
     setInputDirty(false);
     setPreviewStyle(null);
   };
@@ -289,6 +314,12 @@ export default function PatternPicker({ value, onChange, username }) {
     const updated = { ...userPresets };
     delete updated[name];
     saveUserPresets(updated);
+  };
+
+  const handleBgColorChange = (color) => {
+    setBgColor(color);
+    const currentPattern = stripBgColor(value) || '';
+    onChange(withBgColor(currentPattern, color));
   };
 
   // Build swatch inline style for a preset
@@ -320,7 +351,31 @@ export default function PatternPicker({ value, onChange, username }) {
         })}
       </div>
 
+      {/* Page background color */}
+      <div className="pattern-picker-section">
+        <div className="pattern-picker-section-label">Background color</div>
+        <div className="pattern-color-row">
+          <input
+            type="color"
+            className="pattern-color-hex"
+            value={bgColor}
+            onChange={e => handleBgColorChange(e.target.value)}
+            title="Page background color"
+          />
+          <span className="pattern-color-label">{bgColor}</span>
+          {bgColor !== DEFAULT_BG_COLOR && (
+            <button
+              type="button"
+              className="pattern-picker-test-btn"
+              style={{ marginLeft: 8 }}
+              onClick={() => handleBgColorChange(DEFAULT_BG_COLOR)}
+            >Reset</button>
+          )}
+        </div>
+      </div>
+
       {/* User saved presets */}
+      {presetSaveError && <p className="pattern-picker-error">{presetSaveError}</p>}
       {Object.keys(userPresets).length > 0 && (
         <div className="pattern-picker-section">
           <div className="pattern-picker-section-label">My presets</div>
@@ -391,9 +446,12 @@ export default function PatternPicker({ value, onChange, username }) {
         {previewStyle !== null && (
           <div
             className="pattern-picker-custom-preview"
-            style={previewStyle && Object.keys(previewStyle).length > 0
-              ? previewStyle
-              : { background: '#f5f5f5' }}
+            style={(() => {
+              if (!previewStyle || Object.keys(previewStyle).filter(k => k !== '_bgColor').length === 0)
+                return { background: '#f5f5f5' };
+              const { _bgColor, ...rest } = previewStyle;
+              return { ...rest, ...((_bgColor) ? { backgroundColor: _bgColor } : {}) };
+            })()}
           />
         )}
         {customInput.trim() && (

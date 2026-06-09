@@ -20,4 +20,8 @@ public interface LoginRepository {
     public void updateUserBio(String username, String bio);
     public boolean isAdmin(String username);
     public void touchLastVisited(String username);
+    public String getUserPresets(String username);
+    public void updateUserPresets(String username, String presetsJson);
+    public long getPresetsStorageBytes(String username);
+    public void deleteUser(String username);
 }

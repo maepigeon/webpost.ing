@@ -6,6 +6,24 @@ import './Social.css';
 
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🎉'];
 
+function renderWithLinks(text) {
+  const urlPattern = /https?:\/\/[^\s<>"']+/g;
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+  while ((match = urlPattern.exec(text)) !== null) {
+    if (match.index > lastIndex) parts.push(text.slice(lastIndex, match.index));
+    parts.push(
+      <a key={match.index} href={match[0]} target="_blank" rel="noopener noreferrer" style={{ color: '#1a73e8', wordBreak: 'break-all' }}>
+        {match[0]}
+      </a>
+    );
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+  return parts.length > 0 ? parts : text;
+}
+
 function timeAgo(date) {
   const s = Math.floor((Date.now() - new Date(date)) / 1000);
   if (s < 60) return `${s}s ago`;
@@ -24,6 +42,7 @@ export default function CommentItem({ comment, postId, depth = 0, onRefresh }) {
   const [collapsed, setCollapsed] = useState(false);
   const [reactions, setReactions] = useState(comment.reactions ?? {});
   const [userReactions, setUserReactions] = useState(new Set(comment.userReactions ?? []));
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const loggedIn = !!localStorage.getItem('userName');
   const me = localStorage.getItem('userName');
@@ -76,10 +95,13 @@ export default function CommentItem({ comment, postId, depth = 0, onRefresh }) {
     try { await ADD_COMMENT(postId, replyContent, comment.id); setReplyContent(''); setReplying(false); onRefresh(); } catch {}
   };
 
-  const visibleReactions = REACTION_EMOJIS.filter(e => loggedIn || (reactions[e] ?? 0) > 0);
+  // Emojis that have at least one reaction (always shown if count > 0)
+  const activeEmojis = REACTION_EMOJIS.filter(e => (reactions[e] ?? 0) > 0 || userReactions.has(e));
+  // Emojis available in the picker (those not already active)
+  const pickerEmojis = REACTION_EMOJIS.filter(e => !activeEmojis.includes(e));
 
   return (
-    <div className={`comment-item depth-${Math.min(depth, 4)}`}>
+    <div id={`comment-${comment.id}`} className={`comment-item depth-${Math.min(depth, 4)}`}>
       <div className="comment-votes">
         <button className={`vote-btn${userVote === 1 ? ' vote-up--active' : ''}`} onClick={() => vote(1)} disabled={!loggedIn} title="Upvote">▲</button>
         <span className="comment-score">{score}</span>
@@ -106,13 +128,22 @@ export default function CommentItem({ comment, postId, depth = 0, onRefresh }) {
             </div>
           </div>
         ) : (
-          <p className="comment-content">{comment.content}</p>
+          <p className="comment-content">{renderWithLinks(comment.content)}</p>
         )}
 
         <div className="comment-actions">
           {loggedIn && <button onClick={() => setReplying(r => !r)}>Reply</button>}
           {me === comment.authorUsername && !editing && <button onClick={() => setEditing(true)}>Edit</button>}
           {me === comment.authorUsername && <button onClick={del} className="comment-delete-btn">Delete</button>}
+          {/* React button inline with reply/edit/delete */}
+          {loggedIn && pickerEmojis.length > 0 && (
+            <button
+              onClick={() => setPickerOpen(o => !o)}
+              title={pickerOpen ? 'Close reactions' : 'Add reaction'}
+            >
+              {pickerOpen ? 'Close' : 'React'}
+            </button>
+          )}
         </div>
 
         {replying && (
@@ -138,9 +169,9 @@ export default function CommentItem({ comment, postId, depth = 0, onRefresh }) {
           </div>
         )}
 
-        {visibleReactions.length > 0 && (
-          <div className="comment-reaction-bar comment-reaction-bar--centered">
-            {visibleReactions.map(emoji => {
+        {(activeEmojis.length > 0 || pickerOpen) && (
+          <div className="comment-reaction-bar">
+            {activeEmojis.map(emoji => {
               const count = reactions[emoji] ?? 0;
               return (
                 <button
@@ -154,6 +185,16 @@ export default function CommentItem({ comment, postId, depth = 0, onRefresh }) {
                 </button>
               );
             })}
+            {loggedIn && pickerOpen && pickerEmojis.map(emoji => (
+              <button
+                key={emoji}
+                className="comment-reaction-btn comment-reaction-picker-item"
+                onClick={() => { react(emoji); setPickerOpen(false); }}
+                title={`React with ${emoji}`}
+              >
+                {emoji}
+              </button>
+            ))}
           </div>
         )}
       </div>

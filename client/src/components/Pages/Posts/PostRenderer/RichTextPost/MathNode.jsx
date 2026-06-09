@@ -109,8 +109,8 @@ function MathComponent({ equation, nodeKey }) {
             <button type="button" onMouseDown={e => { e.preventDefault(); moveNode('up'); }} title="Move up">↑</button>
             <button type="button" onMouseDown={e => { e.preventDefault(); moveNode('down'); }} title="Move down">↓</button>
             <span className="editor-image-controls-sep" />
-            <button type="button" onMouseDown={e => { e.preventDefault(); setDraft(equation); setEditing(true); }} title="Edit equation">✏</button>
-            <button type="button" onMouseDown={e => { e.preventDefault(); deleteNode(); }} title="Delete math block" style={{ color: '#ff7b7b' }}>🗑</button>
+            <button type="button" onMouseDown={e => { e.preventDefault(); setDraft(equation); setEditing(true); }} title="Edit equation">Edit</button>
+            <button type="button" onMouseDown={e => { e.preventDefault(); deleteNode(); }} title="Delete math block" style={{ color: '#ff7b7b' }}>Del</button>
             <span className="editor-image-controls-sep" />
           </>}
           <button
@@ -124,7 +124,7 @@ function MathComponent({ equation, nodeKey }) {
             }}
             title="Copy LaTeX"
           >
-            {copiedLatex ? '✓' : '⎘ LaTeX'}
+            {copiedLatex ? '✓ Copied' : 'Copy to clipboard'}
           </button>
         </div>
       )}

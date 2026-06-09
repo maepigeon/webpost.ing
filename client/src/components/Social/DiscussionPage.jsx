@@ -42,7 +42,21 @@ export default function DiscussionPage() {
 
   const loadComments = useCallback(() => {
     if (!enabled) return;
-    GET_COMMENTS(id, sort).then(setComments).catch(() => {});
+    GET_COMMENTS(id, sort).then(data => {
+      setComments(data);
+      // Scroll to a linked comment after load
+      const hash = window.location.hash;
+      if (hash) {
+        setTimeout(() => {
+          const el = document.querySelector(hash);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('comment-highlight');
+            setTimeout(() => el.classList.remove('comment-highlight'), 2000);
+          }
+        }, 50);
+      }
+    }).catch(() => {});
   }, [id, sort, enabled]);
 
   useEffect(() => { loadComments(); }, [loadComments]);

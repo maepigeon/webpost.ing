@@ -308,8 +308,11 @@ public class SocialRepository {
         n.setActorUsername(rs.getString("actor_username"));
         int pid = rs.getInt("post_id"); if (!rs.wasNull()) n.setPostId(pid);
         int cid = rs.getInt("comment_id"); if (!rs.wasNull()) n.setCommentId(cid);
+        n.setMessage(rs.getString("message"));
         n.setRead(rs.getBoolean("is_read"));
         n.setCreatedAt(rs.getTimestamp("created_at"));
+        n.setPostTitle(rs.getString("post_title"));
+        n.setPostOwner(rs.getString("post_owner"));
         return n;
     };
 
@@ -317,15 +320,41 @@ public class SocialRepository {
         if (recipientId <= 0) return;
         jdbc.update(
             "INSERT INTO notifications(recipient_id,type,actor_username,post_id,comment_id) VALUES(?,?,?,?,?)",
-            recipientId, type, actorUsername,
-            postId != null ? postId : null,
-            commentId != null ? commentId : null);
+            recipientId, type, actorUsername, postId, commentId);
     }
 
-    public List<Notification> getNotifications(int userId, int limit) {
+    /** Bulk-insert a notification for every follower of followedUserId in one query. */
+    public void notifyFollowers(int followedUserId, String actorUsername, Integer postId) {
+        jdbc.update(
+            "INSERT INTO notifications(recipient_id,type,actor_username,post_id) " +
+            "SELECT f.follower_id, 'new_post', ?, ? FROM follows f WHERE f.followed_id=?",
+            actorUsername, postId, followedUserId);
+    }
+
+    /** Send a direct text message to a user as a notification of type 'message'. */
+    public void sendMessage(int recipientId, String senderUsername, String message) {
+        if (recipientId <= 0) return;
+        jdbc.update(
+            "INSERT INTO notifications(recipient_id,type,actor_username,message) VALUES(?,?,?,?)",
+            recipientId, "message", senderUsername, message);
+    }
+
+    public long getNotificationStorageBytes(int userId) {
+        Long r = jdbc.queryForObject(
+            "SELECT COALESCE(SUM(OCTET_LENGTH(COALESCE(message,''))),0) FROM notifications WHERE recipient_id=?",
+            Long.class, userId);
+        return r != null ? r : 0L;
+    }
+
+    public List<Notification> getNotifications(int userId, int limit, int offset) {
         return jdbc.query(
-            "SELECT * FROM notifications WHERE recipient_id=? ORDER BY created_at DESC LIMIT ?",
-            NOTIF_MAPPER, userId, limit);
+            "SELECT n.*, p.title AS post_title, u.username AS post_owner " +
+            "FROM notifications n " +
+            "LEFT JOIN posts p ON p.id = n.post_id " +
+            "LEFT JOIN users_posts_junctions j ON j.post_id = p.id " +
+            "LEFT JOIN users u ON u.id = j.user_id " +
+            "WHERE n.recipient_id=? ORDER BY n.created_at DESC LIMIT ? OFFSET ?",
+            NOTIF_MAPPER, userId, limit, offset);
     }
 
     public int getUnreadCount(int userId) {
@@ -334,19 +363,96 @@ public class SocialRepository {
         return r != null ? r : 0;
     }
 
-    public void markRead(int notificationId, int userId) {
-        jdbc.update("UPDATE notifications SET is_read=TRUE WHERE id=? AND recipient_id=?", notificationId, userId);
+    public int markRead(int notificationId, int userId) {
+        return jdbc.update("UPDATE notifications SET is_read=TRUE WHERE id=? AND recipient_id=?", notificationId, userId);
     }
 
     public void markAllRead(int userId) {
         jdbc.update("UPDATE notifications SET is_read=TRUE WHERE recipient_id=?", userId);
     }
 
-    public void deleteNotification(int notificationId, int userId) {
-        jdbc.update("DELETE FROM notifications WHERE id=? AND recipient_id=?", notificationId, userId);
+    public int deleteNotification(int notificationId, int userId) {
+        return jdbc.update("DELETE FROM notifications WHERE id=? AND recipient_id=?", notificationId, userId);
     }
 
     public void clearNotifications(int userId) {
         jdbc.update("DELETE FROM notifications WHERE recipient_id=?", userId);
+    }
+
+    // ── DM blocks ─────────────────────────────────────────────────────────────
+
+    /** Block direct messages from blockedId to blockerId. */
+    public void blockMessages(int blockerId, int blockedId) {
+        jdbc.update(
+            "INSERT INTO dm_blocks(blocker_id, blocked_id) VALUES(?,?) ON CONFLICT DO NOTHING",
+            blockerId, blockedId);
+    }
+
+    /** Remove a DM block. */
+    public void unblockMessages(int blockerId, int blockedId) {
+        jdbc.update("DELETE FROM dm_blocks WHERE blocker_id=? AND blocked_id=?", blockerId, blockedId);
+    }
+
+    /** Returns true if blockerId has blocked messages from blockedId. */
+    public boolean isBlockingMessages(int blockerId, int blockedId) {
+        List<Integer> r = jdbc.queryForList(
+            "SELECT 1 FROM dm_blocks WHERE blocker_id=? AND blocked_id=?", Integer.class, blockerId, blockedId);
+        return !r.isEmpty();
+    }
+
+    /** Returns true if the recipient (recipientId) has blocked the sender (senderId). */
+    public boolean isMessageBlocked(int recipientId, int senderId) {
+        return isBlockingMessages(recipientId, senderId);
+    }
+
+    // ── Activity feed ─────────────────────────────────────────────────────────
+
+    /** Returns the user's comments with their post context, most recent first. */
+    public List<Map<String, Object>> getUserActivityComments(int userId, int limit) {
+        return jdbc.queryForList(
+            "SELECT c.id, c.content, c.created_at, c.score, c.parent_id, " +
+            "  p.id AS post_id, p.title AS post_title, u.username AS post_owner " +
+            "FROM comments c " +
+            "JOIN discussions d ON d.id = c.discussion_id " +
+            "JOIN posts p ON p.id = d.post_id " +
+            "JOIN users_posts_junctions j ON j.post_id = p.id " +
+            "JOIN users u ON u.id = j.user_id " +
+            "WHERE c.user_id = ? " +
+            "ORDER BY c.created_at DESC LIMIT ?",
+            userId, limit);
+    }
+
+    /** Returns the user's post reactions with post context, most recent first. */
+    public List<Map<String, Object>> getUserActivityPostReactions(int userId, int limit) {
+        return jdbc.queryForList(
+            "SELECT pr.reaction, pr.post_id, p.title AS post_title, u.username AS post_owner " +
+            "FROM post_reactions pr " +
+            "JOIN posts p ON p.id = pr.post_id " +
+            "JOIN users_posts_junctions j ON j.post_id = p.id " +
+            "JOIN users u ON u.id = j.user_id " +
+            "WHERE pr.user_id = ? " +
+            "ORDER BY pr.post_id DESC LIMIT ?",
+            userId, limit);
+    }
+
+    // ── User search ───────────────────────────────────────────────────────────
+
+    /** Case-insensitive prefix/substring search on usernames. */
+    public List<String> searchUsers(String query, int limit) {
+        return jdbc.queryForList(
+            "SELECT username FROM users WHERE username ILIKE ? ORDER BY username LIMIT ?",
+            String.class, "%" + query + "%", limit);
+    }
+
+    /** Returns follower and following counts for a user. */
+    public Map<String, Integer> getFollowCounts(int userId) {
+        Integer followers = jdbc.queryForObject(
+            "SELECT COUNT(*) FROM follows WHERE followed_id=?", Integer.class, userId);
+        Integer following = jdbc.queryForObject(
+            "SELECT COUNT(*) FROM follows WHERE follower_id=?", Integer.class, userId);
+        Map<String, Integer> m = new LinkedHashMap<>();
+        m.put("followers", followers != null ? followers : 0);
+        m.put("following", following != null ? following : 0);
+        return m;
     }
 }

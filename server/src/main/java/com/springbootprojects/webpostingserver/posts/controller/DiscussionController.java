@@ -7,6 +7,8 @@ import com.springbootprojects.webpostingserver.posts.repository.JdbcLoginReposit
 import com.springbootprojects.webpostingserver.posts.repository.LoginRepository;
 import com.springbootprojects.webpostingserver.posts.repository.PostRepository;
 import com.springbootprojects.webpostingserver.posts.repository.SocialRepository;
+import com.springbootprojects.webpostingserver.posts.validator.EmojiValidator;
+import com.springbootprojects.webpostingserver.posts.validator.RateLimiter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
@@ -18,6 +20,9 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api")
 public class DiscussionController {
+
+    // 30 comments per 5 minutes per user
+    private static final RateLimiter COMMENT_LIMITER = new RateLimiter(30, 5 * 60 * 1000L, 5 * 60 * 1000L);
 
     @Autowired
     private SocialRepository social;
@@ -136,15 +141,20 @@ public class DiscussionController {
         AuthSession session = authorize(username, token);
         if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).<Map<String, Object>>build();
 
+        String ckey = String.valueOf(session.userId);
+        if (COMMENT_LIMITER.isBlocked(ckey))
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).<Map<String, Object>>build();
+
         if (!social.isDiscussionEnabled(postId))
             return ResponseEntity.status(HttpStatus.FORBIDDEN).<Map<String, Object>>build();
 
         String content = (String) body.get("content");
-        if (content == null || content.isBlank())
+        if (content == null || content.isBlank() || content.length() > 10_000)
             return ResponseEntity.badRequest().<Map<String, Object>>build();
 
         Integer parentId = body.get("parentId") != null ? ((Number) body.get("parentId")).intValue() : null;
         int commentId = social.addComment(postId, parentId, session.userId, content.trim());
+        COMMENT_LIMITER.recordUse(ckey);
 
         // Notify post owner if commenter is not the owner
         LoginInfo postOwner = postRepository.getUsernameFromPostId(postId);
@@ -169,7 +179,8 @@ public class DiscussionController {
         if (session == null) return unauthorized();
 
         String content = body.get("content");
-        if (content == null || content.isBlank()) return ResponseEntity.badRequest().<String>build();
+        if (content == null || content.isBlank() || content.length() > 10_000)
+            return ResponseEntity.badRequest().<String>build();
 
         int updated = social.editComment(commentId, session.userId, content.trim());
         return updated > 0 ? ResponseEntity.ok("Updated.") : forbidden();
@@ -202,7 +213,7 @@ public class DiscussionController {
         if (session == null) return unauthorized();
 
         String reaction = body.get("reaction");
-        if (reaction == null || reaction.isBlank() || reaction.length() > 20)
+        if (!EmojiValidator.isValid(reaction))
             return ResponseEntity.badRequest().<String>build();
 
         social.toggleCommentReaction(commentId, session.userId, reaction.trim());

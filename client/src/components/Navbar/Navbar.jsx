@@ -13,7 +13,7 @@ function authorize() {
 function PostViewerPlugin() {
   const username = localStorage.getItem("userName");
   if (authorize()) {
-    return <Navbutton label={"My Profile"} route={"/users/"+username} variant="orange" />
+    return <Navbutton label={"My Profile"} route={"/users/"+username} variant="purple" />
   }
 }
 
@@ -36,21 +36,34 @@ function Login() {
 }
 
 function AdminPlugin() {
-  if (localStorage.getItem("isAdmin") !== "1") return null;
+  if (!authorize() || localStorage.getItem("isAdmin") !== "1") return null;
   return <Navbutton label={"Admin"} route={"/routes/AdminPanel"} variant="blue" />;
 }
 
+function ActivityLink() {
+  const username = localStorage.getItem("userName");
+  if (!authorize() || !username) return null;
+  return <Navbutton label={"Activity"} route={`/activity/${username}`} variant="purple" />;
+}
+
 function Navbar() {
+  const loggedIn = authorize();
   return (
     <nav className="navBar">
       <Userdata />
       <Login />
       <LogoutPlugin />
       <Navbutton label={"Home"} route={"/"} variant="orange" />
-      <PostViewerPlugin />
       <NewPost />
+      {loggedIn && (
+        <span className="navGroup">
+          <PostViewerPlugin />
+          <ActivityLink />
+          <NotificationBell />
+        </span>
+      )}
       <AdminPlugin />
-      {authorize() && <NotificationBell />}
+      <Navbutton label={"Search"} route={"/search"} variant="teal" />
     </nav>
   );
 }

@@ -7,6 +7,7 @@ function ImageComponent({ src, altText, nodeKey, alignment = 'center', width = n
   const [editor] = useLexicalComposerContext();
   const [showControls, setShowControls] = useState(false);
   const imgRef = useRef(null);
+  const isResizingRef = useRef(false);
 
   const updateNode = useCallback((changes) => {
     editor.update(() => {
@@ -47,6 +48,9 @@ function ImageComponent({ src, altText, nodeKey, alignment = 'center', width = n
 
   const startResize = useCallback((e) => {
     e.preventDefault();
+    e.stopPropagation();
+    isResizingRef.current = true;
+    setShowControls(true);
     const startX = e.clientX;
     const startWidth = imgRef.current?.offsetWidth ?? 400;
 
@@ -55,6 +59,8 @@ function ImageComponent({ src, altText, nodeKey, alignment = 'center', width = n
       if (imgRef.current) imgRef.current.style.width = newWidth + 'px';
     };
     const onUp = (mv) => {
+      isResizingRef.current = false;
+      setShowControls(false);
       const newWidth = Math.max(80, startWidth + (mv.clientX - startX));
       updateNode({ __width: newWidth });
       window.removeEventListener('mousemove', onMove);
@@ -77,7 +83,7 @@ function ImageComponent({ src, altText, nodeKey, alignment = 'center', width = n
       <div
         className="editor-image-frame"
         onMouseEnter={() => editable && setShowControls(true)}
-        onMouseLeave={() => editable && setShowControls(false)}
+        onMouseLeave={() => editable && !isResizingRef.current && setShowControls(false)}
       >
         {editable && showControls && (
           <div className="editor-image-controls">
@@ -122,7 +128,7 @@ function ImageComponent({ src, altText, nodeKey, alignment = 'center', width = n
               onMouseDown={(e) => { e.preventDefault(); deleteNode(); }}
               title="Delete image"
               style={{ color: '#ff7b7b' }}
-            >🗑</button>
+            >Del</button>
           </div>
         )}
         <img

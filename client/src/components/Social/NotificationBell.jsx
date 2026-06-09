@@ -15,13 +15,29 @@ function ActorLink({ username, onClick }) {
   );
 }
 
+function PostLink({ n, onClose }) {
+  if (!n.postOwner || !n.postId) return <span>{n.postTitle || 'your post'}</span>;
+  const anchor = n.commentId ? `#comment-${n.commentId}` : '';
+  return (
+    <Link
+      to={`/users/${n.postOwner}/${n.postId}/discussion${anchor}`}
+      className="notif-post-link"
+      onClick={e => { e.stopPropagation(); if (onClose) onClose(); }}
+    >
+      {n.postTitle || 'your post'}
+    </Link>
+  );
+}
+
 function notifLabel(n, closeDropdown) {
   const a = <ActorLink username={n.actorUsername} onClick={closeDropdown} />;
   switch (n.type) {
-    case 'comment':  return <span>{a} commented on your post</span>;
-    case 'reply':    return <span>{a} replied to your comment</span>;
+    case 'comment':  return <span>{a} commented on your post <PostLink n={n} onClose={closeDropdown} /></span>;
+    case 'reply':    return <span>{a} replied to your comment on <PostLink n={n} onClose={closeDropdown} /></span>;
     case 'follow':   return <span>{a} followed you</span>;
-    case 'reaction': return <span>{a} reacted to your post</span>;
+    case 'reaction': return <span>{a} reacted to your post <PostLink n={n} onClose={closeDropdown} /></span>;
+    case 'new_post': return <span>{a} published {n.postOwner && n.postId ? <Link to={`/users/${n.postOwner}/${n.postId}`} className="notif-post-link" onClick={e => { e.stopPropagation(); if (closeDropdown) closeDropdown(); }}>{n.postTitle || 'a new post'}</Link> : 'a new post'}</span>;
+    case 'message':  return <span>{a} sent you a message: {n.message || ''}</span>;
     default:         return <span>New notification from {a}</span>;
   }
 }
