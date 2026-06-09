@@ -194,6 +194,7 @@ public class AuthController {
 
         int targetUserId = authUsername.equals(username) ? session.userId : social.getUserIdByUsername(username);
         long notificationBytes = targetUserId > 0 ? social.getNotificationStorageBytes(targetUserId) : 0;
+        long commentBytes = targetUserId > 0 ? social.getUserCommentStorageBytes(targetUserId) : 0;
         long presetsBytes = loginRepository.getPresetsStorageBytes(username);
 
         Map<String, Object> result = new LinkedHashMap<>();
@@ -202,6 +203,7 @@ public class AuthController {
         result.put("postTextBytes", postTextBytes != null ? postTextBytes : 0L);
         result.put("postCount", postCount != null ? postCount : 0);
         result.put("notificationBytes", notificationBytes);
+        result.put("commentBytes", commentBytes);
         result.put("presetsBytes", presetsBytes);
         result.put("role", role);
         if (limits != null) {
@@ -250,7 +252,10 @@ public class AuthController {
 
         Map<String, Object> result = new java.util.LinkedHashMap<>();
         result.put("comments", social.getUserActivityComments(targetUserId, 100));
-        result.put("reactions", social.getUserActivityPostReactions(targetUserId, 100));
+        result.put("postReactions", social.getUserActivityPostReactions(targetUserId, 100));
+        result.put("commentReactions", social.getUserActivityCommentReactions(targetUserId, 100));
+        result.put("uploads", social.getUserActivityUploads(targetUserId, 200));
+        result.put("deletions", social.getUserActivityDeletions(targetUserId, 100));
         return ResponseEntity.ok(result);
     }
 

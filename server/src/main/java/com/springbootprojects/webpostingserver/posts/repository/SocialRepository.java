@@ -435,6 +435,81 @@ public class SocialRepository {
             userId, limit);
     }
 
+    /** Returns the user's comment reactions with post/comment context, most recent first. */
+    public List<Map<String, Object>> getUserActivityCommentReactions(int userId, int limit) {
+        return jdbc.queryForList(
+            "SELECT cr.reaction, cr.comment_id, " +
+            "  SUBSTRING(c.content, 1, 120) AS comment_preview, " +
+            "  p.id AS post_id, p.title AS post_title, u.username AS post_owner " +
+            "FROM comment_reactions cr " +
+            "JOIN comments c ON c.id = cr.comment_id " +
+            "JOIN discussions d ON d.id = c.discussion_id " +
+            "JOIN posts p ON p.id = d.post_id " +
+            "JOIN users_posts_junctions j ON j.post_id = p.id " +
+            "JOIN users u ON u.id = j.user_id " +
+            "WHERE cr.user_id = ? " +
+            "ORDER BY cr.comment_id DESC LIMIT ?",
+            userId, limit);
+    }
+
+    /** Returns the user's uploads with the post they appear in, most recent first. */
+    public List<Map<String, Object>> getUserActivityUploads(int userId, int limit) {
+        return jdbc.queryForList(
+            "SELECT up.id, up.filename, up.original_name, up.size_bytes, up.uploaded_at, " +
+            "  p.id AS post_id, p.title AS post_title, author.username AS post_owner " +
+            "FROM uploads up " +
+            "LEFT JOIN post_uploads pu ON pu.upload_id = up.id " +
+            "LEFT JOIN posts p ON p.id = pu.post_id " +
+            "LEFT JOIN users_posts_junctions j ON j.post_id = p.id " +
+            "LEFT JOIN users author ON author.id = j.user_id " +
+            "WHERE up.user_id = ? " +
+            "ORDER BY up.uploaded_at DESC LIMIT ?",
+            userId, limit);
+    }
+
+    /** Fetches comment details for the deletion log (only if owned by userId). */
+    public Map<String, Object> getCommentInfoForLog(int commentId, int userId) {
+        List<Map<String, Object>> rows = jdbc.queryForList(
+            "SELECT c.content, p.id AS post_id, p.title AS post_title, u.username AS post_owner " +
+            "FROM comments c " +
+            "JOIN discussions d ON d.id = c.discussion_id " +
+            "JOIN posts p ON p.id = d.post_id " +
+            "JOIN users_posts_junctions j ON j.post_id = p.id " +
+            "JOIN users u ON u.id = j.user_id " +
+            "WHERE c.id = ? AND c.user_id = ?",
+            commentId, userId);
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    /** Writes a deletion log entry. Call before or after the DELETE (content must be captured before). */
+    public void logDeletion(int userId, String itemType, Map<String, Object> info) {
+        String raw = info.get("content") != null ? (String) info.get("content") : null;
+        String summary = raw != null ? raw.substring(0, Math.min(200, raw.length())) : null;
+        Integer postId = info.get("post_id") != null ? ((Number) info.get("post_id")).intValue() : null;
+        String postTitle = (String) info.get("post_title");
+        String postOwner = (String) info.get("post_owner");
+        jdbc.update(
+            "INSERT INTO activity_deletions(user_id, item_type, summary, post_id, post_title, post_owner) " +
+            "VALUES(?,?,?,?,?,?)",
+            userId, itemType, summary, postId, postTitle, postOwner);
+    }
+
+    /** Returns the user's deletion log, most recent first. */
+    public List<Map<String, Object>> getUserActivityDeletions(int userId, int limit) {
+        return jdbc.queryForList(
+            "SELECT id, item_type, summary, post_id, post_title, post_owner, deleted_at " +
+            "FROM activity_deletions WHERE user_id = ? ORDER BY deleted_at DESC LIMIT ?",
+            userId, limit);
+    }
+
+    /** Total bytes of all comment content written by this user. */
+    public long getUserCommentStorageBytes(int userId) {
+        Long r = jdbc.queryForObject(
+            "SELECT COALESCE(SUM(OCTET_LENGTH(content)), 0) FROM comments WHERE user_id = ?",
+            Long.class, userId);
+        return r != null ? r : 0L;
+    }
+
     // ── User search ───────────────────────────────────────────────────────────
 
     /** Case-insensitive prefix/substring search on usernames. */

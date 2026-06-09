@@ -49,7 +49,7 @@ In local development, Vite's dev server runs on port 5173 and calls the Spring B
 
 Authentication uses two HTTP-only cookies set by the server on login:
 - `username` — the account username
-- `authToken` — a session token stored in the database
+- `authToken` — a randomly generated session token (stored in-memory on the server; all sessions are lost on server restart)
 
 Every mutating API call reads these cookies server-side. Spring Security is configured to allow all requests (authentication is enforced per-endpoint in the controllers, not at the framework layer). CSRF is disabled because the app relies on cookie-based auth over CORS with `withCredentials`.
 
@@ -85,7 +85,36 @@ psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE testdb TO mae;"
 psql -U mae -d testdb -f config/database.sql
 ```
 
-> **Note:** The database name, user, and password in the schema file and `application.properties` are the defaults used in development. Change them to match your environment — there is no hardcoded assumption about the values.
+> **Note:** The database name, user, and password above are the development defaults. Change them to match your environment — update `application.properties` to match whatever you use here.
+
+The init script creates all 13 tables and seeds the `role_limits` table. It does **not** create any users — see [Creating the first admin user](#creating-the-first-admin-user) below.
+
+#### Migrating an existing database
+
+If you have an existing database from before the social/notification features were added (i.e., from around commit `00953d6`), run the migration script instead:
+
+```bash
+pg_dump -Fc testdb > backup_before_migrate.dump   # always back up first
+psql -U mae -d testdb -f config/db-migrate-from-v1.sql
+```
+
+The migration runs inside a transaction and rolls back if anything fails.
+
+#### Creating the first admin user
+
+There is no public registration endpoint. All users are created by an existing admin via the admin panel. To bootstrap the first admin, insert a row directly using a BCrypt-hashed password:
+
+```bash
+# Generate a BCrypt hash (cost 10):
+python3 -c "import bcrypt; print(bcrypt.hashpw(b'yourpassword', bcrypt.gensalt(10)).decode())"
+```
+
+```sql
+INSERT INTO users (username, password, is_admin, role)
+VALUES ('yourname', '$2b$10$...hash...', TRUE, 'admin');
+```
+
+After that, log in via the UI and use the admin panel to create additional users.
 
 ### Step 2 — Configure the backend
 
@@ -273,23 +302,14 @@ The included `server-start.sh` is a minimal shell script that runs the JAR in th
 
 ### Database migrations
 
-The schema file (`config/database.sql`) only creates the base tables. Migrations for features added after the initial release are listed at the bottom of that file as commented-out `ALTER TABLE` statements. Before deploying a version that requires a migration, take a backup first:
+`config/database.sql` is the authoritative fresh-install schema. If you have an existing database, use `config/db-migrate-from-v1.sql` to bring it up to date. Always back up first:
 
 ```bash
-pg_dump -U mae testdb > backup_$(date +%Y%m%d).sql
+pg_dump -Fc testdb > backup_$(date +%Y%m%d).dump
+psql -U mae -d testdb -f config/db-migrate-from-v1.sql
 ```
 
-Then run the migration statements manually in `psql`.
-
-**Session 2 migration (required before deploying session 2 changes):**
-```sql
-ALTER TABLE notifications ADD COLUMN IF NOT EXISTS message TEXT;
-```
-
-**Session 3 migration (required before deploying session 3 changes):**
-```sql
-ALTER TABLE users ADD COLUMN IF NOT EXISTS pattern_presets TEXT DEFAULT '{}';
-```
+The migration script covers everything from the original 3-table schema through the current 13-table schema and runs inside a transaction.
 
 ---
 
@@ -299,11 +319,11 @@ The schema has two conceptual halves: the original blogging core, and the social
 
 ### Core tables
 
-**`users`** — Accounts. Each user has a username (unique, max 32 chars), a password (plain text — no hashing is implemented yet), an optional `background_pattern` column, and a `pattern_presets TEXT` column (JSON object of saved wallpaper presets, default `'{}'`).
+**`users`** — Accounts. Columns: `username` (unique, max 32 chars), `password` (BCrypt hash, TEXT), `registration_date`, `last_visited`, `is_admin` (boolean), `role` (varchar — `user`, `trusted`, `restricted`, or `admin`), `bio` (TEXT, nullable), `background_pattern`, `pattern_presets` (JSON object of saved wallpaper presets, default `'{}'`).
 
-The `background_pattern` column stores either a preset key (e.g. `"dots"`), a validated CSS gradient string, or either of those with an optional `|#RRGGBB` suffix encoding the page background color (e.g. `"dots|#1a1a2e"`). Both the frontend and backend validator strip the suffix before validating the pattern key.
+Passwords are stored as BCrypt hashes. New users created via the admin panel are hashed immediately. Any legacy plain-text password in the database is automatically migrated to BCrypt the first time that user logs in.
 
-> **Security note:** Passwords are stored in plain text. This is a known limitation. Do not use this platform with passwords you use elsewhere.
+The `background_pattern` column stores either a preset key (e.g. `"dots"`), a validated CSS gradient string, or either with an optional `|#RRGGBB` suffix for the page background color (e.g. `"dots|#1a1a2e"`). Both frontend and backend strip the suffix before validating the pattern key.
 
 **`posts`** — Blog posts. The `description` column holds the full Lexical editor JSON state as a text blob. The `background_pattern` column works the same way as on users. Posts have a `published` flag — unpublished posts are hidden from all views except the author's editor.
 
@@ -319,18 +339,28 @@ The `background_pattern` column stores either a preset key (e.g. `"dots"`), a va
 
 **`comment_votes`** — One row per `(comment_id, user_id)` pair. `vote` is `+1` or `-1`, enforced by a check constraint. Replacing an existing row (upserting) handles vote changes.
 
-**`post_reactions`** — One emoji reaction per user per post (`(post_id, user_id)` primary key). Stored as a short string (e.g. `"👍"`).
+**`post_reactions`** — Emoji reactions on posts. Multiple reactions per user per post are allowed — the primary key is `(post_id, user_id, reaction)`. Stored as a short string (e.g. `"👍"`).
 
-**`notifications`** — Inbox entries. The `type` column is one of: `comment`, `reply`, `follow`, `reaction`, `new_post`, `message`. `actor_username` is denormalized for display without a join. `post_id` and `comment_id` are nullable links. The `message` column (TEXT, nullable) holds the body of direct user-to-user messages. Storage for this column is tracked per-user and included in the storage summary API.
+**`notifications`** — Inbox entries. `type` is one of: `comment`, `reply`, `follow`, `reaction`, `new_post`, `message`. `actor_username` is denormalized for display without a join. `post_id` and `comment_id` are nullable links. `message` (TEXT, nullable) holds the body of direct user-to-user messages. Storage for this column is tracked per-user and included in the storage summary API.
+
+**`uploads`** — Tracks every file written to disk. `filename` is the UUID-based name under the uploads directory. `size_bytes` is used for per-user storage accounting.
+
+**`post_uploads`** — Junction table linking posts to the uploads embedded in their content. Synced on every post save by scanning the Lexical JSON for `/uploads/` paths. Enables orphan detection.
+
+**`role_limits`** — Per-role storage and post-rate limits. Roles: `user` (50 MB, 20 posts/day), `trusted` (500 MB, 100/day), `restricted` (5 MB, 2/day), `admin` (unlimited).
+
+**`dm_blocks`** — Records when a user blocks direct messages from another user. `blocker_id` has blocked messages from `blocked_id`.
 
 ### Entity-relationship summary
 
 ```
 users ──< users_posts_junctions >── posts
 users ──< follows >── users (self-join)
+users ──< dm_blocks >── users (self-join)
 posts ──── discussions ──< comments ──< comment_votes
-                      │
+                                   └──< comment_reactions
 posts ──< post_reactions
+posts ──< post_uploads >── uploads
 posts ──< notifications >── users (recipient)
 comments ──< notifications
 ```

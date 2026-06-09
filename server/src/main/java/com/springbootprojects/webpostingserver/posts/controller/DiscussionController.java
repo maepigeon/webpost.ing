@@ -195,7 +195,9 @@ public class DiscussionController {
         AuthSession session = authorize(username, token);
         if (session == null) return unauthorized();
 
+        Map<String, Object> commentInfo = social.getCommentInfoForLog(commentId, session.userId);
         int deleted = social.deleteComment(commentId, session.userId);
+        if (deleted > 0 && commentInfo != null) social.logDeletion(session.userId, "comment", commentInfo);
         return deleted > 0 ? ResponseEntity.ok("Deleted.") : forbidden();
     }
 

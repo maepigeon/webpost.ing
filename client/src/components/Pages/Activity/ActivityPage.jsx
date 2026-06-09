@@ -11,6 +11,14 @@ function timeAgo(date) {
   return new Date(date).toLocaleDateString();
 }
 
+function fmtBytes(n) {
+  if (!n || n === 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let i = 0, v = n;
+  while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+  return `${v.toFixed(1)} ${units[i]}`;
+}
+
 export default function ActivityPage() {
   const { username } = useParams();
   const navigate = useNavigate();
@@ -40,8 +48,23 @@ export default function ActivityPage() {
     </div>
   );
 
-  const comments = data?.comments || [];
-  const reactions = data?.reactions || [];
+  const comments      = data?.comments      || [];
+  const postReactions = data?.postReactions  || [];
+  const commentReactions = data?.commentReactions || [];
+  const uploads       = data?.uploads        || [];
+  const deletions     = data?.deletions      || [];
+
+  const allReactions = [
+    ...postReactions.map(r => ({ ...r, context: 'post' })),
+    ...commentReactions.map(r => ({ ...r, context: 'comment' })),
+  ].sort((a, b) => (b.post_id ?? 0) - (a.post_id ?? 0));
+
+  const tabs = [
+    ['comments',  `Comments (${comments.length})`],
+    ['reactions', `Reactions (${allReactions.length})`],
+    ['uploads',   `Uploads (${uploads.length})`],
+    ['deletions', `Deletions (${deletions.length})`],
+  ];
 
   return (
     <div className="activity-page">
@@ -52,7 +75,7 @@ export default function ActivityPage() {
         </div>
 
         <div className="activity-tabs">
-          {[['comments', `Posts (${comments.length})`], ['reactions', `Reactions (${reactions.length})`]].map(([key, label]) => (
+          {tabs.map(([key, label]) => (
             <button
               key={key}
               className={`activity-tab${tab === key ? ' activity-tab--active' : ''}`}
@@ -61,6 +84,7 @@ export default function ActivityPage() {
           ))}
         </div>
 
+        {/* ── Comments ─────────────────────────────────────────────── */}
         {tab === 'comments' && (
           <div className="activity-list">
             {comments.length === 0 && <p className="activity-empty">No comments yet.</p>}
@@ -68,6 +92,11 @@ export default function ActivityPage() {
               <div key={c.id} className="activity-item">
                 <div className="activity-item-meta">
                   <span className="activity-time">{timeAgo(c.created_at)}</span>
+                  {c.edited_at && (
+                    <span className="activity-edited" title={new Date(c.edited_at).toLocaleString()}>
+                      edited {timeAgo(c.edited_at)}
+                    </span>
+                  )}
                   {c.score !== 0 && (
                     <span className={`activity-score${c.score > 0 ? ' activity-score--pos' : ' activity-score--neg'}`}>
                       {c.score > 0 ? '+' : ''}{c.score}
@@ -87,19 +116,84 @@ export default function ActivityPage() {
           </div>
         )}
 
+        {/* ── Reactions ────────────────────────────────────────────── */}
         {tab === 'reactions' && (
           <div className="activity-list">
-            {reactions.length === 0 && <p className="activity-empty">No reactions yet.</p>}
-            {reactions.map((r, i) => (
-              <div key={i} className="activity-item activity-item--reaction">
+            {allReactions.length === 0 && <p className="activity-empty">No reactions yet.</p>}
+            {allReactions.map((r, i) => (
+              <div key={i} className={`activity-item activity-item--reaction`}>
                 <span className="activity-reaction-emoji">{r.reaction}</span>
-                <Link
-                  to={`/users/${r.post_owner}/${r.post_id}`}
-                  className="activity-post-link"
-                >
-                  {r.post_title || 'Untitled post'}
-                </Link>
-                <span className="activity-by">by {r.post_owner}</span>
+                {r.context === 'post' ? (
+                  <>
+                    <Link to={`/users/${r.post_owner}/${r.post_id}`} className="activity-post-link">
+                      {r.post_title || 'Untitled post'}
+                    </Link>
+                    <span className="activity-by">post by {r.post_owner}</span>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      to={`/users/${r.post_owner}/${r.post_id}/discussion#comment-${r.comment_id}`}
+                      className="activity-post-link"
+                    >
+                      {r.post_title || 'Untitled post'}
+                    </Link>
+                    <span className="activity-by">comment in post by {r.post_owner}</span>
+                    {r.comment_preview && (
+                      <span className="activity-comment-preview">"{r.comment_preview}{r.comment_preview.length >= 120 ? '…' : ''}"</span>
+                    )}
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── Uploads ──────────────────────────────────────────────── */}
+        {tab === 'uploads' && (
+          <div className="activity-list">
+            {uploads.length === 0 && <p className="activity-empty">No uploads yet.</p>}
+            {uploads.map(u => (
+              <div key={u.id} className="activity-item activity-item--upload">
+                <div className="activity-item-meta">
+                  <span className="activity-time">{timeAgo(u.uploaded_at)}</span>
+                  <span className="activity-upload-size">{fmtBytes(u.size_bytes)}</span>
+                  {u.post_owner && u.post_id ? (
+                    <Link to={`/users/${u.post_owner}/${u.post_id}`} className="activity-post-link">
+                      {u.post_title || 'Untitled post'}
+                    </Link>
+                  ) : (
+                    <span className="activity-orphan">not in any post</span>
+                  )}
+                </div>
+                <div className="activity-upload-name">
+                  <a href={`/uploads/${u.filename}`} target="_blank" rel="noreferrer" className="activity-post-link">
+                    {u.original_name || u.filename}
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── Deletions ────────────────────────────────────────────── */}
+        {tab === 'deletions' && (
+          <div className="activity-list">
+            {deletions.length === 0 && <p className="activity-empty">Nothing deleted yet.</p>}
+            {deletions.map(d => (
+              <div key={d.id} className="activity-item activity-item--deletion">
+                <div className="activity-item-meta">
+                  <span className="activity-badge activity-badge--deleted">{d.item_type} deleted</span>
+                  <span className="activity-time">{timeAgo(d.deleted_at)}</span>
+                  {d.post_owner && d.post_id ? (
+                    <Link to={`/users/${d.post_owner}/${d.post_id}/discussion`} className="activity-post-link">
+                      {d.post_title || 'Untitled post'}
+                    </Link>
+                  ) : (
+                    d.post_title && <span className="activity-orphan">{d.post_title} (deleted)</span>
+                  )}
+                </div>
+                {d.summary && <p className="activity-comment-text activity-deletion-preview">{d.summary}{d.summary.length >= 200 ? '…' : ''}</p>}
               </div>
             ))}
           </div>

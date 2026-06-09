@@ -4,49 +4,46 @@ Last updated: 2026-06-09
 
 ---
 
-## In Progress / Needs Verification
-
-- [ ] **Preset save not persisting** — `saveUserPresets` now shows error message when server returns non-2xx (instead of silently failing). Need to determine exact error. Check `presetSaveError` in PatternPicker UI after attempting a save.
-- [ ] **Image resize fix** — Added `isResizingRef` to prevent controls from disappearing during drag. Need user to verify.
-
----
-
 ## Pending
 
-- [ ] **Infinite scroll: InboxPage notifications** — load notifications in pages, lazy-load on scroll (same IntersectionObserver pattern as PostsViewer)
-- [ ] **Centralize `baseUrl`** — Three files hardcode `var baseUrl = "/api"`. Move to `client/src/config.js` + `.env.development`/`.env.production`. Fixes localhost dev setup.
-- [ ] **Fix `vite.config.js` syntax error** — `resolve` block is outside `defineConfig`. Move inside.
-- [ ] **CORS: add localhost:5173** — So the app can be run locally during development without CORS errors.
-- [ ] **Rebuild + redeploy server** — All outstanding backend changes need a new JAR built and server restarted on prod.
-- [ ] **Confirm analytics fix** — Admin dashboard comment_bytes / bg_pattern_bytes should now show non-zero after server rebuild (was 0 with old JAR).
+- [ ] **Persistent sessions** — sessions are in-memory; server restart logs everyone out. Fix by storing tokens in the DB.
+- [ ] **CSRF protection review** — cookies + CORS cover the common cases, but worth an explicit audit.
+- [ ] **Integration tests for auth flows** — no automated coverage of login, token expiry, or ownership checks.
 
 ---
 
 ## Completed (recent)
 
-- [x] Remove KeyRepeatPlugin (buggy hold-key repeat)
-- [x] Fix EnsureLeadingParagraphPlugin (was requiring Enter twice after heading/list)
-- [x] Fix profile card transparency (0.38 → 0.54)
-- [x] Fix Edit bio button styling (dark inline style → neo CSS class)
-- [x] Fix "mae:" → "mae sent you a message:" in notifications + inbox
-- [x] Fix activity page score position (between date and title)
-- [x] Fix comment reaction button position (inline with Reply/Edit/Delete)
-- [x] Add visible error feedback for wallpaper save failures
-- [x] Infinite scroll: PostsViewer profile page
-- [x] Rate limiting: login (per-IP, 15 failures/15min)
-- [x] Rate limiting: messages, reactions (GenericRateLimiter)
-- [x] Server-side length limits: title 255 chars, description 100k chars
-- [x] Admin dashboard: comment count + bytes + bg pattern bytes per user
-- [x] Block DMs: DB migration + backend + frontend
-- [x] Activity page tab rename 'Comments' → 'Posts'
-- [x] Notification ownership fix (markRead/delete return 404 for wrong user)
+- [x] **Admin access to user profiles** — admins can view any user's activity page and storage stats; server-side `is_admin` check before returning data; frontend lets server decide (no client-side gate)
+- [x] **New-post notifications** — followers notified when a post is published (both new-as-published and draft→publish)
+- [x] **Mutuals indicator** — follow button shows "Mutuals" (purple) when both users follow each other; re-fetches status after following
+- [x] **"Follows you" on profile** — shown next to the follow button when the viewed user follows the current user
+- [x] **Post link in new_post notifications** — "mae published **[post title]**" with clickable link to post in inbox and bell dropdown
+- [x] **Message + Block DMs moved above follower counts** — was in the header row; now sits between storage bar and follower counts
+- [x] **BCrypt password hashing** — already implemented: admin-created users hashed at creation; plain-text legacy passwords auto-migrated to BCrypt on first login
+- [x] **DB init script** — `config/database.sql` updated to full current schema (all 13 tables, correct column types, BCrypt-width password column)
+- [x] **DB migration script** — `config/db-migrate-from-v1.sql` migrates from commit 00953d6 (3-table scratch schema) to current; runs in a transaction
+- [x] **Preset save 404 fix** — `PatternPicker.jsx` was using relative fetch URL; fixed to use `BASE_URL` from `config.js`
+- [x] **Image resize fix** — added `isResizingRef` to prevent controls disappearing when mouse leaves during drag
+- [x] **Post name link in comment/reply/reaction notifications** — inbox and bell dropdown show clickable post title
+- [x] **Infinite scroll: InboxPage notifications** — `IntersectionObserver` + paginated `GET_NOTIFICATIONS(limit, offset)`
+- [x] **Infinite scroll: PostsViewer profile page** — `IntersectionObserver` + paginated `READ_POSTS_BY_USER`
+- [x] **Centralize `baseUrl`** — `client/src/config.js` + `.env.development` / `.env.production`; all API files import `BASE_URL`
+- [x] **Fix `vite.config.js`** — `resolve` block was outside `defineConfig`; moved inside
+- [x] **CORS: localhost:5173** — added to `SecurityConfig.java` allowed origins
+- [x] **Remove KeyRepeatPlugin** (buggy hold-key repeat)
+- [x] **Fix EnsureLeadingParagraphPlugin** (was requiring Enter twice after heading/list)
+- [x] **Rate limiting: login** — per-IP, 15 failures / 15 min window
+- [x] **Rate limiting: messages, reactions** — `GenericRateLimiter`
+- [x] **Server-side length limits** — title 255 chars, description 100 k chars
+- [x] **Admin dashboard** — comment count + bytes + bg-pattern bytes per user
+- [x] **Block DMs** — DB table, backend endpoints, frontend button on profile
+- [x] **Activity page tab rename** — "Comments" → "Posts"
+- [x] **Notification ownership** — `markRead` / `delete` return 404 for wrong user
 
 ---
 
 ## Security / Quality Backlog
 
-- [ ] BCrypt password hashing (passwords currently plain text in DB)
-- [ ] Persistent sessions (survive server restart; currently in-memory only)
-- [ ] CSRF protection review
-- [ ] Review all endpoints for missing auth/ownership checks
-- [ ] Add integration tests for auth flows
+- [ ] **Review all endpoints for missing auth/ownership checks**
+- [ ] **Add integration tests for auth flows**

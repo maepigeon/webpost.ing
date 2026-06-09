@@ -38,6 +38,7 @@ function StorageBar({ storage }) {
         <span>Uploads: <strong>{fmtBytes(uploadUsed)}</strong>{uploadLimit > 0 ? ` / ${fmtBytes(uploadLimit)}` : ''}</span>
         <span>Post text: <strong>{fmtBytes(Number(storage.postTextBytes ?? 0))}</strong></span>
         <span>Posts: <strong>{storage.postCount ?? 0}</strong></span>
+        {storage.commentBytes > 0 && <span>Comments: <strong>{fmtBytes(Number(storage.commentBytes ?? 0))}</strong></span>}
         {storage.notificationBytes > 0 && <span>Inbox: <strong>{fmtBytes(Number(storage.notificationBytes ?? 0))}</strong></span>}
         {storage.presetsBytes > 0 && <span>Presets: <strong>{fmtBytes(Number(storage.presetsBytes ?? 0))}</strong></span>}
       </div>
