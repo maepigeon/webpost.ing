@@ -69,7 +69,12 @@ public class PatternValidator {
 
     /** Hex color suffix appended after a pipe: e.g. "dots|#f0e6d3" */
     private static final Pattern BG_COLOR_SUFFIX = Pattern.compile(
-            "\\|#[0-9a-fA-F]{3,8}$"
+            "\\|#[0-9a-fA-F]{3,8}"
+    );
+
+    /** Scale suffix: e.g. "dots|scale:2.5" */
+    private static final Pattern SCALE_SUFFIX = Pattern.compile(
+            "\\|scale:\\d+(?:\\.\\d+)?"
     );
 
     /**
@@ -80,9 +85,10 @@ public class PatternValidator {
         if (pattern == null || pattern.isBlank()) return true;
         if (pattern.length() > MAX_LENGTH) return false;
         if (BLOCKED.matcher(pattern).find()) return false;
-        // Strip trailing |#COLOR suffix before validating the pattern key
-        String core = BG_COLOR_SUFFIX.matcher(pattern.trim()).replaceFirst("").trim();
-        if (core.isEmpty()) return true; // just a color, no pattern
+        // Strip |#COLOR and |scale:X.X suffix segments (any order) before validating the core
+        String core = BG_COLOR_SUFFIX.matcher(pattern.trim()).replaceAll("");
+        core = SCALE_SUFFIX.matcher(core).replaceAll("").trim();
+        if (core.isEmpty()) return true;
         String trimmedLower = core.toLowerCase();
         if (PRESETS.contains(trimmedLower)) return true;
         if (PAW_COLOR.matcher(core).matches()) return true;

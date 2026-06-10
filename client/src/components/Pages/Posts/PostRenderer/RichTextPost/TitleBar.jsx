@@ -29,9 +29,9 @@ function TitleBar(props) {
         return (
             <ContentEditable
                 onChange={handleEditTitleCallback}
-                onBlur={handleEditTitleCallback}
                 html={content}
-                tagName={typeTag}/>
+                tagName={typeTag}
+                data-placeholder="Type a title…"/>
         )
     }
 

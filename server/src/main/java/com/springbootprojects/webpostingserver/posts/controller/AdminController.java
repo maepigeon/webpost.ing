@@ -204,10 +204,14 @@ public class AdminController {
 
         String role = body.get("role");
         if (role == null || role.isBlank()) return ResponseEntity.badRequest().body("Role required.");
-        List<String> validRoles = List.of("user", "trusted", "restricted", "admin");
+        List<String> validRoles = List.of("user", "trusted", "restricted", "admin", "frozen");
         if (!validRoles.contains(role)) return ResponseEntity.badRequest().body("Invalid role.");
 
         jdbc.update("UPDATE users SET role=? WHERE username=?", role, targetUsername);
+        // Immediately invalidate active session for frozen users
+        if ("frozen".equals(role)) {
+            ((JdbcLoginRepository) loginRepository).evictSession(targetUsername);
+        }
         return ResponseEntity.ok("Role updated.");
     }
 

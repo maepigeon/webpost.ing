@@ -29,6 +29,101 @@
   background: rgba(26,115,232,0.08);
 }
 
+.viewer-edit-btn {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 18px;
+  border-radius: 20px;
+  border: 1.5px solid rgba(26, 115, 232, 0.5);
+  background: rgba(26, 115, 232, 0.08);
+  color: #1a73e8;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.viewer-edit-btn:hover {
+  background: rgba(26, 115, 232, 0.15);
+  border-color: #1a73e8;
+}
+
+.viewer-pin-btn {
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1.5px solid rgba(0, 0, 0, 0.12);
+  background: transparent;
+  color: #666;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.viewer-pin-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #333;
+}
+
+.share-menu-wrapper {
+  position: relative;
+}
+
+.viewer-share-btn {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 18px;
+  border-radius: 20px;
+  border: 1.5px solid rgba(0, 0, 0, 0.15);
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(8px);
+  color: #444;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.viewer-share-btn:hover {
+  background: rgba(255, 255, 255, 0.8);
+  color: #111;
+}
+
+.share-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  min-width: 160px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+  padding: 4px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+}
+
+.share-menu-item {
+  background: none;
+  border: none;
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #333;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.1s;
+  white-space: nowrap;
+}
+
+.share-menu-item:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.share-menu-divider {
+  height: 1px;
+  background: rgba(0, 0, 0, 0.08);
+  margin: 3px 4px;
+}
+
 .post-discussion-btn {
   font-size: 13px;
   font-weight: 600;

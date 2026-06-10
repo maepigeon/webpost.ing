@@ -93,21 +93,24 @@
 .notif-bell-btn {
   background: #c9b3e8;
   border: 1px solid transparent;
-  border-radius: 5px;
-  font-size: 14px;
+  border-radius: 20px;
+  font-size: 13px;
   font-weight: 500;
   color: #000;
   cursor: pointer;
   position: relative;
-  padding: 8px 12px;
-  margin: 4px;
+  padding: 6px 15px;
+  margin: 3px;
   line-height: 1.2;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.01em;
   white-space: nowrap;
-  transition: filter 0.12s;
+  transition: filter 0.12s, box-shadow 0.14s, transform 0.1s;
 }
 
-.notif-bell-btn:hover { filter: brightness(0.9); }
+.notif-bell-btn:hover {
+  filter: brightness(0.9);
+  transform: translateY(-1px);
+}
 
 .notif-badge {
   display: inline-block;
@@ -293,6 +296,23 @@
 
 .inbox-clear-btn {
   color: #ef4444;
+}
+
+.inbox-mark-read-btn {
+  background: none;
+  border: none;
+  color: #bbb;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: color 0.12s, background 0.12s;
+}
+
+.inbox-mark-read-btn:hover {
+  color: #1a73e8;
+  background: rgba(26,115,232,0.08);
 }
 
 .inbox-delete-btn {

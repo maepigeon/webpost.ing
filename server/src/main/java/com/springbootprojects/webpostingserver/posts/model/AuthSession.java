@@ -14,6 +14,7 @@ public class AuthSession {
     public LocalDate expires;
     public HttpStatus loginHttpStatusCodeResult;
     public int userId;
+    public String role = "user";
     public AuthSession(String username) {
         this.username = username;
     }

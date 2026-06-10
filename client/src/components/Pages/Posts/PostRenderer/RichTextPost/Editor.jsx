@@ -1,5 +1,5 @@
 import {
-  $createParagraphNode, $getSelection, $isRangeSelection, $isNodeSelection,
+  $createParagraphNode, $createTextNode, $getSelection, $isRangeSelection, $isNodeSelection,
   $insertNodes, KEY_BACKSPACE_COMMAND, KEY_DELETE_COMMAND, KEY_ESCAPE_COMMAND,
   COMMAND_PRIORITY_EDITOR,
   UNDO_COMMAND, REDO_COMMAND, CAN_UNDO_COMMAND, CAN_REDO_COMMAND,
@@ -28,7 +28,7 @@ import { LinkNode, $createLinkNode, $isLinkNode, TOGGLE_LINK_COMMAND } from '@le
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
 import { ClickableLinkPlugin } from '@lexical/react/LexicalClickableLinkPlugin';
 import { READ_POST, CREATE_POST, UPDATE_POST, GET_USER_FROM_POST, GET_POST_FEATURES, SET_REACTIONS_ENABLED, SET_DISCUSSION_ENABLED } from '../../BasicTextPostServerApi.js';
-import { useParams, useNavigate, useBlocker } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { ImageNode, $createImageNode } from './ImageNode.jsx';
 import { MathNode, $createMathNode } from './MathNode.jsx';
 import axios from 'axios';
@@ -537,6 +537,17 @@ function ImageDragPastePlugin() {
 function ImageToolbarPlugin() {
   const [editor] = useLexicalComposerContext();
   const fileInputRef = useRef(null);
+  const [infoOpen, setInfoOpen] = useState(false);
+  const infoRef = useRef(null);
+
+  useEffect(() => {
+    if (!infoOpen) return;
+    const close = (e) => {
+      if (infoRef.current && !infoRef.current.contains(e.target)) setInfoOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [infoOpen]);
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
@@ -575,7 +586,25 @@ function ImageToolbarPlugin() {
         accept="image/*"
         onChange={handleFileChange}
       />
-      <button className="toolbar-btn-image" onClick={() => fileInputRef.current.click()}>Image</button>
+      <span className="image-btn-group" ref={infoRef}>
+        <button className="toolbar-btn-image" onClick={() => fileInputRef.current.click()}>Image</button>
+        <button
+          className="toolbar-btn-image-info"
+          title="Image upload info"
+          onClick={() => setInfoOpen(o => !o)}
+          aria-label="Image upload limits"
+        >ⓘ</button>
+        {infoOpen && (
+          <div className="image-info-popup">
+            <strong>Image upload</strong>
+            <ul>
+              <li><b>Types:</b> JPG, JPEG, PNG, GIF, WebP</li>
+              <li><b>Max per file:</b> 5 MB</li>
+              <li><b>Storage quota:</b> 50 MB (users) · 500 MB (trusted/admin) · 5 MB (restricted)</li>
+            </ul>
+          </div>
+        )}
+      </span>
     </>
   );
 }
@@ -673,11 +702,10 @@ function LinkToolbarPlugin() {
   return (
     <>
       <button
-        className={`toolbar-fmt-btn${isLink ? ' active' : ''}`}
         title={isLink ? 'Edit link' : 'Insert link'}
         onClick={isLink ? editLink : addLink}
       >
-        Link
+        {isLink ? 'Edit link' : 'Link'}
       </button>
       {showFloat && pos && (
         <div
@@ -724,6 +752,36 @@ function MathToolbarPlugin() {
   return <button onClick={onClick} title="Insert LaTeX math block">∑ Math</button>;
 }
 
+function PostLinkToolbarPlugin() {
+  const [editor] = useLexicalComposerContext();
+
+  const insertPostLink = async () => {
+    const input = window.prompt('Enter post ID to link to:');
+    if (!input || !input.trim()) return;
+    const postId = parseInt(input.trim());
+    if (isNaN(postId) || postId <= 0) { alert('Invalid post ID.'); return; }
+    try {
+      const [post, author] = await Promise.all([
+        READ_POST(postId),
+        GET_USER_FROM_POST(postId),
+      ]);
+      const href = `/users/${author}/${postId}`;
+      const title = post.title || `Post #${postId}`;
+      editor.update(() => {
+        const linkNode = $createLinkNode(href);
+        linkNode.append($createTextNode(title));
+        const sel = $getSelection();
+        if ($isRangeSelection(sel)) sel.insertNodes([linkNode]);
+        else $insertNodes([linkNode]);
+      });
+    } catch {
+      alert('Post not found or could not be loaded.');
+    }
+  };
+
+  return <button onClick={insertPostLink} title="Insert link to another post on this site">Post link</button>;
+}
+
 function BackgroundToolbarPlugin({ pattern, onPatternChange, username }) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef(null);
@@ -756,6 +814,11 @@ function FeatureTogglePlugin({ postid, features, onFeaturesChange, backgroundPat
 
   const toggle = async (key) => {
     const next = !features[key];
+    const label = key === 'reactionsEnabled' ? 'reactions' : 'comments';
+    const msg = next
+      ? `Enable ${label} on this post?`
+      : `Disable ${label}? ${next ? '' : 'They will be hidden from readers until re-enabled.'}`;
+    if (!window.confirm(msg.trim())) return;
     try {
       if (key === 'reactionsEnabled') await SET_REACTIONS_ENABLED(postid, next);
       else await SET_DISCUSSION_ENABLED(postid, next);
@@ -786,10 +849,14 @@ function FeatureTogglePlugin({ postid, features, onFeaturesChange, backgroundPat
   );
 }
 
-function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublishedChange, titleRef, onSaved }) {
+function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublishedChange, titleRef, onSaved, username, folder, onFolderChange }) {
   const [editor] = useLexicalComposerContext();
   const [saveStatus, setSaveStatus] = useState('');
-  const isExisting = postid > 0;
+  const [savedId, setSavedId] = useState(null);
+  const [saving, setSaving] = useState(false);
+  // After first creation, use savedId as effective ID so repeat saves update instead of creating
+  const effectiveId = postid > 0 ? postid : savedId;
+  const hasSaved = effectiveId > 0;
 
   const showStatus = (msg, isError = false) => {
     setSaveStatus({ msg, error: isError });
@@ -797,33 +864,47 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
   };
 
   const save = (published) => {
+    if (saving) return;
+    const postTitle = (titleRef?.current || localStorage.getItem("currentPostTitle") || '').trim();
+    if (published) {
+      if (!postTitle) { showStatus('Add a title before publishing.', true); return; }
+      const bodyText = editor.getEditorState().read(() => $getRoot().getTextContent()).trim();
+      if (!bodyText) { showStatus('Add some content before publishing.', true); return; }
+    }
+    if (!published && postPublished) {
+      if (!window.confirm('Unpublish this post? It will no longer be visible to other users.')) return;
+    }
     const editorState = JSON.stringify(editor.getEditorState().toJSON());
-    const postTitle = titleRef?.current || localStorage.getItem("currentPostTitle") || 'Untitled';
-    if (isExisting) {
-      UPDATE_POST(postid, postTitle, editorState, published, backgroundPattern)
+    setSaving(true);
+    if (hasSaved) {
+      UPDATE_POST(effectiveId, postTitle, editorState, published, backgroundPattern, folder)
         .then(() => {
-          showStatus(published ? 'Published!' : postPublished ? 'Unpublished.' : 'Draft saved.');
+          showStatus(published ? 'Saved!' : postPublished ? 'Unpublished.' : 'Draft saved.');
           onPublishedChange(published);
+          setSavedId(effectiveId);
           onSaved?.();
         })
         .catch(err => {
-          console.error("Save failed:", err);
           const code = err.response?.status;
           if (code === 401 || code === 403) showStatus('Not authorized to save.', true);
           else showStatus('Save failed. Check your connection.', true);
-        });
+        })
+        .finally(() => setSaving(false));
     } else {
-      CREATE_POST(1, postTitle, editorState, published, backgroundPattern)
-        .then(() => {
-          showStatus(published ? 'Post created!' : 'Draft created.');
+      CREATE_POST(1, postTitle, editorState, published, backgroundPattern, folder)
+        .then((newId) => {
+          showStatus(published ? 'Published!' : 'Draft created.');
+          setSavedId(newId);
           onSaved?.();
         })
         .catch(err => {
-          console.error("Create failed:", err);
           showStatus('Failed to create post.', true);
-        });
+        })
+        .finally(() => setSaving(false));
     }
   };
+
+  const viewUrl = savedId && username ? `/users/${username}/${savedId}` : null;
 
   return (
     <>
@@ -837,12 +918,17 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
           {saveStatus.msg}
         </span>
       )}
-      <button className="toolbar-btn-draft" onClick={() => save(false)}>
+      <button className="toolbar-btn-draft" onClick={() => save(false)} disabled={saving}>
         {postPublished ? 'Unpublish' : 'Save Draft'}
       </button>
-      <button className="toolbar-btn-save" onClick={() => save(true)}>
-        {isExisting && postPublished ? 'Save' : 'Publish'}
+      <button className="toolbar-btn-save" onClick={() => save(true)} disabled={saving}>
+        {saving ? '…' : hasSaved ? 'Save' : 'Publish'}
       </button>
+      {viewUrl && (
+        <Link to={viewUrl} style={{ textDecoration: 'none' }}>
+          <button className="toolbar-btn-view">View post →</button>
+        </Link>
+      )}
     </>
   );
 }
@@ -914,7 +1000,7 @@ function FormatToolbarPlugin() {
   );
 }
 
-function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, postPublished, onPublishedChange, features, onFeaturesChange, titleRef, onSaved }) {
+function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, postPublished, onPublishedChange, features, onFeaturesChange, titleRef, onSaved, folder, onFolderChange }) {
   return (
     <div className='toolbar-sticky'>
       <UndoRedoPlugin />
@@ -934,6 +1020,7 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
       <span className='toolbar-divider' />
       <CollapsibleSection label="Insert" defaultOpen={false}>
         <LinkToolbarPlugin />
+        <PostLinkToolbarPlugin />
         <CodeToolbarPlugin />
         <MathToolbarPlugin />
         <ImageToolbarPlugin />
@@ -941,13 +1028,13 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
       {postid > 0 && (
         <>
           <span className='toolbar-divider' />
-          <CollapsibleSection label="Preferences" defaultOpen={false}>
+          <CollapsibleSection label="Preferences" defaultOpen={true}>
             <FeatureTogglePlugin postid={postid} features={features} onFeaturesChange={onFeaturesChange} backgroundPattern={backgroundPattern} onPatternChange={onPatternChange} username={username} />
           </CollapsibleSection>
         </>
       )}
       <span className='toolbar-divider' />
-      <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} titleRef={titleRef} onSaved={onSaved} />
+      <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} titleRef={titleRef} onSaved={onSaved} username={username} folder={folder} onFolderChange={onFolderChange} />
     </div>
   );
 }
@@ -998,21 +1085,32 @@ export default function RichTextEditor() {
   const navigate = useNavigate();
   const [postDate, setPostDate] = useState("");
   const [postPublished, setPostPublished] = useState(false);
-  const titlehtml = useRef("Title");
+  const titlehtml = useRef("");
   const [postAuthor, setPostAuthor] = useState("");
   const [backgroundPattern, setBackgroundPattern] = useState('');
+  const [postFolder, setPostFolder] = useState('');
   const [dataReady, setDataReady] = useState(0);
   const [postLoaded, setPostLoaded] = useState(false);
   const [features, setFeatures] = useState({ reactionsEnabled: false, discussionEnabled: false });
   const [isDirty, setIsDirty] = useState(false);
   const savedOnceRef = useRef(false);
 
-  // Block navigation away from an unsaved editor
-  useBlocker(({ currentLocation, nextLocation }) => {
-    if (!isDirty) return false;
-    if (currentLocation.pathname === nextLocation.pathname) return false;
-    return !window.confirm('You have unsaved changes. Leave anyway? All unsaved data will be lost.');
-  });
+  // Intercept in-app link clicks when there are unsaved changes
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (e) => {
+      const link = e.target.closest('a[href]');
+      if (!link) return;
+      const href = link.getAttribute('href');
+      if (!href || href.startsWith('http') || href.startsWith('#')) return;
+      if (!window.confirm('You have unsaved changes. Leave anyway? All unsaved data will be lost.')) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+    };
+    document.addEventListener('click', handler, { capture: true });
+    return () => document.removeEventListener('click', handler, { capture: true });
+  }, [isDirty]);
 
   const me = localStorage.getItem('userName');
 
@@ -1050,6 +1148,7 @@ export default function RichTextEditor() {
       setPostDate(data.date);
       setPostPublished(data.published);
       setBackgroundPattern(data.backgroundPattern || '');
+      setPostFolder(data.folder || '');
       localStorage.setItem("currentPostData", data.description);
       setDataReady(v => v + 1);
       GET_USER_FROM_POST(id).then((author) => {
@@ -1116,21 +1215,21 @@ export default function RichTextEditor() {
         <DecoratorKeyboardPlugin />
         <ImageDragPastePlugin />
         <MyOnChangePlugin onChange={onChange} />
-        <DirtyTrackerPlugin onDirty={markDirty} />
         <LoadEditorStatePlugin ready={dataReady} />
         <div className="editor-centered">
           <div className="editor-post-card">
             <TitleBar
               postdata={{ id: id, title: titlehtml.current, published: postPublished, date: postDate, author: postAuthor }}
               handleEditTitleCallback={(event) => {
-                if (event.target.value) {
-                  titlehtml.current = event.target.value;
-                  localStorage.setItem("currentPostTitle", titlehtml.current);
+                const val = event.target.value ?? event.target.innerHTML;
+                if (val !== undefined) {
+                  titlehtml.current = val;
+                  localStorage.setItem("currentPostTitle", val);
                 }
               }}
               editMode={true}
             />
-            <ToolbarPlugin postid={id} backgroundPattern={backgroundPattern} onPatternChange={setBackgroundPattern} username={postAuthor} postPublished={postPublished} onPublishedChange={setPostPublished} features={features} onFeaturesChange={setFeatures} titleRef={titlehtml} onSaved={handleSaved} />
+            <ToolbarPlugin postid={id} backgroundPattern={backgroundPattern} onPatternChange={setBackgroundPattern} username={postAuthor || me} postPublished={postPublished} onPublishedChange={setPostPublished} features={features} onFeaturesChange={setFeatures} titleRef={titlehtml} onSaved={handleSaved} folder={postFolder} onFolderChange={setPostFolder} />
             <div style={{ position: 'relative' }}>
               <RichTextPlugin
                 contentEditable={<ContentEditable className='editor-contenteditable' />}

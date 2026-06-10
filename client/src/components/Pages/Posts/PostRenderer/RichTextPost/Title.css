@@ -60,6 +60,13 @@ body {
     line-height: 1.15;
 }
 
+.horizontalContentBox [contenteditable]:empty:before {
+    content: attr(data-placeholder);
+    color: #bbb;
+    font-weight: 700;
+    pointer-events: none;
+}
+
 .horizontalContentBox h3 {
     margin: 0;
     font-size: 0.85rem;
@@ -71,12 +78,12 @@ body {
 .datestring {
     padding: 4px 20px;
     font-size: 0.75rem;
-    color: #888;
+    color: #444;
     text-align: left;
 }
 
 .datestring p {
-    color: #888;
+    color: #444;
     margin: 0;
 }
 

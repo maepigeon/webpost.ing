@@ -135,27 +135,44 @@ export const PRESET_PATTERNS = {
 /** Default page background color (matches App.css html background-color). */
 export const DEFAULT_BG_COLOR = '#ece9e2';
 
-/**
- * Extract the trailing |#COLOR suffix from a stored pattern value.
- * Returns the hex color string or null.
- */
+// Parse |#COLOR and |scale:X segments from a stored value.
+// Format: "{base}[|#COLOR][|scale:X.X]" — segments may appear in any order.
+function parseSegments(value) {
+  if (!value) return { base: '', bgColor: null, scale: 1 };
+  const parts = value.split('|');
+  const base = parts[0];
+  let bgColor = null;
+  let scale = 1;
+  for (let i = 1; i < parts.length; i++) {
+    const s = parts[i].trim();
+    if (/^#[0-9a-fA-F]{3,8}$/.test(s)) bgColor = s;
+    else if (/^scale:(\d+(?:\.\d+)?)$/.test(s)) scale = parseFloat(RegExp.$1);
+  }
+  return { base, bgColor, scale };
+}
+
 export function extractBgColor(value) {
-  if (!value) return null;
-  const idx = value.lastIndexOf('|');
-  if (idx < 0) return null;
-  const color = value.slice(idx + 1).trim();
-  return /^#[0-9a-fA-F]{3,8}$/.test(color) ? color : null;
+  return parseSegments(value).bgColor;
+}
+
+export function extractScale(value) {
+  return parseSegments(value).scale;
 }
 
 /**
- * Strip the trailing |#COLOR suffix from a pattern value, returning just the pattern key/CSS.
+ * Strip the |#COLOR suffix from a pattern value.
+ * Scale segment is preserved so patterns with scale still work.
  */
 export function stripBgColor(value) {
   if (!value) return value;
-  const idx = value.lastIndexOf('|');
-  if (idx < 0) return value;
-  const color = value.slice(idx + 1).trim();
-  return /^#[0-9a-fA-F]{3,8}$/.test(color) ? value.slice(0, idx) : value;
+  const { base, scale } = parseSegments(value);
+  if (scale !== 1) return `${base}|scale:${scale}`;
+  return base;
+}
+
+/** Strip all suffix segments — returns just the bare pattern key or CSS. */
+function extractBase(value) {
+  return parseSegments(value).base;
 }
 
 /** Allowed gradient function prefixes for custom values (mirrors PatternValidator.java). */
@@ -167,7 +184,7 @@ const BLOCKED = /url\s*\(|expression\s*\(|javascript\s*:|data\s*:|@import|[<>\\]
 const COLOR_TOKEN_RE = /^(transparent|#[0-9a-fA-F]{3,8}|rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+(?:\s*,\s*[\d.]+)?\s*\))$/i;
 
 export function isValidPattern(value) {
-  const pattern = stripBgColor(value);
+  const pattern = extractBase(value);
   if (!pattern || pattern.trim() === '' || pattern.trim() === 'none') return true;
   if (pattern in PRESET_PATTERNS) return true;
   if (pattern.startsWith('paw-print:')) {
@@ -194,10 +211,15 @@ export function isValidPattern(value) {
  * `document.documentElement.style.backgroundColor`.
  */
 export function patternToStyle(value) {
-  const pageBgColor = extractBgColor(value);
-  const pattern = stripBgColor(value);
-  const style = _patternToStyleInner(pattern);
-  if (pageBgColor) style._bgColor = pageBgColor;
+  const { base, bgColor, scale } = parseSegments(value);
+  const style = _patternToStyleInner(base);
+  if (bgColor) style._bgColor = bgColor;
+  if (scale !== 1 && style.backgroundSize && style.backgroundSize !== 'auto') {
+    style.backgroundSize = style.backgroundSize.replace(
+      /(\d+(?:\.\d+)?)(px)/g,
+      (_, n, unit) => `${(parseFloat(n) * scale).toFixed(2)}${unit}`
+    );
+  }
   return style;
 }
 

@@ -84,10 +84,31 @@ public class UploadController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to read file");
         }
 
-        // Lookup uploader's user ID
+        // Lookup uploader's user ID and role
         List<Integer> ids = jdbc.queryForList("SELECT id FROM users WHERE username=?", Integer.class, username);
         if (ids.isEmpty()) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not found");
         int userId = ids.get(0);
+
+        // Enforce role-based storage quota
+        try {
+            String role = jdbc.queryForObject("SELECT role FROM users WHERE id=?", String.class, userId);
+            if (role == null) role = "user";
+            Long maxStorage = jdbc.queryForObject(
+                "SELECT max_storage_bytes FROM role_limits WHERE role=?", Long.class, role);
+            if (maxStorage != null && maxStorage >= 0) {
+                Long currentUsage = jdbc.queryForObject(
+                    "SELECT COALESCE(SUM(size_bytes), 0) FROM uploads WHERE user_id=?", Long.class, userId);
+                long used = currentUsage != null ? currentUsage : 0L;
+                if (used + file.getSize() > maxStorage) {
+                    long usedMb = used / 1048576;
+                    long limitMb = maxStorage / 1048576;
+                    return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                        .body("Storage quota exceeded. Used " + usedMb + " MB of " + limitMb + " MB limit.");
+                }
+            }
+        } catch (Exception e) {
+            // If quota lookup fails for any reason, allow the upload rather than blocking it
+        }
 
         try {
             Path uploadPath = Paths.get(uploadDir);

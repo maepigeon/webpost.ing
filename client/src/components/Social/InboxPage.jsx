@@ -133,6 +133,12 @@ export default function InboxPage() {
     }
   };
 
+  const markOne = async (e, n) => {
+    e.stopPropagation();
+    await MARK_NOTIFICATION_READ(n.id).catch(() => {});
+    setNotifications(ns => ns.map(x => x.id === n.id ? { ...x, isRead: true } : x));
+  };
+
   const deleteOne = async (e, n) => {
     e.stopPropagation();
     await DELETE_NOTIFICATION(n.id).catch(() => {});
@@ -168,6 +174,13 @@ export default function InboxPage() {
           <span className="inbox-item-label">{notifLabel(n)}</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
             <span className="inbox-item-time">{timeAgo(n.createdAt)}</span>
+            {!n.isRead && (
+              <button
+                className="inbox-mark-read-btn"
+                onClick={e => markOne(e, n)}
+                title="Mark as read"
+              >✓</button>
+            )}
             <button
               className="inbox-delete-btn"
               onClick={e => deleteOne(e, n)}

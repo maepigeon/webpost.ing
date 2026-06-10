@@ -112,7 +112,7 @@ button:active {
 .activity-page button,
 .search-page button,
 .discussion-page button:not(.reaction-btn):not(.comment-reaction-btn),
-.editor-post-card button:not(.reaction-btn):not(.toolbar-fmt-btn),
+.editor-post-card button:not(.reaction-btn):not(.toolbar-fmt-btn):not(.toolbar-btn-save):not(.toolbar-btn-draft):not(.toolbar-btn-image):not(.toolbar-btn-image-info):not(.toolbar-btn-view),
 .admin-panel button:not(.admin-tab),
 .form-container button,
 .registration-container button {
@@ -133,7 +133,7 @@ button:active {
 .activity-page button:hover,
 .search-page button:hover,
 .discussion-page button:not(.reaction-btn):not(.comment-reaction-btn):hover,
-.editor-post-card button:not(.reaction-btn):not(.toolbar-fmt-btn):hover,
+.editor-post-card button:not(.reaction-btn):not(.toolbar-fmt-btn):not(.toolbar-btn-save):not(.toolbar-btn-draft):not(.toolbar-btn-image):not(.toolbar-btn-view):hover,
 .admin-panel button:not(.admin-tab):hover,
 .form-container button:hover,
 .registration-container button:hover {
@@ -146,7 +146,7 @@ button:active {
 .activity-page button:active,
 .search-page button:active,
 .discussion-page button:not(.reaction-btn):not(.comment-reaction-btn):active,
-.editor-post-card button:not(.reaction-btn):not(.toolbar-fmt-btn):active,
+.editor-post-card button:not(.reaction-btn):not(.toolbar-fmt-btn):not(.toolbar-btn-save):not(.toolbar-btn-draft):not(.toolbar-btn-image):not(.toolbar-btn-view):active,
 .admin-panel button:not(.admin-tab):active,
 .form-container button:active,
 .registration-container button:active {

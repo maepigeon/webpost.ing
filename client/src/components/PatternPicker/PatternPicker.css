@@ -273,3 +273,12 @@
   min-width: 28px;
   text-align: right;
 }
+
+.pattern-scale-slider {
+  width: 100%;
+  max-width: 240px;
+  height: 4px;
+  cursor: pointer;
+  accent-color: #555;
+  margin-top: 4px;
+}

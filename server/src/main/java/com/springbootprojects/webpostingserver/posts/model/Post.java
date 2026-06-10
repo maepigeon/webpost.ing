@@ -17,6 +17,7 @@ public class Post {
     private boolean published;
     private Date date;
     private String backgroundPattern;
+    private String folder;
 
 
     public Post() {
@@ -83,6 +84,14 @@ public class Post {
 
     public void setBackgroundPattern(String backgroundPattern) {
         this.backgroundPattern = backgroundPattern;
+    }
+
+    public String getFolder() {
+        return folder;
+    }
+
+    public void setFolder(String folder) {
+        this.folder = folder;
     }
 
 

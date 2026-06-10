@@ -65,7 +65,7 @@ class PostControllerTest {
     void updatePost_wrongOwner_returns403() throws Exception {
         when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
         LoginInfo owner = new LoginInfo();
-        owner.setUsername("bob");
+        owner.setUsername("mittens");
         when(postRepository.getUsernameFromPostId(10)).thenReturn(owner);
 
         ResponseEntity<String> resp = postController.updatePost(10L, samplePost, "kittycat", "tok");

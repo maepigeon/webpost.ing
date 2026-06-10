@@ -63,7 +63,7 @@ export default function NotificationBell() {
 
   useEffect(() => {
     if (!open) return;
-    GET_NOTIFICATIONS(20).then(setNotifications).catch(() => {});
+    GET_NOTIFICATIONS(50).then(ns => setNotifications(ns.filter(n => !n.isRead).slice(0, 10))).catch(() => {});
   }, [open]);
 
   useEffect(() => {

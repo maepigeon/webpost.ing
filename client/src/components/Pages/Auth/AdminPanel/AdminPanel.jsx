@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import {
   ADMIN_GET_STATUS, ADMIN_LIST_USERS, ADMIN_CREATE_USER, ADMIN_DELETE_USER,
   ADMIN_SET_ADMIN, ADMIN_SET_ROLE, ADMIN_GET_STATS, ADMIN_GET_ROLE_LIMITS,
@@ -17,7 +18,7 @@ function fmt(bytes) {
   return `${v.toFixed(1)} ${units[i]}`;
 }
 
-const ROLES = ['user', 'trusted', 'restricted', 'admin'];
+const ROLES = ['user', 'trusted', 'restricted', 'admin', 'frozen'];
 
 export default function AdminPanel() {
   const [isAdmin, setIsAdmin] = useState(null);
@@ -36,6 +37,8 @@ export default function AdminPanel() {
   const [importResult, setImportResult] = useState('');
   const [importError, setImportError] = useState('');
   const importFileRef = useRef(null);
+  const [sortCol, setSortCol] = useState('username');
+  const [sortDir, setSortDir] = useState('asc');
 
   useEffect(() => {
     ADMIN_GET_STATUS()
@@ -111,9 +114,20 @@ export default function AdminPanel() {
   if (isAdmin === null) return <div className="admin-panel"><p>Loading…</p></div>;
   if (!isAdmin) return <div className="admin-panel"><p className="admin-denied">Access denied — admin only.</p></div>;
 
-  const filteredUsers = users.filter(u =>
-    !search || u.username?.toLowerCase().includes(search.toLowerCase())
-  );
+  const sortUser = (col) => {
+    if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortCol(col); setSortDir('asc'); }
+  };
+  const sortArrow = (col) => sortCol === col ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
+
+  const filteredUsers = users
+    .filter(u => !search || u.username?.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      const dir = sortDir === 'asc' ? 1 : -1;
+      const numCols = ['post_count','comment_count','storage_bytes','post_bytes','comment_bytes','bg_pattern_bytes'];
+      if (numCols.includes(sortCol)) return dir * ((Number(a[sortCol] ?? 0)) - (Number(b[sortCol] ?? 0)));
+      return dir * String(a[sortCol] ?? '').localeCompare(String(b[sortCol] ?? ''));
+    });
 
   return (
     <div className="admin-panel">
@@ -149,24 +163,30 @@ export default function AdminPanel() {
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Username</th>
-                <th>Role</th>
-                <th>Posts</th>
-                <th>Comments</th>
-                <th>Uploads</th>
-                <th>Post Text</th>
-                <th>Comment Text</th>
-                <th>BG Pattern</th>
+                <th className="admin-th-sort" onClick={() => sortUser('username')}>Username{sortArrow('username')}</th>
+                <th className="admin-th-sort" onClick={() => sortUser('role')}>Role{sortArrow('role')}</th>
+                <th className="admin-th-sort" onClick={() => sortUser('post_count')}>Posts{sortArrow('post_count')}</th>
+                <th className="admin-th-sort" onClick={() => sortUser('comment_count')}>Comments{sortArrow('comment_count')}</th>
+                <th className="admin-th-sort" onClick={() => sortUser('storage_bytes')}>Uploads{sortArrow('storage_bytes')}</th>
+                <th className="admin-th-sort" onClick={() => sortUser('post_bytes')}>Post Text{sortArrow('post_bytes')}</th>
+                <th className="admin-th-sort" onClick={() => sortUser('comment_bytes')}>Comment Text{sortArrow('comment_bytes')}</th>
+                <th className="admin-th-sort" onClick={() => sortUser('bg_pattern_bytes')}>BG Pattern{sortArrow('bg_pattern_bytes')}</th>
                 <th>Admin</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredUsers.map(u => (
-                <tr key={u.username} className={u.is_admin ? 'admin-row--admin' : ''}>
-                  <td>{u.username}</td>
+                <tr key={u.username} className={[
+                  u.is_admin ? 'admin-row--admin' : '',
+                  u.role === 'frozen' ? 'admin-row--frozen' : '',
+                ].filter(Boolean).join(' ')}>
                   <td>
-                    <select value={u.role || 'user'} onChange={e => setRole(u.username, e.target.value)}>
+                    <Link to={`/users/${u.username}`} className="admin-user-link">{u.username}</Link>
+                  </td>
+                  <td>
+                    <select value={u.role || 'user'} onChange={e => setRole(u.username, e.target.value)}
+                      style={{ color: u.role === 'frozen' ? '#ef4444' : 'inherit' }}>
                       {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
                   </td>

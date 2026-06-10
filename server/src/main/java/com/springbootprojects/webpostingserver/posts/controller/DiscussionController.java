@@ -11,6 +11,7 @@ import com.springbootprojects.webpostingserver.posts.validator.EmojiValidator;
 import com.springbootprojects.webpostingserver.posts.validator.RateLimiter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -21,8 +22,8 @@ import java.util.Map;
 @RequestMapping("/api")
 public class DiscussionController {
 
-    // 30 comments per 5 minutes per user
-    private static final RateLimiter COMMENT_LIMITER = new RateLimiter(30, 5 * 60 * 1000L, 5 * 60 * 1000L);
+    // 5 comments per 5 minutes for non-admins
+    private static final RateLimiter COMMENT_LIMITER = new RateLimiter(5, 5 * 60 * 1000L, 5 * 60 * 1000L);
 
     @Autowired
     private SocialRepository social;
@@ -32,6 +33,9 @@ public class DiscussionController {
 
     @Autowired
     private PostRepository postRepository;
+
+    @Autowired
+    private JdbcTemplate jdbc;
 
     // ── Feature status (what's enabled on this post) ─────────────────────────
 
@@ -141,10 +145,6 @@ public class DiscussionController {
         AuthSession session = authorize(username, token);
         if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).<Map<String, Object>>build();
 
-        String ckey = String.valueOf(session.userId);
-        if (COMMENT_LIMITER.isBlocked(ckey))
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).<Map<String, Object>>build();
-
         if (!social.isDiscussionEnabled(postId))
             return ResponseEntity.status(HttpStatus.FORBIDDEN).<Map<String, Object>>build();
 
@@ -152,9 +152,16 @@ public class DiscussionController {
         if (content == null || content.isBlank() || content.length() > 10_000)
             return ResponseEntity.badRequest().<Map<String, Object>>build();
 
+        String ckey = String.valueOf(session.userId);
+        boolean isAdmin = Boolean.TRUE.equals(jdbc.queryForObject(
+            "SELECT is_admin FROM users WHERE id=?", Boolean.class, session.userId));
+        if (!isAdmin && COMMENT_LIMITER.isBlocked(ckey))
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).<Map<String, Object>>build();
+
         Integer parentId = body.get("parentId") != null ? ((Number) body.get("parentId")).intValue() : null;
         int commentId = social.addComment(postId, parentId, session.userId, content.trim());
-        COMMENT_LIMITER.recordUse(ckey);
+        social.voteComment(commentId, session.userId, 1);
+        if (!isAdmin) COMMENT_LIMITER.recordUse(ckey);
 
         // Notify post owner if commenter is not the owner
         LoginInfo postOwner = postRepository.getUsernameFromPostId(postId);
@@ -217,6 +224,9 @@ public class DiscussionController {
         String reaction = body.get("reaction");
         if (!EmojiValidator.isValid(reaction))
             return ResponseEntity.badRequest().<String>build();
+
+        if (social.getCommentAuthorId(commentId) == session.userId)
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You cannot react to your own comment.");
 
         social.toggleCommentReaction(commentId, session.userId, reaction.trim());
         return ResponseEntity.ok("Reaction toggled.");

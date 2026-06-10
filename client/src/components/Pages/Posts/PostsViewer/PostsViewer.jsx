@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, React} from 'react';
-import {AUTHORIZE_SESSION, READ_POSTS_BY_USER, GET_USER_BACKGROUND, UPDATE_USER_BACKGROUND, GET_USER_BIO, UPDATE_USER_BIO, GET_USER_BIO_LINKS, UPDATE_USER_BIO_LINKS, GET_USER_STORAGE, SEND_MESSAGE, GET_FOLLOWERS, GET_FOLLOWING, GET_BLOCK_MESSAGE_STATUS, BLOCK_MESSAGES, UNBLOCK_MESSAGES, EXPORT_MY_DATA} from '../BasicTextPostServerApi.js'
+import {AUTHORIZE_SESSION, READ_POSTS_BY_USER, GET_USER_BACKGROUND, UPDATE_USER_BACKGROUND, GET_USER_BIO, UPDATE_USER_BIO, GET_USER_BIO_LINKS, UPDATE_USER_BIO_LINKS, GET_USER_STORAGE, SEND_MESSAGE, GET_FOLLOWERS, GET_FOLLOWING, GET_BLOCK_MESSAGE_STATUS, BLOCK_MESSAGES, UNBLOCK_MESSAGES, EXPORT_MY_DATA, GET_PINNED_POST} from '../BasicTextPostServerApi.js'
 import BasicTextPost from '../PostRenderer/BasicTextPost/BasicTextPost.jsx';
 import PatternPicker from '../../../PatternPicker/PatternPicker.jsx';
 import FollowButton from '../../../Social/FollowButton.jsx';
@@ -10,13 +10,9 @@ import {useParams, Link, useNavigate} from "react-router-dom";
 
 function Heading(props) {
  if (props.username != null && props.username != "") {
-  return (<h1 className="windowHeader">
-    {props.username}'s posts
-  </h1>);
+  return (<h1 className="windowHeader">{props.username}</h1>);
  } else {
-  return( <h1 className="windowHeader">
-    Invalid username in URL: "{props.username}"
-  </h1>);
+  return (<h1 className="windowHeader">Invalid username in URL: "{props.username}"</h1>);
  }
 }
 
@@ -53,6 +49,16 @@ function StorageBar({ storage }) {
 
 const URL_REGEX = /https?:\/\/[^\s<>"]+[^\s<>".,;:!?)/]/g;
 
+function confirmExternal(e, url) {
+  try {
+    if (new URL(url).origin === window.location.origin) return;
+  } catch { return; }
+  e.preventDefault();
+  if (window.confirm(`You are leaving this site.\n\n${url}\n\nContinue?`)) {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+}
+
 function BioText({ text }) {
   if (!text) return null;
   const parts = [];
@@ -61,11 +67,16 @@ function BioText({ text }) {
   const re = new RegExp(URL_REGEX.source, 'g');
   while ((match = re.exec(text)) !== null) {
     if (match.index > last) parts.push(text.slice(last, match.index));
-    parts.push(<a key={match.index} href={match[0]} target="_blank" rel="noopener noreferrer" style={{ color: '#1a73e8' }}>{match[0]}</a>);
-    last = match.index + match[0].length;
+    const url = match[0];
+    parts.push(
+      <a key={match.index} href={url} target="_blank" rel="noopener noreferrer"
+        style={{ color: '#1a73e8' }}
+        onClick={e => confirmExternal(e, url)}>{url}</a>
+    );
+    last = match.index + url.length;
   }
   if (last < text.length) parts.push(text.slice(last));
-  return <p style={{ margin: '0', fontSize: '14px', color: '#444', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{parts}</p>;
+  return <p style={{ margin: '0', fontSize: '14px', color: '#111', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{parts}</p>;
 }
 
 function hasModifyPermissions(viewedUser) {
@@ -100,7 +111,9 @@ function PostsViewer() {
     const [followList, setFollowList] = useState([]);
     const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 });
     const [dmBlocked, setDmBlocked] = useState(false);
+    const [dmBlockedByThem, setDmBlockedByThem] = useState(false);
     const [followsMe, setFollowsMe] = useState(false);
+    const [pinnedPost, setPinnedPost] = useState(null);
     const bgPickerRef = useRef(null);
     const sentinelRef = useRef(null);
     const { username } = useParams();
@@ -140,8 +153,12 @@ function PostsViewer() {
         })
         .catch(() => {});
       if (loggedIn && !canEdit) {
-        GET_BLOCK_MESSAGE_STATUS(username).then(d => setDmBlocked(d.blocked)).catch(() => {});
+        GET_BLOCK_MESSAGE_STATUS(username).then(d => {
+          setDmBlocked(d.blocked);
+          setDmBlockedByThem(d.blockedByThem ?? false);
+        }).catch(() => {});
       }
+      GET_PINNED_POST(username).then(setPinnedPost).catch(() => setPinnedPost(null));
     }, [username]);
 
     // IntersectionObserver for infinite scroll
@@ -232,6 +249,26 @@ function PostsViewer() {
     }
 
     const visiblePosts = postsArray;
+    const [collapsedFolders, setCollapsedFolders] = useState(new Set());
+
+    const nonPinnedPosts = visiblePosts.filter(p => !pinnedPost || p.id !== pinnedPost.id);
+    const ungroupedPosts = nonPinnedPosts.filter(p => !p.folder);
+    const folderMap = {};
+    for (const p of nonPinnedPosts) {
+      if (p.folder) {
+        if (!folderMap[p.folder]) folderMap[p.folder] = [];
+        folderMap[p.folder].push(p);
+      }
+    }
+    const folderNames = Object.keys(folderMap).sort();
+
+    function toggleFolder(name) {
+      setCollapsedFolders(prev => {
+        const next = new Set(prev);
+        if (next.has(name)) next.delete(name); else next.add(name);
+        return next;
+      });
+    }
 
     return (
       <div className="window" style={{ minHeight: '100vh' }}>
@@ -246,11 +283,11 @@ function PostsViewer() {
           <div className="profile-header-card">
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
               <Heading username={username}/>
-              <FollowButton username={username} />
-              {followsMe && <span style={{ fontSize: '12px', color: '#555', fontStyle: 'italic' }}>follows you</span>}
+              <FollowButton username={username} onFollowChange={delta => setFollowCounts(c => ({ ...c, followers: c.followers + delta }))} />
+              {followsMe && <span style={{ fontSize: '12px', color: '#333', fontStyle: 'italic' }}>follows you</span>}
             </div>
 
-            {/* Bio display / edit */}
+            {/* Bio display / edit form */}
             {editingBio ? (
               <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
                 <textarea
@@ -268,17 +305,10 @@ function PostsViewer() {
                 {bioError && <p style={{ margin: '4px 0 0', color: '#d32f2f', fontSize: '12px' }}>{bioError}</p>}
               </div>
             ) : (
-              <div style={{ marginTop: '8px' }}>
-                {canEdit && (
-                  <button type="button" className="edit-bio-btn" onClick={() => { setBioInput(bio); setEditingBio(true); }}>
-                    {bio ? 'Edit bio' : '+ Add bio'}
-                  </button>
-                )}
-                {bio && <BioText text={bio} />}
-              </div>
+              bio && <div style={{ marginTop: '8px' }}><BioText text={bio} /></div>
             )}
 
-            {/* Bio links display / edit */}
+            {/* Bio links display / edit form */}
             {editingLinks ? (
               <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
                 {linksInput.map((l, i) => (
@@ -286,9 +316,9 @@ function PostsViewer() {
                     <input
                       value={l.label}
                       onChange={e => setLinksInput(prev => prev.map((x, j) => j === i ? { ...x, label: e.target.value } : x))}
-                      placeholder={`Label ${i + 1} (optional)`}
+                      placeholder="Personal website, Instagram…"
                       maxLength={50}
-                      style={{ flex: '0 0 130px', padding: '5px 8px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '13px', boxSizing: 'border-box' }}
+                      style={{ flex: '0 0 160px', padding: '5px 8px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '13px', boxSizing: 'border-box' }}
                     />
                     <input
                       value={l.url}
@@ -306,52 +336,41 @@ function PostsViewer() {
                 {linksError && <p style={{ margin: '4px 0 0', color: '#d32f2f', fontSize: '12px' }}>{linksError}</p>}
               </div>
             ) : (
-              <div style={{ marginTop: '6px' }}>
-                {canEdit && (
-                  <button type="button" className="edit-bio-btn" onClick={() => {
-                    const padded = [...bioLinks];
-                    while (padded.length < 3) padded.push({ label: '', url: '' });
-                    setLinksInput(padded);
-                    setEditingLinks(true);
-                  }}>
-                    {bioLinks.length > 0 ? 'Edit links' : '+ Add links'}
-                  </button>
-                )}
-                {bioLinks.length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', marginTop: '4px' }}>
-                    {bioLinks.map((l, i) => (
-                      <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
-                        style={{ fontSize: '13px', color: '#1a73e8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                        🔗 {l.label || l.url}
-                      </a>
-                    ))}
-                  </div>
-                )}
-              </div>
+              bioLinks.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', marginTop: '6px' }}>
+                  {bioLinks.map((l, i) => (
+                    <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
+                      style={{ fontSize: '13px', color: '#1a73e8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', border: '1px solid #93c5fd', borderRadius: '12px', background: 'rgba(219,234,254,0.5)' }}
+                      onClick={e => confirmExternal(e, l.url)}>
+                      {l.label || l.url}
+                    </a>
+                  ))}
+                </div>
+              )
             )}
 
-            {canEdit && (
-              <div style={{ marginTop: '8px' }} ref={bgPickerRef}>
-                <button type="button" onClick={() => setShowBgPicker(o => !o)}>
-                  {showBgPicker ? 'Hide' : 'Wallpaper'}
+            {/* Owner action row: Edit bio | Edit links | Wallpaper | Download my data */}
+            {canEdit && !editingBio && !editingLinks && (
+              <div style={{ marginTop: '10px', display: 'flex', gap: '6px', justifyContent: 'space-evenly', flexWrap: 'wrap', alignItems: 'center' }}>
+                <button type="button" className="edit-bio-btn" onClick={() => { setBioInput(bio); setEditingBio(true); }}>
+                  {bio ? 'Edit bio' : '+ Add bio'}
                 </button>
-                {bgSaveError && <p style={{ margin: '4px 0 0', color: '#d32f2f', fontSize: '12px' }}>{bgSaveError}</p>}
-                {showBgPicker && (
-                  <div style={{ background: '#fff', border: '1px solid #ccc', borderRadius: '8px', padding: '12px', marginTop: '6px' }}>
-                    <PatternPicker value={bgPattern} onChange={handleBgChange} username={username} />
-                  </div>
-                )}
-              </div>
-            )}
-
-
-            {storage && <StorageBar storage={storage} />}
-
-            {canEdit && (
-              <div style={{ marginTop: '10px', display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                <button type="button" className="edit-bio-btn" onClick={() => {
+                  const padded = [...bioLinks];
+                  while (padded.length < 3) padded.push({ label: '', url: '' });
+                  setLinksInput(padded);
+                  setEditingLinks(true);
+                }}>
+                  {bioLinks.length > 0 ? 'Edit links' : '+ Add links'}
+                </button>
+                <span ref={bgPickerRef} style={{ position: 'relative', display: 'inline-block' }}>
+                  <button type="button" className="edit-bio-btn" onClick={() => setShowBgPicker(o => !o)}>
+                    {showBgPicker ? 'Hide wallpaper' : 'Wallpaper'}
+                  </button>
+                </span>
                 <button
                   type="button"
-                  style={{ fontSize: '12px', padding: '4px 12px' }}
+                  className="edit-bio-btn"
                   onClick={async () => {
                     try { await EXPORT_MY_DATA(username); }
                     catch { alert('Export failed. Please try again.'); }
@@ -361,26 +380,44 @@ function PostsViewer() {
                 </button>
               </div>
             )}
-
-            {!canEdit && loggedIn && (
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '10px', flexWrap: 'wrap' }}>
-                <button type="button" onClick={() => setShowMessageForm(o => !o)}>
-                  Message
-                </button>
-                <button
-                  type="button"
-                  className={dmBlocked ? 'btn-unblock-dm' : 'btn-block-dm'}
-                  onClick={async () => {
-                    try {
-                      if (dmBlocked) { await UNBLOCK_MESSAGES(username); setDmBlocked(false); }
-                      else { await BLOCK_MESSAGES(username); setDmBlocked(true); }
-                    } catch {}
-                  }}
-                >
-                  {dmBlocked ? 'Unblock DMs' : 'Block DMs'}
-                </button>
+            {canEdit && showBgPicker && (
+              <div style={{ background: '#fff', border: '1px solid #ccc', borderRadius: '8px', padding: '12px', marginTop: '6px' }}>
+                {bgSaveError && <p style={{ margin: '0 0 6px', color: '#d32f2f', fontSize: '12px' }}>{bgSaveError}</p>}
+                <PatternPicker value={bgPattern} onChange={handleBgChange} username={username} />
               </div>
             )}
+
+            {/* Followers / Following + Message / Block DMs — combined row */}
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '14px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <button type="button" className="follow-count-btn" onClick={() => openFollowModal('followers')}>
+                <span className="follow-count-num">{followCounts.followers}</span>&nbsp;followers
+              </button>
+              <button type="button" className="follow-count-btn" onClick={() => openFollowModal('following')}>
+                <span className="follow-count-num">{followCounts.following}</span>&nbsp;following
+              </button>
+              {!canEdit && loggedIn && (
+                <>
+                  {!dmBlockedByThem && (
+                    <button type="button" onClick={() => setShowMessageForm(o => !o)}>Message</button>
+                  )}
+                  <button
+                    type="button"
+                    className={dmBlocked ? 'btn-unblock-dm' : 'btn-block-dm'}
+                    onClick={async () => {
+                      try {
+                        if (dmBlocked) { await UNBLOCK_MESSAGES(username); setDmBlocked(false); }
+                        else { await BLOCK_MESSAGES(username); setDmBlocked(true); }
+                      } catch {}
+                    }}
+                  >
+                    {dmBlocked ? 'Unblock DMs' : 'Block DMs'}
+                  </button>
+                </>
+              )}
+            </div>
+
+
+            {/* Message form — expands below the social row */}
             {showMessageForm && (
               <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
                 <textarea
@@ -398,24 +435,46 @@ function PostsViewer() {
               </div>
             )}
 
-            {/* Followers / Following counts — always visible at bottom of bio card */}
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '14px' }}>
-              <button type="button" className="follow-count-btn" onClick={() => openFollowModal('followers')}>
-                <span className="follow-count-num">{followCounts.followers}</span>&nbsp;followers
-              </button>
-              <button type="button" className="follow-count-btn" onClick={() => openFollowModal('following')}>
-                <span className="follow-count-num">{followCounts.following}</span>&nbsp;following
-              </button>
-            </div>
+            {storage && <StorageBar storage={storage} />}
           </div>
+          {pinnedPost && (
+            <div className="PostContainer" style={{ position: 'relative' }}>
+              <div style={{ position: 'absolute', top: '8px', left: '12px', zIndex: 1, fontSize: '11px', fontWeight: 700, color: '#888', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                📌 Pinned
+              </div>
+              <BasicTextPost postdata={pinnedPost} updatePostsFlagCallback={() => loadPosts(true)}
+                uploaded={true} hasModifyPermissions={canEdit} ownerUsername={username}/>
+            </div>
+          )}
           {(!Array.isArray(visiblePosts) || !visiblePosts.length) && !loadingMore
             ? <p>There are no posts, yet. Create one to get started.</p>
-            : visiblePosts.map((record, index) => (
-                <div className="PostContainer" key={record.id ?? index}>
+            : <>
+                {folderNames.map(name => (
+                  <div key={name} style={{ marginBottom: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => toggleFolder(name)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px 12px', fontSize: '14px', fontWeight: 600, color: '#444', display: 'flex', alignItems: 'center', gap: '6px', width: '100%', textAlign: 'left' }}
+                    >
+                      <span style={{ fontSize: '12px', transition: 'transform 0.15s', transform: collapsedFolders.has(name) ? 'rotate(-90deg)' : 'rotate(0deg)', display: 'inline-block' }}>▼</span>
+                      {name}
+                      <span style={{ fontSize: '12px', fontWeight: 400, color: '#888', marginLeft: '4px' }}>({folderMap[name].length})</span>
+                    </button>
+                    {!collapsedFolders.has(name) && folderMap[name].map((record, index) => (
+                      <div className="PostContainer" key={record.id ?? index}>
+                        <BasicTextPost postdata={record} updatePostsFlagCallback={() => loadPosts(true)}
+                          uploaded={true} hasModifyPermissions={canEdit} ownerUsername={username}/>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+                {ungroupedPosts.map((record, index) => (
+                  <div className="PostContainer" key={record.id ?? index}>
                     <BasicTextPost postdata={record} updatePostsFlagCallback={() => loadPosts(true)}
-                     uploaded={true} hasModifyPermissions={canEdit} ownerUsername={username}/>
-                </div>
-              ))
+                      uploaded={true} hasModifyPermissions={canEdit} ownerUsername={username}/>
+                  </div>
+                ))}
+              </>
           }
           <div ref={sentinelRef} style={{ height: '1px' }} />
           {loadingMore && <p style={{ textAlign: 'center', color: '#888', fontSize: '14px' }}>Loading…</p>}

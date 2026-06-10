@@ -1,7 +1,62 @@
 # Database Schema Reference
 
-Database: PostgreSQL (`testdb` locally, configured via `application.properties`).
+Database: PostgreSQL. Connection is configured in `server/src/main/resources/application.properties`.
 All tables are in the `public` schema.
+
+---
+
+## Fresh install (new system)
+
+**1. Install PostgreSQL and create a database**
+```bash
+# Ubuntu/Debian
+sudo apt install postgresql
+
+sudo -u postgres psql <<EOF
+CREATE USER yourname WITH PASSWORD 'yourpassword';
+CREATE DATABASE webpostingdb OWNER yourname;
+EOF
+```
+
+**2. Run the schema file** — creates all tables, seeds role_limits, and creates indexes
+```bash
+psql -U yourname -d webpostingdb -f config/database.sql
+```
+
+**3. Update credentials** in `server/src/main/resources/application.properties`:
+```properties
+spring.datasource.url=jdbc:postgresql://localhost:5432/webpostingdb
+spring.datasource.username=yourname
+spring.datasource.password=yourpassword
+```
+
+**4. Create the first admin user** — there is no public registration endpoint, so insert one manually:
+```bash
+# Generate a BCrypt hash of your password (cost factor 10)
+python3 -c "import bcrypt; print(bcrypt.hashpw(b'yourpassword', bcrypt.gensalt(10)).decode())"
+
+# Insert the admin user (replace hash with output above)
+psql -U yourname -d webpostingdb -c \
+  "INSERT INTO users (username, password, is_admin, role) VALUES ('yourusername', '\$2b\$10\$...', TRUE, 'admin');"
+```
+
+After that, all other users can be created through the admin panel in the UI.
+
+**5. (Production only)** Switch the active profile in `application.properties` to `prod`:
+```properties
+spring.profiles.active=prod
+```
+The prod profile sets `Secure` + `SameSite=Strict` on cookies and uses an absolute path for uploads. See `application-prod.properties` for the upload directory setting.
+
+---
+
+## How tests use the database
+
+183 of 184 tests are pure unit tests using Mockito mocks — they never touch any database. `RestServicePostApplicationTests` boots the Spring context and requires a live connection. `DatabaseSchemaTest` connects to the real database and validates every table, column, and seed row — run it after any migration to confirm the live schema is correct.
+
+See [MIGRATIONS.md](MIGRATIONS.md) for the full migration system documentation.
+
+---
 
 ---
 
@@ -12,15 +67,17 @@ The central user table. One row per registered account.
 ```sql
 CREATE TABLE users (
   id                 SERIAL PRIMARY KEY,
-  username           VARCHAR(32)  NOT NULL UNIQUE,
-  password           VARCHAR(32)  NOT NULL,   -- plain text (BCrypt migration pending)
-  registration_date  TIMESTAMPTZ  NOT NULL DEFAULT now(),
-  background_pattern TEXT,                    -- JSON pattern string for profile wallpaper
-  is_admin           BOOLEAN      NOT NULL DEFAULT false,
-  role               VARCHAR(20)  NOT NULL DEFAULT 'user',  -- 'user' | 'admin' | custom
+  username           VARCHAR(32)   NOT NULL UNIQUE,
+  password           TEXT          NOT NULL,   -- BCrypt hash (60 chars)
+  registration_date  TIMESTAMPTZ   NOT NULL DEFAULT now(),
+  background_pattern VARCHAR(2000),            -- wallpaper pattern string (see PatternValidator)
+  is_admin           BOOLEAN       NOT NULL DEFAULT false,
+  role               VARCHAR(20)   NOT NULL DEFAULT 'user',
   last_visited       TIMESTAMPTZ,
-  bio                TEXT,                    -- max 500 chars, set via PUT /api/users/:u/bio
-  pattern_presets    TEXT         DEFAULT '{}'  -- JSON map of saved wallpaper presets
+  bio                VARCHAR(500),             -- max 500 chars, HTML-stripped on write
+  bio_links          TEXT,                     -- JSON array of {url, label} objects (max 3)
+  pattern_presets    TEXT          DEFAULT '{}',  -- JSON map of saved wallpaper presets
+  pinned_post_id     INTEGER       DEFAULT NULL   -- post pinned to top of profile
 );
 ```
 

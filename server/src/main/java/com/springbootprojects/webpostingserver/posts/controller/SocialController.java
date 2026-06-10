@@ -136,10 +136,14 @@ public class SocialController {
         if (!EmojiValidator.isValid(reaction))
             return ResponseEntity.badRequest().body("Invalid reaction.");
 
+        // Authors may not react to their own content
+        var postOwner = postRepository.getUsernameFromPostId(postId);
+        if (postOwner != null && postOwner.compareUsername(authUsername))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You cannot react to your own post.");
+
         social.toggleReaction(postId, session.userId, reaction.trim());
         REACTION_LIMITER.recordUse(rkey);
-        var postOwner = postRepository.getUsernameFromPostId(postId);
-        if (postOwner != null && !postOwner.compareUsername(authUsername)) {
+        if (postOwner != null) {
             int ownerId = social.getUserIdByUsername(postOwner.getUsername());
             social.createNotification(ownerId, "reaction", authUsername, postId, null);
         }
@@ -229,7 +233,8 @@ public class SocialController {
         if (targetId < 0) return ResponseEntity.notFound().build();
 
         boolean blocked = social.isBlockingMessages(session.userId, targetId);
-        return ResponseEntity.ok(Map.of("blocked", blocked));
+        boolean blockedByThem = social.isMessageBlocked(targetId, session.userId);
+        return ResponseEntity.ok(Map.of("blocked", blocked, "blockedByThem", blockedByThem));
     }
 
     // ── Notifications ─────────────────────────────────────────────────────────

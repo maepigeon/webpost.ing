@@ -153,6 +153,22 @@
   color: #1a3a7a;
 }
 
+.admin-row--frozen td { background: rgba(239, 68, 68, 0.06); }
+.admin-row--frozen td:first-child { color: #ef4444; font-weight: 600; }
+
+.admin-th-sort {
+  cursor: pointer;
+  user-select: none;
+}
+.admin-th-sort:hover { background: rgba(0,0,0,0.06); }
+
+.admin-user-link {
+  color: #1a3a7a;
+  text-decoration: none;
+  font-weight: 500;
+}
+.admin-user-link:hover { text-decoration: underline; }
+
 .admin-table select {
   padding: 4px 6px;
   border: 1px solid #ccc;

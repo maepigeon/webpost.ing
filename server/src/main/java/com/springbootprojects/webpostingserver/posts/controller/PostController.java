@@ -2,6 +2,7 @@ package com.springbootprojects.webpostingserver.posts.controller;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -76,6 +77,8 @@ public class PostController {
         Post post = postRepository.findById(id);
         if (post == null) return new ResponseEntity<>(HttpStatus.NOT_FOUND);
 
+        LoginInfo postOwnerInfo = postRepository.getUsernameFromPostId((int) id);
+
         if (!post.isPublished()) {
             // Draft — only the owner may read it
             if (username == null || token == null) return new ResponseEntity<>(HttpStatus.NOT_FOUND);
@@ -86,8 +89,7 @@ public class PostController {
                 return new ResponseEntity<>(HttpStatus.NOT_FOUND);
             }
             if (session == null) return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-            LoginInfo owner = postRepository.getUsernameFromPostId((int) id);
-            if (owner == null || !owner.compareUsername(username))
+            if (postOwnerInfo == null || !postOwnerInfo.compareUsername(username))
                 return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
 
@@ -159,6 +161,24 @@ public class PostController {
         if (loginResult != null) {
             ResponseEntity<String> invalid = validatePost(post);
             if (invalid != null) return invalid;
+            // Enforce daily post limit from role_limits
+            try {
+                String role = jdbc.queryForObject("SELECT role FROM users WHERE id=?", String.class, loginResult.userId);
+                if (role == null) role = "user";
+                Integer maxPerDay = jdbc.queryForObject(
+                    "SELECT max_posts_per_day FROM role_limits WHERE role=?", Integer.class, role);
+                if (maxPerDay != null && maxPerDay >= 0) {
+                    Integer todayCount = jdbc.queryForObject(
+                        "SELECT COUNT(*) FROM posts p " +
+                        "INNER JOIN users_posts_junctions j ON j.post_id = p.id " +
+                        "WHERE j.user_id=? AND p.date >= CURRENT_DATE",
+                        Integer.class, loginResult.userId);
+                    if (todayCount != null && todayCount >= maxPerDay) {
+                        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                            .body("Daily post limit reached (" + maxPerDay + " posts per day).");
+                    }
+                }
+            } catch (Exception ignored) {}
             System.out.println("Authorized post creation for user " + username);
             try {
                 int userId = loginResult.userId;
@@ -166,7 +186,7 @@ public class PostController {
                 int postId = postRepository.save(post, userId);
                 syncPostUploads(postId, post.getDescription());
                 if (post.isPublished()) social.notifyFollowers(userId, username, postId);
-                return new ResponseEntity<>("Post was created successfully.", HttpStatus.CREATED);
+                return new ResponseEntity<>(String.valueOf(postId), HttpStatus.CREATED);
             } catch (Exception e) {
                 System.out.println("Post creation failed: " + e.getMessage());
                 return new ResponseEntity<>("Failed to create post", HttpStatus.INTERNAL_SERVER_ERROR);
@@ -203,6 +223,7 @@ public class PostController {
             _post.setPublished(post.isPublished());
             _post.setDate(post.getDate());
             _post.setBackgroundPattern(post.getBackgroundPattern());
+            _post.setFolder(post.getFolder() != null && !post.getFolder().isBlank() ? post.getFolder().trim() : null);
             postRepository.update(_post);
             syncPostUploads(id, post.getDescription());
             // Notify followers when a draft is published for the first time
@@ -259,6 +280,63 @@ public class PostController {
             return new ResponseEntity<>("Cannot delete Posts.", HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }*/
+    // ── Pinned posts ──────────────────────────────────────────────────────────
+
+    @GetMapping("/users/{username}/pinned-post")
+    public ResponseEntity<Post> getPinnedPost(
+            @PathVariable("username") String username,
+            @CookieValue(name = "username", required = false) String authUsername,
+            @CookieValue(name = "authToken", required = false) String authToken) {
+        List<Integer> ids = jdbc.queryForList(
+                "SELECT pinned_post_id FROM users WHERE username=?", Integer.class, username);
+        if (ids.isEmpty() || ids.get(0) == null) return ResponseEntity.notFound().build();
+        Post post = postRepository.findById(ids.get(0).longValue());
+        if (post == null) return ResponseEntity.notFound().build();
+        if (!post.isPublished() && (authUsername == null || !authUsername.equals(username)))
+            return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(post);
+    }
+
+    @PutMapping("/users/{username}/pinned-post")
+    public ResponseEntity<String> setPinnedPost(
+            @PathVariable("username") String username,
+            @RequestBody Map<String, Integer> body,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+        if (!authUsername.equals(username)) return new ResponseEntity<>("Forbidden", HttpStatus.FORBIDDEN);
+        AuthSession session;
+        try {
+            session = loginRepository.authorize(authUsername, token);
+        } catch (JdbcLoginRepository.TokenExpiredException e) {
+            return loginRepository.deleteCookie();
+        }
+        if (session == null) return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
+        int postId = body.getOrDefault("postId", 0);
+        if (postId <= 0) return new ResponseEntity<>("Invalid postId", HttpStatus.BAD_REQUEST);
+        LoginInfo owner = postRepository.getUsernameFromPostId(postId);
+        if (owner == null || !owner.compareUsername(username))
+            return new ResponseEntity<>("Forbidden", HttpStatus.FORBIDDEN);
+        jdbc.update("UPDATE users SET pinned_post_id=? WHERE username=?", postId, username);
+        return ResponseEntity.ok("Post pinned");
+    }
+
+    @DeleteMapping("/users/{username}/pinned-post")
+    public ResponseEntity<String> unpinPost(
+            @PathVariable("username") String username,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+        if (!authUsername.equals(username)) return new ResponseEntity<>("Forbidden", HttpStatus.FORBIDDEN);
+        AuthSession session;
+        try {
+            session = loginRepository.authorize(authUsername, token);
+        } catch (JdbcLoginRepository.TokenExpiredException e) {
+            return loginRepository.deleteCookie();
+        }
+        if (session == null) return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
+        jdbc.update("UPDATE users SET pinned_post_id=NULL WHERE username=?", username);
+        return ResponseEntity.ok("Post unpinned");
+    }
+
     @GetMapping("/posts/published")
     public ResponseEntity<List<Post>> findByPublished() {
         try {

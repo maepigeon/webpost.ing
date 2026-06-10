@@ -75,7 +75,7 @@ export function GET_USER_FROM_POST(id) {
 
 
 //create
-export function CREATE_POST(id, titleField, descriptionField, publishedField, backgroundPattern) {
+export function CREATE_POST(id, titleField, descriptionField, publishedField, backgroundPattern, folder) {
   console.log("creating a new post, title:" + titleField);
   if (titleField == "undefined") {titleField = "Undefined title";}
   const promise = axios.post(baseUrl + "/api/posts",
@@ -85,13 +85,14 @@ export function CREATE_POST(id, titleField, descriptionField, publishedField, ba
     description: descriptionField,
     published: publishedField,
     backgroundPattern: backgroundPattern || null,
+    folder: folder || null,
   }, { withCredentials: true });
   const dataPromise = promise.then((response) => response.data);
   console.log("created POST");
   return dataPromise;
 }
 //update
-export function UPDATE_POST(id, titleField, descriptionField, publishedField, backgroundPattern) {
+export function UPDATE_POST(id, titleField, descriptionField, publishedField, backgroundPattern, folder) {
   console.log("updating post with id: " + id)
   const promise = axios.put(baseUrl + "/api/posts/" + id,
   {
@@ -100,6 +101,7 @@ export function UPDATE_POST(id, titleField, descriptionField, publishedField, ba
       description: descriptionField,
       published: publishedField,
       backgroundPattern: backgroundPattern || null,
+      folder: folder || null,
   }, { withCredentials: true });
   const dataPromise = promise.then((response) => response.data);
   return dataPromise;
@@ -195,10 +197,6 @@ export function ADMIN_GET_FLAGGED() {
 
 export function ADMIN_CLEANUP_ORPHANS() {
   return axios.delete(baseUrl + `/api/admin/uploads/orphans`, { withCredentials: true }).then(r => r.data);
-}
-
-export function ADMIN_IMPORT_USER(username, exportData) {
-  return axios.post(baseUrl + `/api/admin/import`, { username, data: exportData }, { withCredentials: true }).then(r => r.data);
 }
 
 // ── Social: post feature flags ────────────────────────────────────────────────
@@ -363,6 +361,23 @@ export function SEND_MESSAGE(username, message) {
 
 export function DELETE_ACCOUNT(username) {
   return axios.delete(baseUrl + `/api/users/${username}`, { withCredentials: true })
+    .then(r => r.data);
+}
+
+// ── Pinned posts ──────────────────────────────────────────────────────────────
+
+export function GET_PINNED_POST(username) {
+  return axios.get(baseUrl + `/api/users/${username}/pinned-post`, { withCredentials: true })
+    .then(r => r.data);
+}
+
+export function SET_PINNED_POST(username, postId) {
+  return axios.put(baseUrl + `/api/users/${username}/pinned-post`, { postId }, { withCredentials: true })
+    .then(r => r.data);
+}
+
+export function UNPIN_POST(username) {
+  return axios.delete(baseUrl + `/api/users/${username}/pinned-post`, { withCredentials: true })
     .then(r => r.data);
 }
 

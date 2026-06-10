@@ -142,17 +142,93 @@
   min-width: 320px;
 }
 
+/* Image button group — image + info ⓘ share a single pill */
+.image-btn-group {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  background: #dbeafe;
+  border: 1px solid #93c5fd;
+  border-radius: 6px;
+  overflow: visible;
+}
+
 /* Image button — blue tint */
 .toolbar-btn-image {
-  background: #dbeafe;
+  background: transparent;
   color: #1d4ed8;
-  border: 1px solid #93c5fd;
+  border: none;
+  border-right: 1px solid #93c5fd;
   font-weight: 500;
+  border-radius: 5px 0 0 5px;
 }
 
 .toolbar-btn-image:hover {
   background: #bfdbfe;
-  border-color: #1d4ed8;
+}
+
+/* ⓘ info button */
+.toolbar-btn-image-info {
+  background: transparent;
+  color: #1d4ed8;
+  border: none;
+  border-radius: 0 5px 5px 0;
+  padding: 0 5px;
+  font-size: 13px;
+  cursor: pointer;
+  line-height: 1;
+  opacity: 0.7;
+  transition: opacity 0.12s;
+}
+
+.toolbar-btn-image-info:hover {
+  opacity: 1;
+  background: #bfdbfe;
+}
+
+/* Info popup */
+.image-info-popup {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 500;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
+  padding: 10px 14px 10px;
+  min-width: 280px;
+  font-size: 12px;
+  color: #333;
+  line-height: 1.6;
+}
+
+.image-info-popup strong {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 6px;
+  color: #1d4ed8;
+}
+
+.image-info-popup ul {
+  margin: 0;
+  padding-left: 16px;
+}
+
+.image-info-popup li {
+  margin-bottom: 2px;
+}
+
+/* Folder input in toolbar */
+.toolbar-folder-input {
+  font-size: 12px;
+  padding: 3px 8px;
+  border: 1px solid rgba(0,0,0,0.15);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.5);
+  color: #444;
+  outline: none;
+  width: 130px;
 }
 
 /* Save Draft button — amber outline */
@@ -179,34 +255,63 @@
   background: #1558b0;
 }
 
-/* ── Collapsible toolbar sections ───────────────────────────────────────── */
-
-.toolbar-collapsible {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+/* View post button — teal outline */
+.toolbar-btn-view {
+  background: transparent;
+  color: #0d7c6b;
+  border: 1px solid #0d7c6b;
+  font-weight: 500;
 }
 
+.toolbar-btn-view:hover {
+  background: rgba(13, 124, 107, 0.08);
+}
+
+/* ── Collapsible toolbar sections ───────────────────────────────────────── */
+
+/* Each group is a pill-shaped card on the toolbar */
+.toolbar-collapsible {
+  display: inline-flex;
+  align-items: stretch;
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.13);
+  border-radius: 7px;
+  overflow: visible;
+  gap: 0;
+  position: relative;
+}
+
+/* The label acts as a distinct left-panel header for the group */
 .toolbar-collapse-toggle {
-  font-size: 11px;
-  color: #666;
-  background: rgba(0,0,0,0.05);
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #555;
+  background: rgba(0, 0, 0, 0.07);
+  border: none;
+  border-right: 1px solid rgba(0, 0, 0, 0.13);
+  border-radius: 7px 0 0 7px;
+  padding: 3px 8px;
   cursor: pointer;
   white-space: nowrap;
   line-height: 1.4;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  transition: background 0.12s;
 }
 
 .toolbar-collapse-toggle:hover {
-  background: rgba(0,0,0,0.10);
+  background: rgba(0, 0, 0, 0.12);
 }
 
+/* Items sit inside the card, visually separate from the label */
 .toolbar-collapsible-body {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
+  padding: 2px 5px;
 }
 
 /* ── Format buttons (bold/italic/underline/etc.) ─────────────────────────── */

@@ -14,14 +14,14 @@ import { ListNode, ListItemNode } from '@lexical/list';
 import { CodeHighlightNode, registerCodeHighlighting } from '@lexical/code';
 import { CustomCodeNode } from './CustomCodeNode.jsx';
 import TitleBar from './TitleBar';
+import ReactionBar from '../../../../Social/ReactionBar.jsx';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   READ_POST, GET_USER_FROM_POST,
-  GET_POST_FEATURES, SET_REACTIONS_ENABLED,
+  GET_POST_FEATURES, GET_PINNED_POST, SET_PINNED_POST, UNPIN_POST,
 } from '../../BasicTextPostServerApi.js';
 import { ImageNode } from './ImageNode.jsx';
 import { MathNode } from './MathNode.jsx';
-import ReactionBar from '../../../../Social/ReactionBar.jsx';
 import { LinkNode } from '@lexical/link';
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
 import { ClickableLinkPlugin } from '@lexical/react/LexicalClickableLinkPlugin';
@@ -70,6 +70,31 @@ export default function RichTextViewer() {
 
   const me = localStorage.getItem('userName');
   const isAuthor = me && me === postAuthor;
+  const [shareCopied, setShareCopied] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const shareRef = useRef(null);
+  const [isPinned, setIsPinned] = useState(false);
+
+  useEffect(() => {
+    if (!shareOpen) return;
+    function handleClick(e) {
+      if (shareRef.current && !shareRef.current.contains(e.target)) setShareOpen(false);
+    }
+    function handleKey(e) { if (e.key === 'Escape') setShareOpen(false); }
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [shareOpen]);
+
+  useEffect(() => {
+    if (!postLoaded || !isAuthor) return;
+    GET_PINNED_POST(postAuthor)
+      .then(p => setIsPinned(p && p.id === parseInt(id)))
+      .catch(() => setIsPinned(false));
+  }, [postLoaded, isAuthor, postAuthor, id]);
 
   useEffect(() => {
     READ_POST(id).then(data => {
@@ -109,6 +134,27 @@ export default function RichTextViewer() {
       document.documentElement.style.backgroundColor = '';
     };
   }, [backgroundPattern]);
+
+  // Intercept external link clicks in post content to show a warning dialog.
+  useEffect(() => {
+    const root = contentRef.current;
+    if (!root || !dataReady) return;
+    const handler = (e) => {
+      const anchor = e.target.closest('a[href]');
+      if (!anchor) return;
+      const url = anchor.getAttribute('href');
+      if (!url) return;
+      try {
+        if (new URL(url).origin === window.location.origin) return;
+      } catch { return; }
+      e.preventDefault();
+      if (window.confirm(`You are leaving this site.\n\n${url}\n\nContinue?`)) {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+    };
+    root.addEventListener('click', handler);
+    return () => root.removeEventListener('click', handler);
+  }, [dataReady]);
 
   // Attach copy bars to code blocks after content loads.
   // Bars are appended to document.body with position:fixed so Lexical's
@@ -171,12 +217,6 @@ export default function RichTextViewer() {
     };
   }, [dataReady]);
 
-  const toggleReactions = async () => {
-    const next = !features.reactionsEnabled;
-    await SET_REACTIONS_ENABLED(id, next).catch(() => {});
-    setFeatures(f => ({ ...f, reactionsEnabled: next }));
-  };
-
   const authorUsername = username || postAuthor;
 
   return (
@@ -202,34 +242,72 @@ export default function RichTextViewer() {
               />
             </div>
 
-            {/* Reactions — only if enabled */}
-            {features.reactionsEnabled && <ReactionBar postId={id} />}
+            {/* Post reactions */}
+            {features.reactionsEnabled && <ReactionBar postId={parseInt(id)} />}
 
-            {/* Reactions toggle (author only) */}
-            {isAuthor && (
-              <div className="post-footer">
+            {/* Post footer: author controls + share + discussion */}
+            <div className="post-footer">
+              {isAuthor && (
                 <div className="post-author-controls">
-                  <button
-                    className={`post-toggle-btn${features.reactionsEnabled ? ' active' : ''}`}
-                    onClick={toggleReactions}
-                  >
-                    {features.reactionsEnabled ? 'Reactions on' : 'Reactions off'}
-                  </button>
+                  <Link to={`/editor/${id}`}>
+                    <button className="viewer-edit-btn">Edit post</button>
+                  </Link>
                 </div>
+              )}
+              <div className="share-menu-wrapper" ref={shareRef}>
+                <button
+                  className="viewer-share-btn"
+                  onClick={() => setShareOpen(o => !o)}
+                >
+                  Share
+                </button>
+                {shareOpen && (
+                  <div className="share-menu">
+                    {[
+                      { label: 'X (Twitter)', build: (u, t) => `https://x.com/intent/tweet?text=${t}&url=${u}` },
+                      { label: 'Bluesky',     build: (u, t) => `https://bsky.app/intent/compose?text=${t}+${u}` },
+                      { label: 'Reddit',      build: (u, t) => `https://www.reddit.com/submit?url=${u}&title=${t}` },
+                      { label: 'LinkedIn',    build: (u, t) => `https://www.linkedin.com/shareArticle?mini=true&url=${u}&title=${t}` },
+                      { label: 'Facebook',    build: (u)    => `https://www.facebook.com/sharer/sharer.php?u=${u}` },
+                    ].map(({ label, build }) => (
+                      <button
+                        key={label}
+                        className="share-menu-item"
+                        onClick={() => {
+                          const u = encodeURIComponent(window.location.href);
+                          const t = encodeURIComponent(postTitle);
+                          window.open(build(u, t), '_blank', 'noopener,noreferrer');
+                          setShareOpen(false);
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                    <div className="share-menu-divider" />
+                    <button
+                      className="share-menu-item"
+                      onClick={() => {
+                        navigator.clipboard.writeText(window.location.href).then(() => {
+                          setShareCopied(true);
+                          setShareOpen(false);
+                          setTimeout(() => setShareCopied(false), 2000);
+                        }).catch(() => {});
+                      }}
+                    >
+                      {shareCopied ? '✓ Copied!' : 'Copy link'}
+                    </button>
+                  </div>
+                )}
               </div>
-            )}
-
-            {/* Discussion page link — only shown when discussion is enabled */}
-            {features.discussionEnabled && (
-              <div style={{ padding: '0 24px 16px', textAlign: 'center' }}>
+              {features.discussionEnabled && (
                 <Link
                   to={`/users/${authorUsername}/${id}/discussion`}
                   style={{ fontSize: '14px', color: '#1a73e8', textDecoration: 'none', fontWeight: 500 }}
                 >
                   Discussion
                 </Link>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </LexicalComposer>

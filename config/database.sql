@@ -22,6 +22,7 @@ CREATE TABLE users (
     last_visited      TIMESTAMP WITH TIME ZONE          DEFAULT NULL,
     bio               VARCHAR(500)                      DEFAULT NULL,
     bio_links         TEXT                              DEFAULT NULL,
+    pinned_post_id    INTEGER                           DEFAULT NULL,
     UNIQUE (username)
 );
 
@@ -40,7 +41,9 @@ INSERT INTO role_limits (role, max_storage_bytes, max_posts_per_day) VALUES
     ('user',       52428800,   20),
     ('trusted',    524288000, 100),
     ('restricted', 5242880,     2),
-    ('admin',      -1,         -1);   -- -1 = unlimited
+    ('admin',      -1,         -1),   -- -1 = unlimited
+    ('frozen',     0,           0),   -- frozen: blocked at auth layer, no API access
+    ('audited',    52428800,   20);   -- audited: normal limits but content hidden from non-admins
 
 
 -- -------------------------------------------------------------
@@ -54,7 +57,8 @@ CREATE TABLE posts (
     published        BOOLEAN                  NOT NULL,
     date             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     edited_at        TIMESTAMPTZ DEFAULT NULL,
-    background_pattern VARCHAR(2000)          DEFAULT NULL
+    background_pattern VARCHAR(2000)          DEFAULT NULL,
+    folder           VARCHAR(100)            DEFAULT NULL
 );
 
 
@@ -348,3 +352,56 @@ CREATE TABLE activity_deletions (
 
 -- Migration 017 — add bio_links to users (now in base schema)
 --   ALTER TABLE users ADD COLUMN IF NOT EXISTS bio_links TEXT DEFAULT NULL;
+
+-- Migration 020 — add folder to posts
+--   ALTER TABLE posts ADD COLUMN IF NOT EXISTS folder VARCHAR(100) DEFAULT NULL;
+
+-- Migration 019 — add pinned_post_id to users
+--   ALTER TABLE users ADD COLUMN IF NOT EXISTS pinned_post_id INTEGER DEFAULT NULL;
+
+-- Migration 018 — add frozen/audited roles to role_limits
+--   INSERT INTO role_limits (role, max_storage_bytes, max_posts_per_day)
+--       VALUES ('frozen', 0, 0), ('audited', 52428800, 20)
+--       ON CONFLICT (role) DO NOTHING;
+
+-- =============================================================
+-- SCALABILITY INDEXES
+-- Run once on existing databases to improve query performance.
+-- All are CREATE INDEX IF NOT EXISTS — safe to re-run.
+-- =============================================================
+
+-- Post lookups by owner (most common read path)
+CREATE INDEX IF NOT EXISTS idx_upj_user_id  ON users_posts_junctions (user_id);
+CREATE INDEX IF NOT EXISTS idx_upj_post_id  ON users_posts_junctions (post_id);
+
+-- Post listing sorted by date (user profile page pagination)
+CREATE INDEX IF NOT EXISTS idx_posts_date   ON posts (date DESC);
+CREATE INDEX IF NOT EXISTS idx_posts_published ON posts (published);
+
+-- Notification inbox (recipient feed, sorted newest first)
+CREATE INDEX IF NOT EXISTS idx_notif_recipient ON notifications (recipient_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notif_read      ON notifications (recipient_id, is_read);
+
+-- Follow graph lookups
+CREATE INDEX IF NOT EXISTS idx_follows_follower ON follows (follower_id);
+CREATE INDEX IF NOT EXISTS idx_follows_followed ON follows (followed_id);
+
+-- Reaction counts per post
+CREATE INDEX IF NOT EXISTS idx_reactions_post ON post_reactions (post_id);
+
+-- Upload tracking per user
+CREATE INDEX IF NOT EXISTS idx_uploads_user ON uploads (user_id);
+
+-- Comment thread traversal
+CREATE INDEX IF NOT EXISTS idx_comments_discussion ON comments (discussion_id);
+CREATE INDEX IF NOT EXISTS idx_comments_parent     ON comments (parent_id);
+
+-- DM block lookups
+CREATE INDEX IF NOT EXISTS idx_dm_blocks_blocker ON dm_blocks (blocker_id);
+CREATE INDEX IF NOT EXISTS idx_dm_blocks_blocked ON dm_blocks (blocked_id);
+
+-- User search by username (case-insensitive prefix scan)
+CREATE INDEX IF NOT EXISTS idx_users_username_lower ON users (LOWER(username));
+
+-- Activity deletions feed
+CREATE INDEX IF NOT EXISTS idx_activity_del_user ON activity_deletions (user_id, deleted_at DESC);

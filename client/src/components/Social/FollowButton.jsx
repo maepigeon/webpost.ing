@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { GET_FOLLOW_STATUS, FOLLOW_USER, UNFOLLOW_USER } from '../Pages/Posts/BasicTextPostServerApi.js';
 import './Social.css';
 
-export default function FollowButton({ username }) {
+export default function FollowButton({ username, onFollowChange }) {
   const [following, setFollowing] = useState(false);
   const [mutuals, setMutuals] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -22,16 +22,24 @@ export default function FollowButton({ username }) {
     setLoading(true);
     try {
       if (following) {
-        await UNFOLLOW_USER(username);
         setFollowing(false);
         setMutuals(false);
+        onFollowChange?.(-1);
+        await UNFOLLOW_USER(username);
       } else {
+        setFollowing(true);
+        onFollowChange?.(1);
         await FOLLOW_USER(username);
         const d = await GET_FOLLOW_STATUS(username);
         setFollowing(d.following);
         setMutuals(d.mutuals ?? false);
       }
-    } catch {}
+    } catch {
+      // Roll back optimistic update on failure
+      setFollowing(following);
+      setMutuals(mutuals);
+      onFollowChange?.(following ? 1 : -1);
+    }
     setLoading(false);
   };
 

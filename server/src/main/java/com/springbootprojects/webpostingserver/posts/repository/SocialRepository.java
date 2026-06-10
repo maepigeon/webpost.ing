@@ -243,6 +243,11 @@ public class SocialRepository {
         return kh.getKey().intValue();
     }
 
+    public int getCommentAuthorId(int commentId) {
+        List<Integer> ids = jdbc.queryForList("SELECT user_id FROM comments WHERE id=?", Integer.class, commentId);
+        return ids.isEmpty() ? -1 : ids.get(0);
+    }
+
     public int editComment(int commentId, int userId, String content) {
         return jdbc.update(
             "UPDATE comments SET content=?, edited_at=NOW() WHERE id=? AND user_id=?",

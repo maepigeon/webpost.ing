@@ -19,7 +19,7 @@ function PostViewerPlugin() {
 
 function LogoutPlugin() {
   if (authorize()) {
-    return <Navbutton label={"Log Out"} route={"/routes/Logout"} variant="yellow" />
+    return <Navbutton label={"Log Out"} route={"/routes/Logout"} variant="orange" />
   }
 }
 
@@ -53,7 +53,7 @@ function Navbar() {
       <Userdata />
       <Login />
       <LogoutPlugin />
-      <Navbutton label={"Home"} route={"/"} variant="orange" />
+      <Navbutton label={"Home"} route={"/"} variant="yellow" />
       <NewPost />
       {loggedIn && (
         <span className="navGroup">

@@ -1,23 +1,49 @@
 .navButton {
     background-color: greenyellow;
-    color: black;
-    padding: 8px 12px;
-    margin: 4px;
-    border-radius: 5px;
+    color: #111;
+    padding: 6px 15px;
+    margin: 3px;
+    border-radius: 20px;
     border: 1px solid transparent;
     cursor: pointer;
     font-weight: 500;
-    font-size: 14px;
+    font-size: 13px;
     white-space: nowrap;
     line-height: 1.2;
-    transition: filter 0.12s;
+    transition: filter 0.12s, box-shadow 0.14s, transform 0.1s;
+    letter-spacing: 0.01em;
 }
 
-.navButton:hover { filter: brightness(0.9); }
+.navButton:hover {
+    filter: brightness(0.9);
+    transform: translateY(-1px);
+}
 
-.navButton--yellow  { background-color: #FFD700; }
+.navButton:active {
+    transform: translateY(0);
+}
+
+/* Original variant colours — restored */
+.navButton--yellow  { background-color: #FFD700; color: #1a1200; }
+.navButton--orange  { background-color: #FFA55A; color: #1a0800; }
 .navButton--blue    { background-color: #90c2f5; color: #000; }
-.navButton--pink    { background-color: #ff85a2; }
-.navButton--orange  { background-color: #FFA55A; }
+.navButton--pink    { background-color: #ff85a2; color: #1a0010; }
 .navButton--purple  { background-color: #c9b3e8; color: #000; }
 .navButton--teal    { background-color: #3dbfbf; color: #000; }
+
+/* Active / current page — glow matching the button colour */
+.navButton.navButton--active {
+    filter: brightness(1.12);
+    box-shadow:
+        0 0 0 2px rgba(255, 255, 255, 0.6),
+        0 0 12px rgba(255, 255, 255, 0.35),
+        0 0 24px rgba(255, 255, 255, 0.15);
+    transform: translateY(-1px);
+}
+
+.navButton--yellow.navButton--active  { box-shadow: 0 0 0 2px #FFD700, 0 0 12px rgba(255,215,0,0.6),  0 0 24px rgba(255,215,0,0.25); }
+.navButton--orange.navButton--active  { box-shadow: 0 0 0 2px #FFA55A, 0 0 12px rgba(255,165,90,0.6),  0 0 24px rgba(255,165,90,0.25); }
+.navButton--blue.navButton--active    { box-shadow: 0 0 0 2px #90c2f5, 0 0 12px rgba(144,194,245,0.6), 0 0 24px rgba(144,194,245,0.25); }
+.navButton--pink.navButton--active    { box-shadow: 0 0 0 2px #ff85a2, 0 0 12px rgba(255,133,162,0.6), 0 0 24px rgba(255,133,162,0.25); }
+.navButton--purple.navButton--active  { box-shadow: 0 0 0 2px #c9b3e8, 0 0 12px rgba(201,179,232,0.6), 0 0 24px rgba(201,179,232,0.25); }
+.navButton--teal.navButton--active    { box-shadow: 0 0 0 2px #3dbfbf, 0 0 12px rgba(61,191,191,0.6),  0 0 24px rgba(61,191,191,0.25); }

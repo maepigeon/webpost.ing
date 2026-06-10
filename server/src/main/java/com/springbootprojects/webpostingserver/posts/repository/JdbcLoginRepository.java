@@ -217,6 +217,8 @@ public class JdbcLoginRepository implements LoginRepository {
         }
         //authorize action if not expired and token matches server
         if (authSession.token.equals(token)) {
+            // Reject frozen users even if they have a valid session
+            if ("frozen".equals(authSession.role)) return null;
             System.out.println("Authorized user " + username + " to do something");
             return authSession;
         } else {
@@ -242,6 +244,17 @@ public class JdbcLoginRepository implements LoginRepository {
         }
         authSession.userId = authenticate(loginInfo.getUsername(), loginInfo.getPassword());
         if (authSession.userId > 0) {
+            // Load and store the user's role
+            List<String> roles = jdbcTemplate.queryForList(
+                "SELECT role FROM users WHERE id=?", String.class, authSession.userId);
+            authSession.role = roles.isEmpty() ? "user" : roles.get(0);
+
+            // Frozen users are blocked from all API access — refuse session creation
+            if ("frozen".equals(authSession.role)) {
+                authSession.loginHttpStatusCodeResult = HttpStatus.FORBIDDEN;
+                return authSession;
+            }
+
             String authToken;
             if (loginMap.get(loginInfo.getUsername()) != null) {
                 authToken = loginMap.get(loginInfo.getUsername()).token;
@@ -257,6 +270,11 @@ public class JdbcLoginRepository implements LoginRepository {
             authSession.loginHttpStatusCodeResult = HttpStatus.FORBIDDEN;
         }
         return authSession;
+    }
+
+    /** Immediately invalidate an active session, e.g. when a user is frozen. */
+    public void evictSession(String username) {
+        loginMap.remove(username);
     }
 
     public void deleteUser(String username) {

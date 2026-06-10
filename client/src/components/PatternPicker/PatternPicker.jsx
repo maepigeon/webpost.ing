@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { PRESET_PATTERNS, isValidPattern, patternToStyle, findPresetByImage, pawImage, PAW_DEFAULT_COLOR, starsImage, STARS_DEFAULT_COLOR, STARS_DEFAULT_BG, extractBgColor, stripBgColor, DEFAULT_BG_COLOR } from './patterns.js';
+import { PRESET_PATTERNS, isValidPattern, patternToStyle, findPresetByImage, pawImage, PAW_DEFAULT_COLOR, starsImage, STARS_DEFAULT_COLOR, STARS_DEFAULT_BG, extractBgColor, extractScale, stripBgColor, DEFAULT_BG_COLOR } from './patterns.js';
 import { BASE_URL } from '../../config.js';
 import './PatternPicker.css';
 
@@ -109,26 +109,32 @@ function ColorEditors({ css, onChange }) {
  *   username    — if provided, user presets are loaded from / saved to the backend
  */
 export default function PatternPicker({ value, onChange, username }) {
-  // Append |#COLOR suffix only when the color differs from the default
-  const withBgColor = (pattern, color) => {
-    if (!color || color === DEFAULT_BG_COLOR) return pattern || '';
-    return (pattern || '') + '|' + color;
+  // Build a stored value from a pattern (stripping existing suffixes), color, and scale.
+  const buildValue = (pattern, color, s) => {
+    const base = pattern ? pattern.split('|')[0] : '';
+    let v = base;
+    if (color && color !== DEFAULT_BG_COLOR) v += '|' + color;
+    if (s && s !== 1) v += '|scale:' + s;
+    return v;
   };
 
-  // Reflect the active value's CSS in the custom input (strips |#COLOR first)
+  const withBgColor = (pattern, color) => buildValue(pattern, color, scale);
+
+  // Return base CSS for a stored value (strips all suffixes)
   const cssForValue = (v) => {
     const p = stripBgColor(v) || '';
-    if (!p || p === 'none') return '';
-    if (p in PRESET_PATTERNS) return PRESET_PATTERNS[p].backgroundImage || '';
-    if (p.startsWith('paw-print:')) return pawImage(p.slice('paw-print:'.length).trim());
-    if (p.startsWith('stars:')) {
-      const rest = p.slice('stars:'.length);
+    const base = p.split('|')[0] || '';
+    if (!base || base === 'none') return '';
+    if (base in PRESET_PATTERNS) return PRESET_PATTERNS[base].backgroundImage || '';
+    if (base.startsWith('paw-print:')) return pawImage(base.slice('paw-print:'.length).trim());
+    if (base.startsWith('stars:')) {
+      const rest = base.slice('stars:'.length);
       const idx = rest.indexOf(':');
       const sc = idx >= 0 ? rest.slice(0, idx) : rest;
       const bc = idx >= 0 ? rest.slice(idx + 1) : STARS_DEFAULT_BG;
       return starsImage(sc, bc);
     }
-    return p;
+    return base;
   };
 
   const [customInput, setCustomInput] = useState(() => cssForValue(value));
@@ -136,11 +142,12 @@ export default function PatternPicker({ value, onChange, username }) {
   const [inputDirty, setInputDirty] = useState(false);
   const [previewStyle, setPreviewStyle] = useState(null);
   const [bgColor, setBgColor] = useState(() => extractBgColor(value) || DEFAULT_BG_COLOR);
+  const [scale, setScale] = useState(() => extractScale(value));
 
-  // Sync bgColor when the value prop changes from outside
+  // Sync bgColor and scale when value prop changes from outside
   useEffect(() => {
-    const fromValue = extractBgColor(value);
-    setBgColor(fromValue || DEFAULT_BG_COLOR);
+    setBgColor(extractBgColor(value) || DEFAULT_BG_COLOR);
+    setScale(extractScale(value));
   }, [value]);
 
   // User-saved presets — loaded from backend (or localStorage as fallback)
@@ -214,7 +221,8 @@ export default function PatternPicker({ value, onChange, username }) {
   };
 
   const extractParameterizedKey = useCallback((css, v) => {
-    const base = typeof v === 'string' ? stripBgColor(v) : '';
+    // Use only the base (strip all suffixes) to determine pattern type
+    const base = typeof v === 'string' ? (stripBgColor(v) || '').split('|')[0] : '';
     const isPaw = base === 'paw-print' || base.startsWith('paw-print:');
     if (isPaw) {
       const m = css.match(/rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+(?:\s*,\s*[\d.]+)?\s*\)|#[0-9a-fA-F]{3,8}/i);
@@ -319,7 +327,13 @@ export default function PatternPicker({ value, onChange, username }) {
   const handleBgColorChange = (color) => {
     setBgColor(color);
     const currentPattern = stripBgColor(value) || '';
-    onChange(withBgColor(currentPattern, color));
+    onChange(buildValue(currentPattern, color, scale));
+  };
+
+  const handleScaleChange = (newScale) => {
+    setScale(newScale);
+    const currentPattern = stripBgColor(value) || '';
+    onChange(buildValue(currentPattern, bgColor, newScale));
   };
 
   // Build swatch inline style for a preset
@@ -372,6 +386,24 @@ export default function PatternPicker({ value, onChange, username }) {
             >Reset</button>
           )}
         </div>
+      </div>
+
+      {/* Pattern tile scale */}
+      <div className="pattern-picker-section">
+        <div className="pattern-picker-section-label">Pattern scale &nbsp;
+          <span style={{ fontWeight: 400, color: '#666' }}>{scale.toFixed(2)}×</span>
+          {scale !== 1 && (
+            <button type="button" className="pattern-picker-test-btn" style={{ marginLeft: 8 }}
+              onClick={() => handleScaleChange(1)}>Reset</button>
+          )}
+        </div>
+        <input
+          type="range"
+          min="0.25" max="4" step="0.05"
+          value={scale}
+          className="pattern-scale-slider"
+          onChange={e => handleScaleChange(parseFloat(e.target.value))}
+        />
       </div>
 
       {/* User saved presets */}
