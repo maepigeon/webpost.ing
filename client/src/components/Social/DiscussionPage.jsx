@@ -5,6 +5,7 @@ import {
   GET_USER_FROM_POST, READ_POST,
 } from '../Pages/Posts/BasicTextPostServerApi.js';
 import CommentItem from './CommentItem.jsx';
+import { patternToStyle } from '../PatternPicker/patterns.js';
 import './Social.css';
 
 function flattenTree(comments) {
@@ -19,6 +20,7 @@ export default function DiscussionPage() {
   const navigate = useNavigate();
 
   const [postTitle, setPostTitle] = useState('');
+  const [backgroundPattern, setBackgroundPattern] = useState('');
   const [enabled, setEnabled] = useState(false);
   const [style, setStyle] = useState('threaded');
   const [loaded, setLoaded] = useState(false);
@@ -30,7 +32,10 @@ export default function DiscussionPage() {
   const loggedIn = !!localStorage.getItem('userName');
 
   useEffect(() => {
-    READ_POST(id).then(data => setPostTitle(data.title)).catch(() => {});
+    READ_POST(id).then(data => {
+      setPostTitle(data.title);
+      setBackgroundPattern(data.backgroundPattern || '');
+    }).catch(() => {});
     GET_POST_FEATURES(id)
       .then(d => {
         setEnabled(d.discussionEnabled);
@@ -61,6 +66,20 @@ export default function DiscussionPage() {
 
   useEffect(() => { loadComments(); }, [loadComments]);
 
+  useEffect(() => {
+    const s = patternToStyle(backgroundPattern);
+    document.body.style.backgroundImage = s.backgroundImage || '';
+    document.body.style.backgroundSize = s.backgroundSize || 'auto';
+    document.body.style.backgroundPosition = s.backgroundPosition || 'initial';
+    document.documentElement.style.backgroundColor = s._bgColor || '';
+    return () => {
+      document.body.style.backgroundImage = '';
+      document.body.style.backgroundSize = '';
+      document.body.style.backgroundPosition = '';
+      document.documentElement.style.backgroundColor = '';
+    };
+  }, [backgroundPattern]);
+
   const submitComment = async () => {
     if (!newComment.trim() || submitting) return;
     setSubmitting(true);
@@ -72,12 +91,14 @@ export default function DiscussionPage() {
     setSubmitting(false);
   };
 
-  if (!loaded) return <div className="discussion-page"><p className="discussion-empty">Loading…</p></div>;
+  if (!loaded) return <div className="discussion-page"><div className="discussion-glass-panel"><p className="discussion-empty">Loading…</p></div></div>;
 
   if (!enabled) return (
     <div className="discussion-page">
-      <button className="discussion-back-btn" onClick={() => navigate(-1)}>← Back to post</button>
-      <p className="discussion-disabled">Discussion is not enabled for this post.</p>
+      <div className="discussion-glass-panel">
+        <button className="discussion-back-btn" onClick={() => navigate(-1)}>← Back to post</button>
+        <p className="discussion-disabled">Discussion is not enabled for this post.</p>
+      </div>
     </div>
   );
 
@@ -87,6 +108,7 @@ export default function DiscussionPage() {
 
   return (
     <div className="discussion-page">
+      <div className="discussion-glass-panel">
       <div className="discussion-page-header">
         <button className="discussion-back-btn" onClick={() => navigate(`/users/${username}/${id}`)}>
           ← Back to post
@@ -136,6 +158,7 @@ export default function DiscussionPage() {
               />
             ))
         }
+      </div>
       </div>
     </div>
   );

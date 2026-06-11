@@ -444,3 +444,113 @@ export function ADMIN_IMPORT_USER(targetUsername, exportJsonString) {
     headers: { 'Content-Type': 'application/json' },
   }).then(r => r.data);
 }
+
+// ── Admin: security ───────────────────────────────────────────────────────────
+
+export function ADMIN_CHANGE_PASSWORD(targetUsername, newPassword) {
+  return axios.put(baseUrl + `/api/admin/users/${targetUsername}/password`,
+    { newPassword }, { withCredentials: true }).then(r => r.data);
+}
+
+export function ADMIN_GET_INVITE_CODES() {
+  return axios.get(baseUrl + '/api/admin/invite-codes', { withCredentials: true }).then(r => r.data);
+}
+
+export function ADMIN_CREATE_INVITE_CODE() {
+  return axios.post(baseUrl + '/api/admin/invite-codes', {}, { withCredentials: true }).then(r => r.data);
+}
+
+export function ADMIN_DELETE_INVITE_CODE(code) {
+  return axios.delete(baseUrl + `/api/admin/invite-codes/${encodeURIComponent(code)}`,
+    { withCredentials: true }).then(r => r.data);
+}
+
+// ── Conversations ─────────────────────────────────────────────────────────────
+
+export function GET_CONVERSATIONS() {
+  return axios.get(baseUrl + '/api/conversations', { withCredentials: true }).then(r => r.data);
+}
+
+export function GET_OR_CREATE_CONVERSATION(username) {
+  return axios.post(baseUrl + `/api/users/${username}/conversation`, {},
+    { withCredentials: true }).then(r => r.data);
+}
+
+export function GET_CONVERSATION_MESSAGES(id, limit = 50, offset = 0) {
+  return axios.get(baseUrl + `/api/conversations/${id}/messages`,
+    { params: { limit, offset }, withCredentials: true }).then(r => r.data);
+}
+
+export function SEND_CONVERSATION_MESSAGE(id, content) {
+  return axios.post(baseUrl + `/api/conversations/${id}/messages`,
+    { content }, { withCredentials: true }).then(r => r.data);
+}
+
+export function MARK_CONVERSATION_READ(id) {
+  return axios.put(baseUrl + `/api/conversations/${id}/messages/read`, {},
+    { withCredentials: true }).then(r => r.data);
+}
+
+export function GET_UNREAD_MESSAGE_COUNT() {
+  return axios.get(baseUrl + '/api/conversations/unread-count',
+    { withCredentials: true }).then(r => r.data);
+}
+
+// ── Post views ────────────────────────────────────────────────────────────────
+
+export function RECORD_POST_VIEW(postId) {
+  return axios.post(baseUrl + `/api/posts/${postId}/view`, {},
+    { withCredentials: true }).then(r => r.data).catch(() => {});
+}
+
+export function GET_POST_VIEWS(postId) {
+  return axios.get(baseUrl + `/api/posts/${postId}/views`).then(r => r.data);
+}
+
+export function GET_POST_VOTE(postId) {
+  return axios.get(baseUrl + `/api/posts/${postId}/vote`, { withCredentials: true }).then(r => r.data);
+}
+
+export function VOTE_POST(postId, vote) {
+  return axios.post(baseUrl + `/api/posts/${postId}/vote`, { vote },
+    { withCredentials: true }).then(r => r.data);
+}
+
+// ── Avatars ───────────────────────────────────────────────────────────────────
+
+export function GET_USER_AVATAR(username) {
+  return axios.get(baseUrl + `/api/users/${username}/avatar`).then(r => r.data);
+}
+
+export function POST_USER_AVATAR(username, formData) {
+  return axios.post(baseUrl + `/api/users/${username}/avatar`, formData,
+    { withCredentials: true }).then(r => r.data);
+}
+
+// ── Online indicator ──────────────────────────────────────────────────────────
+
+export function SEND_HEARTBEAT(username) {
+  return axios.post(baseUrl + `/api/users/${username}/heartbeat`, {},
+    { withCredentials: true }).then(r => r.data).catch(() => {});
+}
+
+export function GET_USER_ONLINE(username) {
+  return axios.get(baseUrl + `/api/users/${username}/online`).then(r => r.data);
+}
+
+// ── Hashtags ──────────────────────────────────────────────────────────────────
+
+export function GET_HASHTAG_POSTS(tag) {
+  return axios.get(baseUrl + `/api/hashtags/${encodeURIComponent(tag)}/posts`).then(r => r.data);
+}
+
+// ── Admin system settings ─────────────────────────────────────────────────────
+
+export function ADMIN_GET_SETTINGS() {
+  return axios.get(baseUrl + '/api/admin/settings', { withCredentials: true }).then(r => r.data);
+}
+
+export function ADMIN_UPDATE_SETTING(key, value) {
+  return axios.put(baseUrl + `/api/admin/settings/${encodeURIComponent(key)}`,
+    { value: String(value) }, { withCredentials: true }).then(r => r.data);
+}

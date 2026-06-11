@@ -5,21 +5,21 @@ import { isValidPattern, patternToStyle, PRESET_PATTERNS, extractBgColor, stripB
 
 describe('extractBgColor', () => {
   it('returns null for null', () => expect(extractBgColor(null)).toBeNull());
-  it('returns null for plain preset key', () => expect(extractBgColor('dots')).toBeNull());
-  it('returns color for preset|#hex', () => expect(extractBgColor('dots|#f0e6d3')).toBe('#f0e6d3'));
+  it('returns null for plain preset key', () => expect(extractBgColor('grid')).toBeNull());
+  it('returns color for preset|#hex', () => expect(extractBgColor('grid|#f0e6d3')).toBe('#f0e6d3'));
   it('returns color for |#hex (no pattern)', () => expect(extractBgColor('|#aabbcc')).toBe('#aabbcc'));
-  it('returns null if suffix is not hex', () => expect(extractBgColor('dots|red')).toBeNull());
+  it('returns null if suffix is not hex', () => expect(extractBgColor('grid|red')).toBeNull());
   it('accepts 3-char hex', () => expect(extractBgColor('grid|#abc')).toBe('#abc'));
   it('accepts 8-char hex', () => expect(extractBgColor('grid|#aabbccdd')).toBe('#aabbccdd'));
 });
 
 describe('stripBgColor', () => {
   it('returns null for null', () => expect(stripBgColor(null)).toBeNull());
-  it('returns value unchanged when no suffix', () => expect(stripBgColor('dots')).toBe('dots'));
-  it('strips valid |#hex suffix', () => expect(stripBgColor('dots|#f0e6d3')).toBe('dots'));
+  it('returns value unchanged when no suffix', () => expect(stripBgColor('grid')).toBe('grid'));
+  it('strips valid |#hex suffix', () => expect(stripBgColor('grid|#f0e6d3')).toBe('grid'));
   it('strips from gradient value', () =>
     expect(stripBgColor('linear-gradient(red,blue)|#001122')).toBe('linear-gradient(red,blue)'));
-  it('does not strip non-hex suffix', () => expect(stripBgColor('dots|red')).toBe('dots|red'));
+  it('does not strip non-hex suffix', () => expect(stripBgColor('grid|red')).toBe('grid|red'));
   it('returns empty string for |#hex only', () => expect(stripBgColor('|#aabbcc')).toBe(''));
 });
 
@@ -78,7 +78,7 @@ describe('isValidPattern', () => {
     expect(isValidPattern('linear-gradient(' + 'a'.repeat(1990) + ')')).toBe(false));
 
   // |#COLOR suffix support
-  it('accepts preset|#hex', () => expect(isValidPattern('dots|#f0e6d3')).toBe(true));
+  it('accepts preset|#hex', () => expect(isValidPattern('grid|#f0e6d3')).toBe(true));
   it('accepts gradient|#hex', () =>
     expect(isValidPattern('linear-gradient(red,blue)|#001122')).toBe(true));
   it('accepts |#hex alone (just a bg color, no pattern)', () =>
@@ -97,11 +97,11 @@ describe('patternToStyle', () => {
   it('returns empty object for "none"', () =>
     expect(patternToStyle('none')).toEqual({}));
 
-  it('resolves "dots" preset to backgroundImage + backgroundSize', () => {
-    const style = patternToStyle('dots');
+  it('resolves "hexagons" preset to backgroundImage + backgroundSize', () => {
+    const style = patternToStyle('hexagons');
     expect(style).toHaveProperty('backgroundImage');
     expect(style).toHaveProperty('backgroundSize');
-    expect(style.backgroundImage).toContain('radial-gradient');
+    expect(style.backgroundImage).toContain('linear-gradient');
   });
 
   it('resolves "grid" preset', () => {
@@ -138,7 +138,7 @@ describe('patternToStyle', () => {
 
   // |#COLOR suffix support
   it('extracts _bgColor from preset|#hex', () => {
-    const style = patternToStyle('dots|#f0e6d3');
+    const style = patternToStyle('grid|#f0e6d3');
     expect(style).toHaveProperty('backgroundImage');
     expect(style._bgColor).toBe('#f0e6d3');
   });
@@ -150,7 +150,7 @@ describe('patternToStyle', () => {
   });
 
   it('no _bgColor when no suffix', () => {
-    const style = patternToStyle('dots');
+    const style = patternToStyle('grid');
     expect(style._bgColor).toBeUndefined();
   });
 

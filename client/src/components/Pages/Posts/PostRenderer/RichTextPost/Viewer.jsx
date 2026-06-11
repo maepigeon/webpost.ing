@@ -16,9 +16,11 @@ import { CustomCodeNode } from './CustomCodeNode.jsx';
 import TitleBar from './TitleBar';
 import ReactionBar from '../../../../Social/ReactionBar.jsx';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useDialog } from '../../../../Dialog/Dialog.jsx';
 import {
   READ_POST, GET_USER_FROM_POST,
   GET_POST_FEATURES, GET_PINNED_POST, SET_PINNED_POST, UNPIN_POST,
+  RECORD_POST_VIEW, GET_POST_VIEWS, GET_POST_VOTE, VOTE_POST,
 } from '../../BasicTextPostServerApi.js';
 import { ImageNode } from './ImageNode.jsx';
 import { MathNode } from './MathNode.jsx';
@@ -55,9 +57,62 @@ function LoadEditorStatePlugin({ ready }) {
   return null;
 }
 
+// Linkifies #hashtag text nodes after every Lexical update settles (debounced 200ms).
+// Runs inside LexicalComposer so registerUpdateListener tells us exactly when Lexical is done.
+function HashtagLinkerPlugin({ contentRef, navigate }) {
+  const [editor] = useLexicalComposerContext();
+  useEffect(() => {
+    let timer = null;
+    const linkify = () => {
+      const root = contentRef.current;
+      if (!root) return;
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+        acceptNode: (node) => {
+          const parent = node.parentElement;
+          if (!parent) return NodeFilter.FILTER_REJECT;
+          const tag = parent.tagName;
+          if (tag === 'A' || tag === 'CODE' || tag === 'SCRIPT') return NodeFilter.FILTER_REJECT;
+          if (parent.closest('code, pre, .editor-code, .code-copy-bar')) return NodeFilter.FILTER_REJECT;
+          return /#\w/.test(node.textContent) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+        }
+      });
+      const matches = [];
+      let node;
+      while ((node = walker.nextNode())) matches.push(node);
+      for (const textNode of matches) {
+        const text = textNode.textContent;
+        if (!/#\w/.test(text)) continue;
+        const frag = document.createDocumentFragment();
+        const parts = text.split(/(#[\w]{1,50})/g);
+        parts.forEach(part => {
+          if (/^#[\w]{1,50}$/.test(part)) {
+            const tag = part.slice(1);
+            const a = document.createElement('a');
+            a.href = `/search?tag=${encodeURIComponent(tag)}`;
+            a.textContent = part;
+            a.className = 'hashtag-link';
+            a.addEventListener('click', e => { e.preventDefault(); navigate(`/search?tag=${encodeURIComponent(tag)}`); });
+            frag.appendChild(a);
+          } else if (part) {
+            frag.appendChild(document.createTextNode(part));
+          }
+        });
+        if (textNode.parentNode) textNode.parentNode.replaceChild(frag, textNode);
+      }
+    };
+    const unsub = editor.registerUpdateListener(() => {
+      clearTimeout(timer);
+      timer = setTimeout(linkify, 200);
+    });
+    return () => { unsub(); clearTimeout(timer); };
+  }, [editor, contentRef, navigate]);
+  return null;
+}
+
 export default function RichTextViewer() {
   const { id, username } = useParams();
   const navigate = useNavigate();
+  const { confirm } = useDialog();
 
   const [postTitle, setPostTitle] = useState('Loading...');
   const [postDate, setPostDate] = useState('');
@@ -74,6 +129,10 @@ export default function RichTextViewer() {
   const [shareOpen, setShareOpen] = useState(false);
   const shareRef = useRef(null);
   const [isPinned, setIsPinned] = useState(false);
+  const [viewCounts, setViewCounts] = useState(null); // { total_views, unique_views }
+  const [postScore, setPostScore] = useState(0);
+  const [userPostVote, setUserPostVote] = useState(0); // -1, 0, or 1
+  const loggedIn = !!localStorage.getItem('userName');
 
   useEffect(() => {
     if (!shareOpen) return;
@@ -94,6 +153,7 @@ export default function RichTextViewer() {
     GET_PINNED_POST(postAuthor)
       .then(p => setIsPinned(p && p.id === parseInt(id)))
       .catch(() => setIsPinned(false));
+    GET_POST_VIEWS(id).then(setViewCounts).catch(() => {});
   }, [postLoaded, isAuthor, postAuthor, id]);
 
   useEffect(() => {
@@ -112,6 +172,8 @@ export default function RichTextViewer() {
     GET_POST_FEATURES(id)
       .then(d => setFeatures({ reactionsEnabled: d.reactionsEnabled, discussionEnabled: d.discussionEnabled }))
       .catch(() => {});
+    RECORD_POST_VIEW(id);
+    GET_POST_VOTE(id).then(d => { setPostScore(d.score); setUserPostVote(d.userVote); }).catch(() => {});
   }, [id]);
 
   // Redirect non-owners away from unpublished posts
@@ -148,9 +210,9 @@ export default function RichTextViewer() {
         if (new URL(url).origin === window.location.origin) return;
       } catch { return; }
       e.preventDefault();
-      if (window.confirm(`You are leaving this site.\n\n${url}\n\nContinue?`)) {
-        window.open(url, '_blank', 'noopener,noreferrer');
-      }
+      confirm(`You are leaving this site.\n\n${url}\n\nContinue?`).then(ok => {
+        if (ok) window.open(url, '_blank', 'noopener,noreferrer');
+      });
     };
     root.addEventListener('click', handler);
     return () => root.removeEventListener('click', handler);
@@ -196,13 +258,13 @@ export default function RichTextViewer() {
         bar.style.width = codeRect.width + 'px';
 
         const btn = document.createElement('button');
-        btn.textContent = 'Copy';
+        btn.textContent = 'copy to clipboard';
         btn.className = 'code-copy-bar-btn';
         btn.addEventListener('click', () => {
           const text = extractText(code);
           navigator.clipboard.writeText(text).then(() => {
-            btn.textContent = '✓ Copied';
-            setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+            btn.textContent = '✓ copied';
+            setTimeout(() => { btn.textContent = 'copy to clipboard'; }, 1500);
           }).catch(() => {});
         });
         bar.appendChild(btn);
@@ -217,6 +279,8 @@ export default function RichTextViewer() {
     };
   }, [dataReady]);
 
+  // Hashtag linkification is handled by HashtagLinkerPlugin inside LexicalComposer (see below)
+
   const authorUsername = username || postAuthor;
 
   return (
@@ -227,6 +291,7 @@ export default function RichTextViewer() {
         <ClickableLinkPlugin />
         <HistoryPlugin />
         <LoadEditorStatePlugin ready={dataReady} />
+        <HashtagLinkerPlugin contentRef={contentRef} navigate={navigate} />
         <div className="editor-centered">
           <div className="editor-post-card">
             <TitleBar
@@ -242,11 +307,38 @@ export default function RichTextViewer() {
               />
             </div>
 
-            {/* Post reactions */}
-            {features.reactionsEnabled && <ReactionBar postId={parseInt(id)} />}
-
-            {/* Post footer: author controls + share + discussion */}
+            {/* Post footer: author controls + reactions + share + discussion — all one row */}
             <div className="post-footer">
+              {/* Post vote */}
+              <div className="post-vote-bar">
+                <button
+                  className={`post-vote-btn${userPostVote === 1 ? ' post-vote-btn--up' : ''}`}
+                  disabled={!loggedIn}
+                  title="Upvote"
+                  onClick={async () => {
+                    const next = userPostVote === 1 ? 0 : 1;
+                    const delta = next - userPostVote;
+                    setPostScore(s => s + delta);
+                    setUserPostVote(next);
+                    try { const d = await VOTE_POST(id, next); setPostScore(d.score); setUserPostVote(d.userVote); }
+                    catch { setPostScore(s => s - delta); setUserPostVote(userPostVote); }
+                  }}
+                >▲</button>
+                <span className="post-vote-score">{postScore}</span>
+                <button
+                  className={`post-vote-btn${userPostVote === -1 ? ' post-vote-btn--down' : ''}`}
+                  disabled={!loggedIn}
+                  title="Downvote"
+                  onClick={async () => {
+                    const next = userPostVote === -1 ? 0 : -1;
+                    const delta = next - userPostVote;
+                    setPostScore(s => s + delta);
+                    setUserPostVote(next);
+                    try { const d = await VOTE_POST(id, next); setPostScore(d.score); setUserPostVote(d.userVote); }
+                    catch { setPostScore(s => s - delta); setUserPostVote(userPostVote); }
+                  }}
+                >▼</button>
+              </div>
               {isAuthor && (
                 <div className="post-author-controls">
                   <Link to={`/editor/${id}`}>
@@ -254,6 +346,7 @@ export default function RichTextViewer() {
                   </Link>
                 </div>
               )}
+              {features.reactionsEnabled && <ReactionBar postId={parseInt(id)} isOwner={isAuthor} />}
               <div className="share-menu-wrapper" ref={shareRef}>
                 <button
                   className="viewer-share-btn"
@@ -306,6 +399,11 @@ export default function RichTextViewer() {
                 >
                   Discussion
                 </Link>
+              )}
+              {isAuthor && viewCounts && Number(viewCounts.total_views) > 0 && (
+                <span style={{ fontSize: '13px', color: '#888', marginLeft: 'auto', whiteSpace: 'nowrap' }}>
+                  👁 {Number(viewCounts.total_views).toLocaleString()} {Number(viewCounts.unique_views) > 0 ? `(${Number(viewCounts.unique_views).toLocaleString()} unique)` : ''}
+                </span>
               )}
             </div>
           </div>

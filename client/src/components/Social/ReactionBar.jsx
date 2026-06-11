@@ -4,7 +4,7 @@ import './Social.css';
 
 const REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 
-export default function ReactionBar({ postId }) {
+export default function ReactionBar({ postId, isOwner }) {
   const [counts, setCounts] = useState({});
   const [userReactions, setUserReactions] = useState(new Set());
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -51,16 +51,17 @@ export default function ReactionBar({ postId }) {
       {activeEmojis.map(emoji => (
         <button
           key={emoji}
-          className={`reaction-btn${userReactions.has(emoji) ? ' reaction-btn--active' : ''}`}
-          onClick={() => handleReact(emoji)}
-          title={loggedIn ? emoji : 'Log in to react'}
-          disabled={!loggedIn}
+          className={`reaction-btn${userReactions.has(emoji) ? ' reaction-btn--active' : ''}${isOwner ? ' reaction-btn--readonly' : ''}`}
+          onClick={isOwner ? undefined : () => handleReact(emoji)}
+          title={isOwner ? emoji : loggedIn ? emoji : 'Log in to react'}
+          disabled={!loggedIn && !isOwner}
+          style={isOwner ? { cursor: 'default' } : undefined}
         >
           <span className="reaction-emoji">{emoji}</span>
           {counts[emoji] ? <span className="reaction-count">{counts[emoji]}</span> : null}
         </button>
       ))}
-      {loggedIn && pickerEmojis.length > 0 && (
+      {loggedIn && !isOwner && pickerEmojis.length > 0 && (
         <button
           className="reaction-btn reaction-expand"
           onClick={() => setPickerOpen(o => !o)}
@@ -69,7 +70,7 @@ export default function ReactionBar({ postId }) {
           {pickerOpen ? '×' : '+'}
         </button>
       )}
-      {loggedIn && pickerOpen && pickerEmojis.map(emoji => (
+      {loggedIn && !isOwner && pickerOpen && pickerEmojis.map(emoji => (
         <button
           key={emoji}
           className="reaction-btn reaction-picker-item"

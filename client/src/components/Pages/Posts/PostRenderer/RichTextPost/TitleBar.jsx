@@ -1,14 +1,16 @@
 import {useState, React} from 'react';
 import { Link } from 'react-router-dom';
 import './Title.css'
-import ContentEditable from 'react-contenteditable';
 
+function stripHtml(str) {
+    return (str || '').replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"');
+}
 
 function TitleBar(props) {
     var postdata = props.postdata;
     var editMode = props.editMode;
     var handleEditTitleCallback = props.handleEditTitleCallback;
-    
+
     const Modes = Object.freeze({
         VIEW: 0,
         EDIT: 1,
@@ -17,31 +19,12 @@ function TitleBar(props) {
 
     const [currentPostMode, setCurrentPostMode] = useState(editMode ? Modes.EDIT : Modes.VIEW);
 
-    // Update the title  data reference when the respective field is edited
-    var handleEditTitle = event => {
-        if (event.target.value) {
-            titlehtml.current = event.target.value;
-            localStorage.setItem("currentPostTitle", event.target.value);
-    }};
-
-    const Editable = ({handleEditTitleCallback, typeTag, initialContent}) => {
-        const content = initialContent;
-        return (
-            <ContentEditable
-                onChange={handleEditTitleCallback}
-                html={content}
-                tagName={typeTag}
-                data-placeholder="Type a title…"/>
-        )
-    }
-
     // Renders the heading and paragraph for the post
     function renderPostDataFields(postMode, handleEditTitleCallback) {
-        console.log("AUTHOR: " + postdata.author);
         if (postMode == Modes.VIEW) {
-            return( 
+            return(
                 <>
-                    <h1>{postdata.title}</h1>
+                    <h1>{stripHtml(postdata.title)}</h1>
                     <Link to={"/users/"+postdata.author}>
                         <h3> Author: {postdata.author}</h3>
                     </Link>
@@ -50,9 +33,15 @@ function TitleBar(props) {
         else if (postMode == Modes.EDIT) {
             return(
                 <>
-                    <Editable handleEditTitleCallback={handleEditTitleCallback}
-                        typeTag="h1" initialContent={postdata.title}>
-                    </Editable>
+                    <input
+                        className="title-input"
+                        type="text"
+                        defaultValue={stripHtml(postdata.title)}
+                        placeholder="Type a title…"
+                        maxLength={200}
+                        onKeyDown={e => { if (e.key === 'Enter') e.preventDefault(); }}
+                        onChange={handleEditTitleCallback}
+                    />
                     <Link to={"/users/"+postdata.author}>
                         <h3> Author: {postdata.author}</h3>
                     </Link>

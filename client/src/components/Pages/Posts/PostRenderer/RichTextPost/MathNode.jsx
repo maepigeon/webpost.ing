@@ -103,8 +103,9 @@ function MathComponent({ equation, nodeKey }) {
       onMouseEnter={() => setShowControls(true)}
       onMouseLeave={() => setShowControls(false)}
     >
+      <div dangerouslySetInnerHTML={{ __html: html }} />
       {showControls && (
-        <div className="editor-image-controls editor-math-controls">
+        <div className="editor-math-controls-below">
           {editable && <>
             <button type="button" onMouseDown={e => { e.preventDefault(); moveNode('up'); }} title="Move up">↑</button>
             <button type="button" onMouseDown={e => { e.preventDefault(); moveNode('down'); }} title="Move down">↓</button>
@@ -124,11 +125,10 @@ function MathComponent({ equation, nodeKey }) {
             }}
             title="Copy LaTeX"
           >
-            {copiedLatex ? '✓ Copied' : 'Copy to clipboard'}
+            {copiedLatex ? '✓ Copied' : 'Copy LaTeX'}
           </button>
         </div>
       )}
-      <div dangerouslySetInnerHTML={{ __html: html }} />
     </div>
   );
 }

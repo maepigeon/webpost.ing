@@ -21,8 +21,11 @@ public class PatternValidator {
 
     /** Keys the frontend resolves to hardcoded CSS — nothing from DB reaches the DOM for these. */
     private static final Set<String> PRESETS = Set.of(
-            "none", "dots", "grid", "diagonal-stripes", "checkerboard", "notebook",
-            "paw-print", "stars", "zigzag", "cross-hatch"
+            // Current presets
+            "none", "grid", "checkerboard", "paw-print", "stars",
+            "hexagons", "chevron", "topographic",
+            // Legacy keys — kept so stored values remain valid
+            "pinstripes", "dots", "diagonal-stripes", "notebook", "zigzag", "cross-hatch"
     );
 
     /** paw-print:COLOR — parameterized paw with custom color; color must be hex or rgb/rgba only. */

@@ -601,6 +601,173 @@ public class SocialRepository {
         return restored;
     }
 
+    // ── Conversations ─────────────────────────────────────────────────────────
+
+    public List<Map<String, Object>> getConversations(int userId) {
+        return jdbc.queryForList(
+            "SELECT c.id, " +
+            "  CASE WHEN c.user1_id=? THEN u2.username ELSE u1.username END AS other_username, " +
+            "  last_msg.content AS last_message, " +
+            "  last_msg.created_at AS last_message_at, " +
+            "  (SELECT COUNT(*) FROM direct_messages dm2 " +
+            "   WHERE dm2.conversation_id=c.id AND dm2.sender_id!=? AND dm2.is_read=FALSE) AS unread_count " +
+            "FROM conversations c " +
+            "JOIN users u1 ON u1.id=c.user1_id " +
+            "JOIN users u2 ON u2.id=c.user2_id " +
+            "LEFT JOIN LATERAL (" +
+            "  SELECT content, created_at FROM direct_messages " +
+            "  WHERE conversation_id=c.id ORDER BY created_at DESC LIMIT 1" +
+            ") last_msg ON TRUE " +
+            "WHERE c.user1_id=? OR c.user2_id=? " +
+            "ORDER BY last_msg.created_at DESC NULLS LAST",
+            userId, userId, userId, userId);
+    }
+
+    public int getOrCreateConversation(int userId1, int userId2) {
+        int a = Math.min(userId1, userId2);
+        int b = Math.max(userId1, userId2);
+        KeyHolder kh = new GeneratedKeyHolder();
+        jdbc.update(c -> {
+            PreparedStatement ps = c.prepareStatement(
+                "INSERT INTO conversations(user1_id,user2_id) VALUES(?,?) " +
+                "ON CONFLICT (user1_id,user2_id) DO UPDATE SET user1_id=EXCLUDED.user1_id RETURNING id",
+                Statement.RETURN_GENERATED_KEYS);
+            ps.setInt(1, a);
+            ps.setInt(2, b);
+            return ps;
+        }, kh);
+        return kh.getKey().intValue();
+    }
+
+    public boolean isConversationParticipant(int convId, int userId) {
+        Integer count = jdbc.queryForObject(
+            "SELECT COUNT(*) FROM conversations WHERE id=? AND (user1_id=? OR user2_id=?)",
+            Integer.class, convId, userId, userId);
+        return count != null && count > 0;
+    }
+
+    public List<Map<String, Object>> getMessages(int convId, int limit, int offset) {
+        return jdbc.queryForList(
+            "SELECT dm.id, dm.sender_id, u.username AS sender_username, dm.content, dm.is_read, dm.created_at " +
+            "FROM direct_messages dm JOIN users u ON u.id=dm.sender_id " +
+            "WHERE dm.conversation_id=? ORDER BY dm.created_at ASC LIMIT ? OFFSET ?",
+            convId, limit, offset);
+    }
+
+    public void sendConversationMessage(int convId, int senderId, String content) {
+        jdbc.update(
+            "INSERT INTO direct_messages(conversation_id,sender_id,content) VALUES(?,?,?)",
+            convId, senderId, content);
+    }
+
+    public int getOtherParticipant(int convId, int userId) {
+        List<Integer> r = jdbc.queryForList(
+            "SELECT CASE WHEN user1_id=? THEN user2_id ELSE user1_id END " +
+            "FROM conversations WHERE id=?",
+            Integer.class, userId, convId);
+        return r.isEmpty() ? -1 : r.get(0);
+    }
+
+    public void markConversationRead(int convId, int userId) {
+        jdbc.update(
+            "UPDATE direct_messages SET is_read=TRUE WHERE conversation_id=? AND sender_id!=?",
+            convId, userId);
+    }
+
+    public int getUnreadMessageCount(int userId) {
+        Integer r = jdbc.queryForObject(
+            "SELECT COUNT(*) FROM direct_messages dm " +
+            "JOIN conversations c ON c.id=dm.conversation_id " +
+            "WHERE (c.user1_id=? OR c.user2_id=?) AND dm.sender_id!=? AND dm.is_read=FALSE",
+            Integer.class, userId, userId, userId);
+        return r != null ? r : 0;
+    }
+
+    // ── Post views ────────────────────────────────────────────────────────────
+
+    public void recordPostView(int postId, Integer userId) {
+        if (userId != null) {
+            int inserted = jdbc.update(
+                "INSERT INTO post_views(post_id,user_id) VALUES(?,?) ON CONFLICT DO NOTHING",
+                postId, userId);
+            if (inserted > 0) {
+                jdbc.update(
+                    "INSERT INTO post_view_totals(post_id,total_views,unique_views) VALUES(?,1,1) " +
+                    "ON CONFLICT (post_id) DO UPDATE SET " +
+                    "total_views=post_view_totals.total_views+1, unique_views=post_view_totals.unique_views+1",
+                    postId);
+            } else {
+                jdbc.update(
+                    "INSERT INTO post_view_totals(post_id,total_views,unique_views) VALUES(?,1,0) " +
+                    "ON CONFLICT (post_id) DO UPDATE SET total_views=post_view_totals.total_views+1",
+                    postId);
+            }
+        } else {
+            jdbc.update(
+                "INSERT INTO post_view_totals(post_id,total_views,unique_views) VALUES(?,1,0) " +
+                "ON CONFLICT (post_id) DO UPDATE SET total_views=post_view_totals.total_views+1",
+                postId);
+        }
+    }
+
+    public Map<String, Object> getPostViews(int postId) {
+        List<Map<String, Object>> rows = jdbc.queryForList(
+            "SELECT total_views, unique_views FROM post_view_totals WHERE post_id=?", postId);
+        if (rows.isEmpty()) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("total_views", 0L);
+            m.put("unique_views", 0L);
+            return m;
+        }
+        return rows.get(0);
+    }
+
+    // ── Hashtags ──────────────────────────────────────────────────────────────
+
+    // Matches the "text" field values from Lexical JSON to avoid false positives from
+    // hex colors in style attributes like "style":"color: #1a73e8".
+    private static final java.util.regex.Pattern TEXT_NODE_RE =
+        java.util.regex.Pattern.compile("\"text\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"");
+
+    private static final java.util.regex.Pattern HASHTAG_RE =
+        java.util.regex.Pattern.compile("#([\\w]{1,50})");
+
+    public void parseAndSaveHashtags(int postId, String content) {
+        if (content == null) content = "";
+        java.util.Set<String> tags = new java.util.LinkedHashSet<>();
+        java.util.regex.Matcher textMatcher = TEXT_NODE_RE.matcher(content);
+        while (textMatcher.find()) {
+            String textValue = textMatcher.group(1)
+                .replace("\\\"", "\"").replace("\\\\", "\\")
+                .replace("\\n", "\n").replace("\\t", "\t");
+            java.util.regex.Matcher m = HASHTAG_RE.matcher(textValue);
+            while (m.find()) tags.add(m.group(1).toLowerCase());
+        }
+
+        jdbc.update("DELETE FROM post_hashtags WHERE post_id=?", postId);
+        for (String tag : tags) {
+            jdbc.update("INSERT INTO hashtags(tag) VALUES(?) ON CONFLICT (tag) DO NOTHING", tag);
+            List<Integer> ids = jdbc.queryForList(
+                "SELECT id FROM hashtags WHERE tag=?", Integer.class, tag);
+            if (!ids.isEmpty())
+                jdbc.update("INSERT INTO post_hashtags(post_id, hashtag_id) VALUES(?,?) ON CONFLICT DO NOTHING",
+                    postId, ids.get(0));
+        }
+    }
+
+    public List<Map<String, Object>> getPostsByHashtag(String tag) {
+        return jdbc.queryForList(
+            "SELECT p.id, p.title, u.username " +
+            "FROM post_hashtags ph " +
+            "JOIN hashtags h ON h.id=ph.hashtag_id " +
+            "JOIN posts p ON p.id=ph.post_id " +
+            "JOIN users_posts_junctions j ON j.post_id=p.id " +
+            "JOIN users u ON u.id=j.user_id " +
+            "WHERE h.tag=? AND p.published=TRUE " +
+            "ORDER BY p.date DESC LIMIT 100",
+            tag.toLowerCase());
+    }
+
     // ── User search ───────────────────────────────────────────────────────────
 
     /** Case-insensitive prefix/substring search on usernames. */
@@ -608,6 +775,38 @@ public class SocialRepository {
         return jdbc.queryForList(
             "SELECT username FROM users WHERE username ILIKE ? ORDER BY username LIMIT ?",
             String.class, "%" + query + "%", limit);
+    }
+
+    // ── Post votes ────────────────────────────────────────────────────────────
+
+    /** Vote (+1 or -1) on a post. Passing 0 removes the vote. Returns {score, userVote}. */
+    public Map<String, Object> votePost(int postId, int userId, int vote) {
+        if (vote == 0) {
+            jdbc.update("DELETE FROM post_votes WHERE post_id=? AND user_id=?", postId, userId);
+        } else {
+            jdbc.update(
+                "INSERT INTO post_votes(post_id,user_id,vote) VALUES(?,?,?) " +
+                "ON CONFLICT(post_id,user_id) DO UPDATE SET vote=EXCLUDED.vote",
+                postId, userId, vote);
+        }
+        int score = getPostScore(postId);
+        int userVote = vote == 0 ? 0 : vote;
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("score", score);
+        result.put("userVote", userVote);
+        return result;
+    }
+
+    public int getPostScore(int postId) {
+        Integer s = jdbc.queryForObject(
+            "SELECT COALESCE(SUM(vote),0) FROM post_votes WHERE post_id=?", Integer.class, postId);
+        return s != null ? s : 0;
+    }
+
+    public int getUserPostVote(int postId, int userId) {
+        List<Integer> rows = jdbc.queryForList(
+            "SELECT vote FROM post_votes WHERE post_id=? AND user_id=?", Integer.class, postId, userId);
+        return rows.isEmpty() ? 0 : rows.get(0);
     }
 
     /** Returns follower and following counts for a user. */

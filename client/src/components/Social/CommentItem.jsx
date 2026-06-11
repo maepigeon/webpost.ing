@@ -1,8 +1,28 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { VOTE_COMMENT, DELETE_COMMENT, EDIT_COMMENT, ADD_COMMENT,
-         SET_COMMENT_REACTION } from '../Pages/Posts/BasicTextPostServerApi.js';
+         SET_COMMENT_REACTION, GET_USER_AVATAR } from '../Pages/Posts/BasicTextPostServerApi.js';
+import { IMAGES_BASE_URL } from '../../config.js';
+import { useDialog } from '../Dialog/Dialog.jsx';
 import './Social.css';
+
+// Module-level cache so avatars aren't re-fetched per render
+const _avatarCache = {};
+
+function UserAvatar({ username }) {
+  const [src, setSrc] = useState(_avatarCache[username] ?? null);
+  useEffect(() => {
+    if (_avatarCache[username] !== undefined) { setSrc(_avatarCache[username]); return; }
+    _avatarCache[username] = ''; // mark as pending
+    GET_USER_AVATAR(username)
+      .then(d => { _avatarCache[username] = d?.avatarPath || ''; setSrc(_avatarCache[username]); })
+      .catch(() => { _avatarCache[username] = ''; });
+  }, [username]);
+
+  const initials = username?.[0]?.toUpperCase() || '?';
+  if (src) return <img src={IMAGES_BASE_URL + src} alt={username} className="comment-avatar" />;
+  return <span className="comment-avatar comment-avatar--fallback">{initials}</span>;
+}
 
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🎉'];
 
@@ -33,6 +53,7 @@ function timeAgo(date) {
 }
 
 export default function CommentItem({ comment, postId, depth = 0, onRefresh }) {
+  const { confirm } = useDialog();
   const [score, setScore] = useState(comment.score);
   const [userVote, setUserVote] = useState(comment.userVote);
   const [editing, setEditing] = useState(false);
@@ -86,7 +107,7 @@ export default function CommentItem({ comment, postId, depth = 0, onRefresh }) {
   };
 
   const del = async () => {
-    if (!window.confirm('Delete this comment?')) return;
+    if (!(await confirm('Delete this comment?'))) return;
     try { await DELETE_COMMENT(comment.id); onRefresh(); } catch {}
   };
 
@@ -109,6 +130,7 @@ export default function CommentItem({ comment, postId, depth = 0, onRefresh }) {
       </div>
       <div className="comment-body">
         <div className="comment-meta">
+          <UserAvatar username={comment.authorUsername} />
           <Link to={`/users/${comment.authorUsername}`} className="comment-author" style={{ textDecoration: 'none' }}>{comment.authorUsername}</Link>
           <span className="comment-time">{timeAgo(comment.createdAt)}</span>
           {comment.editedAt && <span className="comment-edited">(edited)</span>}
@@ -136,7 +158,7 @@ export default function CommentItem({ comment, postId, depth = 0, onRefresh }) {
           {me === comment.authorUsername && !editing && <button onClick={() => setEditing(true)}>Edit</button>}
           {me === comment.authorUsername && <button onClick={del} className="comment-delete-btn">Delete</button>}
           {/* React button inline with reply/edit/delete */}
-          {loggedIn && pickerEmojis.length > 0 && (
+          {loggedIn && me !== comment.authorUsername && pickerEmojis.length > 0 && (
             <button
               onClick={() => setPickerOpen(o => !o)}
               title={pickerOpen ? 'Close reactions' : 'Add reaction'}

@@ -1,6 +1,6 @@
 # Priority Task List
 
-Last updated: 2026-06-09
+Last updated: 2026-06-11
 
 ---
 
@@ -14,6 +14,17 @@ Last updated: 2026-06-09
 
 ## Completed (recent)
 
+- [x] **Liquid glass dialog system** — promise-based `useDialog()` hook replaces all `window.confirm`/`window.alert` calls; `DialogProvider` wraps the app
+- [x] **Post upvote/downvote** — `post_votes` table (V009 migration), `GET/POST /api/posts/{id}/vote`, vote bar in `Viewer.jsx`
+- [x] **Wallpaper preset preview** — clicking a preset previews without saving; Apply/Cancel bar appears; Cancel reverts
+- [x] **Avatar counts toward storage quota** — avatar uploads tracked in `uploads` table as `avatar/...`; quota check subtracts old avatar bytes
+- [x] **15-second comment cooldown** — server-side minimum gap between comments, bypassed for admins
+- [x] **React button hidden on own comments** — `me !== comment.authorUsername` guard in `CommentItem.jsx`
+- [x] **Hashtag highlighting in editor** — `HashtagHighlightPlugin` wraps `#word` in styled spans with 150ms debounce
+- [x] **Mobile hamburger navbar** — hamburger at ≤860px with glass slide-in panel; logged-out shows Log In directly
+- [x] **Mobile post editor toolbar** — Format hamburger opens glass panel; Save controls always visible
+- [x] **Deleted posts in My Activity** — `deletePost` logs deletion; `ActivityPage` shows post deletions by `item_type`
+- [x] **Login page invite code link** — "Have an invite code? Create an account" link below login form
 - [x] **Admin access to user profiles** — admins can view any user's activity page and storage stats; server-side `is_admin` check before returning data; frontend lets server decide (no client-side gate)
 - [x] **New-post notifications** — followers notified when a post is published (both new-as-published and draft→publish)
 - [x] **Mutuals indicator** — follow button shows "Mutuals" (purple) when both users follow each other; re-fetches status after following

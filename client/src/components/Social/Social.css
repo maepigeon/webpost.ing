@@ -1,14 +1,44 @@
+/* ── User avatar ─────────────────────────────────────────────────────────── */
+
+.comment-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.comment-avatar--fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #d0d0d0;
+  font-size: 11px;
+  font-weight: 700;
+  color: #555;
+  flex-shrink: 0;
+}
+
 /* ── Reaction bar ─────────────────────────────────────────────────────────── */
 
 .reaction-bar {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  padding: 12px 0 4px;
+  padding: 4px 0;
 }
 
 .reaction-bar--centered {
   justify-content: center;
+}
+
+/* When inside post-footer, remove extra padding */
+.post-footer .reaction-bar {
+  padding: 0;
 }
 
 .reaction-btn {
@@ -16,18 +46,29 @@
   align-items: center;
   gap: 4px;
   padding: 4px 10px;
-  background: rgba(255,255,255,0.45);
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0) 70%),
+    rgba(255,255,255,0.48);
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(0,0,0,0.12);
+  border: 1px solid rgba(255,255,255,0.75);
   border-radius: 20px;
   cursor: pointer;
   font-size: 16px;
-  transition: background 0.15s, transform 0.1s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -1px 0 rgba(0,0,0,0.04);
+  transition: background 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .reaction-btn:hover:not(:disabled) {
-  background: rgba(255,255,255,0.7);
-  transform: translateY(-1px);
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 70%),
+    rgba(255,255,255,0.68);
+  transform: scale(1.12);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.95), inset 0 -1px 0 rgba(0,0,0,0.05);
+}
+
+.reaction-btn:active:not(:disabled) {
+  transform: scale(0.94);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08), inset 0 2px 4px rgba(0,0,0,0.10), inset 0 1px 0 rgba(0,0,0,0.06);
 }
 
 .reaction-btn--active {
@@ -128,16 +169,16 @@
 }
 
 .notif-dropdown {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 6px);
+  position: fixed;
+  right: 8px;
+  top: calc(var(--navbar-height, 48px) + 6px);
   width: 300px;
   background: rgba(255,255,255,0.95);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(0,0,0,0.12);
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.14);
-  z-index: 1000;
+  z-index: 9999;
   overflow: hidden;
 }
 
@@ -337,57 +378,97 @@
 .discussion-page {
   max-width: 720px;
   margin: 0 auto;
-  padding: 32px 16px 64px;
+  padding: 28px 16px 64px;
   text-align: left;
+}
+
+/* Glass panel wrapping everything on the discussion page */
+.discussion-glass-panel {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0) 60%),
+    rgba(255,255,255,0.58);
+  backdrop-filter: blur(22px) saturate(180%) brightness(1.04);
+  -webkit-backdrop-filter: blur(22px) saturate(180%) brightness(1.04);
+  border: 1px solid rgba(255,255,255,0.78);
+  border-radius: 20px;
+  padding: 26px 28px 32px;
+  box-shadow:
+    0 16px 48px rgba(0,0,0,0.13),
+    0 6px 16px rgba(0,0,0,0.08),
+    0 2px 4px rgba(0,0,0,0.05),
+    inset 0 2px 0 rgba(255,255,255,0.98),
+    inset 0 -1px 0 rgba(0,0,0,0.04),
+    inset 1px 0 0 rgba(255,255,255,0.55),
+    inset -1px 0 0 rgba(0,0,0,0.03);
+}
+
+@media (max-width: 600px) {
+  .discussion-glass-panel { padding: 18px 14px 24px; border-radius: 16px; }
 }
 
 .discussion-page-header {
   display: flex;
   align-items: flex-start;
   gap: 16px;
-  margin-bottom: 24px;
+  margin-bottom: 22px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.55);
 }
 
 .discussion-back-btn {
-  background: none;
-  border: none;
-  color: #555;
+  background: rgba(255,255,255,0.45);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.6);
+  border-radius: 20px;
+  color: #444;
   font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
-  padding: 4px 0;
+  padding: 5px 14px;
   white-space: nowrap;
   flex-shrink: 0;
-  margin-top: 6px;
+  margin-top: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07), inset 0 1px 0 rgba(255,255,255,0.9);
+  transition: background 0.15s, transform 0.12s cubic-bezier(0.34,1.56,0.64,1);
 }
-
-.discussion-back-btn:hover { color: #000; }
+.discussion-back-btn:hover {
+  background: rgba(255,255,255,0.72);
+  color: #111;
+  transform: translateY(-1px);
+}
 
 .discussion-style-badge {
   font-size: 12px;
-  color: #666;
-  background: rgba(0,0,0,0.06);
+  color: rgba(108,99,255,0.85);
+  background: rgba(108,99,255,0.10);
+  border: 1px solid rgba(108,99,255,0.2);
   padding: 3px 10px;
   border-radius: 12px;
   margin-top: 6px;
   white-space: nowrap;
   flex-shrink: 0;
   align-self: flex-start;
+  font-weight: 600;
 }
 
 .discussion-page-title {
   margin: 0 0 4px;
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 800;
+  color: #0a0a0a;
+  letter-spacing: -0.01em;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
 .discussion-post-subtitle {
   margin: 0;
-  color: #888;
+  color: #666;
   font-size: 14px;
   display: block;
+  font-style: italic;
 }
 
-/* ── Discussion section ───────────────────────────────────────────────────── */
+/* ── Discussion section (embedded in Viewer) ──────────────────────────────── */
 
 .discussion-section {
   margin-top: 32px;
@@ -411,14 +492,16 @@
 .discussion-toggle-btn {
   font-size: 12px;
   padding: 4px 12px;
-  border-radius: 4px;
-  border: 1px solid #ccc;
-  background: none;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.6);
+  background: rgba(255,255,255,0.4);
+  backdrop-filter: blur(6px);
   cursor: pointer;
   color: #555;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.8);
+  transition: background 0.15s;
 }
-
-.discussion-toggle-btn:hover { background: #f5f5f5; }
+.discussion-toggle-btn:hover { background: rgba(255,255,255,0.7); }
 
 .discussion-disabled {
   color: #888;
@@ -428,68 +511,104 @@
 .discussion-sort {
   display: flex;
   gap: 6px;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 .discussion-sort button {
-  background: none;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 3px 12px;
+  background: rgba(255,255,255,0.45);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.6);
+  border-radius: 20px;
+  padding: 4px 14px;
   font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
   color: #555;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9);
+  transition: background 0.15s, color 0.15s, transform 0.12s;
 }
+.discussion-sort button:hover { background: rgba(255,255,255,0.72); transform: translateY(-1px); }
 
 .discussion-sort .sort-active {
-  background: #1a73e8;
-  border-color: #1a73e8;
+  background: linear-gradient(135deg, #6c63ff, #4b44cc);
+  border-color: transparent;
   color: #fff;
+  box-shadow: 0 2px 8px rgba(108,99,255,0.35), inset 0 1px 0 rgba(255,255,255,0.2);
 }
+.discussion-sort .sort-active:hover { background: linear-gradient(135deg, #7c74ff, #5246e8); transform: translateY(-1px); }
 
+/* Compose box — glass card */
 .discussion-compose {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 20px;
+  gap: 10px;
+  margin-bottom: 24px;
+  padding: 16px 18px;
+  background: rgba(255,255,255,0.45);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.68);
+  border-radius: 14px;
+  box-shadow:
+    0 4px 16px rgba(0,0,0,0.07),
+    inset 0 2px 0 rgba(255,255,255,0.9),
+    inset 0 -1px 0 rgba(0,0,0,0.03);
 }
 
 .discussion-compose textarea {
   width: 100%;
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(108,99,255,0.2);
+  border-radius: 10px;
   font-size: 14px;
   resize: vertical;
   font-family: inherit;
   box-sizing: border-box;
+  background: rgba(255,255,255,0.75);
+  color: #1a1a1a;
+  line-height: 1.5;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.18s;
+}
+.discussion-compose textarea:focus {
+  border-color: #6c63ff;
+  box-shadow: 0 0 0 3px rgba(108,99,255,0.13);
 }
 
 .discussion-compose button {
   align-self: flex-end;
-  padding: 6px 18px;
-  background: #1a73e8;
+  padding: 8px 22px;
+  background: linear-gradient(135deg, #6c63ff 0%, #4b44cc 100%);
   color: #fff;
   border: none;
-  border-radius: 6px;
+  border-radius: 10px;
   cursor: pointer;
   font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 3px 10px rgba(108,99,255,0.32), inset 0 1px 0 rgba(255,255,255,0.2);
+  transition: filter 0.15s, transform 0.12s cubic-bezier(0.34,1.56,0.64,1);
 }
-
+.discussion-compose button:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
 .discussion-compose button:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: default;
 }
 
 .discussion-login-prompt {
   font-size: 13px;
-  color: #888;
+  color: #777;
   margin-bottom: 16px;
+  font-style: italic;
 }
 
 .discussion-empty {
   color: #aaa;
   font-size: 14px;
+  text-align: center;
+  padding: 24px 0;
 }
 
 /* ── Comment items ────────────────────────────────────────────────────────── */

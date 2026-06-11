@@ -1,7 +1,7 @@
 import {
   $createParagraphNode, $createTextNode, $getSelection, $isRangeSelection, $isNodeSelection,
-  $insertNodes, KEY_BACKSPACE_COMMAND, KEY_DELETE_COMMAND, KEY_ESCAPE_COMMAND,
-  COMMAND_PRIORITY_EDITOR,
+  $insertNodes, KEY_BACKSPACE_COMMAND, KEY_DELETE_COMMAND, KEY_ESCAPE_COMMAND, KEY_ENTER_COMMAND,
+  COMMAND_PRIORITY_EDITOR, COMMAND_PRIORITY_LOW,
   UNDO_COMMAND, REDO_COMMAND, CAN_UNDO_COMMAND, CAN_REDO_COMMAND,
   FORMAT_TEXT_COMMAND, $getNodeByKey, $getRoot, $isParagraphNode,
 } from 'lexical';
@@ -28,6 +28,7 @@ import { LinkNode, $createLinkNode, $isLinkNode, TOGGLE_LINK_COMMAND } from '@le
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
 import { ClickableLinkPlugin } from '@lexical/react/LexicalClickableLinkPlugin';
 import { READ_POST, CREATE_POST, UPDATE_POST, GET_USER_FROM_POST, GET_POST_FEATURES, SET_REACTIONS_ENABLED, SET_DISCUSSION_ENABLED } from '../../BasicTextPostServerApi.js';
+import { useDialog } from '../../../../Dialog/Dialog.jsx';
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ImageNode, $createImageNode } from './ImageNode.jsx';
 import { MathNode, $createMathNode } from './MathNode.jsx';
@@ -38,7 +39,8 @@ import { patternToStyle } from '../../../../PatternPicker/patterns.js';
 
 const EDITOR_NODES = [HeadingNode, ListNode, ListItemNode, CustomCodeNode, CodeHighlightNode, ImageNode, MathNode, LinkNode];
 
-const FONT_SIZES = ['12px', '14px', '16px', '18px', '24px', '32px', '48px'];
+const FONT_SIZES   = ['12px', '14px', '16px', '18px', '24px', '32px', '48px'];
+const LINE_HEIGHTS = ['1', '1.25', '1.5', '1.75', '2', '2.5'];
 
 const initialConfig = {
   namespace: 'MyEditor',
@@ -88,8 +90,9 @@ function BlockTypePlugin() {
 // Applies inline CSS styles to the current selection (per-character)
 function InlineStylePlugin() {
   const [editor] = useLexicalComposerContext();
-  const [color, setColor] = useState('#000000');
-  const [fontSize, setFontSize] = useState('16px');
+  const [color, setColor]           = useState('#000000');
+  const [fontSize, setFontSize]     = useState('16px');
+  const [lineHeight, setLineHeight] = useState('1.5');
 
   // Keep toolbar controls in sync with the cursor / selection
   useEffect(() => {
@@ -97,10 +100,19 @@ function InlineStylePlugin() {
       editorState.read(() => {
         const selection = $getSelection();
         if ($isRangeSelection(selection)) {
-          const currentColor = $getSelectionStyleValueForProperty(selection, 'color', '#000000');
-          const currentSize = $getSelectionStyleValueForProperty(selection, 'font-size', '16px');
-          if (currentColor) setColor(currentColor);
-          if (currentSize) setFontSize(currentSize);
+          const currentColor  = $getSelectionStyleValueForProperty(selection, 'color', '#000000');
+          const currentSize   = $getSelectionStyleValueForProperty(selection, 'font-size', '16px');
+          if (currentColor)  setColor(currentColor);
+          if (currentSize)   setFontSize(currentSize);
+          // Read line-height from the block-level node (applied via setStyle, not $patchStyleText)
+          try {
+            const node = selection.anchor.getNode();
+            const block = typeof node.getTopLevelElement === 'function' ? node.getTopLevelElement() : null;
+            if (block && typeof block.getStyle === 'function') {
+              const lhMatch = (block.getStyle() || '').match(/line-height:\s*([\d.]+)/);
+              setLineHeight(lhMatch ? lhMatch[1] : '1.5');
+            }
+          } catch { /* ignore */ }
         }
       });
     });
@@ -110,9 +122,7 @@ function InlineStylePlugin() {
     setColor(value);
     editor.update(() => {
       const selection = $getSelection();
-      if ($isRangeSelection(selection)) {
-        $patchStyleText(selection, { color: value });
-      }
+      if ($isRangeSelection(selection)) $patchStyleText(selection, { color: value });
     });
   };
 
@@ -120,8 +130,25 @@ function InlineStylePlugin() {
     setFontSize(value);
     editor.update(() => {
       const selection = $getSelection();
-      if ($isRangeSelection(selection)) {
-        $patchStyleText(selection, { 'font-size': value });
+      if ($isRangeSelection(selection)) $patchStyleText(selection, { 'font-size': value });
+    });
+  };
+
+  const applyLineHeight = (value) => {
+    setLineHeight(value);
+    editor.update(() => {
+      const selection = $getSelection();
+      if (!$isRangeSelection(selection)) return;
+      const seen = new Set();
+      for (const node of selection.getNodes()) {
+        const block = typeof node.getTopLevelElement === 'function' ? node.getTopLevelElement() : null;
+        if (!block || seen.has(block.getKey())) continue;
+        seen.add(block.getKey());
+        if (typeof block.setStyle !== 'function') continue;
+        const existing = block.getStyle?.() || '';
+        const parts = existing.split(';').map(p => p.trim()).filter(p => p && !p.toLowerCase().startsWith('line-height'));
+        if (value && value !== '1') parts.push(`line-height: ${value}`);
+        block.setStyle(parts.join('; '));
       }
     });
   };
@@ -151,8 +178,83 @@ function InlineStylePlugin() {
           ))}
         </select>
       </label>
+      <label className="toolbar-label">
+        Spacing
+        <select
+          value={lineHeight}
+          onChange={(e) => applyLineHeight(e.target.value)}
+          className="toolbar-select"
+          title="Line spacing"
+        >
+          {LINE_HEIGHTS.map((lh) => (
+            <option key={lh} value={lh}>{lh}×</option>
+          ))}
+        </select>
+      </label>
     </>
   );
+}
+
+// Creates a paragraph (not another heading) when Enter is pressed at the end of a heading
+function HeadingEnterPlugin() {
+  const [editor] = useLexicalComposerContext();
+  useEffect(() => {
+    return editor.registerCommand(
+      KEY_ENTER_COMMAND,
+      () => {
+        const edState = editor.getEditorState();
+        let shouldHandle = false;
+        edState.read(() => {
+          const sel = $getSelection();
+          if (!$isRangeSelection(sel) || !sel.isCollapsed()) return;
+          const node = sel.anchor.getNode();
+          const block = typeof node.getTopLevelElement === 'function' ? node.getTopLevelElement() : null;
+          if (!$isHeadingNode(block)) return;
+          const last = block.getLastChild?.();
+          if (!last || last !== node) return;
+          const textLen = node.getTextContentSize?.() ?? (node.getTextContent?.() || '').length;
+          if (sel.anchor.offset < textLen) return;
+          shouldHandle = true;
+        });
+        if (!shouldHandle) return false;
+        editor.update(() => {
+          const sel = $getSelection();
+          if (!$isRangeSelection(sel)) return;
+          const node = sel.anchor.getNode();
+          const block = typeof node.getTopLevelElement === 'function' ? node.getTopLevelElement() : null;
+          if (!$isHeadingNode(block)) return;
+          const para = $createParagraphNode();
+          block.insertAfter(para);
+          para.select();
+        });
+        return true;
+      },
+      COMMAND_PRIORITY_LOW
+    );
+  }, [editor]);
+  return null;
+}
+
+// Scrolls the cursor into view after Enter key press
+function EnterScrollPlugin() {
+  const [editor] = useLexicalComposerContext();
+  useEffect(() => {
+    return editor.registerCommand(
+      KEY_ENTER_COMMAND,
+      () => {
+        setTimeout(() => {
+          const sel = window.getSelection();
+          if (!sel || sel.rangeCount === 0) return;
+          const node = sel.focusNode;
+          const el = node?.nodeType === 3 ? node.parentElement : node;
+          el?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+        }, 0);
+        return false;
+      },
+      COMMAND_PRIORITY_LOW
+    );
+  }, [editor]);
+  return null;
 }
 
 function CodeHighlightPlugin() {
@@ -163,6 +265,54 @@ function CodeHighlightPlugin() {
   return null;
 }
 
+// Highlights #hashtag text in the editor with a colored span after each Lexical update.
+// Uses DOM manipulation with debounce — re-applies after every edit since Lexical
+// overwrites the DOM on each reconcile. Spans carry data-hashtag so they're idempotent.
+function HashtagHighlightPlugin({ navigate }) {
+  const [editor] = useLexicalComposerContext();
+  useEffect(() => {
+    let timer = null;
+    const highlight = () => {
+      const root = editor.getRootElement();
+      if (!root) return;
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+        acceptNode: (node) => {
+          const p = node.parentElement;
+          if (!p) return NodeFilter.FILTER_REJECT;
+          const tag = p.tagName;
+          if (tag === 'A' || tag === 'CODE' || tag === 'SCRIPT') return NodeFilter.FILTER_REJECT;
+          if (p.closest('code, pre, .editor-code')) return NodeFilter.FILTER_REJECT;
+          return /#\w/.test(node.textContent) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+        }
+      });
+      const nodes = [];
+      let n;
+      while ((n = walker.nextNode())) nodes.push(n);
+      for (const textNode of nodes) {
+        const text = textNode.textContent;
+        if (!/#\w/.test(text)) continue;
+        const frag = document.createDocumentFragment();
+        text.split(/(#[\w]{1,50})/g).forEach(part => {
+          if (/^#[\w]{1,50}$/.test(part)) {
+            const span = document.createElement('span');
+            span.className = 'editor-hashtag-token';
+            span.textContent = part;
+            frag.appendChild(span);
+          } else if (part) {
+            frag.appendChild(document.createTextNode(part));
+          }
+        });
+        if (textNode.parentNode) textNode.parentNode.replaceChild(frag, textNode);
+      }
+    };
+    const unsub = editor.registerUpdateListener(() => {
+      clearTimeout(timer);
+      timer = setTimeout(highlight, 150);
+    });
+    return () => { unsub(); clearTimeout(timer); };
+  }, [editor]);
+  return null;
+}
 
 function CodeEscapePlugin() {
   const [editor] = useLexicalComposerContext();
@@ -810,6 +960,7 @@ function BackgroundToolbarPlugin({ pattern, onPatternChange, username }) {
 }
 
 function FeatureTogglePlugin({ postid, features, onFeaturesChange, backgroundPattern, onPatternChange, username }) {
+  const { confirm } = useDialog();
   if (!postid || postid <= 0) return null;
 
   const toggle = async (key) => {
@@ -818,7 +969,7 @@ function FeatureTogglePlugin({ postid, features, onFeaturesChange, backgroundPat
     const msg = next
       ? `Enable ${label} on this post?`
       : `Disable ${label}? ${next ? '' : 'They will be hidden from readers until re-enabled.'}`;
-    if (!window.confirm(msg.trim())) return;
+    if (!(await confirm(msg.trim()))) return;
     try {
       if (key === 'reactionsEnabled') await SET_REACTIONS_ENABLED(postid, next);
       else await SET_DISCUSSION_ENABLED(postid, next);
@@ -850,6 +1001,7 @@ function FeatureTogglePlugin({ postid, features, onFeaturesChange, backgroundPat
 }
 
 function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublishedChange, titleRef, onSaved, username, folder, onFolderChange }) {
+  const { confirm } = useDialog();
   const [editor] = useLexicalComposerContext();
   const [saveStatus, setSaveStatus] = useState('');
   const [savedId, setSavedId] = useState(null);
@@ -863,16 +1015,16 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
     setTimeout(() => setSaveStatus(''), 3000);
   };
 
-  const save = (published) => {
+  const save = async (published) => {
     if (saving) return;
-    const postTitle = (titleRef?.current || localStorage.getItem("currentPostTitle") || '').trim();
+    const postTitle = (titleRef?.current || localStorage.getItem("currentPostTitle") || '').replace(/<[^>]*>/g, '').trim();
     if (published) {
       if (!postTitle) { showStatus('Add a title before publishing.', true); return; }
       const bodyText = editor.getEditorState().read(() => $getRoot().getTextContent()).trim();
       if (!bodyText) { showStatus('Add some content before publishing.', true); return; }
     }
     if (!published && postPublished) {
-      if (!window.confirm('Unpublish this post? It will no longer be visible to other users.')) return;
+      if (!(await confirm('Unpublish this post? It will no longer be visible to other users.'))) return;
     }
     const editorState = JSON.stringify(editor.getEditorState().toJSON());
     setSaving(true);
@@ -1001,20 +1153,32 @@ function FormatToolbarPlugin() {
 }
 
 function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, postPublished, onPublishedChange, features, onFeaturesChange, titleRef, onSaved, folder, onFolderChange }) {
-  return (
-    <div className='toolbar-sticky'>
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const panelRef = useRef(null);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    function handler(e) {
+      if (panelRef.current && !panelRef.current.contains(e.target)) setMobileOpen(false);
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [mobileOpen]);
+
+  const buildSections = (allOpen) => (
+    <>
       <UndoRedoPlugin />
       <span className='toolbar-divider' />
-      <CollapsibleSection label="Block">
+      <CollapsibleSection label="Block" defaultOpen={allOpen}>
         <BlockTypePlugin />
         <ListToolbarPlugin />
       </CollapsibleSection>
       <span className='toolbar-divider' />
-      <CollapsibleSection label="Format">
+      <CollapsibleSection label="Format" defaultOpen={allOpen}>
         <FormatToolbarPlugin />
       </CollapsibleSection>
       <span className='toolbar-divider' />
-      <CollapsibleSection label="Style">
+      <CollapsibleSection label="Style" defaultOpen={allOpen}>
         <InlineStylePlugin />
       </CollapsibleSection>
       <span className='toolbar-divider' />
@@ -1028,14 +1192,56 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
       {postid > 0 && (
         <>
           <span className='toolbar-divider' />
-          <CollapsibleSection label="Preferences" defaultOpen={true}>
+          <CollapsibleSection label="Preferences" defaultOpen={allOpen}>
             <FeatureTogglePlugin postid={postid} features={features} onFeaturesChange={onFeaturesChange} backgroundPattern={backgroundPattern} onPatternChange={onPatternChange} username={username} />
           </CollapsibleSection>
         </>
       )}
-      <span className='toolbar-divider' />
-      <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} titleRef={titleRef} onSaved={onSaved} username={username} folder={folder} onFolderChange={onFolderChange} />
-    </div>
+    </>
+  );
+  const formattingSections = buildSections(true);
+
+  return (
+    <>
+      {/* Desktop toolbar */}
+      <div className='toolbar-sticky toolbar-desktop'>
+        {formattingSections}
+        <span className='toolbar-divider' />
+        <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} titleRef={titleRef} onSaved={onSaved} username={username} folder={folder} onFolderChange={onFolderChange} />
+      </div>
+
+      {/* Mobile toolbar: slim bar with hamburger + save */}
+      <div className='toolbar-sticky toolbar-mobile'>
+        <button
+          className='toolbar-mobile-hamburger'
+          onClick={() => setMobileOpen(o => !o)}
+          title="Formatting tools"
+        >
+          <span className='toolbar-mobile-hamburger-icon'><span /><span /><span /></span>
+          <span className='toolbar-mobile-hamburger-label'>Format</span>
+        </button>
+        <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} titleRef={titleRef} onSaved={onSaved} username={username} folder={folder} onFolderChange={onFolderChange} />
+      </div>
+
+      {/* Mobile formatting panel (glass popup) */}
+      {mobileOpen && (
+        <div className='toolbar-mobile-panel-overlay' onClick={() => setMobileOpen(false)}>
+          <div
+            className='toolbar-mobile-panel'
+            ref={panelRef}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className='toolbar-mobile-panel-header'>
+              <span className='toolbar-mobile-panel-title'>Formatting</span>
+              <button className='toolbar-mobile-panel-close' onClick={() => setMobileOpen(false)}>✕</button>
+            </div>
+            <div className='toolbar-mobile-panel-body'>
+              {buildSections(false)}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -1103,6 +1309,8 @@ export default function RichTextEditor() {
       if (!link) return;
       const href = link.getAttribute('href');
       if (!href || href.startsWith('http') || href.startsWith('#')) return;
+      // Can't use async dialog here since we need synchronous prevent/allow;
+      // fall back to native confirm for navigation-intercept only
       if (!window.confirm('You have unsaved changes. Leave anyway? All unsaved data will be lost.')) {
         e.preventDefault();
         e.stopImmediatePropagation();
@@ -1143,8 +1351,8 @@ export default function RichTextEditor() {
   const refreshPost = useCallback(() => {
     if (!id) return;
     READ_POST(id).then((data) => {
-      titlehtml.current = data.title;
-      localStorage.setItem("currentPostTitle", data.title);
+      titlehtml.current = (data.title || '').replace(/<[^>]*>/g, '').trim();
+      localStorage.setItem("currentPostTitle", titlehtml.current);
       setPostDate(data.date);
       setPostPublished(data.published);
       setBackgroundPattern(data.backgroundPattern || '');
@@ -1207,6 +1415,7 @@ export default function RichTextEditor() {
         <ListPlugin />
         <LinkPlugin />
         <CodeHighlightPlugin />
+        <HashtagHighlightPlugin />
         <CodeHoverControlsPlugin />
         <EnsureLeadingParagraphPlugin />
         <EnsureTrailingParagraphPlugin />
@@ -1216,16 +1425,16 @@ export default function RichTextEditor() {
         <ImageDragPastePlugin />
         <MyOnChangePlugin onChange={onChange} />
         <LoadEditorStatePlugin ready={dataReady} />
+        <EnterScrollPlugin />
+        <HeadingEnterPlugin />
         <div className="editor-centered">
           <div className="editor-post-card">
             <TitleBar
               postdata={{ id: id, title: titlehtml.current, published: postPublished, date: postDate, author: postAuthor }}
               handleEditTitleCallback={(event) => {
-                const val = event.target.value ?? event.target.innerHTML;
-                if (val !== undefined) {
-                  titlehtml.current = val;
-                  localStorage.setItem("currentPostTitle", val);
-                }
+                const val = event.target.value ?? '';
+                titlehtml.current = val;
+                localStorage.setItem("currentPostTitle", val);
               }}
               editMode={true}
             />

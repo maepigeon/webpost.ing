@@ -17,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
 
@@ -152,6 +153,58 @@ class DiscussionControllerTest {
         when(social.getUserIdByUsername("mittens")).thenReturn(2);
         discussionController.addComment(10, Map.of("content", "great post"), "whiskers", "tok");
         verify(social).createNotification(2, "comment", "whiskers", 10, 42);
+    }
+
+    @Test
+    void addComment_withinCooldown_returns429() throws Exception {
+        when(loginRepository.authorize("whiskers", "tok")).thenReturn(whiskersSession);
+        when(social.isDiscussionEnabled(10)).thenReturn(true);
+        when(jdbc.queryForObject(anyString(), eq(Boolean.class), eq(1))).thenReturn(false);
+        // Simulate a comment posted 5 seconds ago — within the 15-second window
+        Timestamp fiveSecondsAgo = new Timestamp(System.currentTimeMillis() - 5_000L);
+        when(jdbc.queryForList(anyString(), eq(Timestamp.class), eq(1))).thenReturn(List.of(fiveSecondsAgo));
+
+        ResponseEntity<Map<String, Object>> resp = discussionController.addComment(
+                10, Map.of("content", "too fast"), "whiskers", "tok");
+
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+        verify(social, never()).addComment(anyInt(), any(), anyInt(), anyString());
+    }
+
+    @Test
+    void addComment_cooldownExpired_returns201() throws Exception {
+        when(loginRepository.authorize("whiskers", "tok")).thenReturn(whiskersSession);
+        when(social.isDiscussionEnabled(10)).thenReturn(true);
+        when(jdbc.queryForObject(anyString(), eq(Boolean.class), eq(1))).thenReturn(false);
+        // Simulate a comment posted 20 seconds ago — outside the 15-second window
+        Timestamp twentySecondsAgo = new Timestamp(System.currentTimeMillis() - 20_000L);
+        when(jdbc.queryForList(anyString(), eq(Timestamp.class), eq(1))).thenReturn(List.of(twentySecondsAgo));
+        when(social.addComment(10, null, 1, "old enough")).thenReturn(55);
+        when(postRepository.getUsernameFromPostId(10)).thenReturn(mittensOwner);
+        when(social.getUserIdByUsername("mittens")).thenReturn(2);
+
+        ResponseEntity<Map<String, Object>> resp = discussionController.addComment(
+                10, Map.of("content", "old enough"), "whiskers", "tok");
+
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+    }
+
+    @Test
+    void addComment_adminBypassesCooldown() throws Exception {
+        // Admins skip the 15-second cooldown
+        when(loginRepository.authorize("whiskers", "tok")).thenReturn(whiskersSession);
+        when(social.isDiscussionEnabled(10)).thenReturn(true);
+        when(jdbc.queryForObject(anyString(), eq(Boolean.class), eq(1))).thenReturn(true); // is_admin = true
+        when(social.addComment(10, null, 1, "admin comment")).thenReturn(56);
+        when(postRepository.getUsernameFromPostId(10)).thenReturn(mittensOwner);
+        when(social.getUserIdByUsername("mittens")).thenReturn(2);
+
+        ResponseEntity<Map<String, Object>> resp = discussionController.addComment(
+                10, Map.of("content", "admin comment"), "whiskers", "tok");
+
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        // queryForList (cooldown check) must never be called for admins
+        verify(jdbc, never()).queryForList(anyString(), eq(Timestamp.class), anyInt());
     }
 
     @Test

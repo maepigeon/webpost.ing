@@ -1,0 +1,16 @@
+.login-submit-btn {
+  margin-top: 28px;
+}
+
+.login-have-code {
+  margin-top: 16px;
+  font-size: 0.88rem;
+  color: #888;
+  text-align: center;
+}
+
+.login-register-link {
+  color: #1a73e8;
+  text-decoration: underline;
+  cursor: pointer;
+}

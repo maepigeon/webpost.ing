@@ -91,7 +91,7 @@ export default function NotificationBell() {
   return (
     <div className="notif-bell-wrap" ref={ref}>
       <button className="notif-bell-btn" onClick={() => setOpen(o => !o)} title="Notifications">
-        Inbox
+        Notifications
         {count > 0 && <span className="notif-badge">{count > 99 ? '99+' : count}</span>}
       </button>
       {open && (
@@ -113,7 +113,7 @@ export default function NotificationBell() {
             ))
           }
           <div className="notif-dropdown-footer">
-            <button onClick={() => { setOpen(false); navigate('/inbox'); }}>View all</button>
+            <button onClick={() => { setOpen(false); navigate('/inbox'); }}>View all notifications</button>
           </div>
         </div>
       )}

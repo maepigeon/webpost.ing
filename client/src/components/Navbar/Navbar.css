@@ -14,7 +14,7 @@
     gap: 2px 0;
 }
 
-/* Personal nav group — My Profile, Activity, Inbox, bell */
+/* Personal nav group — My Profile, Activity, Inbox, bell (desktop) */
 .navGroup {
     display: inline-flex;
     align-items: center;
@@ -26,9 +26,136 @@
     margin: 2px;
 }
 
-@media (max-width: 500px) {
-    .navBar { padding: 6px 8px; }
+/* Desktop-only cluster */
+.nav-desktop-group {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px;
 }
+
+/* Hamburger wrapper (mobile only — hidden on desktop) */
+.nav-hamburger-wrap {
+    display: none;
+    position: relative;
+}
+
+/* ── Hamburger button ──────────────────────────────────────────────────────── */
+.nav-hamburger-btn {
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 8px;
+    width: 38px;
+    height: 32px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin: 2px;
+}
+
+.nav-hamburger-icon {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 18px;
+}
+
+.nav-hamburger-icon span {
+    display: block;
+    height: 2px;
+    background: #fff;
+    border-radius: 2px;
+}
+
+/* ── Mobile popup — liquid glass ──────────────────────────────────────────── */
+.nav-mobile-popup {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: min(280px, 85vw);
+    height: 100dvh;
+    background: rgba(20, 20, 25, 0.72);
+    backdrop-filter: blur(28px) saturate(160%);
+    -webkit-backdrop-filter: blur(28px) saturate(160%);
+    border-left: 1px solid rgba(255,255,255,0.14);
+    z-index: 400;
+    display: flex;
+    flex-direction: column;
+    padding: 20px 16px 32px;
+    box-shadow: -8px 0 32px rgba(0,0,0,0.45);
+    animation: nav-slide-in 0.2s ease;
+}
+
+@keyframes nav-slide-in {
+    from { transform: translateX(100%); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+}
+
+.nav-mobile-popup-close {
+    align-self: flex-end;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 50%;
+    color: #fff;
+    font-size: 16px;
+    width: 32px;
+    height: 32px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+    flex-shrink: 0;
+}
+
+.nav-mobile-popup-items {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
+}
+
+.nav-mobile-popup-items .navButton,
+.nav-mobile-popup-items a .navButton {
+    width: 100%;
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 1rem;
+    border-radius: 10px;
+}
+
+/* Mobile log-in button — only shown on mobile when logged out */
+.nav-mobile-login { display: none; }
+
+
+/* ── Welcome line in mobile popup ─────────────────────────────────────────── */
+.nav-mobile-popup-welcome {
+    color: rgba(255,255,255,0.75);
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: 0 4px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    margin-bottom: 12px;
+    letter-spacing: 0.01em;
+}
+
+/* ── Responsive breakpoint ─────────────────────────────────────────────────── */
+@media (max-width: 860px) {
+    .navBar { padding: 6px 6px; justify-content: flex-start; flex-wrap: nowrap; gap: 0; }
+    .navBar > a > .navButton,
+    .navBar > .navButton { padding: 5px 10px; font-size: 12px; }
+
+    /* Hide desktop-only items */
+    .nav-desktop-group { display: none; }
+
+    /* Show hamburger (logged-in) and login button (logged-out) */
+    .nav-hamburger-wrap { display: block; }
+    .nav-mobile-login   { display: inline-flex; margin-left: auto; }
+
+}
+
 p {
     color: white;
     display: inline;

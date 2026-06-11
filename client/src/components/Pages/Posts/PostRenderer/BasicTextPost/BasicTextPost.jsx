@@ -3,9 +3,11 @@ import {useState, useRef, React} from 'react';
 import { Link } from 'react-router-dom';
 import './BasicTextPost.css'
 import ContentEditable from 'react-contenteditable';
+import { useDialog } from '../../../../Dialog/Dialog.jsx';
 
 
 function BasicTextPost(props) {
+    const { confirm } = useDialog();
     var postdata = props.postdata;
     var editMode = props.editMode;
     var hasModifyPermissions = props.hasModifyPermissions;
@@ -99,8 +101,8 @@ function BasicTextPost(props) {
         }
         else {
             return(
-                <button onClick={() => {
-                        if (!window.confirm('Are you sure you want to delete this post? This cannot be undone.')) return;
+                <button onClick={async () => {
+                        if (!(await confirm('Are you sure you want to delete this post? This cannot be undone.'))) return;
                         DELETE_POST(postdata.id).then(
                         () => {
                             props.updatePostsFlagCallback();

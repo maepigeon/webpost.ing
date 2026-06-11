@@ -89,6 +89,7 @@
   position: absolute;
   bottom: calc(100% + 6px);
   right: 0;
+  left: auto;
   min-width: 160px;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(12px);
@@ -118,6 +119,13 @@
   background: rgba(0, 0, 0, 0.06);
 }
 
+@media (max-width: 520px) {
+  .share-menu {
+    right: auto;
+    left: 0;
+  }
+}
+
 .share-menu-divider {
   height: 1px;
   background: rgba(0, 0, 0, 0.08);
@@ -139,4 +147,61 @@
 
 .post-discussion-btn:hover {
   background: rgba(255,255,255,0.8);
+}
+
+.hashtag-link {
+  color: #6c63ff;
+  text-decoration: none;
+  font-weight: 500;
+  cursor: pointer;
+}
+.hashtag-link:hover {
+  text-decoration: underline;
+}
+
+/* ── Post vote bar ─────────────────────────────────────────────────────────── */
+
+.post-vote-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.post-vote-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #999;
+  padding: 2px 5px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+}
+
+.post-vote-btn:hover:not(:disabled) {
+  background: rgba(0,0,0,0.06);
+  color: #444;
+}
+
+.post-vote-btn:disabled {
+  cursor: default;
+}
+
+.post-vote-btn--up {
+  color: #16a34a;
+  font-weight: 700;
+}
+
+.post-vote-btn--down {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.post-vote-score {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #444;
+  min-width: 20px;
+  text-align: center;
 }

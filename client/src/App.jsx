@@ -1,6 +1,6 @@
 import './App.css';
-import {AUTHORIZE_SESSION} from "./components/Pages/Posts/BasicTextPostServerApi"
-
+import { useEffect } from 'react';
+import { AUTHORIZE_SESSION, SEND_HEARTBEAT } from "./components/Pages/Posts/BasicTextPostServerApi"
 
 import { Routes, Route, Navigate } from 'react-router-dom';
 
@@ -17,6 +17,7 @@ import Test from './components/Pages/Test/Test';
 import Home from './components/Pages/Home/Home';
 import ScrollToTop from './components/ScrollToTop/ScrollToTop';
 import InboxPage from './components/Social/InboxPage.jsx';
+import MessagesPage from './components/Social/MessagesPage.jsx';
 import DiscussionPage from './components/Social/DiscussionPage.jsx';
 import SearchPage from './components/Pages/Search/SearchPage.jsx';
 import ActivityPage from './components/Pages/Activity/ActivityPage.jsx';
@@ -26,10 +27,21 @@ import axios from 'axios'
 
 function App() {
   axios.defaults.withCredentials = true;
-  if (  localStorage.getItem("userName") != null) {
+  if (localStorage.getItem("userName") != null) {
     AUTHORIZE_SESSION();
   }
-  console.log("loading authorized session...")
+
+  // Heartbeat: keep online status fresh every 2 minutes
+  useEffect(() => {
+    const username = localStorage.getItem('userName');
+    if (!username) return;
+    SEND_HEARTBEAT(username);
+    const id = setInterval(() => {
+      const u = localStorage.getItem('userName');
+      if (u) SEND_HEARTBEAT(u);
+    }, 2 * 60 * 1000);
+    return () => clearInterval(id);
+  }, []);
 
   return (
     <div id="appBody">
@@ -55,6 +67,7 @@ function App() {
         <Route path="/routes/NewAccount" element={<Registration />} />
         <Route path="/routes/Test" element={<Test /> } />
         <Route path="/inbox" element={<InboxPage />} />
+        <Route path="/messages" element={<MessagesPage />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/activity/:username" element={<ActivityPage />} />
         <Route path="*" element={<Navigate to="/" />} />

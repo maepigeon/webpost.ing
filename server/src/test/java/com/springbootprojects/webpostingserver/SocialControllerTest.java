@@ -124,4 +124,76 @@ class SocialControllerTest {
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
+
+    // ── Post votes ────────────────────────────────────────────────────────────
+
+    @Test
+    void votePost_unauthenticated_returns401() throws Exception {
+        when(loginRepository.authorize("stray", "bad")).thenReturn(null);
+
+        ResponseEntity<Map<String, Object>> resp = socialController.votePost(
+                5, Map.of("vote", 1), "stray", "bad");
+
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        verify(social, never()).votePost(anyInt(), anyInt(), anyInt());
+    }
+
+    @Test
+    void votePost_invalidValue_returns400() throws Exception {
+        when(loginRepository.authorize("whiskers", "tok")).thenReturn(whiskersSession);
+
+        ResponseEntity<Map<String, Object>> resp = socialController.votePost(
+                5, Map.of("vote", 99), "whiskers", "tok");
+
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verify(social, never()).votePost(anyInt(), anyInt(), anyInt());
+    }
+
+    @Test
+    void votePost_upvote_callsRepository() throws Exception {
+        when(loginRepository.authorize("whiskers", "tok")).thenReturn(whiskersSession);
+        when(social.votePost(5, 1, 1)).thenReturn(Map.of("score", 1, "userVote", 1));
+
+        ResponseEntity<Map<String, Object>> resp = socialController.votePost(
+                5, Map.of("vote", 1), "whiskers", "tok");
+
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
+        verify(social).votePost(5, 1, 1);
+    }
+
+    @Test
+    void votePost_downvote_callsRepository() throws Exception {
+        when(loginRepository.authorize("whiskers", "tok")).thenReturn(whiskersSession);
+        when(social.votePost(5, 1, -1)).thenReturn(Map.of("score", -1, "userVote", -1));
+
+        ResponseEntity<Map<String, Object>> resp = socialController.votePost(
+                5, Map.of("vote", -1), "whiskers", "tok");
+
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
+        verify(social).votePost(5, 1, -1);
+    }
+
+    @Test
+    void votePost_removeVote_callsRepositoryWithZero() throws Exception {
+        when(loginRepository.authorize("whiskers", "tok")).thenReturn(whiskersSession);
+        when(social.votePost(5, 1, 0)).thenReturn(Map.of("score", 0, "userVote", 0));
+
+        ResponseEntity<Map<String, Object>> resp = socialController.votePost(
+                5, Map.of("vote", 0), "whiskers", "tok");
+
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
+        verify(social).votePost(5, 1, 0);
+    }
+
+    @Test
+    void votePost_returnsScoreAndUserVote() throws Exception {
+        when(loginRepository.authorize("whiskers", "tok")).thenReturn(whiskersSession);
+        when(social.votePost(5, 1, 1)).thenReturn(Map.of("score", 3, "userVote", 1));
+
+        ResponseEntity<Map<String, Object>> resp = socialController.votePost(
+                5, Map.of("vote", 1), "whiskers", "tok");
+
+        assertThat(resp.getBody()).containsEntry("score", 3);
+        assertThat(resp.getBody()).containsEntry("userVote", 1);
+    }
 }

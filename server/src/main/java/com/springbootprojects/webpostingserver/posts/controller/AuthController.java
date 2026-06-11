@@ -15,10 +15,18 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api")
@@ -26,6 +34,26 @@ public class AuthController {
 
     @Value("${app.dev-mode:false}")
     private boolean devMode;
+
+    @Value("${app.upload-dir:uploads}")
+    private String uploadDir;
+
+    private static final Set<String> AVATAR_EXTENSIONS = Set.of(".jpg", ".jpeg", ".png", ".gif", ".webp");
+    private static final long AVATAR_MAX_BYTES = 2 * 1024 * 1024; // 2 MB
+
+    // Registration rate limiter: IP → blocked-until epoch ms (1 attempt then 1-hour block)
+    private static final java.util.concurrent.ConcurrentHashMap<String, Long> REG_BLOCK = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final long REG_BLOCK_MS = 60 * 60 * 1000L; // 1 hour
+
+    private static boolean hasValidImageMagicBytes(byte[] h) {
+        if (h.length < 4) return false;
+        if ((h[0] & 0xFF) == 0xFF && (h[1] & 0xFF) == 0xD8 && (h[2] & 0xFF) == 0xFF) return true;
+        if ((h[0] & 0xFF) == 0x89 && h[1] == 'P' && h[2] == 'N' && h[3] == 'G') return true;
+        if (h[0] == 'G' && h[1] == 'I' && h[2] == 'F' && h[3] == '8') return true;
+        if (h.length >= 12 && h[0] == 'R' && h[1] == 'I' && h[2] == 'F' && h[3] == 'F'
+                && h[8] == 'W' && h[9] == 'E' && h[10] == 'B' && h[11] == 'P') return true;
+        return false;
+    }
 
     @Autowired
     LoginRepository loginRepository;
@@ -401,6 +429,223 @@ public class AuthController {
         if (!Boolean.TRUE.equals(isAdmin)) return new ResponseEntity<>("Forbidden", HttpStatus.FORBIDDEN);
         loginRepository.deleteUser(username);
         return ResponseEntity.ok("User deleted.");
+    }
+
+    // ── Public registration (invite code required) ────────────────────────────
+
+    @PostMapping("/register")
+    public ResponseEntity<String> register(@RequestBody Map<String, String> body,
+                                           HttpServletRequest request) {
+        String ip = getClientIp(request);
+
+        // IP rate limit: block after first failed or successful attempt for 1 hour
+        Long blockedUntil = REG_BLOCK.get(ip);
+        if (blockedUntil != null && System.currentTimeMillis() < blockedUntil)
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body("Registration temporarily unavailable from this network. Please try again later.");
+
+        String username  = body.get("username");
+        String password  = body.get("password");
+        String email     = body.get("email");
+        String code      = body.get("inviteCode");
+
+        if (username == null || username.isBlank()) return ResponseEntity.badRequest().body("Username required.");
+        if (password == null || password.isBlank()) return ResponseEntity.badRequest().body("Password required.");
+        if (email    == null || email.isBlank())    return ResponseEntity.badRequest().body("Email required.");
+        if (code     == null || code.isBlank())     return ResponseEntity.badRequest().body("Invite code required.");
+
+        username = username.trim();
+        email    = email.trim().toLowerCase();
+
+        if (username.length() < 3 || username.length() > 32)
+            return ResponseEntity.badRequest().body("Username must be 3–32 characters.");
+        if (!username.matches("[A-Za-z0-9_\\-]+"))
+            return ResponseEntity.badRequest().body("Username may only contain letters, numbers, underscores, and hyphens.");
+        if (email.length() > 255 || !email.contains("@"))
+            return ResponseEntity.badRequest().body("Invalid email address.");
+
+        String pwErr = AdminController.validatePassword(password);
+        if (pwErr != null) return ResponseEntity.badRequest().body(pwErr);
+
+        // Check daily registration limit
+        try {
+            String limitStr = jdbc.queryForObject(
+                "SELECT value FROM system_settings WHERE key='max_daily_registrations'", String.class);
+            int limit = limitStr != null ? Integer.parseInt(limitStr.trim()) : 5;
+            if (limit >= 0) {
+                int todayCount = jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM users WHERE registration_date >= CURRENT_DATE",
+                    Integer.class);
+                if (todayCount != null && todayCount >= limit) {
+                    REG_BLOCK.put(ip, System.currentTimeMillis() + REG_BLOCK_MS);
+                    return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                        .body("Registration is currently closed. Please try again tomorrow.");
+                }
+            }
+        } catch (Exception ignored) {}
+
+        // Validate invite code (not expired, not used)
+        List<Map<String, Object>> codeRows = jdbc.queryForList(
+            "SELECT expires_at, used_by FROM invite_codes WHERE code=?", code.trim());
+        if (codeRows.isEmpty()) {
+            REG_BLOCK.put(ip, System.currentTimeMillis() + REG_BLOCK_MS);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Invalid invite code.");
+        }
+        Map<String, Object> codeRow = codeRows.get(0);
+        if (codeRow.get("used_by") != null) {
+            REG_BLOCK.put(ip, System.currentTimeMillis() + REG_BLOCK_MS);
+            return ResponseEntity.status(HttpStatus.GONE).body("Invite code has already been used.");
+        }
+        try {
+            java.time.OffsetDateTime expiresAt = (java.time.OffsetDateTime) codeRow.get("expires_at");
+            if (expiresAt != null && expiresAt.isBefore(java.time.OffsetDateTime.now())) {
+                REG_BLOCK.put(ip, System.currentTimeMillis() + REG_BLOCK_MS);
+                return ResponseEntity.status(HttpStatus.GONE).body("Invite code has expired.");
+            }
+        } catch (Exception ignored) {}
+
+        // Create the user account
+        org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder bcrypt =
+            new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
+        try {
+            jdbc.update("INSERT INTO users(username, password, email) VALUES(?,?,?)",
+                username, bcrypt.encode(password), email);
+        } catch (Exception e) {
+            REG_BLOCK.put(ip, System.currentTimeMillis() + REG_BLOCK_MS);
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("Username already taken.");
+        }
+
+        // Mark code as used, then block IP for 1 hour to prevent multi-account creation
+        jdbc.update("UPDATE invite_codes SET used_by=?, used_at=NOW() WHERE code=?", username, code.trim());
+        REG_BLOCK.put(ip, System.currentTimeMillis() + REG_BLOCK_MS);
+        return ResponseEntity.status(HttpStatus.CREATED).body("Account created. You can now log in.");
+    }
+
+    private static String getClientIp(HttpServletRequest request) {
+        String xff = request.getHeader("X-Forwarded-For");
+        if (xff != null && !xff.isBlank()) return xff.split(",")[0].trim();
+        return request.getRemoteAddr();
+    }
+
+    // ── Avatar ────────────────────────────────────────────────────────────────
+
+    @GetMapping("/users/{username}/avatar")
+    public ResponseEntity<Map<String, Object>> getAvatar(@PathVariable String username) {
+        List<Map<String, Object>> rows = jdbc.queryForList(
+            "SELECT avatar_path FROM users WHERE username=?", username);
+        if (rows.isEmpty()) return ResponseEntity.notFound().build();
+        String path = (String) rows.get(0).get("avatar_path");
+        return ResponseEntity.ok(Map.of("avatarPath", path != null ? path : ""));
+    }
+
+    @PostMapping("/users/{username}/avatar")
+    public ResponseEntity<String> uploadAvatar(
+            @PathVariable String username,
+            @RequestParam("file") MultipartFile file,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+
+        if (!authUsername.equals(username))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Forbidden");
+        try { if (loginRepository.authorize(authUsername, token) == null)
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized");
+        } catch (JdbcLoginRepository.TokenExpiredException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Session expired");
+        }
+
+        if (file.isEmpty()) return ResponseEntity.badRequest().body("No file provided");
+        if (file.getSize() > AVATAR_MAX_BYTES)
+            return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body("Avatar must be under 2 MB");
+
+        String original = file.getOriginalFilename() != null ? file.getOriginalFilename().toLowerCase() : "";
+        String ext = original.contains(".") ? original.substring(original.lastIndexOf('.')) : "";
+        if (!AVATAR_EXTENSIONS.contains(ext))
+            return ResponseEntity.badRequest().body("Only jpg, png, gif, or webp allowed");
+
+        try (InputStream is = file.getInputStream()) {
+            byte[] header = is.readNBytes(12);
+            if (!hasValidImageMagicBytes(header))
+                return ResponseEntity.badRequest().body("File content does not match an allowed image format");
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to read file");
+        }
+
+        // Check storage quota: avatar counts like a regular upload
+        int userId = jdbc.queryForObject("SELECT id FROM users WHERE username=?", Integer.class, username);
+        long fileSize = file.getSize();
+
+        // Find existing avatar upload record (to subtract its size from current usage)
+        List<Map<String, Object>> existingAvatarRows = jdbc.queryForList(
+            "SELECT id, filename, size_bytes FROM uploads WHERE user_id=? AND filename LIKE 'avatar/%'", userId);
+        long oldAvatarBytes = existingAvatarRows.stream().mapToLong(r -> ((Number) r.get("size_bytes")).longValue()).sum();
+
+        String role = jdbc.queryForObject("SELECT role FROM users WHERE id=?", String.class, userId);
+        Long maxBytes = null;
+        try {
+            maxBytes = jdbc.queryForObject("SELECT max_storage_bytes FROM role_limits WHERE role=?", Long.class, role);
+        } catch (Exception ignored) {}
+        if (maxBytes != null && maxBytes >= 0) {
+            Long currentUsed = jdbc.queryForObject(
+                "SELECT COALESCE(SUM(size_bytes),0) FROM uploads WHERE user_id=?", Long.class, userId);
+            if (currentUsed == null) currentUsed = 0L;
+            long effectiveUsed = currentUsed - oldAvatarBytes + fileSize;
+            if (effectiveUsed > maxBytes)
+                return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                    .body("Storage limit exceeded. Free up space before uploading a new avatar.");
+        }
+
+        try {
+            Path avatarDir = Paths.get(uploadDir, "avatars");
+            Files.createDirectories(avatarDir);
+            String filename = UUID.randomUUID() + ext;
+            Files.copy(file.getInputStream(), avatarDir.resolve(filename));
+            String avatarPath = "/uploads/avatars/" + filename;
+            jdbc.update("UPDATE users SET avatar_path=? WHERE username=?", avatarPath, username);
+
+            // Replace old avatar upload record(s), then insert new one
+            for (Map<String, Object> row : existingAvatarRows) {
+                jdbc.update("DELETE FROM uploads WHERE id=?", row.get("id"));
+                String oldFile = (String) row.get("filename"); // e.g. "avatar/<uuid>.jpg"
+                try { Files.deleteIfExists(Paths.get(uploadDir, oldFile.replace("/", java.io.File.separator))); } catch (Exception ignored) {}
+            }
+            jdbc.update(
+                "INSERT INTO uploads(filename, user_id, original_name, size_bytes) VALUES(?,?,?,?)",
+                "avatar/" + filename, userId, file.getOriginalFilename(), fileSize);
+
+            return ResponseEntity.ok(avatarPath);
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to store avatar");
+        }
+    }
+
+    // ── Online / heartbeat ────────────────────────────────────────────────────
+
+    @PostMapping("/users/{username}/heartbeat")
+    public ResponseEntity<String> heartbeat(
+            @PathVariable String username,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+
+        if (!authUsername.equals(username)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        try { loginRepository.authorize(authUsername, token); }
+        catch (JdbcLoginRepository.TokenExpiredException e) { return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build(); }
+        jdbc.update("UPDATE users SET last_active_at=NOW() WHERE username=?", username);
+        return ResponseEntity.ok("ok");
+    }
+
+    @GetMapping("/users/{username}/online")
+    public ResponseEntity<Map<String, Object>> getOnlineStatus(@PathVariable String username) {
+        List<Map<String, Object>> rows = jdbc.queryForList(
+            "SELECT last_active_at FROM users WHERE username=?", username);
+        if (rows.isEmpty()) return ResponseEntity.notFound().build();
+        Object lastActive = rows.get(0).get("last_active_at");
+        boolean online = false;
+        String lastSeen = null;
+        if (lastActive instanceof java.time.OffsetDateTime ts) {
+            online = ts.isAfter(java.time.OffsetDateTime.now().minusMinutes(5));
+            lastSeen = ts.toString();
+        }
+        return ResponseEntity.ok(Map.of("online", online, "lastSeen", lastSeen != null ? lastSeen : ""));
     }
 
     @PostMapping("/loginSessionAttempt")

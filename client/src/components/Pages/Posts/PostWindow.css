@@ -9,6 +9,8 @@
     justify-content: center;
     align-items: center;
     gap: 4px;
+    padding: 0 12px;
+    box-sizing: border-box;
 }
 .postsViewerContainer {
     max-width: 1000px;
@@ -27,14 +29,21 @@
     margin-bottom: 20px;
     padding: 20px 24px 16px;
     box-sizing: border-box;
-    background: rgba(255, 255, 255, 0.54);
-    backdrop-filter: blur(14px) saturate(150%) brightness(1.06);
-    -webkit-backdrop-filter: blur(14px) saturate(150%) brightness(1.06);
-    border: 1px solid rgba(255, 255, 255, 0.72);
-    border-radius: 16px;
+    background:
+        radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0) 60%),
+        rgba(255, 255, 255, 0.58);
+    backdrop-filter: blur(22px) saturate(180%) brightness(1.04);
+    -webkit-backdrop-filter: blur(22px) saturate(180%) brightness(1.04);
+    border: 1px solid rgba(255, 255, 255, 0.78);
+    border-radius: 18px;
     box-shadow:
-        0 8px 28px rgba(0, 0, 0, 0.10),
-        0 2px 0 rgba(255, 255, 255, 0.7) inset;
+        0 16px 48px rgba(0, 0, 0, 0.13),
+        0 6px 16px rgba(0, 0, 0, 0.08),
+        0 2px 4px rgba(0, 0, 0, 0.06),
+        inset 0 2px 0 rgba(255, 255, 255, 0.98),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.04),
+        inset 1px 0 0 rgba(255, 255, 255, 0.6),
+        inset -1px 0 0 rgba(0, 0, 0, 0.03);
     text-align: center;
 }
 
@@ -69,23 +78,34 @@
 /* Uniform raised-glass look: bright border all the way around + symmetric   */
 /* outer lift shadow + inner surface shimmer. No directional light source.   */
 :root {
-    --neo-bg: rgba(255,255,255,0.54);
-    --neo-border: 1.5px solid rgba(255,255,255,0.82);
+    /* Dimensional skeuomorphic button: central top highlight fades to deeper base */
+    --neo-bg:
+        radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0.0) 70%),
+        linear-gradient(to bottom, rgba(255,255,255,0.65) 0%, rgba(215,212,208,0.70) 100%);
+    --neo-border: 1.5px solid rgba(255,255,255,0.88);
+    /* Multi-layer shadow: outer glow ring + lift shadow + bright top edge + dark bottom edge */
     --neo-shadow:
-        0 0 0 1px rgba(255,255,255,0.45),      /* thin outer ring */
-        0 4px 14px rgba(0,0,0,0.10),            /* soft lift */
-        0 1px 4px rgba(0,0,0,0.07),             /* tighter depth */
-        inset 0 0 0 1px rgba(255,255,255,0.62); /* inner rim all around */
+        0 0 0 1px rgba(255,255,255,0.52),
+        0 5px 18px rgba(0,0,0,0.13),
+        0 2px 5px rgba(0,0,0,0.09),
+        inset 0 2px 0 rgba(255,255,255,0.95),
+        inset 0 -2px 0 rgba(0,0,0,0.10),
+        inset 2px 0 0 rgba(255,255,255,0.45),
+        inset -2px 0 0 rgba(0,0,0,0.06);
     --neo-shadow-hover:
-        0 0 0 1.5px rgba(255,255,255,0.6),
-        0 6px 18px rgba(0,0,0,0.13),
-        0 2px 6px rgba(0,0,0,0.08),
-        inset 0 0 0 1px rgba(255,255,255,0.75);
+        0 0 0 1.5px rgba(255,255,255,0.72),
+        0 8px 22px rgba(0,0,0,0.16),
+        0 3px 8px rgba(0,0,0,0.10),
+        inset 0 2px 0 rgba(255,255,255,1),
+        inset 0 -2px 0 rgba(0,0,0,0.10),
+        inset 2px 0 0 rgba(255,255,255,0.55),
+        inset -2px 0 0 rgba(0,0,0,0.06);
     --neo-shadow-active:
-        0 0 0 1px rgba(255,255,255,0.35),
-        0 2px 6px rgba(0,0,0,0.08),
-        inset 0 0 0 1px rgba(255,255,255,0.45),
-        inset 0 2px 8px rgba(0,0,0,0.07);
+        0 0 0 1px rgba(255,255,255,0.38),
+        0 2px 5px rgba(0,0,0,0.08),
+        inset 0 3px 8px rgba(0,0,0,0.12),
+        inset 0 1px 0 rgba(0,0,0,0.06),
+        inset 0 0 0 1px rgba(255,255,255,0.35);
 }
 
 .follow-count-btn {

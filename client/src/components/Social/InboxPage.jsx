@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { GET_NOTIFICATIONS, MARK_NOTIFICATION_READ, MARK_ALL_READ,
          DELETE_NOTIFICATION, CLEAR_NOTIFICATIONS } from '../Pages/Posts/BasicTextPostServerApi.js';
+import { useDialog } from '../Dialog/Dialog.jsx';
 import './Social.css';
 
 function ActorLink({ username }) {
@@ -38,7 +39,7 @@ function notifLabel(n) {
     case 'follow':   return <span>{a} followed you</span>;
     case 'reaction': return <span>{a} reacted to your post <PostLink n={n} /></span>;
     case 'new_post': return <span>{a} published {n.postOwner && n.postId ? <Link to={`/users/${n.postOwner}/${n.postId}`} className="inbox-post-link" onClick={e => e.stopPropagation()}>{n.postTitle || 'a new post'}</Link> : 'a new post'}</span>;
-    case 'message':  return <span style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}><span style={{ fontWeight: 500 }}>{a} sent you a message:</span><span style={{ color: '#333' }}>{n.message || ''}</span></span>;
+    case 'message':  return <span style={{ display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left' }}><span style={{ fontWeight: 500 }}>{a} sent you a message:</span><span style={{ color: '#333', whiteSpace: 'pre-wrap' }}>{n.message || ''}</span></span>;
     default:         return <span>Notification from {a}</span>;
   }
 }
@@ -54,6 +55,7 @@ function timeAgo(date) {
 const PAGE_SIZE = 30;
 
 export default function InboxPage() {
+  const { confirm } = useDialog();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -109,7 +111,7 @@ export default function InboxPage() {
   };
 
   const clearAll = async () => {
-    if (!window.confirm('Clear all notifications? This cannot be undone.')) return;
+    if (!(await confirm('Clear all notifications? This cannot be undone.'))) return;
     await CLEAR_NOTIFICATIONS().catch(() => {});
     setNotifications([]);
     offsetRef.current = 0;
@@ -151,7 +153,7 @@ export default function InboxPage() {
   return (
     <div className="inbox-page">
       <div className="inbox-header" style={{ justifyContent: 'center', position: 'relative' }}>
-        <h2 style={{ textAlign: 'center' }}>Inbox</h2>
+        <h2 style={{ textAlign: 'center' }}>Notifications</h2>
         <div style={{ position: 'absolute', right: 0, display: 'flex', gap: '8px', alignItems: 'center' }}>
           {unread > 0 && (
             <button className="inbox-mark-all" onClick={markAll}>Mark all as read</button>
@@ -163,7 +165,7 @@ export default function InboxPage() {
       </div>
 
       {loading && <p className="inbox-empty">Loading…</p>}
-      {!loading && notifications.length === 0 && <p className="inbox-empty">Your inbox is empty.</p>}
+      {!loading && notifications.length === 0 && <p className="inbox-empty">No notifications yet.</p>}
       {!loading && notifications.map(n => (
         <div
           key={n.id}

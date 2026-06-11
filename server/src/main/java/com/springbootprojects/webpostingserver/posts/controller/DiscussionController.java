@@ -158,6 +158,19 @@ public class DiscussionController {
         if (!isAdmin && COMMENT_LIMITER.isBlocked(ckey))
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).<Map<String, Object>>build();
 
+        // Enforce 15-second minimum between any two comments from the same user
+        if (!isAdmin) {
+            List<java.sql.Timestamp> recent = jdbc.queryForList(
+                "SELECT created_at FROM comments WHERE user_id=? ORDER BY created_at DESC LIMIT 1",
+                java.sql.Timestamp.class, session.userId);
+            if (!recent.isEmpty()) {
+                long secondsSince = (System.currentTimeMillis() - recent.get(0).getTime()) / 1000;
+                if (secondsSince < 15)
+                    return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                        .<Map<String, Object>>build();
+            }
+        }
+
         Integer parentId = body.get("parentId") != null ? ((Number) body.get("parentId")).intValue() : null;
         int commentId = social.addComment(postId, parentId, session.userId, content.trim());
         social.voteComment(commentId, session.userId, 1);

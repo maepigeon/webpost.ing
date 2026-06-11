@@ -34,9 +34,12 @@ webposting/
 │   │   │   │   │       └── PostsViewer.jsx
 │   │   │   │   └── Activity/  # User activity page (comments + reactions)
 │   │   │   ├── PatternPicker/ # Background pattern picker UI
-│   │   │   │   ├── PatternPicker.jsx
+│   │   │   │   ├── PatternPicker.jsx  # onPreview prop for preview-without-save
 │   │   │   │   ├── PatternPicker.css
 │   │   │   │   └── patterns.js   # Preset definitions + isValidPattern()
+│   │   │   ├── Dialog/        # Promise-based glass dialog (replaces window.alert/confirm)
+│   │   │   │   ├── Dialog.jsx  # DialogProvider + useDialog() hook
+│   │   │   │   └── Dialog.css
 │   │   │   └── Social/        # Comments, reactions, inbox, follow, notifications
 │   │   │       ├── CommentItem.jsx
 │   │   │       ├── DiscussionPage.jsx
@@ -89,6 +92,8 @@ webposting/
 | POST | `/api/logout` | — | Clears cookies |
 | GET/POST | `/api/posts` | POST requires auth | List/create posts |
 | GET/PUT/DELETE | `/api/posts/{id}` | PUT/DELETE require ownership | Post CRUD |
+| GET | `/api/posts/{postId}/vote` | Optional | Returns `{score, userVote}` |
+| POST | `/api/posts/{postId}/vote` | Required | Body `{vote: -1\|0\|1}` |
 | PUT | `/api/users/{u}/background` | Owner only | Profile wallpaper |
 | GET/PUT | `/api/users/{u}/presets` | Auth + owner only | Saved pattern presets |
 | GET/PUT | `/api/users/{u}/bio` | PUT: owner only | User bio |
@@ -98,8 +103,9 @@ webposting/
 | GET/POST | `/api/messages/{u}` | Auth | DMs |
 | GET | `/api/notifications` | Auth | Paginated notifications |
 | POST | `/api/reactions/{postId}` | Auth | Toggle post reaction |
-| POST | `/api/comments/{postId}` | Auth | Add comment |
+| POST | `/api/comments/{postId}` | Auth | Add comment (15s cooldown for non-admins) |
 | POST | `/api/comments/{id}/vote` | Auth | Vote on comment |
+| GET | `/api/hashtags/{tag}/posts` | — | Posts tagged with hashtag |
 
 ---
 
@@ -138,3 +144,39 @@ All API calls go through `BasicTextPostServerApi.js` using Axios with `withCrede
 | `ImageNode` | ImageNode.jsx | Uploaded image with resize/align/move controls |
 | `MathNode` | MathNode.jsx | KaTeX inline/block math |
 | `CustomCodeNode` | CustomCodeNode.jsx | Syntax-highlighted code block |
+
+## Dialog System
+
+All `window.confirm` / `window.alert` calls are replaced by the promise-based glass dialog:
+
+```jsx
+import { useDialog } from '../Dialog/Dialog.jsx';
+const { confirm, alert } = useDialog();
+
+// Usage (async context required):
+if (!(await confirm('Are you sure?'))) return;
+```
+
+`<DialogProvider>` must wrap the app (done in `main.jsx`). The single modal instance is managed by React context + a promise resolver ref.
+
+**Exception:** The unsaved-changes navigation guard in `Editor.jsx` uses `window.confirm` because it runs in a synchronous capture-phase event listener where async dialogs cannot block navigation.
+
+## Mobile Navbar Behavior
+
+- **≤860px**: `.nav-desktop-group` is hidden. Logged-in users see a hamburger button; logged-out users see a "Log In" button (both right-aligned).
+- **Hamburger popup**: Fixed right panel (glass blur), contains welcome greeting + Navbutton links to My Profile, Activity, Messages, Notifications, Log Out, Admin.
+- **No dropdown components inside the popup** — the `NotificationBell` dropdown is replaced with a plain link to `/inbox` to avoid nested popup UX issues.
+
+## Comment Rate Limiting
+
+Two layers in `DiscussionController.addComment`:
+1. **Burst limiter** (`RateLimiter`): 5 comments per 5 minutes per user ID.
+2. **Minimum gap**: 15 seconds between any two consecutive comments (queried from DB). Both checks are bypassed for admins (`is_admin = true`).
+
+## Post Votes
+
+`post_votes` table: `(post_id, user_id, vote SMALLINT)` with CHECK `vote IN (1, -1)`. Vote 0 removes the row. `SocialRepository.votePost()` does an upsert or delete based on vote value, returns `{score, userVote}`.
+
+## Avatar Storage Tracking
+
+Avatar uploads are stored in the `uploads` table with `filename = 'avatar/' + uuid`. Old avatar record is deleted before inserting the new one. Quota check accounts for the old avatar size: `effectiveUsed = currentUsed - oldAvatarBytes + newFileSize`.

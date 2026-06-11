@@ -5,14 +5,21 @@ body {
 /* ── Liquid-glass post card ───────────────────────────────────────────────── */
 
 .basicTextPost {
-    background: rgba(255, 255, 255, 0.55);
-    backdrop-filter: blur(18px) saturate(160%);
-    -webkit-backdrop-filter: blur(18px) saturate(160%);
-    border: 1px solid rgba(255, 255, 255, 0.7);
+    background:
+        radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0) 60%),
+        rgba(255, 255, 255, 0.58);
+    backdrop-filter: blur(22px) saturate(180%) brightness(1.04);
+    -webkit-backdrop-filter: blur(22px) saturate(180%) brightness(1.04);
+    border: 1px solid rgba(255, 255, 255, 0.78);
     border-radius: 20px;
     box-shadow:
-        0 8px 32px rgba(0, 0, 0, 0.10),
-        0 1.5px 0 rgba(255, 255, 255, 0.6) inset;
+        0 16px 48px rgba(0, 0, 0, 0.13),
+        0 6px 16px rgba(0, 0, 0, 0.08),
+        0 2px 4px rgba(0, 0, 0, 0.06),
+        inset 0 2px 0 rgba(255, 255, 255, 0.98),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.04),
+        inset 1px 0 0 rgba(255, 255, 255, 0.6),
+        inset -1px 0 0 rgba(0, 0, 0, 0.03);
     margin-bottom: 32px;
     text-align: left;
     overflow: hidden;
@@ -51,27 +58,42 @@ body {
     text-align: left;
 }
 
-.horizontalContentBox h1,
-.horizontalContentBox [contenteditable] {
+.horizontalContentBox h1 {
+    margin: 0 0 6px;
+    font-size: 2.4rem;
+    font-weight: 800;
+    color: #080808;
+    line-height: 1.15;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.10), 0 2px 8px rgba(0, 0, 0, 0.05);
+    letter-spacing: -0.02em;
+}
+
+.title-input {
+    display: block;
+    width: 100%;
     margin: 0 0 6px;
     font-size: 2.4rem;
     font-weight: 800;
     color: #111;
     line-height: 1.15;
+    background: transparent;
+    border: none;
+    outline: none;
+    padding: 0;
+    font-family: inherit;
+    box-sizing: border-box;
 }
 
-.horizontalContentBox [contenteditable]:empty:before {
-    content: attr(data-placeholder);
+.title-input::placeholder {
     color: #bbb;
     font-weight: 700;
-    pointer-events: none;
 }
 
 .horizontalContentBox h3 {
     margin: 0;
     font-size: 0.85rem;
-    font-weight: 500;
-    color: #555;
+    font-weight: 600;
+    color: #444;
 }
 
 /* Date / meta strip */

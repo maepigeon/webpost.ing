@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef, useCallback, React} from 'react';
-import {AUTHORIZE_SESSION, READ_POSTS_BY_USER, GET_USER_BACKGROUND, UPDATE_USER_BACKGROUND, GET_USER_BIO, UPDATE_USER_BIO, GET_USER_BIO_LINKS, UPDATE_USER_BIO_LINKS, GET_USER_STORAGE, SEND_MESSAGE, GET_FOLLOWERS, GET_FOLLOWING, GET_BLOCK_MESSAGE_STATUS, BLOCK_MESSAGES, UNBLOCK_MESSAGES, EXPORT_MY_DATA, GET_PINNED_POST} from '../BasicTextPostServerApi.js'
+import {AUTHORIZE_SESSION, READ_POSTS_BY_USER, GET_USER_BACKGROUND, UPDATE_USER_BACKGROUND, GET_USER_BIO, UPDATE_USER_BIO, GET_USER_BIO_LINKS, UPDATE_USER_BIO_LINKS, GET_USER_STORAGE, SEND_MESSAGE, GET_FOLLOWERS, GET_FOLLOWING, GET_BLOCK_MESSAGE_STATUS, BLOCK_MESSAGES, UNBLOCK_MESSAGES, EXPORT_MY_DATA, GET_PINNED_POST, GET_USER_AVATAR, POST_USER_AVATAR, GET_USER_ONLINE} from '../BasicTextPostServerApi.js'
+import { IMAGES_BASE_URL } from '../../../../config.js';
 import BasicTextPost from '../PostRenderer/BasicTextPost/BasicTextPost.jsx';
 import PatternPicker from '../../../PatternPicker/PatternPicker.jsx';
 import FollowButton from '../../../Social/FollowButton.jsx';
 import FollowListModal from '../../../Social/FollowListModal.jsx';
 import { patternToStyle } from '../../../PatternPicker/patterns.js';
+import { useDialog } from '../../../Dialog/Dialog.jsx';
 import '../PostWindow.css';
 import {useParams, Link, useNavigate} from "react-router-dom";
 
@@ -49,17 +51,17 @@ function StorageBar({ storage }) {
 
 const URL_REGEX = /https?:\/\/[^\s<>"]+[^\s<>".,;:!?)/]/g;
 
-function confirmExternal(e, url) {
+function confirmExternal(e, url, confirmFn) {
   try {
     if (new URL(url).origin === window.location.origin) return;
   } catch { return; }
   e.preventDefault();
-  if (window.confirm(`You are leaving this site.\n\n${url}\n\nContinue?`)) {
-    window.open(url, '_blank', 'noopener,noreferrer');
-  }
+  confirmFn(`You are leaving this site.\n\n${url}\n\nContinue?`).then(ok => {
+    if (ok) window.open(url, '_blank', 'noopener,noreferrer');
+  });
 }
 
-function BioText({ text }) {
+function BioText({ text, onConfirmExternal }) {
   if (!text) return null;
   const parts = [];
   let last = 0;
@@ -71,7 +73,7 @@ function BioText({ text }) {
     parts.push(
       <a key={match.index} href={url} target="_blank" rel="noopener noreferrer"
         style={{ color: '#1a73e8' }}
-        onClick={e => confirmExternal(e, url)}>{url}</a>
+        onClick={e => confirmExternal(e, url, onConfirmExternal)}>{url}</a>
     );
     last = match.index + url.length;
   }
@@ -88,12 +90,14 @@ function hasModifyPermissions(viewedUser) {
 
 // Loads a view of title cards for all posts by the user specified in the url
 function PostsViewer() {
+    const { confirm } = useDialog();
     const [postsArray, setPostsArray] = useState([]);
     const [hasMore, setHasMore] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
     const offsetRef = useRef(0);
     const PAGE_SIZE = 20;
     const [bgPattern, setBgPattern] = useState('');
+    const savedBgRef = useRef(''); // tracks what's actually saved to backend
     const [showBgPicker, setShowBgPicker] = useState(false);
     const [bgSaveError, setBgSaveError] = useState('');
     const [bio, setBio] = useState('');
@@ -114,6 +118,9 @@ function PostsViewer() {
     const [dmBlockedByThem, setDmBlockedByThem] = useState(false);
     const [followsMe, setFollowsMe] = useState(false);
     const [pinnedPost, setPinnedPost] = useState(null);
+    const [avatar, setAvatar] = useState('');
+    const [onlineStatus, setOnlineStatus] = useState(null); // { online, lastSeen }
+    const avatarInputRef = useRef(null);
     const bgPickerRef = useRef(null);
     const sentinelRef = useRef(null);
     const { username } = useParams();
@@ -138,7 +145,7 @@ function PostsViewer() {
       offsetRef.current = 0;
       setHasMore(true);
       loadPosts(true);
-      GET_USER_BACKGROUND(username).then(p => setBgPattern(p || '')).catch(() => {});
+      GET_USER_BACKGROUND(username).then(p => { const v = p || ''; setBgPattern(v); savedBgRef.current = v; }).catch(() => {});
       GET_USER_BIO(username).then(b => setBio(b || '')).catch(() => {});
       GET_USER_BIO_LINKS(username).then(d => {
         const links = Array.isArray(d) ? d : (typeof d === 'string' ? JSON.parse(d) : []);
@@ -159,6 +166,8 @@ function PostsViewer() {
         }).catch(() => {});
       }
       GET_PINNED_POST(username).then(setPinnedPost).catch(() => setPinnedPost(null));
+      GET_USER_AVATAR(username).then(d => setAvatar(d?.avatarPath || '')).catch(() => {});
+      GET_USER_ONLINE(username).then(setOnlineStatus).catch(() => {});
     }, [username]);
 
     // IntersectionObserver for infinite scroll
@@ -177,7 +186,7 @@ function PostsViewer() {
     useEffect(() => {
       if (!showBgPicker) return;
       const handleOutside = (e) => {
-        if (bgPickerRef.current && !bgPickerRef.current.contains(e.target)) setShowBgPicker(false);
+        if (bgPickerRef.current && !bgPickerRef.current.contains(e.target)) closeBgPicker();
       };
       document.addEventListener('mousedown', handleOutside);
       return () => document.removeEventListener('mousedown', handleOutside);
@@ -206,14 +215,25 @@ function PostsViewer() {
       } catch { setFollowList([]); setFollowModal(type); }
     }
 
+    function handleBgPreview(pattern) {
+      setBgPattern(pattern); // live preview, no save
+    }
+
     function handleBgChange(pattern) {
       setBgPattern(pattern);
+      savedBgRef.current = pattern;
       setBgSaveError('');
       UPDATE_USER_BACKGROUND(username, pattern).catch(err => {
         const msg = err?.response?.data || err?.message || 'Unknown error';
         setBgSaveError(`Wallpaper save failed: ${msg}`);
         console.error('Failed to save background:', err);
       });
+    }
+
+    function closeBgPicker() {
+      // Revert to last saved value if the user previewed but didn't Apply
+      setBgPattern(savedBgRef.current);
+      setShowBgPicker(false);
     }
 
     async function sendMessage() {
@@ -281,6 +301,52 @@ function PostsViewer() {
         )}
         <div className="postsViewerContainer">
           <div className="profile-header-card">
+            {/* Avatar */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 8 }}>
+              {avatar
+                ? <img src={IMAGES_BASE_URL + avatar} alt={username} style={{ width: 72, height: 72, borderRadius: '50%', objectFit: 'cover', border: '2px solid #ddd' }} />
+                : (
+                  <div style={{ width: 72, height: 72, borderRadius: '50%', background: '#e0e0e0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, fontWeight: 700, color: '#888', border: '2px solid #ddd' }}>
+                    {username?.[0]?.toUpperCase()}
+                  </div>
+                )
+              }
+              {/* Online indicator */}
+              {onlineStatus && (
+                <span style={{ fontSize: 12, marginTop: 4, color: onlineStatus.online ? '#22a722' : '#888', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  {onlineStatus.online
+                    ? <><span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22a722', display: 'inline-block' }} /> Online</>
+                    : onlineStatus.lastSeen ? `Last seen ${new Date(onlineStatus.lastSeen).toLocaleDateString()}` : null
+                  }
+                </span>
+              )}
+              {/* Avatar upload — owner only */}
+              {canEdit && (
+                <div style={{ marginTop: 6 }}>
+                  <input type="file" accept="image/*" ref={avatarInputRef} style={{ display: 'none' }}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const fd = new FormData();
+                      fd.append('file', file);
+                      try {
+                        const path = await POST_USER_AVATAR(username, fd);
+                        const relativePath = typeof path === 'string' ? path : path?.avatarPath || '';
+                        setAvatar(relativePath);
+                      } catch (err) {
+                        const msg = err?.response?.data;
+                        alert(typeof msg === 'string' ? msg : 'Avatar upload failed.');
+                      }
+                      e.target.value = '';
+                    }}
+                  />
+                  <button type="button" className="edit-bio-btn" onClick={() => avatarInputRef.current?.click()}>
+                    Set profile picture
+                  </button>
+                </div>
+              )}
+            </div>
+
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
               <Heading username={username}/>
               <FollowButton username={username} onFollowChange={delta => setFollowCounts(c => ({ ...c, followers: c.followers + delta }))} />
@@ -305,7 +371,7 @@ function PostsViewer() {
                 {bioError && <p style={{ margin: '4px 0 0', color: '#d32f2f', fontSize: '12px' }}>{bioError}</p>}
               </div>
             ) : (
-              bio && <div style={{ marginTop: '8px' }}><BioText text={bio} /></div>
+              bio && <div style={{ marginTop: '8px' }}><BioText text={bio} onConfirmExternal={confirm} /></div>
             )}
 
             {/* Bio links display / edit form */}
@@ -341,7 +407,7 @@ function PostsViewer() {
                   {bioLinks.map((l, i) => (
                     <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
                       style={{ fontSize: '13px', color: '#1a73e8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', border: '1px solid #93c5fd', borderRadius: '12px', background: 'rgba(219,234,254,0.5)' }}
-                      onClick={e => confirmExternal(e, l.url)}>
+                      onClick={e => confirmExternal(e, l.url, confirm)}>
                       {l.label || l.url}
                     </a>
                   ))}
@@ -364,7 +430,7 @@ function PostsViewer() {
                   {bioLinks.length > 0 ? 'Edit links' : '+ Add links'}
                 </button>
                 <span ref={bgPickerRef} style={{ position: 'relative', display: 'inline-block' }}>
-                  <button type="button" className="edit-bio-btn" onClick={() => setShowBgPicker(o => !o)}>
+                  <button type="button" className="edit-bio-btn" onClick={() => showBgPicker ? closeBgPicker() : setShowBgPicker(true)}>
                     {showBgPicker ? 'Hide wallpaper' : 'Wallpaper'}
                   </button>
                 </span>
@@ -381,9 +447,12 @@ function PostsViewer() {
               </div>
             )}
             {canEdit && showBgPicker && (
-              <div style={{ background: '#fff', border: '1px solid #ccc', borderRadius: '8px', padding: '12px', marginTop: '6px' }}>
+              <div
+                style={{ background: '#fff', border: '1px solid #ccc', borderRadius: '8px', padding: '12px', marginTop: '6px' }}
+                onMouseDown={e => e.stopPropagation()}
+              >
                 {bgSaveError && <p style={{ margin: '0 0 6px', color: '#d32f2f', fontSize: '12px' }}>{bgSaveError}</p>}
-                <PatternPicker value={bgPattern} onChange={handleBgChange} username={username} />
+                <PatternPicker value={bgPattern} onChange={handleBgChange} onPreview={handleBgPreview} username={username} />
               </div>
             )}
 
@@ -398,7 +467,7 @@ function PostsViewer() {
               {!canEdit && loggedIn && (
                 <>
                   {!dmBlockedByThem && (
-                    <button type="button" onClick={() => setShowMessageForm(o => !o)}>Message</button>
+                    <button type="button" onClick={() => navigate(`/messages?with=${username}`)}>Send message</button>
                   )}
                   <button
                     type="button"
@@ -415,25 +484,6 @@ function PostsViewer() {
                 </>
               )}
             </div>
-
-
-            {/* Message form — expands below the social row */}
-            {showMessageForm && (
-              <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                <textarea
-                  value={messageText}
-                  onChange={e => setMessageText(e.target.value)}
-                  maxLength={1000}
-                  rows={3}
-                  style={{ width: '100%', maxWidth: '480px', padding: '8px', borderRadius: '6px', border: '1px solid #ccc', fontFamily: 'inherit', fontSize: '14px', resize: 'vertical', boxSizing: 'border-box' }}
-                  placeholder="Write a message..."
-                />
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button type="button" onClick={sendMessage}>Send</button>
-                  <button type="button" onClick={() => { setShowMessageForm(false); setMessageText(''); }}>Cancel</button>
-                </div>
-              </div>
-            )}
 
             {storage && <StorageBar storage={storage} />}
           </div>

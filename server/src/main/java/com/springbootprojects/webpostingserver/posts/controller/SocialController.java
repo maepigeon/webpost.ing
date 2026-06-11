@@ -315,6 +315,162 @@ public class SocialController {
         return ResponseEntity.ok("Inbox cleared.");
     }
 
+    // ── Direct message conversations ──────────────────────────────────────────
+
+    @GetMapping("/conversations")
+    public ResponseEntity<List<Map<String, Object>>> getConversations(
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+
+        AuthSession session = authorize(authUsername, token);
+        if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        return ResponseEntity.ok(social.getConversations(session.userId));
+    }
+
+    /** Gets or creates a conversation between the authenticated user and {username}. */
+    @PostMapping("/users/{username}/conversation")
+    public ResponseEntity<Map<String, Object>> getOrCreateConversation(
+            @PathVariable String username,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+
+        AuthSession session = authorize(authUsername, token);
+        if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+        int targetId = social.getUserIdByUsername(username);
+        if (targetId < 0) return ResponseEntity.notFound().build();
+        if (targetId == session.userId) return ResponseEntity.badRequest().build();
+
+        int convId = social.getOrCreateConversation(session.userId, targetId);
+        return ResponseEntity.ok(Map.of("id", convId));
+    }
+
+    @GetMapping("/conversations/{id}/messages")
+    public ResponseEntity<List<Map<String, Object>>> getMessages(
+            @PathVariable int id,
+            @RequestParam(defaultValue = "50") int limit,
+            @RequestParam(defaultValue = "0") int offset,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+
+        AuthSession session = authorize(authUsername, token);
+        if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        if (!social.isConversationParticipant(id, session.userId))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        return ResponseEntity.ok(social.getMessages(id, Math.min(limit, 100), Math.max(offset, 0)));
+    }
+
+    @PostMapping("/conversations/{id}/messages")
+    public ResponseEntity<String> sendConversationMessage(
+            @PathVariable int id,
+            @RequestBody Map<String, String> body,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+
+        AuthSession session = authorize(authUsername, token);
+        if (session == null) return unauthorized();
+
+        if (!social.isConversationParticipant(id, session.userId))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Not a participant.");
+
+        String key = "conv:" + session.userId;
+        if (MSG_LIMITER.isBlocked(key))
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body("Too many messages. Try again later.");
+
+        String content = body.get("content");
+        if (content == null || content.isBlank() || content.length() > 5000)
+            return ResponseEntity.badRequest().body("Message must be 1–5000 characters.");
+
+        social.sendConversationMessage(id, session.userId, content.trim());
+        MSG_LIMITER.recordUse(key);
+
+        // Notify the other participant
+        int otherId = social.getOtherParticipant(id, session.userId);
+        if (otherId > 0) {
+            String preview = content.trim().substring(0, Math.min(100, content.trim().length()));
+            social.sendMessage(otherId, authUsername, preview);
+        }
+
+        return ResponseEntity.ok("Sent.");
+    }
+
+    @PutMapping("/conversations/{id}/messages/read")
+    public ResponseEntity<String> markConversationRead(
+            @PathVariable int id,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+
+        AuthSession session = authorize(authUsername, token);
+        if (session == null) return unauthorized();
+        if (!social.isConversationParticipant(id, session.userId))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Not a participant.");
+        social.markConversationRead(id, session.userId);
+        return ResponseEntity.ok("Marked read.");
+    }
+
+    @GetMapping("/conversations/unread-count")
+    public ResponseEntity<Map<String, Integer>> getUnreadMessageCount(
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+
+        AuthSession session = authorize(authUsername, token);
+        if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        return ResponseEntity.ok(Map.of("count", social.getUnreadMessageCount(session.userId)));
+    }
+
+    // ── Post views ────────────────────────────────────────────────────────────
+
+    @PostMapping("/posts/{postId}/view")
+    public ResponseEntity<String> recordView(
+            @PathVariable int postId,
+            @CookieValue(name = "username", required = false) String authUsername,
+            @CookieValue(name = "authToken", required = false) String token) {
+
+        Integer userId = null;
+        if (authUsername != null && token != null) {
+            AuthSession s = authorize(authUsername, token);
+            if (s != null) userId = s.userId;
+        }
+        social.recordPostView(postId, userId);
+        return ResponseEntity.ok("ok");
+    }
+
+    @GetMapping("/posts/{postId}/views")
+    public ResponseEntity<Map<String, Object>> getViews(@PathVariable int postId) {
+        return ResponseEntity.ok(social.getPostViews(postId));
+    }
+
+    // ── Post votes ────────────────────────────────────────────────────────────
+
+    @GetMapping("/posts/{postId}/vote")
+    public ResponseEntity<Map<String, Object>> getPostVote(
+            @PathVariable int postId,
+            @CookieValue(name = "username", required = false) String username,
+            @CookieValue(name = "authToken", required = false) String token) {
+        int userId = 0;
+        if (username != null && token != null) {
+            AuthSession s = authorize(username, token);
+            if (s != null) userId = s.userId;
+        }
+        Map<String, Object> result = new java.util.LinkedHashMap<>();
+        result.put("score", social.getPostScore(postId));
+        result.put("userVote", userId > 0 ? social.getUserPostVote(postId, userId) : 0);
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/posts/{postId}/vote")
+    public ResponseEntity<Map<String, Object>> votePost(
+            @PathVariable int postId,
+            @RequestBody Map<String, Object> body,
+            @CookieValue(name = "username") String username,
+            @CookieValue(name = "authToken") String token) {
+        AuthSession session = authorize(username, token);
+        if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).<Map<String, Object>>build();
+        int vote = body.get("vote") != null ? ((Number) body.get("vote")).intValue() : 0;
+        if (vote < -1 || vote > 1) return ResponseEntity.badRequest().<Map<String, Object>>build();
+        return ResponseEntity.ok(social.votePost(postId, session.userId, vote));
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private AuthSession authorize(String username, String token) {

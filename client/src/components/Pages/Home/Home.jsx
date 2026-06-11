@@ -34,7 +34,7 @@ function Home() {
               ))
           }
             </div>
-            <footer style={{ padding: '16px 0 24px', borderTop: '1px solid rgba(0,0,0,0.1)', fontSize: '0.85rem' }}>
+            <footer style={{ padding: '24px 0 36px', borderTop: '1px solid rgba(0,0,0,0.1)', fontSize: '0.85rem' }}>
                 <p style={{ color: '#888', margin: 0 }}>
                     Created by <a href="https://www.maepigeon.com" style={{ color: '#555' }}>Mae Pigeon</a>
                     {' · '}

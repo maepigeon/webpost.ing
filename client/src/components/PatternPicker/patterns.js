@@ -9,7 +9,7 @@
  */
 
 // Paw print pattern — pure CSS gradients matching maepigeon.com
-export const PAW_DEFAULT_COLOR = 'rgba(0,0,0,0.85)';
+export const PAW_DEFAULT_COLOR = '#000';
 
 export function pawImage(color) {
   const c = color || PAW_DEFAULT_COLOR;
@@ -71,7 +71,7 @@ const _PAW_POSITION = [
 ].join(', ');
 
 // Polka dot pattern (large circles on a transparent or solid background)
-export const STARS_DEFAULT_COLOR = 'rgba(0,0,0,0.85)';
+export const STARS_DEFAULT_COLOR = '#000';
 export const STARS_DEFAULT_BG = 'transparent';
 
 export function starsImage(starColor, bgColor) {
@@ -88,36 +88,45 @@ export const PRESET_PATTERNS = {
     backgroundImage: '',
     backgroundSize: 'auto',
   },
-  dots: {
-    label: 'Dots',
-    backgroundImage: 'radial-gradient(circle, rgba(0,0,0,0.85) 1.8px, transparent 1.8px)',
-    backgroundSize: '20px 20px',
+  hexagons: {
+    label: 'Hexagons',
+    backgroundImage:
+      'repeating-linear-gradient(60deg, #000 0px, #000 1px, transparent 1px, transparent 28px),' +
+      'repeating-linear-gradient(-60deg, #000 0px, #000 1px, transparent 1px, transparent 28px),' +
+      'repeating-linear-gradient(0deg, #000 0px, #000 1px, transparent 1px, transparent 28px)',
+    backgroundSize: '32px 56px',
   },
   grid: {
-    label: 'Grid',
+    label: 'Flowers',
     backgroundImage:
-      'linear-gradient(rgba(0,0,0,0.7) 1px, transparent 1px),' +
-      'linear-gradient(90deg, rgba(0,0,0,0.7) 1px, transparent 1px)',
-    backgroundSize: '24px 24px',
+      'radial-gradient(circle at 50% 20%, #000 3px, transparent 3px),' +
+      'radial-gradient(circle at 80% 50%, #000 3px, transparent 3px),' +
+      'radial-gradient(circle at 50% 80%, #000 3px, transparent 3px),' +
+      'radial-gradient(circle at 20% 50%, #000 3px, transparent 3px),' +
+      'radial-gradient(circle at 50% 50%, #000 2.5px, transparent 2.5px)',
+    backgroundSize: '26px 26px',
   },
-  'diagonal-stripes': {
-    label: 'Cross-hatch',
+  chevron: {
+    label: 'Chevron',
     backgroundImage:
-      'repeating-linear-gradient(45deg, rgba(0,0,0,0.7), rgba(0,0,0,0.7) 1.5px, transparent 1.5px, transparent 14px),' +
-      'repeating-linear-gradient(-45deg, rgba(0,0,0,0.7), rgba(0,0,0,0.7) 1.5px, transparent 1.5px, transparent 14px)',
-    backgroundSize: 'auto',
+      'linear-gradient(135deg, #000 25%, transparent 25%),' +
+      'linear-gradient(225deg, #000 25%, transparent 25%),' +
+      'linear-gradient(315deg, #000 25%, transparent 25%),' +
+      'linear-gradient(45deg, #000 25%, transparent 25%)',
+    backgroundSize: '40px 40px',
+    backgroundPosition: '-20px 0, -20px 0, 0 0, 0 0',
   },
   checkerboard: {
     label: 'Checker',
     backgroundImage:
-      'conic-gradient(rgba(0,0,0,0.82) 0.25turn, transparent 0.25turn 0.5turn, rgba(0,0,0,0.82) 0.5turn 0.75turn, transparent 0.75turn)',
+      'conic-gradient(#000 0.25turn, transparent 0.25turn 0.5turn, #000 0.5turn 0.75turn, transparent 0.75turn)',
     backgroundSize: '20px 20px',
   },
-  notebook: {
-    label: 'Notebook',
+  topographic: {
+    label: 'Topo',
     backgroundImage:
-      'repeating-linear-gradient(0deg, rgba(0,0,0,0.65) 0px, rgba(0,0,0,0.65) 1.5px, transparent 1.5px, transparent 22px)',
-    backgroundSize: 'auto',
+      'repeating-radial-gradient(circle at 50% 50%, transparent 0px, transparent 14px, #000 15px, transparent 16px, transparent 29px, #000 30px, transparent 31px)',
+    backgroundSize: '80px 80px',
   },
   'paw-print': {
     label: 'Paws',
@@ -161,13 +170,19 @@ export function extractScale(value) {
 
 /**
  * Strip the |#COLOR suffix from a pattern value.
- * Scale segment is preserved so patterns with scale still work.
+ * Unrecognised segments and scale segments are preserved.
  */
 export function stripBgColor(value) {
   if (!value) return value;
-  const { base, scale } = parseSegments(value);
-  if (scale !== 1) return `${base}|scale:${scale}`;
-  return base;
+  const parts = value.split('|');
+  const kept = [parts[0]];
+  for (let i = 1; i < parts.length; i++) {
+    const s = parts[i].trim();
+    // Drop only valid hex-color segments; keep everything else (scale, unknown)
+    if (/^#[0-9a-fA-F]{3,8}$/.test(s)) continue;
+    kept.push(parts[i]);
+  }
+  return kept.join('|');
 }
 
 /** Strip all suffix segments — returns just the bare pattern key or CSS. */
@@ -214,11 +229,17 @@ export function patternToStyle(value) {
   const { base, bgColor, scale } = parseSegments(value);
   const style = _patternToStyleInner(base);
   if (bgColor) style._bgColor = bgColor;
-  if (scale !== 1 && style.backgroundSize && style.backgroundSize !== 'auto') {
-    style.backgroundSize = style.backgroundSize.replace(
-      /(\d+(?:\.\d+)?)(px)/g,
-      (_, n, unit) => `${(parseFloat(n) * scale).toFixed(2)}${unit}`
-    );
+  if (scale !== 1) {
+    const scalePx = (s) => s.replace(/(\d+(?:\.\d+)?)(px)/g, (_, n) => `${(parseFloat(n) * scale).toFixed(2)}px`);
+    if (style.backgroundSize && style.backgroundSize !== 'auto') {
+      style.backgroundSize = scalePx(style.backgroundSize);
+    }
+    if (style.backgroundImage) {
+      style.backgroundImage = scalePx(style.backgroundImage);
+    }
+    if (style.backgroundPosition) {
+      style.backgroundPosition = scalePx(style.backgroundPosition);
+    }
   }
   return style;
 }

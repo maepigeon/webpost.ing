@@ -1,11 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { useDialog } from '../../../Dialog/Dialog.jsx';
 import {
   ADMIN_GET_STATUS, ADMIN_LIST_USERS, ADMIN_CREATE_USER, ADMIN_DELETE_USER,
   ADMIN_SET_ADMIN, ADMIN_SET_ROLE, ADMIN_GET_STATS, ADMIN_GET_ROLE_LIMITS,
   ADMIN_SET_ROLE_LIMIT, ADMIN_GET_FLAGGED, ADMIN_CLEANUP_ORPHANS,
-  ADMIN_EXPORT_USER, ADMIN_IMPORT_USER
+  ADMIN_EXPORT_USER, ADMIN_IMPORT_USER,
+  ADMIN_CHANGE_PASSWORD, ADMIN_GET_INVITE_CODES, ADMIN_CREATE_INVITE_CODE, ADMIN_DELETE_INVITE_CODE,
+  ADMIN_GET_SETTINGS, ADMIN_UPDATE_SETTING
 } from '../../Posts/BasicTextPostServerApi.js';
+import { PasswordRequirements } from '../Registration/Registration.jsx';
 import './AdminPanel.css';
 
 function fmt(bytes) {
@@ -21,6 +25,7 @@ function fmt(bytes) {
 const ROLES = ['user', 'trusted', 'restricted', 'admin', 'frozen'];
 
 export default function AdminPanel() {
+  const { confirm } = useDialog();
   const [isAdmin, setIsAdmin] = useState(null);
   const [tab, setTab] = useState('users');
   const [users, setUsers] = useState([]);
@@ -39,6 +44,13 @@ export default function AdminPanel() {
   const importFileRef = useRef(null);
   const [sortCol, setSortCol] = useState('username');
   const [sortDir, setSortDir] = useState('asc');
+  const [secPwTarget, setSecPwTarget] = useState('');
+  const [secPwNew, setSecPwNew]       = useState('');
+  const [secPwConfirm, setSecPwConfirm] = useState('');
+  const [secPwError, setSecPwError]   = useState('');
+  const [inviteCodes, setInviteCodes] = useState([]);
+  const [settings, setSettings] = useState({});
+  const [settingEdits, setSettingEdits] = useState({});
 
   useEffect(() => {
     ADMIN_GET_STATUS()
@@ -52,6 +64,8 @@ export default function AdminPanel() {
     if (tab === 'stats') ADMIN_GET_STATS().then(setStats).catch(() => {});
     if (tab === 'limits') ADMIN_GET_ROLE_LIMITS().then(d => { setRoleLimits(d); setLimitEdits({}); }).catch(() => {});
     if (tab === 'flagged') ADMIN_GET_FLAGGED().then(setFlagged).catch(() => {});
+    if (tab === 'security') ADMIN_GET_INVITE_CODES().then(setInviteCodes).catch(() => {});
+    if (tab === 'settings') ADMIN_GET_SETTINGS().then(d => { setSettings(d); setSettingEdits({}); }).catch(() => {});
   }, [isAdmin, tab]);
 
   const flash = (m) => { setMsg(m); setTimeout(() => setMsg(''), 3000); };
@@ -69,7 +83,7 @@ export default function AdminPanel() {
   };
 
   const deleteUser = async (username) => {
-    if (!window.confirm(`Delete user "${username}" and ALL their data? This cannot be undone.`)) return;
+    if (!(await confirm(`Delete user "${username}" and ALL their data? This cannot be undone.`))) return;
     try {
       await ADMIN_DELETE_USER(username);
       setUsers(us => us.filter(u => u.username !== username));
@@ -80,7 +94,7 @@ export default function AdminPanel() {
   };
 
   const setRole = async (username, role) => {
-    if (!window.confirm(`Change role for "${username}" to "${role}"?`)) return;
+    if (!(await confirm(`Change role for "${username}" to "${role}"?`))) return;
     try {
       await ADMIN_SET_ROLE(username, role);
       setUsers(us => us.map(u => u.username === username ? { ...u, role } : u));
@@ -90,7 +104,7 @@ export default function AdminPanel() {
 
   const toggleAdmin = async (username, current) => {
     const action = current ? 'Remove admin from' : 'Make admin';
-    if (!window.confirm(`${action} "${username}"?`)) return;
+    if (!(await confirm(`${action} "${username}"?`))) return;
     try {
       await ADMIN_SET_ADMIN(username, !current);
       setUsers(us => us.map(u => u.username === username ? { ...u, is_admin: !current } : u));
@@ -135,7 +149,7 @@ export default function AdminPanel() {
       {msg && <div className="admin-flash">{msg}</div>}
 
       <div className="admin-tabs">
-        {['users', 'stats', 'limits', 'flagged', 'import'].map(t => (
+        {['users', 'stats', 'limits', 'flagged', 'import', 'security', 'settings'].map(t => (
           <button key={t} className={`admin-tab${tab === t ? ' admin-tab--active' : ''}`} onClick={() => setTab(t)}>
             {t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
@@ -350,6 +364,135 @@ export default function AdminPanel() {
             {importResult && <p style={{ color: '#2e7d32', fontSize: '13px', marginTop: '8px' }}>{importResult}</p>}
             {importError && <p className="admin-error">{importError}</p>}
           </div>
+        </div>
+      )}
+      {/* ── Security tab ────────────────────────────────────────────────── */}
+      {tab === 'security' && (
+        <div>
+          {/* Password change */}
+          <div className="admin-create-form" style={{ marginBottom: 28 }}>
+            <h3>Change User Password</h3>
+            <div className="admin-create-row">
+              <input
+                placeholder="Username"
+                value={secPwTarget}
+                onChange={e => { setSecPwTarget(e.target.value); setSecPwError(''); }}
+                maxLength={64}
+              />
+              <input
+                type="password"
+                placeholder="New password"
+                value={secPwNew}
+                onChange={e => { setSecPwNew(e.target.value); setSecPwError(''); }}
+                maxLength={128}
+              />
+              <input
+                type="password"
+                placeholder="Confirm new password"
+                value={secPwConfirm}
+                onChange={e => { setSecPwConfirm(e.target.value); setSecPwError(''); }}
+                maxLength={128}
+              />
+              <button
+                disabled={!secPwTarget || !secPwNew || !secPwConfirm}
+                onClick={async () => {
+                  setSecPwError('');
+                  if (secPwNew !== secPwConfirm) { setSecPwError('Passwords do not match.'); return; }
+                  try {
+                    await ADMIN_CHANGE_PASSWORD(secPwTarget, secPwNew);
+                    flash(`Password changed for ${secPwTarget}.`);
+                    setSecPwTarget(''); setSecPwNew(''); setSecPwConfirm('');
+                  } catch (e) {
+                    setSecPwError(e.response?.data || 'Failed to change password.');
+                  }
+                }}
+              >Change Password</button>
+            </div>
+            {secPwNew && <PasswordRequirements password={secPwNew} />}
+            {secPwError && <p className="admin-error">{secPwError}</p>}
+          </div>
+
+          {/* Invite codes */}
+          <div className="admin-create-form">
+            <h3>Invite Codes</h3>
+            <div className="admin-create-row" style={{ marginBottom: 12 }}>
+              <button onClick={async () => {
+                try {
+                  await ADMIN_CREATE_INVITE_CODE();
+                  ADMIN_GET_INVITE_CODES().then(setInviteCodes);
+                  flash('Invite code generated.');
+                } catch { flash('Failed to generate code.'); }
+              }}>Generate Code</button>
+            </div>
+            {inviteCodes.length === 0
+              ? <p className="admin-empty">No active invite codes.</p>
+              : (
+                <table className="admin-table">
+                  <thead>
+                    <tr><th>Code</th><th>Created</th><th>Expires</th><th>Used by</th><th></th></tr>
+                  </thead>
+                  <tbody>
+                    {inviteCodes.map(c => (
+                      <tr key={c.code}>
+                        <td style={{ fontFamily: 'monospace', fontSize: 11 }}>{c.code.substring(0, 24)}…</td>
+                        <td style={{ fontSize: 12 }}>{new Date(c.created_at).toLocaleString()}</td>
+                        <td style={{ fontSize: 12, color: new Date(c.expires_at) < new Date() ? '#ef4444' : 'inherit' }}>
+                          {new Date(c.expires_at).toLocaleString()}
+                        </td>
+                        <td style={{ fontSize: 12 }}>{c.used_by || '—'}</td>
+                        <td>
+                          <button className="admin-btn admin-btn--danger" onClick={async () => {
+                            try {
+                              await ADMIN_DELETE_INVITE_CODE(c.code);
+                              setInviteCodes(cs => cs.filter(x => x.code !== c.code));
+                            } catch { flash('Failed to delete code.'); }
+                          }}>Delete</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )
+            }
+          </div>
+        </div>
+      )}
+
+      {tab === 'settings' && (
+        <div className="admin-card">
+          <h3>System Settings</h3>
+          <p style={{ fontSize: 13, color: '#666', marginBottom: 16 }}>
+            These settings take effect immediately. Use -1 for unlimited.
+          </p>
+          <table className="admin-table">
+            <thead><tr><th>Setting</th><th>Value</th><th>Action</th></tr></thead>
+            <tbody>
+              {Object.entries(settings).map(([key, val]) => (
+                <tr key={key}>
+                  <td style={{ fontFamily: 'monospace', fontSize: 13 }}>{key}</td>
+                  <td>
+                    <input
+                      type="text"
+                      value={settingEdits[key] !== undefined ? settingEdits[key] : val}
+                      onChange={e => setSettingEdits(s => ({ ...s, [key]: e.target.value }))}
+                      style={{ width: 80, padding: '3px 6px', borderRadius: 6, border: '1px solid #ccc', fontSize: 13 }}
+                    />
+                  </td>
+                  <td>
+                    <button className="admin-btn" onClick={async () => {
+                      const newVal = settingEdits[key] !== undefined ? settingEdits[key] : val;
+                      try {
+                        await ADMIN_UPDATE_SETTING(key, newVal);
+                        setSettings(s => ({ ...s, [key]: newVal }));
+                        setSettingEdits(s => { const n = { ...s }; delete n[key]; return n; });
+                        flash('Setting saved.');
+                      } catch { flash('Failed to save setting.'); }
+                    }}>Save</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

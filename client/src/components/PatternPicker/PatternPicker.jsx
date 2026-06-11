@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { PRESET_PATTERNS, isValidPattern, patternToStyle, findPresetByImage, pawImage, PAW_DEFAULT_COLOR, starsImage, STARS_DEFAULT_COLOR, STARS_DEFAULT_BG, extractBgColor, extractScale, stripBgColor, DEFAULT_BG_COLOR } from './patterns.js';
 import { BASE_URL } from '../../config.js';
+import { useDialog } from '../Dialog/Dialog.jsx';
 import './PatternPicker.css';
 
 // ── Color helpers ────────────────────────────────────────────────────────────
@@ -105,10 +106,12 @@ function ColorEditors({ css, onChange }) {
  *
  * Props:
  *   value       — current stored pattern value (preset key or gradient string)
- *   onChange    — called with new value when the user picks/applies a pattern
+ *   onChange    — called with new value when the user confirms a change (Apply)
+ *   onPreview   — (optional) called with new value for live preview without saving
  *   username    — if provided, user presets are loaded from / saved to the backend
  */
-export default function PatternPicker({ value, onChange, username }) {
+export default function PatternPicker({ value, onChange, onPreview, username }) {
+  const { confirm } = useDialog();
   // Build a stored value from a pattern (stripping existing suffixes), color, and scale.
   const buildValue = (pattern, color, s) => {
     const base = pattern ? pattern.split('|')[0] : '';
@@ -141,6 +144,8 @@ export default function PatternPicker({ value, onChange, username }) {
   const [customError, setCustomError] = useState('');
   const [inputDirty, setInputDirty] = useState(false);
   const [previewStyle, setPreviewStyle] = useState(null);
+  // Pending preset: set when user clicks a swatch but hasn't confirmed (Apply) yet
+  const [pendingPreset, setPendingPreset] = useState(null); // { key, value }
   const [bgColor, setBgColor] = useState(() => extractBgColor(value) || DEFAULT_BG_COLOR);
   const [scale, setScale] = useState(() => extractScale(value));
 
@@ -153,7 +158,8 @@ export default function PatternPicker({ value, onChange, username }) {
   // User-saved presets — loaded from backend (or localStorage as fallback)
   const [userPresets, setUserPresets] = useState({});
   const [saveName, setSaveName] = useState('');
-  const [showSave, setShowSave] = useState(false);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [pendingSaveCss, setPendingSaveCss] = useState('');
   const [presetSaveError, setPresetSaveError] = useState('');
 
   // Load user presets on mount
@@ -196,21 +202,46 @@ export default function PatternPicker({ value, onChange, username }) {
     }
   };
 
-  const handlePreset = (key) => {
-    if (inputDirty && !window.confirm('You have unsaved changes to your custom gradient. Switch anyway?')) return;
+  const handlePreset = async (key) => {
+    if (inputDirty && !(await confirm('You have unsaved changes to your custom gradient. Switch anyway?'))) return;
     setInputDirty(false);
     setCustomError('');
     setPreviewStyle(null);
     setCustomInput(PRESET_PATTERNS[key].backgroundImage || '');
-    onChange(withBgColor(key === 'none' ? '' : key, bgColor));
+    const newValue = withBgColor(key === 'none' ? '' : key, bgColor);
+    if (onPreview) {
+      // Preview mode: show visually but wait for Apply to confirm
+      setPendingPreset({ key, value: newValue });
+      onPreview(newValue);
+    } else {
+      // Immediate apply (no preview prop = old behavior)
+      setPendingPreset(null);
+      onChange(newValue);
+    }
   };
 
-  const handleUserPreset = (css) => {
-    if (inputDirty && !window.confirm('Replace your current custom gradient with this saved preset?')) return;
+  const applyPendingPreset = () => {
+    if (!pendingPreset) return;
+    onChange(pendingPreset.value);
+    setPendingPreset(null);
+  };
+
+  const cancelPendingPreset = () => {
+    if (!pendingPreset) return;
+    onPreview?.(value); // revert to saved value
+    setPendingPreset(null);
+  };
+
+  const handleUserPreset = async (css) => {
+    if (inputDirty && !(await confirm('Replace your current custom gradient with this saved preset?'))) return;
     setCustomInput(css);
-    setInputDirty(true);
+    setInputDirty(false);
     setCustomError('');
     setPreviewStyle(null);
+    // Auto-apply immediately
+    if (isValidPattern(css)) {
+      onChange(withBgColor(css, bgColor));
+    }
   };
 
   const handleCustomChange = (e) => {
@@ -308,14 +339,24 @@ export default function PatternPicker({ value, onChange, username }) {
     onChange(withBgColor(v, bgColor));
     setInputDirty(false);
     setPreviewStyle(null);
+    setPendingSaveCss(v);
+    setSaveName('');
+    setShowSaveDialog(true);
   };
 
   const handleSavePreset = () => {
-    if (!saveName.trim() || !customInput.trim()) return;
-    const updated = { ...userPresets, [saveName.trim()]: customInput.trim() };
+    if (!saveName.trim() || !pendingSaveCss.trim()) return;
+    const updated = { ...userPresets, [saveName.trim()]: pendingSaveCss.trim() };
     saveUserPresets(updated);
     setSaveName('');
-    setShowSave(false);
+    setShowSaveDialog(false);
+    setPendingSaveCss('');
+  };
+
+  const handleDismissSaveDialog = () => {
+    setShowSaveDialog(false);
+    setSaveName('');
+    setPendingSaveCss('');
   };
 
   const deleteUserPreset = (name) => {
@@ -349,12 +390,13 @@ export default function PatternPicker({ value, onChange, username }) {
       {/* Built-in preset swatches */}
       <div className="pattern-picker-presets">
         {Object.entries(PRESET_PATTERNS).map(([key, preset]) => {
-          const active = (key === 'none' && !value) || value === key;
+          const isPending = pendingPreset?.key === key;
+          const active = !pendingPreset && ((key === 'none' && !value) || value === key);
           return (
             <button
               key={key}
               type="button"
-              className={`pattern-swatch${active ? ' pattern-swatch--active' : ''}`}
+              className={`pattern-swatch${active ? ' pattern-swatch--active' : ''}${isPending ? ' pattern-swatch--pending' : ''}`}
               style={swatchStyle(preset)}
               title={preset.label}
               onClick={() => handlePreset(key)}
@@ -364,6 +406,13 @@ export default function PatternPicker({ value, onChange, username }) {
           );
         })}
       </div>
+      {pendingPreset && (
+        <div className="pattern-picker-pending-bar">
+          <span className="pattern-picker-pending-label">Previewing — save this wallpaper?</span>
+          <button type="button" className="pattern-picker-apply-btn" onClick={applyPendingPreset}>Apply</button>
+          <button type="button" className="pattern-picker-test-btn" onClick={cancelPendingPreset}>Cancel</button>
+        </div>
+      )}
 
       {/* Page background color */}
       <div className="pattern-picker-section">
@@ -454,24 +503,28 @@ export default function PatternPicker({ value, onChange, username }) {
         <div className="pattern-picker-btn-row">
           <button type="button" className="pattern-picker-test-btn" onClick={handleTest}>Test</button>
           <button type="button" className="pattern-picker-apply-btn" onClick={handleApply}>Apply</button>
-          {customInput.trim() && (
-            <button type="button" className="pattern-picker-save-btn" onClick={() => setShowSave(s => !s)}>
-              {showSave ? 'Cancel' : '+ Save preset'}
-            </button>
-          )}
         </div>
-        {showSave && (
-          <div className="pattern-picker-save-row">
-            <input
-              type="text"
-              className="pattern-picker-name-input"
-              placeholder="Preset name"
-              value={saveName}
-              onChange={e => setSaveName(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSavePreset()}
-              maxLength={40}
-            />
-            <button type="button" className="pattern-picker-apply-btn" onClick={handleSavePreset}>Save</button>
+
+        {/* Glass save-preset dialog */}
+        {showSaveDialog && (
+          <div className="pattern-save-overlay" onClick={handleDismissSaveDialog}>
+            <div className="pattern-save-dialog" onClick={e => e.stopPropagation()}>
+              <p className="pattern-save-dialog-title">Save as preset?</p>
+              <input
+                type="text"
+                className="pattern-save-dialog-input"
+                placeholder="Give it a name…"
+                value={saveName}
+                onChange={e => setSaveName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleSavePreset(); if (e.key === 'Escape') handleDismissSaveDialog(); }}
+                maxLength={40}
+                autoFocus
+              />
+              <div className="pattern-save-dialog-btns">
+                <button type="button" className="pattern-save-dialog-cancel" onClick={handleDismissSaveDialog}>Skip</button>
+                <button type="button" className="pattern-save-dialog-save" onClick={handleSavePreset} disabled={!saveName.trim()}>Save preset</button>
+              </div>
+            </div>
           </div>
         )}
         {customError && <p className="pattern-picker-error">{customError}</p>}

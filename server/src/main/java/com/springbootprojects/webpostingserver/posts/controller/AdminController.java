@@ -191,6 +191,74 @@ public class AdminController {
         return ResponseEntity.ok("Limits updated.");
     }
 
+    // ── Change user password (admin) ──────────────────────────────────────────
+
+    @PutMapping("/users/{targetUsername}/password")
+    public ResponseEntity<String> changeUserPassword(
+            @PathVariable String targetUsername,
+            @RequestBody Map<String, String> body,
+            @CookieValue(name = "username") String username,
+            @CookieValue(name = "authToken") String token) {
+
+        if (authorize(username, token) == null || !isAdmin(username)) return forbidden();
+
+        String newPassword = body.get("password");
+        if (newPassword == null || newPassword.isBlank())
+            return ResponseEntity.badRequest().body("Password required.");
+        String err = validatePassword(newPassword);
+        if (err != null) return ResponseEntity.badRequest().body(err);
+
+        int updated = jdbc.update("UPDATE users SET password=? WHERE username=?", bcrypt.encode(newPassword), targetUsername);
+        if (updated == 0) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found.");
+        return ResponseEntity.ok("Password updated.");
+    }
+
+    // ── Invite codes ───────────────────────────────────────────────────────────
+
+    @GetMapping("/invite-codes")
+    public ResponseEntity<List<Map<String, Object>>> listInviteCodes(
+            @CookieValue(name = "username") String username,
+            @CookieValue(name = "authToken") String token) {
+
+        if (authorize(username, token) == null || !isAdmin(username)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+
+        List<Map<String, Object>> codes = jdbc.queryForList(
+            "SELECT code, created_by_user.username AS created_by, ic.created_at, ic.expires_at, ic.used_by, ic.used_at " +
+            "FROM invite_codes ic JOIN users created_by_user ON created_by_user.id=ic.created_by " +
+            "ORDER BY ic.created_at DESC");
+        return ResponseEntity.ok(codes);
+    }
+
+    @PostMapping("/invite-codes")
+    public ResponseEntity<Map<String, Object>> createInviteCode(
+            @CookieValue(name = "username") String username,
+            @CookieValue(name = "authToken") String token) {
+
+        AuthSession session = authorize(username, token);
+        if (session == null || !isAdmin(username)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+
+        // Generate 128-char alphanumeric code
+        byte[] raw = new byte[96];
+        new java.security.SecureRandom().nextBytes(raw);
+        String code = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(raw).substring(0, 128);
+
+        jdbc.update(
+            "INSERT INTO invite_codes(code, created_by, expires_at) VALUES(?, ?, NOW() + INTERVAL '24 hours')",
+            code, session.userId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("code", code));
+    }
+
+    @DeleteMapping("/invite-codes/{code}")
+    public ResponseEntity<String> deleteInviteCode(
+            @PathVariable String code,
+            @CookieValue(name = "username") String username,
+            @CookieValue(name = "authToken") String token) {
+
+        if (authorize(username, token) == null || !isAdmin(username)) return forbidden();
+        int deleted = jdbc.update("DELETE FROM invite_codes WHERE code=?", code);
+        return deleted > 0 ? ResponseEntity.ok("Deleted.") : ResponseEntity.status(HttpStatus.NOT_FOUND).body("Code not found.");
+    }
+
     // ── Set user role ──────────────────────────────────────────────────────────
 
     @PutMapping("/users/{targetUsername}/role")
@@ -453,5 +521,62 @@ public class AdminController {
         summary.put("postsRestored", postsRestored);
 
         return ResponseEntity.ok(summary);
+    }
+
+    // ── System settings ───────────────────────────────────────────────────────
+
+    private static final Set<String> EDITABLE_SETTINGS = Set.of("max_daily_registrations");
+
+    @GetMapping("/admin/settings")
+    public ResponseEntity<Map<String, String>> getSettings(
+            @CookieValue(name = "username") String username,
+            @CookieValue(name = "authToken") String token) {
+        if (authorize(username, token) == null || !isAdmin(username)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        List<Map<String, Object>> rows = jdbc.queryForList("SELECT key, value FROM system_settings ORDER BY key");
+        Map<String, String> result = new java.util.LinkedHashMap<>();
+        for (Map<String, Object> row : rows) result.put((String) row.get("key"), (String) row.get("value"));
+        return ResponseEntity.ok(result);
+    }
+
+    @PutMapping("/admin/settings/{key}")
+    public ResponseEntity<String> updateSetting(
+            @PathVariable String key,
+            @RequestBody Map<String, String> body,
+            @CookieValue(name = "username") String username,
+            @CookieValue(name = "authToken") String token) {
+        if (authorize(username, token) == null || !isAdmin(username)) return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Forbidden");
+        if (!EDITABLE_SETTINGS.contains(key)) return ResponseEntity.badRequest().body("Unknown setting key.");
+        String value = body.get("value");
+        if (value == null) return ResponseEntity.badRequest().body("value required.");
+        // Validate numeric settings
+        if (key.equals("max_daily_registrations")) {
+            try {
+                int n = Integer.parseInt(value.trim());
+                if (n < -1 || n > 10000) return ResponseEntity.badRequest().body("Value out of range (use -1 for unlimited).");
+            } catch (NumberFormatException e) {
+                return ResponseEntity.badRequest().body("Value must be a number.");
+            }
+        }
+        jdbc.update("UPDATE system_settings SET value=? WHERE key=?", value.trim(), key);
+        return ResponseEntity.ok("Setting updated.");
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /** Returns an error message if the password fails requirements, or null if OK. */
+    public static String validatePassword(String password) {
+        if (password == null || password.length() < 12)
+            return "Password must be at least 12 characters.";
+        if (!password.matches(".*[A-Z].*"))
+            return "Password must contain at least one uppercase letter.";
+        if (!password.matches(".*[a-z].*"))
+            return "Password must contain at least one lowercase letter.";
+        if (!password.matches(".*[0-9].*"))
+            return "Password must contain at least one number.";
+        if (!password.matches(".*[^A-Za-z0-9].*"))
+            return "Password must contain at least one special character.";
+        if (password.length() > 128)
+            return "Password must be 128 characters or fewer.";
+        return null;
     }
 }

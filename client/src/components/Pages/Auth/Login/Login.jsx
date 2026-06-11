@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
+import './Login.css';
 import { BASE_URL as baseUrl } from '../../../../config.js';
 import { ADMIN_GET_STATUS } from '../../Posts/BasicTextPostServerApi.js';
 
@@ -69,8 +71,11 @@ function Login() {
           />
         </div>
         {error && <p className="error">{error}</p>}
-        <button type="submit">Login</button>
+        <button type="submit" className="login-submit-btn">Login</button>
       </form>
+      <div className="login-have-code">
+        Have an invite code? <Link to="/routes/NewAccount" className="login-register-link">Create an account</Link>
+      </div>
     </div>
   );
 }

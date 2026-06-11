@@ -83,9 +83,22 @@ export class CustomCodeNode extends CodeNode {
   }
 }
 
+function _countLines(dom) {
+  let newlines = 0;
+  const walker = document.createTreeWalker(dom, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = walker.nextNode())) {
+    if (node.parentElement?.closest('.line-nums-gutter')) continue;
+    newlines += (node.textContent.match(/\n/g) || []).length;
+  }
+  // Also count <br> elements (some Lexical versions use them)
+  newlines += dom.querySelectorAll('br').length;
+  return Math.max(1, newlines + 1);
+}
+
 function _refreshGutter(dom) {
   if (!dom.classList.contains('show-line-numbers')) return;
-  const lineCount = dom.querySelectorAll('br').length + 1;
+  const lineCount = _countLines(dom);
   let gutter = dom.querySelector('.line-nums-gutter');
   if (gutter && gutter.children.length === lineCount) return;
   if (gutter) gutter.remove();

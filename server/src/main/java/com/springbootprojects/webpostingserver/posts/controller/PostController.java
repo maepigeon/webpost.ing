@@ -185,7 +185,11 @@ public class PostController {
                 System.out.println("User ID: " + userId);
                 int postId = postRepository.save(post, userId);
                 syncPostUploads(postId, post.getDescription());
-                if (post.isPublished()) social.notifyFollowers(userId, username, postId);
+                social.parseAndSaveHashtags(postId, post.getDescription());
+                if (post.isPublished()) {
+                    social.votePost(postId, userId, 1);
+                    social.notifyFollowers(userId, username, postId);
+                }
                 return new ResponseEntity<>(String.valueOf(postId), HttpStatus.CREATED);
             } catch (Exception e) {
                 System.out.println("Post creation failed: " + e.getMessage());
@@ -226,6 +230,7 @@ public class PostController {
             _post.setFolder(post.getFolder() != null && !post.getFolder().isBlank() ? post.getFolder().trim() : null);
             postRepository.update(_post);
             syncPostUploads(id, post.getDescription());
+            social.parseAndSaveHashtags((int) id, post.getDescription());
             // Notify followers when a draft is published for the first time
             if (!wasPublished && post.isPublished()) {
                 int authorId = social.getUserIdByUsername(username);
@@ -256,6 +261,17 @@ public class PostController {
             }
 
             try {
+                // Log deletion before the row is removed (captures title + content)
+                Post post = postRepository.findById(id);
+                if (post != null) {
+                    java.util.Map<String, Object> info = new java.util.HashMap<>();
+                    info.put("post_title",  post.getTitle());
+                    info.put("post_owner",  username);
+                    info.put("post_id",     (int) id);
+                    info.put("content",     post.getTitle()); // summary = title for posts
+                    int authorId = social.getUserIdByUsername(username);
+                    if (authorId > 0) social.logDeletion(authorId, "post", info);
+                }
                 int result = postRepository.deleteById(id);
                 if (result == 0) {
                     return new ResponseEntity<>("Cannot find Post with id=" + id, HttpStatus.OK);
@@ -335,6 +351,13 @@ public class PostController {
         if (session == null) return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
         jdbc.update("UPDATE users SET pinned_post_id=NULL WHERE username=?", username);
         return ResponseEntity.ok("Post unpinned");
+    }
+
+    @GetMapping("/hashtags/{tag}/posts")
+    public ResponseEntity<List<Map<String, Object>>> getPostsByHashtag(@PathVariable String tag) {
+        if (tag == null || tag.isBlank() || tag.length() > 50)
+            return ResponseEntity.badRequest().build();
+        return ResponseEntity.ok(social.getPostsByHashtag(tag));
     }
 
     @GetMapping("/posts/published")

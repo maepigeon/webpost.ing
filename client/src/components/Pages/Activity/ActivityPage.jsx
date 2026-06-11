@@ -198,13 +198,13 @@ export default function ActivityPage() {
                 <div className="activity-item-meta">
                   <span className="activity-badge activity-badge--deleted">{d.item_type} deleted</span>
                   <span className="activity-time">{timeAgo(d.deleted_at)}</span>
-                  {d.post_owner && d.post_id ? (
+                  {d.post_owner && d.post_id && d.item_type === 'comment' ? (
                     <Link to={`/users/${d.post_owner}/${d.post_id}/discussion`} className="activity-post-link">
-                      {d.post_title || 'Untitled post'}
+                      in: {d.post_title || 'Untitled post'}
                     </Link>
-                  ) : (
-                    d.post_title && <span className="activity-orphan">{d.post_title} (deleted)</span>
-                  )}
+                  ) : d.post_title ? (
+                    <span className="activity-orphan">{d.post_title} (deleted)</span>
+                  ) : null}
                 </div>
                 {d.summary && <p className="activity-comment-text activity-deletion-preview">{d.summary}{d.summary.length >= 200 ? '…' : ''}</p>}
               </div>
