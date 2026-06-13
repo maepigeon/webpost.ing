@@ -49,6 +49,7 @@ export default function AdminPanel() {
   const [secPwConfirm, setSecPwConfirm] = useState('');
   const [secPwError, setSecPwError]   = useState('');
   const [inviteCodes, setInviteCodes] = useState([]);
+  const [copiedCode, setCopiedCode]   = useState(null);
   const [settings, setSettings] = useState({});
   const [settingEdits, setSettingEdits] = useState({});
 
@@ -434,7 +435,23 @@ export default function AdminPanel() {
                   <tbody>
                     {inviteCodes.map(c => (
                       <tr key={c.code}>
-                        <td style={{ fontFamily: 'monospace', fontSize: 11 }}>{c.code.substring(0, 24)}…</td>
+                        <td style={{ fontFamily: 'monospace', fontSize: 11, wordBreak: 'break-all' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span>{c.code}</span>
+                            <button
+                              className="admin-btn"
+                              style={{ flexShrink: 0, padding: '2px 8px', fontSize: 11 }}
+                              onClick={() => {
+                                navigator.clipboard.writeText(c.code).then(() => {
+                                  setCopiedCode(c.code);
+                                  setTimeout(() => setCopiedCode(null), 1500);
+                                });
+                              }}
+                            >
+                              {copiedCode === c.code ? 'Copied!' : 'Copy'}
+                            </button>
+                          </div>
+                        </td>
                         <td style={{ fontSize: 12 }}>{new Date(c.created_at).toLocaleString()}</td>
                         <td style={{ fontSize: 12, color: new Date(c.expires_at) < new Date() ? '#ef4444' : 'inherit' }}>
                           {new Date(c.expires_at).toLocaleString()}

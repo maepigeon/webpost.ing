@@ -4,6 +4,8 @@ import { VOTE_COMMENT, DELETE_COMMENT, EDIT_COMMENT, ADD_COMMENT,
          SET_COMMENT_REACTION, GET_USER_AVATAR } from '../Pages/Posts/BasicTextPostServerApi.js';
 import { IMAGES_BASE_URL } from '../../config.js';
 import { useDialog } from '../Dialog/Dialog.jsx';
+import AvatarPopup from './AvatarPopup.jsx';
+import { linkifyText } from '../../utils/linkifyText.jsx';
 import './Social.css';
 
 // Module-level cache so avatars aren't re-fetched per render
@@ -11,6 +13,8 @@ const _avatarCache = {};
 
 function UserAvatar({ username }) {
   const [src, setSrc] = useState(_avatarCache[username] ?? null);
+  const [showPopup, setShowPopup] = useState(false);
+
   useEffect(() => {
     if (_avatarCache[username] !== undefined) { setSrc(_avatarCache[username]); return; }
     _avatarCache[username] = ''; // mark as pending
@@ -20,29 +24,21 @@ function UserAvatar({ username }) {
   }, [username]);
 
   const initials = username?.[0]?.toUpperCase() || '?';
-  if (src) return <img src={IMAGES_BASE_URL + src} alt={username} className="comment-avatar" />;
-  return <span className="comment-avatar comment-avatar--fallback">{initials}</span>;
+  const fullSrc = src ? IMAGES_BASE_URL + src : null;
+
+  return (
+    <>
+      {fullSrc
+        ? <img src={fullSrc} alt={username} className="comment-avatar" onClick={() => setShowPopup(true)} style={{ cursor: 'pointer' }} />
+        : <span className="comment-avatar comment-avatar--fallback">{initials}</span>
+      }
+      {showPopup && fullSrc && <AvatarPopup src={fullSrc} username={username} onClose={() => setShowPopup(false)} />}
+    </>
+  );
 }
 
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🎉'];
 
-function renderWithLinks(text) {
-  const urlPattern = /https?:\/\/[^\s<>"']+/g;
-  const parts = [];
-  let lastIndex = 0;
-  let match;
-  while ((match = urlPattern.exec(text)) !== null) {
-    if (match.index > lastIndex) parts.push(text.slice(lastIndex, match.index));
-    parts.push(
-      <a key={match.index} href={match[0]} target="_blank" rel="noopener noreferrer" style={{ color: '#1a73e8', wordBreak: 'break-all' }}>
-        {match[0]}
-      </a>
-    );
-    lastIndex = match.index + match[0].length;
-  }
-  if (lastIndex < text.length) parts.push(text.slice(lastIndex));
-  return parts.length > 0 ? parts : text;
-}
 
 function timeAgo(date) {
   const s = Math.floor((Date.now() - new Date(date)) / 1000);
@@ -150,7 +146,7 @@ export default function CommentItem({ comment, postId, depth = 0, onRefresh }) {
             </div>
           </div>
         ) : (
-          <p className="comment-content">{renderWithLinks(comment.content)}</p>
+          <p className="comment-content">{linkifyText(comment.content)}</p>
         )}
 
         <div className="comment-actions">

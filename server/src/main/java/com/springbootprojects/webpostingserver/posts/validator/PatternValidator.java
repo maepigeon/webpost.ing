@@ -1,23 +1,33 @@
 package com.springbootprojects.webpostingserver.posts.validator;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * Validates CSS background pattern values before storing them.
+ * Validates background wallpaper values before storing them.
  *
- * Accepts:
- *   - null / blank  → "no pattern" (always valid)
- *   - A known preset key (e.g. "dots", "grid") → resolved to safe CSS on the frontend
- *   - A CSS gradient function string starting with linear-gradient, radial-gradient, etc.
- *     provided it contains none of the blocked substrings below.
+ * Accepts two formats:
  *
- * Rejects everything else, including any value containing url(), expression(),
- * javascript:, data:, @import, CSS variables, or other injection vectors.
+ *   JSON v2 (preferred):
+ *     {"v":2,"pattern":"hexagons","scale":1.5,"bgColor":"#ece9e2","colors":["#000000"]}
+ *     {"v":2,"pattern":"custom","scale":1,"bgColor":"#ece9e2","colors":[],"css":"linear-gradient(...)"}
+ *
+ *   Legacy pipe format (still accepted for backward compatibility):
+ *     hexagons|#ece9e2|scale:2
+ *     paw-print:#ff0000|#f5f5dc|scale:1.5
+ *
+ * Rejects anything containing url(), expression(), javascript:, data:, @import,
+ * CSS variables, or other injection vectors.
  */
 public class PatternValidator {
 
-    private static final int MAX_LENGTH = 2000;
+    private static final int MAX_LENGTH      = 2000; // legacy pipe format
+    private static final int MAX_JSON_LENGTH = 2500; // JSON v2 (CSS field itself is ≤2000)
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     /** Keys the frontend resolves to hardcoded CSS — nothing from DB reaches the DOM for these. */
     private static final Set<String> PRESETS = Set.of(
@@ -80,23 +90,79 @@ public class PatternValidator {
             "\\|scale:\\d+(?:\\.\\d+)?"
     );
 
+    /** Hex color: #RGB, #RRGGBB, or #RRGGBBAA */
+    private static final Pattern HEX_COLOR = Pattern.compile(
+            "^#[0-9a-fA-F]{3,8}$"
+    );
+
+    /** Preset keys valid inside JSON v2 (no legacy keys needed — those only appear in pipe format). */
+    private static final Set<String> JSON_PRESETS = Set.of(
+            "none", "grid", "checkerboard", "paw-print", "stars",
+            "hexagons", "chevron", "topographic", "custom"
+    );
+
     /**
-     * Returns true if the pattern is safe to store and render.
+     * Returns true if the pattern value is safe to store and render.
      * A return value of false should produce a 400 Bad Request.
      */
     public static boolean isValid(String pattern) {
         if (pattern == null || pattern.isBlank()) return true;
+
+        String trimmed = pattern.trim();
+
+        // ── JSON v2 format ──
+        if (trimmed.startsWith("{")) {
+            if (trimmed.length() > MAX_JSON_LENGTH) return false;
+            return isValidJsonWallpaper(trimmed);
+        }
+
+        // ── Legacy pipe format ──
         if (pattern.length() > MAX_LENGTH) return false;
         if (BLOCKED.matcher(pattern).find()) return false;
-        // Strip |#COLOR and |scale:X.X suffix segments (any order) before validating the core
-        String core = BG_COLOR_SUFFIX.matcher(pattern.trim()).replaceAll("");
+        String core = BG_COLOR_SUFFIX.matcher(trimmed).replaceAll("");
         core = SCALE_SUFFIX.matcher(core).replaceAll("").trim();
         if (core.isEmpty()) return true;
-        String trimmedLower = core.toLowerCase();
-        if (PRESETS.contains(trimmedLower)) return true;
+        String coreLower = core.toLowerCase();
+        if (PRESETS.contains(coreLower)) return true;
         if (PAW_COLOR.matcher(core).matches()) return true;
         if (STARS_COLORS.matcher(core).matches()) return true;
         if (STARS_ONE_COLOR.matcher(core).matches()) return true;
         return GRADIENT_START.matcher(core).find();
+    }
+
+    private static boolean isValidJsonWallpaper(String json) {
+        try {
+            JsonNode root = MAPPER.readTree(json);
+            if (root.path("v").asInt(-1) != 2) return false;
+
+            String pat = root.path("pattern").asText("");
+            if (!JSON_PRESETS.contains(pat)) return false;
+
+            if ("custom".equals(pat)) {
+                String css = root.path("css").asText("").trim();
+                if (BLOCKED.matcher(css).find()) return false;
+                if (!css.isEmpty() && !GRADIENT_START.matcher(css).find()) return false;
+            }
+
+            if (root.has("scale")) {
+                double scale = root.path("scale").asDouble(1.0);
+                if (scale < 0.1 || scale > 10) return false;
+            }
+
+            String bgColor = root.path("bgColor").asText("");
+            if (!bgColor.isEmpty() && !HEX_COLOR.matcher(bgColor).matches()) return false;
+
+            JsonNode colors = root.path("colors");
+            if (colors.isArray()) {
+                for (JsonNode c : colors) {
+                    String colorStr = c.asText("");
+                    if (!colorStr.isEmpty() && !HEX_COLOR.matcher(colorStr).matches()) return false;
+                }
+            }
+
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

@@ -388,6 +388,135 @@ VALUES ('premium', 524288000, 100);
 
 ---
 
+## conversations
+
+One row per DM thread between two users. Ordered such that `user1_id < user2_id` always.
+
+```sql
+CREATE TABLE conversations (
+  id        SERIAL PRIMARY KEY,
+  user1_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user2_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  UNIQUE (user1_id, user2_id)
+);
+```
+
+---
+
+## direct_messages
+
+Messages within a DM conversation.
+
+```sql
+CREATE TABLE direct_messages (
+  id              SERIAL PRIMARY KEY,
+  conversation_id INTEGER     NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  sender_id       INTEGER     NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  content         TEXT        NOT NULL,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+---
+
+## dm_reactions
+
+Emoji reactions on direct messages. One row per (message, user, emoji).
+
+```sql
+CREATE TABLE dm_reactions (
+  message_id  INTEGER     NOT NULL REFERENCES direct_messages(id) ON DELETE CASCADE,
+  user_id     INTEGER     NOT NULL REFERENCES users(id)           ON DELETE CASCADE,
+  reaction    VARCHAR(32) NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (message_id, user_id, reaction)
+);
+```
+
+---
+
+## group_conversations
+
+A named group chat. `created_by` is the original owner's user id.
+
+```sql
+CREATE TABLE group_conversations (
+  id          SERIAL       PRIMARY KEY,
+  name        VARCHAR(100) NOT NULL DEFAULT 'Group',
+  created_by  INTEGER      NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+  created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+```
+
+---
+
+## group_conversation_members
+
+Membership table for group chats. `is_admin = TRUE` marks the current owner (exactly one per group at all times after an ownership transfer).
+
+```sql
+CREATE TABLE group_conversation_members (
+  group_id    INTEGER NOT NULL REFERENCES group_conversations(id) ON DELETE CASCADE,
+  user_id     INTEGER NOT NULL REFERENCES users(id)               ON DELETE CASCADE,
+  is_admin    BOOLEAN NOT NULL DEFAULT FALSE,
+  joined_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (group_id, user_id)
+);
+```
+
+**Ownership transfer:** `transferGroupOwnership(groupId, newOwnerUserId)` sets all rows `is_admin=FALSE` then sets the target row `is_admin=TRUE`. The previous owner remains a member.
+
+---
+
+## group_messages
+
+Messages sent in a group conversation.
+
+```sql
+CREATE TABLE group_messages (
+  id          SERIAL      PRIMARY KEY,
+  group_id    INTEGER     NOT NULL REFERENCES group_conversations(id) ON DELETE CASCADE,
+  sender_id   INTEGER     NOT NULL REFERENCES users(id)               ON DELETE CASCADE,
+  content     TEXT        NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+**Note:** `getGroupMessages` also joins `users.avatar_path` for rendering sender avatars in the UI.
+
+---
+
+## group_message_read
+
+Tracks the last-read timestamp per user per group for unread-count calculation.
+
+```sql
+CREATE TABLE group_message_read (
+  group_id     INTEGER NOT NULL REFERENCES group_conversations(id) ON DELETE CASCADE,
+  user_id      INTEGER NOT NULL REFERENCES users(id)               ON DELETE CASCADE,
+  last_read_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (group_id, user_id)
+);
+```
+
+---
+
+## group_message_reactions
+
+Emoji reactions on group messages. Same toggle logic as `dm_reactions`.
+
+```sql
+CREATE TABLE group_message_reactions (
+  message_id  INTEGER     NOT NULL REFERENCES group_messages(id) ON DELETE CASCADE,
+  user_id     INTEGER     NOT NULL REFERENCES users(id)          ON DELETE CASCADE,
+  reaction    VARCHAR(32) NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (message_id, user_id, reaction)
+);
+```
+
+---
+
 ## tutorials
 
 Internal table (not exposed via API). Purpose unclear from current codebase — likely used for onboarding content.
@@ -402,7 +531,7 @@ SELECT * FROM tutorials LIMIT 10;
 ## Cascade delete summary
 
 When you DELETE a user, these cascade automatically:
-- `uploads` (via `uploads_user_fk`)
+- `uploads`
 - `follows` (both follower and followed rows)
 - `notifications`
 - `comment_votes`
@@ -410,12 +539,17 @@ When you DELETE a user, these cascade automatically:
 - `comments`
 - `users_posts_junctions`
 - `post_reactions`
+- `dm_reactions`, `direct_messages`, `conversations`
+- `group_conversation_members`, `group_message_reactions`, `group_messages` (sender rows only)
 
 When you DELETE a post, these cascade:
 - `users_posts_junctions`
 - `discussions` → `comments` → `comment_votes`, `comment_reactions`, `notifications`
 - `post_reactions`
 - `post_uploads`
+
+When you DELETE a group conversation:
+- `group_conversation_members`, `group_messages`, `group_message_read`, `group_message_reactions`
 
 ---
 

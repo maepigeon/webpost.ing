@@ -415,7 +415,288 @@ public class SocialController {
 
         AuthSession session = authorize(authUsername, token);
         if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        return ResponseEntity.ok(Map.of("count", social.getUnreadMessageCount(session.userId)));
+        int dm = social.getUnreadMessageCount(session.userId);
+        int group = social.getTotalGroupUnreadCount(session.userId);
+        return ResponseEntity.ok(Map.of("count", dm + group));
+    }
+
+    // ── DM reactions ──────────────────────────────────────────────────────────
+
+    @PostMapping("/conversations/{convId}/messages/{msgId}/reactions")
+    public ResponseEntity<String> toggleDmReaction(
+            @PathVariable int convId,
+            @PathVariable int msgId,
+            @RequestBody Map<String, String> body,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+
+        AuthSession session = authorize(authUsername, token);
+        if (session == null) return unauthorized();
+        if (!social.isConversationParticipant(convId, session.userId))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Not a participant.");
+
+        String rkey = "dmr:" + session.userId;
+        if (REACTION_LIMITER.isBlocked(rkey))
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body("Too many reactions.");
+
+        String reaction = body.get("reaction");
+        if (!EmojiValidator.isValid(reaction))
+            return ResponseEntity.badRequest().body("Invalid reaction.");
+
+        social.toggleDmReaction(msgId, session.userId, reaction.trim());
+        REACTION_LIMITER.recordUse(rkey);
+        return ResponseEntity.ok("Toggled.");
+    }
+
+    @GetMapping("/conversations/{convId}/reactions")
+    public ResponseEntity<Map<Integer, Map<String, Object>>> getConvReactions(
+            @PathVariable int convId,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+
+        AuthSession session = authorize(authUsername, token);
+        if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        if (!social.isConversationParticipant(convId, session.userId))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        return ResponseEntity.ok(social.getDmReactionsForConversation(convId, session.userId));
+    }
+
+    // ── Group conversations ───────────────────────────────────────────────────
+
+    @GetMapping("/groups")
+    public ResponseEntity<List<Map<String, Object>>> getGroups(
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+
+        AuthSession session = authorize(authUsername, token);
+        if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        return ResponseEntity.ok(social.getGroupConversations(session.userId));
+    }
+
+    @PostMapping("/groups")
+    public ResponseEntity<Map<String, Object>> createGroup(
+            @RequestBody Map<String, Object> body,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+
+        AuthSession session = authorize(authUsername, token);
+        if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+        String name = body.get("name") instanceof String s ? s.trim() : "Group";
+        if (name.isBlank() || name.length() > 100) name = "Group";
+
+        int groupId = social.createGroupConversation(name, session.userId);
+
+        @SuppressWarnings("unchecked")
+        List<String> members = body.get("members") instanceof List<?> l
+            ? (List<String>) l : List.of();
+        for (String m : members) {
+            if (m.equals(authUsername)) continue;
+            int uid = social.getUserIdByUsername(m.trim());
+            if (uid > 0) social.addGroupMember(groupId, uid);
+        }
+        return ResponseEntity.ok(Map.of("id", groupId, "name", name));
+    }
+
+    @PostMapping("/groups/{groupId}/members")
+    public ResponseEntity<String> addGroupMember(
+            @PathVariable int groupId,
+            @RequestBody Map<String, String> body,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+
+        AuthSession session = authorize(authUsername, token);
+        if (session == null) return unauthorized();
+        if (!social.isGroupAdmin(groupId, session.userId))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Only admins can add members.");
+
+        String username = body.get("username");
+        if (username == null || username.isBlank()) return ResponseEntity.badRequest().body("Username required.");
+        int uid = social.getUserIdByUsername(username.trim());
+        if (uid < 0) return ResponseEntity.notFound().build();
+
+        social.addGroupMember(groupId, uid);
+        return ResponseEntity.ok("Added.");
+    }
+
+    @DeleteMapping("/groups/{groupId}/members/{username}")
+    public ResponseEntity<String> removeGroupMember(
+            @PathVariable int groupId,
+            @PathVariable String username,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+
+        AuthSession session = authorize(authUsername, token);
+        if (session == null) return unauthorized();
+
+        // Owner (admin) cannot leave — they must transfer ownership first
+        boolean isSelf = authUsername.equals(username);
+        if (isSelf && social.isGroupAdmin(groupId, session.userId))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You are the group owner. Transfer ownership before leaving.");
+
+        if (!isSelf && !social.isGroupAdmin(groupId, session.userId))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Only admins can remove members.");
+
+        int uid = social.getUserIdByUsername(username);
+        if (uid < 0) return ResponseEntity.notFound().build();
+        social.removeGroupMember(groupId, uid);
+        return ResponseEntity.ok("Removed.");
+    }
+
+    @GetMapping("/groups/{groupId}/members")
+    public ResponseEntity<List<Map<String, Object>>> getGroupMembers(
+            @PathVariable int groupId,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+
+        AuthSession session = authorize(authUsername, token);
+        if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        if (!social.isGroupMember(groupId, session.userId))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        return ResponseEntity.ok(social.getGroupMembers(groupId));
+    }
+
+    @GetMapping("/groups/{groupId}/messages")
+    public ResponseEntity<List<Map<String, Object>>> getGroupMessages(
+            @PathVariable int groupId,
+            @RequestParam(defaultValue = "50") int limit,
+            @RequestParam(defaultValue = "0") int offset,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+
+        AuthSession session = authorize(authUsername, token);
+        if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        if (!social.isGroupMember(groupId, session.userId))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        return ResponseEntity.ok(social.getGroupMessages(groupId, Math.min(limit, 100), Math.max(offset, 0)));
+    }
+
+    @PostMapping("/groups/{groupId}/messages")
+    public ResponseEntity<String> sendGroupMessage(
+            @PathVariable int groupId,
+            @RequestBody Map<String, String> body,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+
+        AuthSession session = authorize(authUsername, token);
+        if (session == null) return unauthorized();
+        if (!social.isGroupMember(groupId, session.userId))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Not a member.");
+
+        String key = "grp:" + session.userId;
+        if (MSG_LIMITER.isBlocked(key))
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body("Too many messages.");
+
+        String content = body.get("content");
+        if (content == null || content.isBlank() || content.length() > 5000)
+            return ResponseEntity.badRequest().body("Message must be 1–5000 characters.");
+
+        social.sendGroupMessage(groupId, session.userId, content.trim());
+        MSG_LIMITER.recordUse(key);
+        return ResponseEntity.ok("Sent.");
+    }
+
+    @PutMapping("/groups/{groupId}/messages/read")
+    public ResponseEntity<String> markGroupRead(
+            @PathVariable int groupId,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+
+        AuthSession session = authorize(authUsername, token);
+        if (session == null) return unauthorized();
+        if (!social.isGroupMember(groupId, session.userId))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Not a member.");
+        social.markGroupRead(groupId, session.userId);
+        return ResponseEntity.ok("Marked read.");
+    }
+
+    @PutMapping("/groups/{groupId}")
+    public ResponseEntity<String> renameGroup(
+            @PathVariable int groupId,
+            @RequestBody Map<String, String> body,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+
+        AuthSession session = authorize(authUsername, token);
+        if (session == null) return unauthorized();
+        if (!social.isGroupAdmin(groupId, session.userId))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Only admins can rename.");
+
+        String name = body.get("name");
+        if (name == null || name.isBlank() || name.length() > 100)
+            return ResponseEntity.badRequest().body("Invalid name.");
+        social.renameGroup(groupId, name.trim());
+        return ResponseEntity.ok("Renamed.");
+    }
+
+    // ── Group reactions ───────────────────────────────────────────────────────
+
+    @PostMapping("/groups/{groupId}/messages/{msgId}/reactions")
+    public ResponseEntity<String> toggleGroupReaction(
+            @PathVariable int groupId,
+            @PathVariable int msgId,
+            @RequestBody Map<String, String> body,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+
+        AuthSession session = authorize(authUsername, token);
+        if (session == null) return unauthorized();
+        if (!social.isGroupMember(groupId, session.userId))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Not a member.");
+
+        String key = "grp_rxn:" + session.userId;
+        if (REACTION_LIMITER.isBlocked(key))
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body("Too many reactions.");
+
+        String reaction = body.get("reaction");
+        if (!EmojiValidator.isValid(reaction))
+            return ResponseEntity.badRequest().body("Invalid reaction.");
+
+        social.toggleGroupReaction(msgId, session.userId, reaction.trim());
+        REACTION_LIMITER.recordUse(key);
+        return ResponseEntity.ok("ok");
+    }
+
+    @GetMapping("/groups/{groupId}/reactions")
+    public ResponseEntity<Map<Integer, Map<String, Object>>> getGroupReactions(
+            @PathVariable int groupId,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+
+        AuthSession session = authorize(authUsername, token);
+        if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        if (!social.isGroupMember(groupId, session.userId))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        return ResponseEntity.ok(social.getGroupReactionsForGroup(groupId, session.userId));
+    }
+
+    // ── Group ownership transfer ───────────────────────────────────────────────
+
+    @PutMapping("/groups/{groupId}/owner")
+    public ResponseEntity<String> transferGroupOwnership(
+            @PathVariable int groupId,
+            @RequestBody Map<String, String> body,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+
+        AuthSession session = authorize(authUsername, token);
+        if (session == null) return unauthorized();
+        if (!social.isGroupAdmin(groupId, session.userId))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Only the owner can transfer ownership.");
+
+        String newOwner = body.get("username");
+        if (newOwner == null || newOwner.isBlank())
+            return ResponseEntity.badRequest().body("Username required.");
+
+        int newOwnerId = social.getUserIdByUsername(newOwner.trim());
+        if (newOwnerId < 0) return ResponseEntity.notFound().build();
+        if (!social.isGroupMember(groupId, newOwnerId))
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("User is not a member of this group.");
+        if (newOwnerId == session.userId)
+            return ResponseEntity.badRequest().body("You are already the owner.");
+
+        social.transferGroupOwnership(groupId, newOwnerId);
+        return ResponseEntity.ok("Ownership transferred.");
     }
 
     // ── Post views ────────────────────────────────────────────────────────────

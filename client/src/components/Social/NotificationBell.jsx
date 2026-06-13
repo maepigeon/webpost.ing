@@ -79,7 +79,11 @@ export default function NotificationBell() {
       setCount(c => Math.max(0, c - 1));
     }
     setOpen(false);
-    navigate(`/inbox?highlight=${n.id}`);
+    if (n.type === 'message' && n.actorUsername) {
+      navigate(`/messages?with=${encodeURIComponent(n.actorUsername)}`);
+    } else {
+      navigate(`/inbox?highlight=${n.id}`);
+    }
   };
 
   const markAll = async () => {
@@ -100,18 +104,20 @@ export default function NotificationBell() {
             <span>Notifications</span>
             {count > 0 && <button onClick={markAll} className="notif-mark-all">Mark all read</button>}
           </div>
-          {notifications.length === 0
-            ? <p className="notif-empty">No notifications.</p>
-            : notifications.map(n => (
-              <div
-                key={n.id}
-                className={`notif-item${n.isRead ? '' : ' notif-item--unread'}`}
-                onClick={() => handleClick(n)}
-              >
-                {notifLabel(n, () => setOpen(false))}
-              </div>
-            ))
-          }
+          <div className="notif-list">
+            {notifications.length === 0
+              ? <p className="notif-empty">No notifications.</p>
+              : notifications.map(n => (
+                <div
+                  key={n.id}
+                  className={`notif-item${n.isRead ? '' : ' notif-item--unread'}`}
+                  onClick={() => handleClick(n)}
+                >
+                  {notifLabel(n, () => setOpen(false))}
+                </div>
+              ))
+            }
+          </div>
           <div className="notif-dropdown-footer">
             <button onClick={() => { setOpen(false); navigate('/inbox'); }}>View all notifications</button>
           </div>

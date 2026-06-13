@@ -1,0 +1,547 @@
+/* ── Post item wrapper (dnd-kit setNodeRef) ──────────────────────────────── */
+.profile-post-item {
+  position: relative;
+  transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
+}
+
+.profile-post-item--dragging {
+  opacity: 0.45;
+  z-index: 50;
+}
+
+.profile-post-item--drop-target .profile-post-card-wrap {
+  outline: 2px dashed rgba(108,99,255,0.5);
+  outline-offset: 3px;
+  border-radius: 12px;
+}
+
+/* ── Row layout: handle + card side-by-side ──────────────────────────────── */
+.profile-post-row {
+  /* non-edit: card renders centered naturally */
+}
+
+.profile-post-row--editable {
+  display: flex;
+  align-items: flex-start;
+  max-width: 666px;
+  margin: 0 auto;
+  gap: 4px;
+}
+
+/* ── Drag handle — unified style matching folder section handles ─────────── */
+.profile-post-drag-handle {
+  flex-shrink: 0;
+  width: 26px;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  font-size: 17px;
+  color: rgba(108,99,255,0.45);
+  border-radius: 8px;
+  margin-top: 40px;
+  margin-bottom: 40px;
+  transition: color 0.12s, background 0.12s;
+  user-select: none;
+  touch-action: none;
+}
+.profile-post-drag-handle:hover {
+  color: rgba(108,99,255,0.90);
+  background: rgba(108,99,255,0.10);
+}
+.profile-post-drag-handle:active { cursor: grabbing; }
+
+/* ── Card wrap: sizing + positioning context for folder button ───────────── */
+.profile-post-card-wrap {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+.profile-post-card-wrap--view {
+  /* view-only: no special layout, post centers naturally */
+}
+
+/* Override basicTextPost centering when inside editable row */
+.profile-post-card-wrap .basicTextPost {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+@media (max-width: 600px) {
+  .profile-post-row--editable {
+    max-width: 100%;
+    gap: 2px;
+  }
+  .profile-post-drag-handle {
+    width: 22px;
+    font-size: 14px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+  }
+}
+
+/* ── Per-post folder assignment button + popover ─────────────────────────── */
+.profile-post-folder-btn-wrap {
+  position: absolute;
+  top: 50px;
+  right: 10px;
+  z-index: 20;
+}
+
+.profile-post-folder-btn {
+  background: rgba(255,255,255,0.72);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(108,99,255,0.22);
+  border-radius: 20px;
+  padding: 3px 10px 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #5a52c8;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, border-color 0.12s;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.08);
+}
+.profile-post-folder-btn:hover {
+  background: rgba(108,99,255,0.12);
+  border-color: rgba(108,99,255,0.40);
+  filter: none;
+}
+.profile-post-folder-btn:active { transform: scale(0.95); }
+
+.profile-post-folder-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 500;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0) 60%),
+    rgba(255,255,255,0.92);
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.7);
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,0.95),
+    0 12px 32px rgba(0,0,0,0.18),
+    0 4px 10px rgba(108,99,255,0.12);
+  min-width: 190px;
+  padding: 8px 0;
+  animation: popup-spring 0.18s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+.profile-post-folder-menu-label {
+  padding: 3px 14px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #aaa;
+}
+
+.profile-post-folder-menu-divider {
+  height: 1px;
+  background: rgba(0,0,0,0.07);
+  margin: 4px 10px;
+}
+
+.profile-post-folder-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 7px 14px;
+  font-size: 13px;
+  color: #333;
+  cursor: pointer;
+  transition: background 0.1s;
+  box-shadow: none;
+}
+.profile-post-folder-menu-item:hover { background: rgba(108,99,255,0.08); filter: none; transform: none !important; }
+.profile-post-folder-menu-item.active { color: #6c63ff; font-weight: 600; }
+.profile-post-folder-menu-item--remove { color: #c44; }
+.profile-post-folder-menu-item--remove:hover { background: rgba(204,68,68,0.08); }
+
+.profile-post-folder-new-row {
+  display: flex;
+  gap: 4px;
+  padding: 4px 10px 6px;
+}
+
+.profile-post-folder-new-input {
+  flex: 1;
+  border: 1px solid rgba(108,99,255,0.25);
+  border-radius: 8px;
+  padding: 5px 9px;
+  font-size: 12px;
+  outline: none;
+  background: rgba(255,255,255,0.7);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.profile-post-folder-new-input:focus {
+  border-color: #6c63ff;
+  box-shadow: 0 0 0 2px rgba(108,99,255,0.14);
+}
+
+.profile-post-folder-new-btn {
+  background: linear-gradient(to bottom, #9a92ff, #6c63ff) !important;
+  border: none !important;
+  border-radius: 8px !important;
+  width: 28px;
+  height: 28px;
+  font-size: 16px;
+  color: #fff !important;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: none !important;
+}
+.profile-post-folder-new-btn:disabled { opacity: 0.38; cursor: not-allowed; }
+.profile-post-folder-new-btn:not(:disabled):hover { filter: brightness(1.1) !important; }
+
+/* ── Folder section — glass panel grouping all posts in the folder ───────── */
+.profile-folder-section {
+  max-width: 700px;
+  margin: 16px auto;
+  position: relative;
+  background:
+    radial-gradient(ellipse at 30% 0%, rgba(108,99,255,0.07) 0%, transparent 55%),
+    rgba(255,255,255,0.52);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1.5px solid rgba(255,255,255,0.78);
+  border-radius: 22px;
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,0.92),
+    inset 0 -1px 0 rgba(108,99,255,0.05),
+    0 8px 28px rgba(108,99,255,0.09),
+    0 3px 10px rgba(0,0,0,0.07);
+  overflow: visible;
+  transition: box-shadow 0.14s;
+}
+
+.profile-folder-section:has(.profile-folder-header--dragover) {
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,0.92),
+    0 10px 32px rgba(108,99,255,0.18),
+    0 4px 12px rgba(0,0,0,0.09);
+  outline: 2px dashed rgba(108,99,255,0.30);
+  outline-offset: 4px;
+}
+
+.profile-folder-posts {
+  padding: 0 12px 12px;
+}
+
+/* ── Folder section drag state ───────────────────────────────────────────── */
+.profile-folder-section--dragging {
+  border-color: rgba(108,99,255,0.35);
+  background:
+    radial-gradient(ellipse at 30% 0%, rgba(108,99,255,0.12) 0%, transparent 55%),
+    rgba(255,255,255,0.72);
+}
+
+/* ── Folder drag handle (in header) ──────────────────────────────────────── */
+.profile-folder-drag-handle {
+  flex-shrink: 0;
+  width: 26px;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  font-size: 17px;
+  color: rgba(108,99,255,0.50);
+  border-radius: 8px;
+  transition: color 0.12s, background 0.12s;
+  user-select: none;
+  touch-action: none;
+  margin-right: 4px;
+}
+.profile-folder-drag-handle:hover {
+  color: rgba(108,99,255,0.90);
+  background: rgba(108,99,255,0.10);
+}
+.profile-folder-drag-handle:active { cursor: grabbing; }
+
+/* ── Folder header (top of glass panel) ─────────────────────────────────── */
+.profile-folder-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px 14px 20px;
+  border-bottom: 1px solid rgba(108,99,255,0.11);
+  border-radius: 22px 22px 0 0;
+  background: rgba(108,99,255,0.04);
+  position: relative;
+  transition: background 0.14s;
+}
+/* purple accent stripe on the left edge of the header */
+.profile-folder-header::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 4px;
+  background: rgba(108,99,255,0.50);
+  border-radius: 0 3px 3px 0;
+}
+.profile-folder-header--dragover {
+  background: rgba(108,99,255,0.10);
+}
+.profile-folder-header--dragover::before {
+  background: rgba(108,99,255,0.80);
+}
+
+.profile-folder-header-inner {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.profile-folder-title-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.profile-folder-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.profile-folder-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #2a2060;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-folder-badge {
+  flex-shrink: 0;
+  background: rgba(108,99,255,0.14);
+  color: #6c63ff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 10px;
+  border: 1px solid rgba(108,99,255,0.22);
+}
+
+.profile-folder-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.profile-folder-preview-chip {
+  background: rgba(108,99,255,0.07);
+  border: 1px solid rgba(108,99,255,0.14);
+  border-radius: 6px;
+  padding: 1px 8px;
+  font-size: 11px;
+  color: #555;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+
+.profile-folder-preview-more {
+  font-size: 11px;
+  color: #999;
+  padding: 1px 4px;
+}
+
+.profile-folder-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.profile-folder-open-btn {
+  background: rgba(108,99,255,0.10);
+  border: 1px solid rgba(108,99,255,0.28);
+  border-radius: 8px;
+  padding: 4px 11px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6c63ff;
+  cursor: pointer;
+  transition: background 0.12s;
+  white-space: nowrap;
+  box-shadow: none;
+}
+.profile-folder-open-btn:hover { background: rgba(108,99,255,0.18); filter: none; transform: none !important; }
+
+.profile-folder-toggle-btn {
+  background: rgba(255,255,255,0.55);
+  border: 1px solid rgba(0,0,0,0.10);
+  border-radius: 8px;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #666;
+  transition: background 0.12s;
+  box-shadow: none;
+}
+.profile-folder-toggle-btn:hover { background: rgba(108,99,255,0.10); color: #6c63ff; filter: none; transform: none !important; }
+
+.profile-folder-chevron {
+  font-size: 11px;
+  display: inline-block;
+  transition: transform 0.15s;
+}
+
+/* ── Drop zone indicators (shown while dragging) ──────────────────────────── */
+.profile-folder-drop-zone {
+  border: 2px dashed rgba(108,99,255,0.2);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 12px;
+  color: rgba(108,99,255,0.5);
+  margin-bottom: 4px;
+  transition: all 0.15s;
+  max-width: 660px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.profile-folder-drop-zone--active {
+  border-color: rgba(108,99,255,0.6);
+  background: rgba(108,99,255,0.07);
+  color: #6c63ff;
+}
+
+/* ── Folder popup ────────────────────────────────────────────────────────── */
+.folder-popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  backdrop-filter: blur(6px);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fade-in 0.18s ease;
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.folder-popup {
+  background: rgba(245,244,242,0.96);
+  backdrop-filter: blur(28px) saturate(140%);
+  -webkit-backdrop-filter: blur(28px) saturate(140%);
+  border-radius: 20px;
+  border: 1px solid rgba(0,0,0,0.10);
+  box-shadow:
+    0 24px 64px rgba(0,0,0,0.20),
+    0 8px 24px rgba(0,0,0,0.10);
+  max-width: min(90vw, 860px);
+  width: 100%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  animation: popup-spring 0.24s cubic-bezier(0.34,1.56,0.64,1);
+  position: relative;
+}
+@keyframes popup-spring {
+  from { transform: scale(0.88) translateY(10px); opacity: 0; }
+  to   { transform: scale(1) translateY(0);       opacity: 1; }
+}
+
+.folder-popup-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+}
+
+.folder-popup-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1060;
+  flex: 1;
+}
+
+.folder-popup-count {
+  font-size: 12px;
+  color: #888;
+}
+
+.folder-popup-close {
+  background: rgba(0,0,0,0.07) !important;
+  border: none !important;
+  border-radius: 50% !important;
+  width: 28px;
+  height: 28px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666 !important;
+  transition: background 0.12s;
+  flex-shrink: 0;
+  box-shadow: none !important;
+}
+.folder-popup-close:hover { background: rgba(0,0,0,0.14) !important; filter: none; }
+
+.folder-popup-scroll {
+  display: flex;
+  gap: 16px;
+  padding: 20px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+.folder-popup-scroll::-webkit-scrollbar { height: 6px; }
+.folder-popup-scroll::-webkit-scrollbar-track {
+  background: rgba(0,0,0,0.05);
+  border-radius: 3px;
+}
+.folder-popup-scroll::-webkit-scrollbar-thumb {
+  background: rgba(108,99,255,0.25);
+  border-radius: 3px;
+}
+
+.folder-popup-card {
+  flex: 0 0 320px;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.folder-popup-remove {
+  background: rgba(220,50,50,0.08) !important;
+  border: 1px solid rgba(220,50,50,0.2) !important;
+  border-radius: 8px !important;
+  padding: 5px 12px !important;
+  font-size: 12px !important;
+  color: #c44 !important;
+  cursor: pointer;
+  transition: background 0.12s;
+  align-self: flex-end;
+  box-shadow: none !important;
+}
+.folder-popup-remove:hover { background: rgba(220,50,50,0.15) !important; filter: none; }

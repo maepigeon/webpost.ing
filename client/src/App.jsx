@@ -13,9 +13,9 @@ import PostEditor from './components/Pages/Posts/PostsViewer/PostEditor';
 import PostsViewer from './components/Pages/Posts/PostsViewer/PostsViewer';
 import RichTextEditor from './components/Pages/Posts/PostRenderer/RichTextPost/Editor';
 import RichTextViewer from './components/Pages/Posts/PostRenderer/RichTextPost/Viewer';
-import Test from './components/Pages/Test/Test';
 import Home from './components/Pages/Home/Home';
 import ScrollToTop from './components/ScrollToTop/ScrollToTop';
+import CursorGlow from './components/CursorGlow/CursorGlow.jsx';
 import InboxPage from './components/Social/InboxPage.jsx';
 import MessagesPage from './components/Social/MessagesPage.jsx';
 import DiscussionPage from './components/Social/DiscussionPage.jsx';
@@ -45,6 +45,7 @@ function App() {
 
   return (
     <div id="appBody">
+      <CursorGlow />
       <Navbar />
       <ScrollToTop />
 
@@ -65,7 +66,6 @@ function App() {
         <Route path="/routes/Logout" element={<Logout />} />
         <Route path="/routes/AdminPanel" element={<AdminPanel />} />
         <Route path="/routes/NewAccount" element={<Registration />} />
-        <Route path="/routes/Test" element={<Test /> } />
         <Route path="/inbox" element={<InboxPage />} />
         <Route path="/messages" element={<MessagesPage />} />
         <Route path="/search" element={<SearchPage />} />

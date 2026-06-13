@@ -4,23 +4,18 @@ import { BASE_URL as baseUrl } from '../../../config.js';
 
 //delete
 export function DELETE_POST(id) {
-  console.log("deleting post with id: " + id)
   const promise = axios.delete(baseUrl + "/api/posts/" + id);
   const dataPromise = promise.then((response) => response.data);
   return dataPromise;
 }
 
 export function AUTHORIZE_SESSION() {
-  console.log("attempting to authorize session");
   const promise = axios.post(baseUrl + "/api/authorizeSession");
   const dataPromise = promise.then((response) => response.data);
   promise.then((response) => {
     if (response.data == null || response.data == "") {
-      console.log("Session is NOT authorized.");
       localStorage.removeItem("userName");
       window.location.reload();
-    } else {
-      console.log("Session is authorized: " + response.data)
     }
   });
   return dataPromise;
@@ -29,13 +24,7 @@ export function AUTHORIZE_SESSION() {
 // Gets a list of all users, including user name, user id, and account creation date
 export function GET_ALL_USERS() {
   const promise = axios.get(baseUrl + "/api/getAllUsers");
-  console.log("reading all posts");
-
-  const dataPromise = promise.then(
-    (response) => {
-    console.log(response);
-    return response.data
-    });
+  const dataPromise = promise.then((response) => response.data);
   return dataPromise;
 }
 
@@ -51,7 +40,6 @@ export function READ_POSTS_BY_USER(username, limit = 20, offset = 0) {
 export function READ_POSTS() {
   const promise = axios.get(baseUrl + "/api/posts");
   const dataPromise = promise.then((response) => response.data);
-  console.log("reading all posts");
   return dataPromise;
 };
 
@@ -59,24 +47,17 @@ export function READ_POSTS() {
 export function READ_POST(id) {
   const promise = axios.get(baseUrl + "/api/posts/" + id + "");
   const dataPromise = promise.then((response) => response.data);
-  console.log("reading post " + id);
   return dataPromise;
 }
 //get a post by its id in the database
 export function GET_USER_FROM_POST(id) {
-  const promise = axios.get(baseUrl + "/api/UserFromPostID/" + id + "");
-  const dataPromise = promise.then((response) => 
-  {
-    console.log("got user " + response + " from post id " + id);
-    return response.data;
-  });
-  return dataPromise;
+  return axios.get(baseUrl + "/api/UserFromPostID/" + id + "")
+    .then((response) => response.data);
 }
 
 
 //create
 export function CREATE_POST(id, titleField, descriptionField, publishedField, backgroundPattern, folder) {
-  console.log("creating a new post, title:" + titleField);
   if (titleField == "undefined") {titleField = "Undefined title";}
   const promise = axios.post(baseUrl + "/api/posts",
   {
@@ -88,12 +69,10 @@ export function CREATE_POST(id, titleField, descriptionField, publishedField, ba
     folder: folder || null,
   }, { withCredentials: true });
   const dataPromise = promise.then((response) => response.data);
-  console.log("created POST");
   return dataPromise;
 }
 //update
 export function UPDATE_POST(id, titleField, descriptionField, publishedField, backgroundPattern, folder) {
-  console.log("updating post with id: " + id)
   const promise = axios.put(baseUrl + "/api/posts/" + id,
   {
       id: id,
@@ -388,6 +367,14 @@ export function SEARCH_USERS(q) {
     .then(r => r.data);
 }
 
+/** Search published posts by title/content. Optional from=username filters to one author. */
+export function SEARCH_POSTS(q, from) {
+  const params = { q };
+  if (from) params.from = from;
+  return axios.get(baseUrl + `/api/search/posts`, { params, withCredentials: true })
+    .then(r => r.data);
+}
+
 // ── Follow counts ─────────────────────────────────────────────────────────────
 
 export function GET_FOLLOW_COUNTS(username) {
@@ -544,6 +531,10 @@ export function GET_HASHTAG_POSTS(tag) {
   return axios.get(baseUrl + `/api/hashtags/${encodeURIComponent(tag)}/posts`).then(r => r.data);
 }
 
+export function GET_HASHTAG_SUGGESTIONS(q) {
+  return axios.get(baseUrl + `/api/hashtags/suggest`, { params: { q } }).then(r => r.data);
+}
+
 // ── Admin system settings ─────────────────────────────────────────────────────
 
 export function ADMIN_GET_SETTINGS() {
@@ -553,4 +544,87 @@ export function ADMIN_GET_SETTINGS() {
 export function ADMIN_UPDATE_SETTING(key, value) {
   return axios.put(baseUrl + `/api/admin/settings/${encodeURIComponent(key)}`,
     { value: String(value) }, { withCredentials: true }).then(r => r.data);
+}
+
+export function GET_RECENTLY_ACTIVE_USERS() {
+  return axios.get(baseUrl + '/api/users/recently-active').then(r => r.data);
+}
+
+// ── DM reactions ──────────────────────────────────────────────────────────────
+
+export function TOGGLE_DM_REACTION(convId, msgId, reaction) {
+  return axios.post(baseUrl + `/api/conversations/${convId}/messages/${msgId}/reactions`,
+    { reaction }, { withCredentials: true }).then(r => r.data);
+}
+
+export function GET_CONV_REACTIONS(convId) {
+  return axios.get(baseUrl + `/api/conversations/${convId}/reactions`,
+    { withCredentials: true }).then(r => r.data);
+}
+
+// ── Group conversations ───────────────────────────────────────────────────────
+
+export function GET_GROUPS() {
+  return axios.get(baseUrl + '/api/groups', { withCredentials: true }).then(r => r.data);
+}
+
+export function CREATE_GROUP(name, members) {
+  return axios.post(baseUrl + '/api/groups', { name, members }, { withCredentials: true }).then(r => r.data);
+}
+
+export function GET_GROUP_MESSAGES(groupId, limit = 50, offset = 0) {
+  return axios.get(baseUrl + `/api/groups/${groupId}/messages`,
+    { params: { limit, offset }, withCredentials: true }).then(r => r.data);
+}
+
+export function SEND_GROUP_MESSAGE(groupId, content) {
+  return axios.post(baseUrl + `/api/groups/${groupId}/messages`,
+    { content }, { withCredentials: true }).then(r => r.data);
+}
+
+export function MARK_GROUP_READ(groupId) {
+  return axios.put(baseUrl + `/api/groups/${groupId}/messages/read`,
+    {}, { withCredentials: true }).then(r => r.data);
+}
+
+export function GET_GROUP_MEMBERS(groupId) {
+  return axios.get(baseUrl + `/api/groups/${groupId}/members`,
+    { withCredentials: true }).then(r => r.data);
+}
+
+export function ADD_GROUP_MEMBER(groupId, username) {
+  return axios.post(baseUrl + `/api/groups/${groupId}/members`,
+    { username }, { withCredentials: true }).then(r => r.data);
+}
+
+export function REMOVE_GROUP_MEMBER(groupId, username) {
+  return axios.delete(baseUrl + `/api/groups/${groupId}/members/${encodeURIComponent(username)}`,
+    { withCredentials: true }).then(r => r.data);
+}
+
+export function RENAME_GROUP(groupId, name) {
+  return axios.put(baseUrl + `/api/groups/${groupId}`,
+    { name }, { withCredentials: true }).then(r => r.data);
+}
+
+export function TOGGLE_GROUP_REACTION(groupId, msgId, reaction) {
+  return axios.post(baseUrl + `/api/groups/${groupId}/messages/${msgId}/reactions`,
+    { reaction }, { withCredentials: true }).then(r => r.data);
+}
+
+export function GET_GROUP_REACTIONS(groupId) {
+  return axios.get(baseUrl + `/api/groups/${groupId}/reactions`,
+    { withCredentials: true }).then(r => r.data);
+}
+
+export function TRANSFER_GROUP_OWNERSHIP(groupId, username) {
+  return axios.put(baseUrl + `/api/groups/${groupId}/owner`,
+    { username }, { withCredentials: true }).then(r => r.data);
+}
+
+// ── Post ordering ─────────────────────────────────────────────────────────────
+
+export function UPDATE_POST_ORDER(username, updates) {
+  return axios.put(baseUrl + `/api/users/${username}/posts/order`,
+    { updates }, { withCredentials: true }).then(r => r.data);
 }

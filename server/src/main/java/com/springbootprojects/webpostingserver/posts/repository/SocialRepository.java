@@ -607,6 +607,7 @@ public class SocialRepository {
         return jdbc.queryForList(
             "SELECT c.id, " +
             "  CASE WHEN c.user1_id=? THEN u2.username ELSE u1.username END AS other_username, " +
+            "  CASE WHEN c.user1_id=? THEN u2.avatar_path ELSE u1.avatar_path END AS other_avatar, " +
             "  last_msg.content AS last_message, " +
             "  last_msg.created_at AS last_message_at, " +
             "  (SELECT COUNT(*) FROM direct_messages dm2 " +
@@ -620,7 +621,7 @@ public class SocialRepository {
             ") last_msg ON TRUE " +
             "WHERE c.user1_id=? OR c.user2_id=? " +
             "ORDER BY last_msg.created_at DESC NULLS LAST",
-            userId, userId, userId, userId);
+            userId, userId, userId, userId, userId);
     }
 
     public int getOrCreateConversation(int userId1, int userId2) {
@@ -819,5 +820,233 @@ public class SocialRepository {
         m.put("followers", followers != null ? followers : 0);
         m.put("following", following != null ? following : 0);
         return m;
+    }
+
+    // ── DM reactions ──────────────────────────────────────────────────────────
+
+    public void toggleDmReaction(int messageId, int userId, String reaction) {
+        int deleted = jdbc.update(
+            "DELETE FROM dm_reactions WHERE message_id=? AND user_id=? AND reaction=?",
+            messageId, userId, reaction);
+        if (deleted == 0) {
+            jdbc.update(
+                "INSERT INTO dm_reactions(message_id,user_id,reaction) VALUES(?,?,?) ON CONFLICT DO NOTHING",
+                messageId, userId, reaction);
+        }
+    }
+
+    /** Returns reaction counts and list of reactors per emoji for a message. */
+    public Map<String, Object> getDmReactions(int messageId, int viewerUserId) {
+        List<Map<String, Object>> rows = jdbc.queryForList(
+            "SELECT r.reaction, COUNT(*) AS cnt, " +
+            "  BOOL_OR(r.user_id=?) AS viewer_reacted " +
+            "FROM dm_reactions r WHERE r.message_id=? " +
+            "GROUP BY r.reaction ORDER BY r.reaction",
+            viewerUserId, messageId);
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        List<String> userReactions = new ArrayList<>();
+        for (Map<String, Object> row : rows) {
+            String emoji = (String) row.get("reaction");
+            counts.put(emoji, ((Number) row.get("cnt")).intValue());
+            if (Boolean.TRUE.equals(row.get("viewer_reacted"))) userReactions.add(emoji);
+        }
+        return Map.of("counts", counts, "userReactions", userReactions);
+    }
+
+    /** Returns reactions for all messages in a conversation, keyed by message id. */
+    public Map<Integer, Map<String, Object>> getDmReactionsForConversation(int convId, int viewerUserId) {
+        List<Map<String, Object>> rows = jdbc.queryForList(
+            "SELECT r.message_id, r.reaction, COUNT(*) AS cnt, " +
+            "  BOOL_OR(r.user_id=?) AS viewer_reacted " +
+            "FROM dm_reactions r " +
+            "JOIN direct_messages dm ON dm.id=r.message_id " +
+            "WHERE dm.conversation_id=? " +
+            "GROUP BY r.message_id, r.reaction",
+            viewerUserId, convId);
+        Map<Integer, Map<String, Object>> result = new LinkedHashMap<>();
+        for (Map<String, Object> row : rows) {
+            int msgId = ((Number) row.get("message_id")).intValue();
+            String emoji = (String) row.get("reaction");
+            int cnt = ((Number) row.get("cnt")).intValue();
+            boolean viewerReacted = Boolean.TRUE.equals(row.get("viewer_reacted"));
+            result.computeIfAbsent(msgId, k -> {
+                Map<String, Object> m2 = new LinkedHashMap<>();
+                m2.put("counts", new LinkedHashMap<String, Integer>());
+                m2.put("userReactions", new ArrayList<String>());
+                return m2;
+            });
+            @SuppressWarnings("unchecked")
+            Map<String, Integer> counts = (Map<String, Integer>) result.get(msgId).get("counts");
+            counts.put(emoji, cnt);
+            if (viewerReacted) {
+                @SuppressWarnings("unchecked")
+                List<String> ur = (List<String>) result.get(msgId).get("userReactions");
+                ur.add(emoji);
+            }
+        }
+        return result;
+    }
+
+    // ── Group conversations ───────────────────────────────────────────────────
+
+    public int createGroupConversation(String name, int createdBy) {
+        KeyHolder kh = new GeneratedKeyHolder();
+        jdbc.update(c -> {
+            PreparedStatement ps = c.prepareStatement(
+                "INSERT INTO group_conversations(name,created_by) VALUES(?,?) RETURNING id",
+                Statement.RETURN_GENERATED_KEYS);
+            ps.setString(1, name);
+            ps.setInt(2, createdBy);
+            return ps;
+        }, kh);
+        int groupId = kh.getKey().intValue();
+        jdbc.update("INSERT INTO group_conversation_members(group_id,user_id,is_admin) VALUES(?,?,TRUE)",
+            groupId, createdBy);
+        return groupId;
+    }
+
+    public void addGroupMember(int groupId, int userId) {
+        jdbc.update(
+            "INSERT INTO group_conversation_members(group_id,user_id) VALUES(?,?) ON CONFLICT DO NOTHING",
+            groupId, userId);
+    }
+
+    public void removeGroupMember(int groupId, int userId) {
+        jdbc.update(
+            "DELETE FROM group_conversation_members WHERE group_id=? AND user_id=?",
+            groupId, userId);
+    }
+
+    public boolean isGroupMember(int groupId, int userId) {
+        Integer count = jdbc.queryForObject(
+            "SELECT COUNT(*) FROM group_conversation_members WHERE group_id=? AND user_id=?",
+            Integer.class, groupId, userId);
+        return count != null && count > 0;
+    }
+
+    public boolean isGroupAdmin(int groupId, int userId) {
+        Integer count = jdbc.queryForObject(
+            "SELECT COUNT(*) FROM group_conversation_members WHERE group_id=? AND user_id=? AND is_admin=TRUE",
+            Integer.class, groupId, userId);
+        return count != null && count > 0;
+    }
+
+    public List<Map<String, Object>> getGroupConversations(int userId) {
+        return jdbc.queryForList(
+            "SELECT gc.id, gc.name, gc.created_at, " +
+            "  last_msg.content AS last_message, last_msg.created_at AS last_message_at, " +
+            "  (SELECT COUNT(*) FROM group_messages gm2 " +
+            "   WHERE gm2.group_id=gc.id AND gm2.created_at > COALESCE(" +
+            "     (SELECT last_read_at FROM group_message_read WHERE group_id=gc.id AND user_id=?), " +
+            "     '1970-01-01'::timestamptz)) AS unread_count " +
+            "FROM group_conversations gc " +
+            "JOIN group_conversation_members gcm ON gcm.group_id=gc.id AND gcm.user_id=? " +
+            "LEFT JOIN LATERAL (" +
+            "  SELECT content, created_at FROM group_messages " +
+            "  WHERE group_id=gc.id ORDER BY created_at DESC LIMIT 1" +
+            ") last_msg ON TRUE " +
+            "ORDER BY last_msg.created_at DESC NULLS LAST",
+            userId, userId);
+    }
+
+    public List<Map<String, Object>> getGroupMessages(int groupId, int limit, int offset) {
+        return jdbc.queryForList(
+            "SELECT gm.id, gm.sender_id, u.username AS sender_username, u.avatar_path, gm.content, gm.created_at " +
+            "FROM group_messages gm JOIN users u ON u.id=gm.sender_id " +
+            "WHERE gm.group_id=? ORDER BY gm.created_at ASC LIMIT ? OFFSET ?",
+            groupId, limit, offset);
+    }
+
+    public void toggleGroupReaction(int messageId, int userId, String reaction) {
+        int deleted = jdbc.update(
+            "DELETE FROM group_message_reactions WHERE message_id=? AND user_id=? AND reaction=?",
+            messageId, userId, reaction);
+        if (deleted == 0) {
+            jdbc.update(
+                "INSERT INTO group_message_reactions(message_id,user_id,reaction) VALUES(?,?,?) ON CONFLICT DO NOTHING",
+                messageId, userId, reaction);
+        }
+    }
+
+    public Map<Integer, Map<String, Object>> getGroupReactionsForGroup(int groupId, int viewerUserId) {
+        List<Map<String, Object>> rows = jdbc.queryForList(
+            "SELECT r.message_id, r.reaction, COUNT(*) AS cnt, " +
+            "  BOOL_OR(r.user_id=?) AS viewer_reacted " +
+            "FROM group_message_reactions r " +
+            "JOIN group_messages gm ON gm.id=r.message_id " +
+            "WHERE gm.group_id=? " +
+            "GROUP BY r.message_id, r.reaction",
+            viewerUserId, groupId);
+        Map<Integer, Map<String, Object>> result = new LinkedHashMap<>();
+        for (Map<String, Object> row : rows) {
+            int msgId = ((Number) row.get("message_id")).intValue();
+            String emoji = (String) row.get("reaction");
+            int cnt = ((Number) row.get("cnt")).intValue();
+            boolean viewerReacted = Boolean.TRUE.equals(row.get("viewer_reacted"));
+            result.computeIfAbsent(msgId, k -> {
+                Map<String, Object> m2 = new LinkedHashMap<>();
+                m2.put("counts", new LinkedHashMap<String, Integer>());
+                m2.put("userReactions", new ArrayList<String>());
+                return m2;
+            });
+            @SuppressWarnings("unchecked")
+            Map<String, Integer> counts = (Map<String, Integer>) result.get(msgId).get("counts");
+            counts.put(emoji, cnt);
+            if (viewerReacted) {
+                @SuppressWarnings("unchecked")
+                List<String> ur = (List<String>) result.get(msgId).get("userReactions");
+                ur.add(emoji);
+            }
+        }
+        return result;
+    }
+
+    public void transferGroupOwnership(int groupId, int newOwnerUserId) {
+        jdbc.update(
+            "UPDATE group_conversation_members SET is_admin=FALSE WHERE group_id=?",
+            groupId);
+        jdbc.update(
+            "UPDATE group_conversation_members SET is_admin=TRUE WHERE group_id=? AND user_id=?",
+            groupId, newOwnerUserId);
+    }
+
+    public void sendGroupMessage(int groupId, int senderId, String content) {
+        jdbc.update(
+            "INSERT INTO group_messages(group_id,sender_id,content) VALUES(?,?,?)",
+            groupId, senderId, content);
+    }
+
+    public void markGroupRead(int groupId, int userId) {
+        jdbc.update(
+            "INSERT INTO group_message_read(group_id,user_id,last_read_at) VALUES(?,?,NOW()) " +
+            "ON CONFLICT (group_id,user_id) DO UPDATE SET last_read_at=NOW()",
+            groupId, userId);
+    }
+
+    public List<Map<String, Object>> getGroupMembers(int groupId) {
+        return jdbc.queryForList(
+            "SELECT u.username, gcm.is_admin, gcm.joined_at " +
+            "FROM group_conversation_members gcm " +
+            "JOIN users u ON u.id=gcm.user_id " +
+            "WHERE gcm.group_id=? ORDER BY gcm.joined_at",
+            groupId);
+    }
+
+    public void renameGroup(int groupId, String name) {
+        jdbc.update("UPDATE group_conversations SET name=? WHERE id=?", name, groupId);
+    }
+
+    public int getTotalGroupUnreadCount(int userId) {
+        Integer r = jdbc.queryForObject(
+            "SELECT COALESCE(SUM(sub.cnt),0) FROM (" +
+            "  SELECT (SELECT COUNT(*) FROM group_messages gm2 " +
+            "    WHERE gm2.group_id=gc.id AND gm2.created_at > COALESCE(" +
+            "      (SELECT last_read_at FROM group_message_read WHERE group_id=gc.id AND user_id=?), " +
+            "      '1970-01-01'::timestamptz)) AS cnt " +
+            "  FROM group_conversations gc " +
+            "  JOIN group_conversation_members gcm ON gcm.group_id=gc.id AND gcm.user_id=?" +
+            ") sub",
+            Integer.class, userId, userId);
+        return r != null ? r : 0;
     }
 }

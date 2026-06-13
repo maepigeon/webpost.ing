@@ -28,7 +28,7 @@ body {
 @media only screen and (min-width: 601px) {
     .basicTextPost {
         margin: 40px auto;
-        width: 628px;
+        width: min(628px, calc(100vw - 32px));
     }
 }
 

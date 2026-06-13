@@ -2,7 +2,7 @@ import { CodeNode } from '@lexical/code';
 
 export class CustomCodeNode extends CodeNode {
   __lightMode = false;
-  __lineNumbers = false;
+  __lineNumbers = true;
 
   static getType() { return 'code'; }
 
@@ -78,7 +78,7 @@ export class CustomCodeNode extends CodeNode {
     node.setIndent(serializedNode.indent ?? 0);
     if (serializedNode.direction) node.setDirection(serializedNode.direction);
     node.__lightMode = serializedNode.lightMode ?? false;
-    node.__lineNumbers = serializedNode.lineNumbers ?? false;
+    node.__lineNumbers = serializedNode.lineNumbers ?? true;
     return node;
   }
 }

@@ -112,3 +112,30 @@
 .dialog-btn--cancel:hover {
   background: rgba(0,0,0,0.12);
 }
+
+.dialog-message--link {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+
+.dialog-link-label {
+  font-size: 0.8rem;
+  color: #888;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dialog-link-url {
+  font-size: 0.85rem;
+  color: #333;
+  background: rgba(0,0,0,0.05);
+  border: 1px solid rgba(0,0,0,0.09);
+  border-radius: 8px;
+  padding: 8px 12px;
+  word-break: break-all;
+  line-height: 1.5;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}

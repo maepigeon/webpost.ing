@@ -1,6 +1,6 @@
 # Priority Task List
 
-Last updated: 2026-06-11
+Last updated: 2026-06-13
 
 ---
 
@@ -58,3 +58,42 @@ Last updated: 2026-06-11
 
 - [ ] **Review all endpoints for missing auth/ownership checks**
 - [ ] **Add integration tests for auth flows**
+
+---
+
+## Session — 2026-06-11 (continued)
+
+### Completed
+- [x] **Fix invite codes** — OffsetDateTime cast fixed (Timestamp→Instant); invalid code now 5-min block instead of 1hr; used/expired codes no longer block IP; username conflict no longer blocks IP
+- [x] **External link dialog** — replaced `confirm()` with `linkWarning(url)` dialog variant; shows URL in monospace box, only "Continue →" button
+- [x] **AvatarPopup component** — `Social/AvatarPopup.jsx` + CSS; glass popup with spring animation; clicking profile avatar in CommentItem and PostsViewer opens it
+- [x] **Avatar bigger** — comment avatars 22→34px with border+shadow; profile header avatar 72→96px with glowing ring
+- [x] **Online indicator** — glowing green dot (pulsing keyframe) overlaid on profile avatar + "Online" text; backend already provided `GET_USER_ONLINE`
+
+---
+
+## Session — 2026-06-12 / 2026-06-13
+
+### Completed
+- [x] **PatternPicker: scale/color load on refresh** — extended `useEffect([value])` to sync `customInput` via `inputDirtyRef`; scale and bg color now load correctly after page refresh
+- [x] **PatternPicker: remove Apply button + preview bar** — custom input auto-applies on Enter/blur; removed "Previewing — save this wallpaper?" bar and `pendingPreset` system
+- [x] **PatternPicker: scale slider live preview** — slider calls `onPreview` during drag, saves on pointer/key release via `commitScale`; fixed event-object bug (`typeof explicitScale === 'number'`)
+- [x] **PatternPicker: save preset saves correct key** — `openSaveDialog` uses `findPresetByImage(v)` to detect built-in presets and saves the key (not raw CSS); user preset swatches render via `patternToStyle(css)`
+- [x] **Recently online cards: bottom rim highlight** — replaced floating `inset 0 -14px 14px` glow with sharp `inset 0 -2.5px 0 rgba(255,255,255,0.58)` on Home.css and SearchPage.css
+- [x] **Registration loopback 429 fix** — `InetAddress.getByName(ip).isLoopbackAddress()` handles IPv4-mapped IPv6 (`::ffff:127.0.0.1`); string-matching missed it
+- [x] **Profile drag-and-drop: ungrouped posts above folders** — `closestCenter` was routing outer-list drags to folder inner contexts; redirect `overDispIdx` to folder container when active is outer but over lands in a folder post
+- [x] **Group chat reactions** — `group_message_reactions` table (V013 migration); `POST /groups/{id}/messages/{msgId}/reactions` + `GET /groups/{id}/reactions` endpoints (rate-limited); frontend removes `!isGroup` guards; `TOGGLE_GROUP_REACTION` + `GET_GROUP_REACTIONS` in API
+- [x] **Avatar in group chat messages** — `getGroupMessages` query now includes `u.avatar_path`; each non-mine group message shows a 22px circular avatar (with initial fallback) above the bubble
+- [x] **Group owner cannot leave** — backend blocks `DELETE /groups/{id}/members/{username}` if user is the admin/owner; frontend hides "Leave" for owner row
+- [x] **Group ownership transfer** — `PUT /groups/{id}/owner` endpoint; `transferGroupOwnership` in SocialRepository (sets all is_admin=FALSE then new owner=TRUE); `⇌` button in members panel (visible to owner only, not on own row); glass spring confirmation dialog
+- [x] **Replace crown with "owner" badge** — `👑` replaced with an inline `owner` text badge (purple, styled with border + rounded)
+
+### In Progress
+- [ ] **Admin panel mobile** — needs responsive layout
+- [ ] **Share post/comment to DM** — from share button
+- [ ] **Post list/collection on profile** — horizontal slider block
+- [ ] **View as visitor on own profile**
+- [ ] **Homepage pizzazz** — blurb about the app, visual interest
+- [ ] **Post font options** — font family picker in editor
+- [ ] **Maintenance/migration landing page** — shown during deploy
+- [ ] **UI polish** — more skeuomorphism/2.5D throughout

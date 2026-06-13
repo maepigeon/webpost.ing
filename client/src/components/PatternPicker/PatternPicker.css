@@ -140,25 +140,25 @@
   flex-wrap: wrap;
 }
 
-.pattern-picker-test-btn {
+.pattern-picker-cancel-btn {
   padding: 4px 10px;
   font-size: 12px;
-  background: #f0f4ff;
-  color: #3b5bdb;
-  border: 1px solid #91a7ff;
+  background: rgba(0,0,0,0.05);
+  color: #555;
+  border: 1px solid rgba(0,0,0,0.14);
   border-radius: 4px;
   cursor: pointer;
 }
 
-.pattern-picker-test-btn:hover {
-  background: #e0e7ff;
+.pattern-picker-cancel-btn:hover {
+  background: rgba(0,0,0,0.09);
   filter: none;
 }
 
 .pattern-picker-apply-btn {
   padding: 4px 12px;
   font-size: 12px;
-  background: #555;
+  background: #444;
   color: #fff;
   border: none;
   border-radius: 4px;
@@ -166,7 +166,7 @@
 }
 
 .pattern-picker-apply-btn:hover {
-  background: #333;
+  background: #222;
   filter: none;
 }
 
@@ -175,27 +175,14 @@
   font-size: 12px;
   background: transparent;
   color: #555;
-  border: 1px solid #ccc;
+  border: 1px solid rgba(0,0,0,0.16);
   border-radius: 4px;
   cursor: pointer;
 }
 
 .pattern-picker-save-btn:hover {
-  background: #f5f5f5;
+  background: rgba(0,0,0,0.05);
   filter: none;
-}
-
-.pattern-picker-save-row {
-  display: flex;
-  gap: 6px;
-}
-
-.pattern-picker-name-input {
-  flex: 1;
-  font-size: 12px;
-  padding: 4px 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
 }
 
 .pattern-picker-error {
@@ -379,7 +366,7 @@
 .pattern-save-dialog-cancel:hover { background: rgba(0,0,0,0.10); }
 
 .pattern-save-dialog-save {
-  background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
+  background: linear-gradient(to bottom, #4a8ef8 0%, #1a73e8 50%, #0d47a1 100%);
   border: none;
   border-radius: 9px;
   padding: 8px 18px;

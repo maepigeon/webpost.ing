@@ -11,6 +11,7 @@ html {
   margin: 0;
   padding: 0;
   background-color: #ece9e2; /* warm base so the page is never a harsh white void */
+  overflow-x: clip; /* prevent page-level horizontal scroll; clip preserves sticky positioning */
 }
 
 body {
@@ -47,13 +48,19 @@ body {
 }
 
 
-p {
-  display: block;
-  color: blue;
+
+/* Smooth link transitions */
+a {
+  transition: color 0.14s ease, opacity 0.14s ease, text-decoration-color 0.14s ease;
+}
+
+/* Image fade-in on load */
+img {
+  transition: opacity 0.22s ease, transform 0.18s cubic-bezier(0.34,1.56,0.64,1);
 }
 
 input, textarea {
-  transition: border-color 0.15s ease, box-shadow 0.18s ease, background-color 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.18s ease, background-color 0.15s ease, color 0.12s ease;
   caret-color: #6c63ff;
 }
 
@@ -61,9 +68,13 @@ input::selection, textarea::selection {
   background: rgba(108,99,255,0.22);
 }
 
+select {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
 button {
   cursor: pointer;
-  transition: filter 0.15s ease, transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s ease;
+  transition: filter 0.15s ease, transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s ease, opacity 0.14s ease, background-color 0.14s ease, color 0.12s ease;
   will-change: transform;
 }
 
@@ -74,6 +85,16 @@ button:hover {
 button:active {
   transform: scale(0.94) translateY(1px) !important;
   transition: transform 0.07s ease, filter 0.07s ease !important;
+}
+
+/* Global page section transition — fade+slide for route changes */
+#appBody > *:not(nav):not(.cursor-glow) {
+  animation: page-fade-in 0.22s ease both;
+}
+
+@keyframes page-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
 }
 
 /* ── Global neoskeuomorphic button utility class ─────────────────────────── */
@@ -177,23 +198,58 @@ button:active {
   box-shadow: var(--neo-shadow-active);
 }
 
-/* ── Glass card utility class ─────────────────────────────────────────────── */
+/* ── Liquid Glass card utility class ──────────────────────────────────────── */
+/*
+ * Frosted glass with edge refraction ring.
+ * The ::before pseudo-element provides the refractive edge — a gradient from
+ * bright top/left to deep bottom/right creates the impression of light bending
+ * at the glass boundary.
+ */
 .glass-card {
+  position: relative;
   background:
-    radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0) 60%),
-    rgba(255,255,255,0.56);
-  backdrop-filter: blur(22px) saturate(180%) brightness(1.03);
-  -webkit-backdrop-filter: blur(22px) saturate(180%) brightness(1.03);
-  border: 1px solid rgba(255,255,255,0.78);
+    radial-gradient(ellipse at 40% 0%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 55%),
+    rgba(255,255,255,0.46);
+  backdrop-filter: blur(24px) saturate(200%) brightness(1.04);
+  -webkit-backdrop-filter: blur(24px) saturate(200%) brightness(1.04);
   border-radius: 18px;
+  /* Transparent true border so the pseudo-element sits in it */
+  border: 1.5px solid transparent;
+  /* background-clip keeps the fill inside the real border */
+  background-clip: padding-box;
   box-shadow:
     0 16px 48px rgba(0,0,0,0.12),
     0 6px 16px rgba(0,0,0,0.08),
     0 2px 4px rgba(0,0,0,0.05),
-    inset 0 2px 0 rgba(255,255,255,0.98),
-    inset 0 -1px 0 rgba(0,0,0,0.04),
-    inset 1px 0 0 rgba(255,255,255,0.55),
-    inset -1px 0 0 rgba(0,0,0,0.03);
+    inset 0 2.5px 0 rgba(255,255,255,0.98),
+    inset 0 -1.5px 0 rgba(80,60,120,0.10),
+    inset 2px 0 0 rgba(255,255,255,0.60),
+    inset -2px 0 0 rgba(80,60,120,0.07);
+  isolation: isolate;
+}
+
+/* Refractive edge ring — conic gradient wraps the curved perimeter so
+ * the top sparkles white, the sides show violet-blue dispersion, and the
+ * bottom deepens to indigo — simulating light bending through glass. */
+.glass-card::before {
+  content: '';
+  position: absolute;
+  inset: -1.5px;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: -1;
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    rgba(255,255,255,0.92)    0deg,
+    rgba(220,215,255,0.55)   45deg,
+    rgba(160,140,255,0.32)   90deg,
+    rgba(80, 60, 200,0.28)  135deg,
+    rgba(30, 20, 100,0.38)  180deg,
+    rgba(80, 60, 200,0.22)  225deg,
+    rgba(160,140,255,0.32)  270deg,
+    rgba(220,215,255,0.55)  315deg,
+    rgba(255,255,255,0.92)  360deg
+  );
 }
 
 .under-construction {

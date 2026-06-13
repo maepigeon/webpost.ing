@@ -12,7 +12,7 @@ function BasicTextPost(props) {
     var editMode = props.editMode;
     var hasModifyPermissions = props.hasModifyPermissions;
     var ownerUsername = props.ownerUsername || '';
-    
+
     const Modes = Object.freeze({
         VIEW: 0,
         EDIT: 1,
@@ -21,9 +21,9 @@ function BasicTextPost(props) {
 
     const [currentPostMode, setCurrentPostMode] = useState(editMode ? Modes.EDIT : Modes.VIEW);
 
-    const goToPost = () => {
-        console.log("Going to post # " + postdata.id)
-    }
+    const viewPath = ownerUsername
+        ? `/users/${ownerUsername}/${postdata.id}`
+        : `/editor/${postdata.id}`;
 
     const submitEditPost = () => {
         UPDATE_POST(postdata.id, titlehtml.current, descriptionhtml.current, postdata.published).then(
@@ -38,7 +38,6 @@ function BasicTextPost(props) {
         setCurrentPostMode(Modes.VIEW);
     }
 
-    // Update the title or description data reference when the respective field is edited
     const titlehtml = useRef("Title");
     var handleEditTitle = event => {
         if (event.target.value) {
@@ -62,40 +61,28 @@ function BasicTextPost(props) {
         )
     }
 
-    // Renders the heading and paragraph for the post
     function renderPostDataFields(postMode) {
         if (postMode == Modes.VIEW) {
-            return( 
-                <>
+            return(
+                <Link to={viewPath} className="post-title-link">
                     <h1>{postdata.title}</h1>
-                    {/*<p>{postdata.description}</p>*/}
-                </>);
+                </Link>
+            );
         }
         else if (postMode == Modes.EDIT) {
             return(
                 <>
-                    <Editable editEventHandler={handleEditTitle} 
-                        typeTag="h1" initialContent={postdata.title}> 
+                    <Editable editEventHandler={handleEditTitle}
+                        typeTag="h1" initialContent={postdata.title}>
                     </Editable>
-                    <Editable editEventHandler={handleEditDescription} 
+                    <Editable editEventHandler={handleEditDescription}
                         typeTag="p" initialContent={postdata.description}>
                      </Editable>
                 </>);
         }
     }
-    function goButtonRender() {
-        const viewPath = ownerUsername
-            ? `/users/${ownerUsername}/${postdata.id}`
-            : `/editor/${postdata.id}`;
-        return(
-            <Link to={viewPath} state={{postID: postdata.id}}>
-                <button onClick={() => goToPost()}> Go </button>
-            </Link>
-        );
-    }
 
-     // Component for the delete button
-     function deleteButtonRender() {
+    function deleteButtonRender() {
         if (!hasModifyPermissions) {
             return <></>
         }
@@ -116,8 +103,6 @@ function BasicTextPost(props) {
             }
         }
 
-
-    // Component for the edit / cancel edit button
     function editButtonRender(postMode) {
         if (!hasModifyPermissions) {
             return <></>
@@ -125,7 +110,7 @@ function BasicTextPost(props) {
         if (postMode == Modes.VIEW) {
             return(
                 <Link to={`/editor/${postdata.id}`} state={{postID: postdata.id}}>
-                    <button onClick={() => setCurrentPostMode(Modes.EDIT)}> Edit </button>
+                    <button> Edit </button>
                 </Link>
             );
         }
@@ -139,9 +124,11 @@ function BasicTextPost(props) {
         }
     }
 
-    // Returns the BasicTextPost component
     return (
         <div className="post basicTextPost">
+            {currentPostMode === Modes.VIEW && (
+                <Link to={viewPath} className="post-card-overlay" aria-label={postdata.title} tabIndex={-1} />
+            )}
             <div className="datestring">
                 <p>id: {postdata.id}, Date Uploaded: {postdata.date} (UTC)</p>
             </div>
@@ -153,13 +140,14 @@ function BasicTextPost(props) {
                     {renderPostDataFields(currentPostMode)}
                 </div>
             </div>
-            <div className="bottom-nav">
-                <div className="editor">
-                    {deleteButtonRender()}
-                    { editButtonRender(currentPostMode) }
-                    { goButtonRender(postdata.id) }
+            {hasModifyPermissions && (
+                <div className="bottom-nav">
+                    <div className="editor">
+                        {deleteButtonRender()}
+                        {editButtonRender(currentPostMode)}
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     );
 }

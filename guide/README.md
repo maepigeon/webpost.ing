@@ -238,46 +238,57 @@ curl http://localhost:8080/api/posts/22/discussion
 
 ## 5. Production Deployment
 
-### What needs to change
+### How the profile switch works
 
-There are a handful of things that differ from the development setup. None of them are handled automatically — you need to make these changes manually before a production deployment.
+The app has two Spring profiles: `dev` (local development) and `prod` (production).
 
-**1. Switch the Spring profile to `prod`**
+| Setting           | `dev`                          | `prod`                                |
+|-------------------|--------------------------------|---------------------------------------|
+| Session cookies   | No `Secure` flag (HTTP OK)     | `Secure=true; SameSite=None` (HTTPS required) |
+| Upload directory  | `uploads/` (relative to JAR)   | `/var/www/webposting/uploads` (absolute) |
 
-In `server/src/main/resources/application.properties`, change:
-```properties
-spring.profiles.active=prod
+**You never need to edit `application.properties` before deploying.** Both `deploy.sh` and `server-start.sh` pass `-Dspring.profiles.active=prod` as a JVM argument, which overrides whatever the file says. Keep it as `dev` locally so development keeps working without changes.
+
+If you ever start the JAR manually, always include the flag:
+```bash
+java -Dspring.profiles.active=prod -jar server-0.0.1-SNAPSHOT.jar
 ```
 
-The prod profile sets cookies with `Secure=true; SameSite=None`, which is required for cookies to work over HTTPS. It also changes the upload directory to an absolute path.
+### One-time server setup
 
-**2. Set the upload directory**
+Do these once when setting up the server for the first time:
 
-The prod profile (`application-prod.properties`) defaults to `/var/www/webposting/uploads`. Change this to a path that:
-- Exists on the server
-- Is writable by the process user
-- Persists across deployments (i.e., not a temp directory)
+**1. Create the uploads directory**
 
-Create it before starting the server:
 ```bash
 mkdir -p /var/www/webposting/uploads
 chown <app-user> /var/www/webposting/uploads
 ```
 
-**3. Set real database credentials**
+The path comes from `application-prod.properties`. If you want a different path, edit that file (not `application.properties`).
 
-Edit `application.properties` (or set environment variables) with your production database host, name, username, and password.
+**2. Set production database credentials**
 
-**4. Configure Nginx**
+Edit `server/src/main/resources/application.properties` with the production database host, name, username, and password:
 
-A minimal Nginx config serving the Vite build and proxying the API:
+```properties
+spring.datasource.url=jdbc:postgresql://<host>:5432/<dbname>
+spring.datasource.username=<user>
+spring.datasource.password=<password>
+```
+
+Leave `spring.profiles.active=dev` — the deploy script handles the profile switch.
+
+**3. Configure Nginx**
+
+A minimal config serving the Vite build and proxying the API:
 
 ```nginx
 server {
     listen 443 ssl;
     server_name webpost.ing;
 
-    # SSL config here (cert, key, etc.)
+    # SSL config (cert, key, etc.) here
 
     root /var/www/webposting/client;
     index index.html;
@@ -294,53 +305,70 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
     }
 
-    # Serve uploaded images (or proxy to Spring Boot)
+    # Serve uploaded images directly (faster than proxying through Spring Boot)
     location /uploads/ {
         alias /var/www/webposting/uploads/;
     }
 }
 ```
 
-**5. CORS — add your domain**
+**4. CORS — add your domain if different**
 
-If your production domain is different from `webpost.ing`, add it to `SecurityConfig.java` before building:
+If your production domain is not `webpost.ing`, add it to `SecurityConfig.java` before building:
 
 ```java
+// server/src/main/java/.../config/SecurityConfig.java
 config.setAllowedOrigins(List.of("https://your-domain.com", "http://localhost:5173"));
 ```
 
-### Deploying
+### Deploying (every release)
 
-1. Build the frontend: `cd client && npm run build`
-2. Copy `client/dist/` to the web root Nginx points at (e.g., `/var/www/webposting/client/`)
-3. Build the backend: `cd server && ./mvnw clean package -DskipTests`
-4. Stop the running server (if any), copy `server/target/server-0.0.1-SNAPSHOT.jar` to the server
-5. Start it: `java -jar server-0.0.1-SNAPSHOT.jar`
+The included `deploy.sh` handles the full release cycle from the repo root:
 
-The included `server-start.sh` is a minimal shell script that runs the JAR in the background from `/home/webpost.ing/server/target/`. The path is hardcoded, so update it to match your deployment directory before using it in production. Consider running it under a process manager (systemd, supervisor) so it restarts automatically on crash or reboot.
+```bash
+chmod +x deploy.sh   # first time only
+./deploy.sh
+```
+
+It does in order:
+1. Kills any process on port 8080
+2. Builds the frontend (`npm run build` → `client/dist/`)
+3. Builds the backend (`./mvnw package -DskipTests` → `server/target/*.jar`)
+4. Starts the new JAR with `-Dspring.profiles.active=prod`
+
+Server logs go to `/tmp/webposting.log`. The script waits 5 seconds and verifies the process is still alive before declaring success.
+
+After `./deploy.sh` completes, copy `client/dist/` to wherever Nginx serves static files from:
+```bash
+cp -r client/dist/. /var/www/webposting/client/
+```
+
+Or point Nginx's `root` directly at `client/dist/` inside the repo so you don't need to copy.
+
+**`server-start.sh`** is a simpler alternative that just starts the JAR (no build step). Use it for process manager integration (systemd, supervisor) where building is done separately.
 
 ### Database migrations
 
 The project includes a migration tool at `tools/migrate.sh`. It tracks which migrations have been applied, backs up the database before making changes, and restores on failure.
 
-**Basic usage:**
+**Run migrations before starting the new server after any release:**
 
 ```bash
-# Apply any pending migrations (backs up first)
-PGPASSWORD=password ./tools/migrate.sh
+# Preview what would run — always do this first
+PGPASSWORD=<password> ./tools/migrate.sh --dry-run
 
-# Preview what would run without changing anything
-PGPASSWORD=password ./tools/migrate.sh --dry-run
+# Apply pending migrations (backs up automatically before any change)
+PGPASSWORD=<password> ./tools/migrate.sh
 
-# Custom connection
+# Custom connection if your db isn't on localhost
 ./tools/migrate.sh -d mydb -U myuser -W mypass -h dbhost
 ```
 
-Migration SQL files live in `tools/migrations/` as numbered `.sql` files (e.g. `014_add_bio_to_users.sql`). Each file is idempotent (`IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS`) so they can be re-run safely. Applied migrations are tracked in a `_migrations` table in the database.
+Migration SQL files live in `tools/migrations/` as numbered `.sql` files (e.g. `016_add_email_avatar_active.sql`). Each is idempotent (`IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS`) so re-running is safe. Applied migrations are tracked in a `_migrations` table.
 
-`config/database.sql` is the authoritative fresh-install schema. `config/db-migrate-from-v1.sql` is an alternative one-shot upgrade script for older databases.
+`config/database.sql` is the authoritative fresh-install schema. Use it when setting up a brand-new database instead of running all migrations from scratch.
 
-**Before deploying:** always run `./tools/migrate.sh --dry-run` first to see what will change, then run without `--dry-run` to apply. Backups are saved to `tools/backups/`.
+Backups created by the migration tool are saved to `tools/backups/`.
 
 ---
 
@@ -350,7 +378,7 @@ The schema has two conceptual halves: the original blogging core, and the social
 
 ### Core tables
 
-**`users`** — Accounts. Columns: `username` (unique, max 32 chars), `password` (BCrypt hash, `VARCHAR(60)`), `registration_date`, `last_visited`, `is_admin` (boolean), `role` (varchar — `user`, `trusted`, `restricted`, or `admin`), `bio` (`VARCHAR(500)`, optional profile text with clickable URL rendering on the frontend), `bio_links` (`TEXT`, JSON array of up to 3 `{label, url}` objects), `background_pattern`, `pattern_presets` (JSON object of saved wallpaper presets, default `'{}'`).
+**`users`** — Accounts. Columns: `username` (unique, max 32 chars), `password` (BCrypt hash, `VARCHAR(60)`), `email` (`VARCHAR(255)`, optional, stored at registration), `registration_date`, `last_visited`, `last_active_at` (updated by heartbeat), `is_admin` (boolean), `role` (varchar — `user`, `trusted`, `restricted`, or `admin`), `bio` (`VARCHAR(500)`, optional profile text with clickable URL rendering on the frontend), `bio_links` (`TEXT`, JSON array of up to 3 `{label, url}` objects), `background_pattern`, `pattern_presets` (JSON object of saved wallpaper presets, default `'{}'`), `avatar_path` (`VARCHAR(500)`, relative path under `/uploads/avatars/`, null if no avatar set), `pinned_post_id` (foreign key to `posts`, null if no pinned post).
 
 Passwords are stored as BCrypt hashes. New users created via the admin panel are hashed immediately. Any legacy plain-text password in the database is automatically migrated to BCrypt the first time that user logs in.
 
@@ -380,8 +408,6 @@ The `background_pattern` column stores either a preset key (e.g. `"dots"`), a va
 **`post_uploads`** — Junction table linking posts to the uploads embedded in their content. Synced on every post save by scanning the Lexical JSON for `/uploads/` paths. Enables orphan detection.
 
 **`role_limits`** — Per-role storage and post-rate limits. Roles: `user` (50 MB, 20 posts/day), `trusted` (500 MB, 100/day), `restricted` (5 MB, 2/day), `admin` (unlimited).
-
-**`dm_blocks`** — Records when a user blocks direct messages from another user. `blocker_id` has blocked messages from `blocked_id`.
 
 **`dm_blocks`** — Per-user DM blocking. `blocker_id` has blocked incoming direct messages from `blocked_id`. Cascade-deletes when either user is removed.
 

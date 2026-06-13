@@ -8,27 +8,17 @@ import {useLexicalComposerContext} from '@lexical/react/LexicalComposerContext';
 export default function SubmitButton(props) {
     const [editor] = useLexicalComposerContext();
     var postid = props.postid;
-    console.log("POST ID");
-    console.log("postid: " + postid);
     const onClick = () => {
       const editorStateRaw = editor.getEditorState();
       const editorState = JSON.stringify(editorStateRaw.toJSON());
       const postTitle = localStorage.getItem("currentPostTitle");
-      console.log("Uploading/Editing post: " + postTitle);
-  
-      const username = localStorage.getItem("userName");
+
       if (postid > 0) {
-        console.log("editing post: " + postid);
-        UPDATE_POST(postid, postTitle, editorState, true).then(
-          () => {console.log("Post edited.")}
-          );
+        UPDATE_POST(postid, postTitle, editorState, true);
       } else {
-        CREATE_POST(1, postTitle, editorState, true).then(
-          () => {console.log("Post uploaded.")}
-          );
-        }
+        CREATE_POST(1, postTitle, editorState, true);
       }
-      
+    }
+
     return <button type="submit" className='submitButton' onClick={ onClick }>Upload</button>
-  
 }

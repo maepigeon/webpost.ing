@@ -284,3 +284,91 @@
   color: #b84200;
   font-weight: 700;
 }
+
+/* ── Mobile responsive ──────────────────────────────────────────────────── */
+
+@media (max-width: 700px) {
+  .admin-panel {
+    margin: 16px auto;
+    padding: 0 10px 48px;
+  }
+
+  .admin-title {
+    font-size: 1.25rem;
+  }
+
+  /* Tabs: scrollable pill row */
+  .admin-tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 6px;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .admin-tabs::-webkit-scrollbar { display: none; }
+
+  .admin-tab {
+    padding: 6px 14px;
+    font-size: 0.82rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* Stats cards: 2 columns on mobile */
+  .admin-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .admin-stat-value {
+    font-size: 1.3rem;
+  }
+
+  /* Create form: stack inputs */
+  .admin-create-row {
+    flex-direction: column;
+  }
+
+  .admin-create-row input {
+    width: 100%;
+    min-width: unset;
+  }
+
+  /* Search row: stack */
+  .admin-search-row {
+    flex-wrap: wrap;
+  }
+
+  .admin-search-row input {
+    max-width: 100%;
+    width: 100%;
+  }
+
+  /* Table: horizontal scroll on mobile */
+  .admin-table {
+    font-size: 0.82rem;
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+
+  .admin-btn {
+    padding: 5px 11px;
+    font-size: 0.8rem;
+  }
+
+  .admin-orphan-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 400px) {
+  .admin-stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}

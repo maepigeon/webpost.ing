@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { BASE_URL as baseUrl } from '../../../../config.js';
+import { ADMIN_GET_STATUS } from '../../Posts/BasicTextPostServerApi.js';
 import { useNavigate } from 'react-router-dom';
 import './Registration.css';
+import { usePageTitle } from '../../../../utils/usePageTitle.js';
 
 function checkPassword(pw) {
   return {
@@ -36,6 +38,7 @@ export function PasswordRequirements({ password }) {
 }
 
 function Registration() {
+  usePageTitle('Create account');
   const [username, setUsername]           = useState('');
   const [email, setEmail]                 = useState('');
   const [password, setPassword]           = useState('');
@@ -68,9 +71,21 @@ function Registration() {
     setLoading(true);
     try {
       await axios.post(baseUrl + '/api/register', { username, email, password, inviteCode });
-      navigate('/routes/Login', { state: { registered: true } });
+      // Auto-login after successful registration
+      await axios.post(baseUrl + '/api/loginSessionAttempt',
+        { username: username.trim(), password },
+        { withCredentials: true });
+      localStorage.setItem('userName', username.trim());
+      try {
+        const d = await ADMIN_GET_STATUS();
+        localStorage.setItem('isAdmin', d.isAdmin ? '1' : '0');
+      } catch {
+        localStorage.setItem('isAdmin', '0');
+      }
+      window.location.href = `/users/${username.trim()}`;
     } catch (e) {
-      setError(e.response?.data || 'Registration failed. Please try again.');
+      const raw = e.response?.data;
+      setError(typeof raw === 'string' ? raw : (raw?.message || raw?.error || 'Registration failed. Please try again.'));
     } finally {
       setLoading(false);
     }

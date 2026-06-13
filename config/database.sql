@@ -14,15 +14,18 @@ CREATE TABLE users (
     id                SERIAL PRIMARY KEY,
     username          VARCHAR(32)              NOT NULL,
     password          VARCHAR(60)              NOT NULL,
+    email             VARCHAR(255)                      DEFAULT NULL,
     registration_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     background_pattern VARCHAR(2000)           DEFAULT NULL,
     is_admin          BOOLEAN                  NOT NULL DEFAULT FALSE,
     role              VARCHAR(20)              NOT NULL DEFAULT 'user',
     pattern_presets   TEXT                              DEFAULT '{}',
     last_visited      TIMESTAMP WITH TIME ZONE          DEFAULT NULL,
+    last_active_at    TIMESTAMP WITH TIME ZONE          DEFAULT NULL,
     bio               VARCHAR(500)                      DEFAULT NULL,
     bio_links         TEXT                              DEFAULT NULL,
     pinned_post_id    INTEGER                           DEFAULT NULL,
+    avatar_path       VARCHAR(500)                      DEFAULT NULL,
     UNIQUE (username)
 );
 

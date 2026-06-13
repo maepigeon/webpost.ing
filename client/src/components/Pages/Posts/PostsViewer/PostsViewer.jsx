@@ -1,14 +1,17 @@
 import { useState, useEffect, useRef, useCallback, React} from 'react';
 import {AUTHORIZE_SESSION, READ_POSTS_BY_USER, GET_USER_BACKGROUND, UPDATE_USER_BACKGROUND, GET_USER_BIO, UPDATE_USER_BIO, GET_USER_BIO_LINKS, UPDATE_USER_BIO_LINKS, GET_USER_STORAGE, SEND_MESSAGE, GET_FOLLOWERS, GET_FOLLOWING, GET_BLOCK_MESSAGE_STATUS, BLOCK_MESSAGES, UNBLOCK_MESSAGES, EXPORT_MY_DATA, GET_PINNED_POST, GET_USER_AVATAR, POST_USER_AVATAR, GET_USER_ONLINE} from '../BasicTextPostServerApi.js'
+import ProfilePostList from './ProfilePostList.jsx';
 import { IMAGES_BASE_URL } from '../../../../config.js';
 import BasicTextPost from '../PostRenderer/BasicTextPost/BasicTextPost.jsx';
 import PatternPicker from '../../../PatternPicker/PatternPicker.jsx';
 import FollowButton from '../../../Social/FollowButton.jsx';
 import FollowListModal from '../../../Social/FollowListModal.jsx';
+import AvatarPopup from '../../../Social/AvatarPopup.jsx';
 import { patternToStyle } from '../../../PatternPicker/patterns.js';
 import { useDialog } from '../../../Dialog/Dialog.jsx';
 import '../PostWindow.css';
 import {useParams, Link, useNavigate} from "react-router-dom";
+import { usePageTitle } from '../../../../utils/usePageTitle.js';
 
 function Heading(props) {
  if (props.username != null && props.username != "") {
@@ -51,12 +54,12 @@ function StorageBar({ storage }) {
 
 const URL_REGEX = /https?:\/\/[^\s<>"]+[^\s<>".,;:!?)/]/g;
 
-function confirmExternal(e, url, confirmFn) {
+function confirmExternal(e, url, linkWarningFn) {
   try {
     if (new URL(url).origin === window.location.origin) return;
   } catch { return; }
   e.preventDefault();
-  confirmFn(`You are leaving this site.\n\n${url}\n\nContinue?`).then(ok => {
+  linkWarningFn(url).then(ok => {
     if (ok) window.open(url, '_blank', 'noopener,noreferrer');
   });
 }
@@ -90,7 +93,7 @@ function hasModifyPermissions(viewedUser) {
 
 // Loads a view of title cards for all posts by the user specified in the url
 function PostsViewer() {
-    const { confirm } = useDialog();
+    const { confirm, linkWarning } = useDialog();
     const [postsArray, setPostsArray] = useState([]);
     const [hasMore, setHasMore] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
@@ -120,10 +123,12 @@ function PostsViewer() {
     const [pinnedPost, setPinnedPost] = useState(null);
     const [avatar, setAvatar] = useState('');
     const [onlineStatus, setOnlineStatus] = useState(null); // { online, lastSeen }
+    const [showAvatarPopup, setShowAvatarPopup] = useState(false);
     const avatarInputRef = useRef(null);
     const bgPickerRef = useRef(null);
     const sentinelRef = useRef(null);
     const { username } = useParams();
+    usePageTitle(username ? `${username}'s profile` : null);
     const navigate = useNavigate();
     const canEdit = hasModifyPermissions(username);
     const loggedIn = !!localStorage.getItem('userName');
@@ -269,26 +274,7 @@ function PostsViewer() {
     }
 
     const visiblePosts = postsArray;
-    const [collapsedFolders, setCollapsedFolders] = useState(new Set());
-
     const nonPinnedPosts = visiblePosts.filter(p => !pinnedPost || p.id !== pinnedPost.id);
-    const ungroupedPosts = nonPinnedPosts.filter(p => !p.folder);
-    const folderMap = {};
-    for (const p of nonPinnedPosts) {
-      if (p.folder) {
-        if (!folderMap[p.folder]) folderMap[p.folder] = [];
-        folderMap[p.folder].push(p);
-      }
-    }
-    const folderNames = Object.keys(folderMap).sort();
-
-    function toggleFolder(name) {
-      setCollapsedFolders(prev => {
-        const next = new Set(prev);
-        if (next.has(name)) next.delete(name); else next.add(name);
-        return next;
-      });
-    }
 
     return (
       <div className="window" style={{ minHeight: '100vh' }}>
@@ -303,19 +289,56 @@ function PostsViewer() {
           <div className="profile-header-card">
             {/* Avatar */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 8 }}>
-              {avatar
-                ? <img src={IMAGES_BASE_URL + avatar} alt={username} style={{ width: 72, height: 72, borderRadius: '50%', objectFit: 'cover', border: '2px solid #ddd' }} />
-                : (
-                  <div style={{ width: 72, height: 72, borderRadius: '50%', background: '#e0e0e0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, fontWeight: 700, color: '#888', border: '2px solid #ddd' }}>
-                    {username?.[0]?.toUpperCase()}
-                  </div>
-                )
-              }
-              {/* Online indicator */}
+              <div style={{ position: 'relative', display: 'inline-block' }}>
+                {avatar
+                  ? <img
+                      src={IMAGES_BASE_URL + avatar}
+                      alt={username}
+                      onClick={() => setShowAvatarPopup(true)}
+                      style={{ width: 96, height: 96, borderRadius: '50%', objectFit: 'cover',
+                               border: '3px solid rgba(255,255,255,0.9)',
+                               boxShadow: '0 4px 18px rgba(0,0,0,0.16), inset 0 2px 0 rgba(255,255,255,0.6)',
+                               cursor: 'pointer', display: 'block',
+                               transition: 'transform 0.18s cubic-bezier(0.34,1.56,0.64,1)' }}
+                      onMouseOver={e => e.currentTarget.style.transform='scale(1.05)'}
+                      onMouseOut={e => e.currentTarget.style.transform='scale(1)'}
+                    />
+                  : (
+                    <div
+                      onClick={() => setShowAvatarPopup(true)}
+                      style={{ width: 96, height: 96, borderRadius: '50%',
+                                background: 'linear-gradient(145deg, #d8d0f8 0%, #9c7ed8 55%, #7050b8 100%)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: 36, fontWeight: 800, color: '#fff',
+                                border: '3px solid rgba(255,255,255,0.9)',
+                                boxShadow: 'inset 0 3px 0 rgba(255,255,255,0.55), 0 4px 18px rgba(50,30,110,0.24)',
+                                cursor: 'pointer',
+                                transition: 'transform 0.18s cubic-bezier(0.34,1.56,0.64,1)' }}
+                      onMouseOver={e => e.currentTarget.style.transform='scale(1.05)'}
+                      onMouseOut={e => e.currentTarget.style.transform='scale(1)'}
+                    >
+                      {username?.[0]?.toUpperCase()}
+                    </div>
+                  )
+                }
+                {/* Online dot */}
+                {onlineStatus?.online && (
+                  <span style={{
+                    position: 'absolute', bottom: 4, right: 4,
+                    width: 16, height: 16, borderRadius: '50%',
+                    background: '#2ecc71',
+                    border: '2.5px solid #fff',
+                    boxShadow: '0 0 0 3px rgba(46,204,113,0.35), 0 0 10px rgba(46,204,113,0.6)',
+                    display: 'block',
+                    animation: 'online-pulse 2.2s ease-in-out infinite',
+                  }} />
+                )}
+              </div>
+              {/* Online status text */}
               {onlineStatus && (
-                <span style={{ fontSize: 12, marginTop: 4, color: onlineStatus.online ? '#22a722' : '#888', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ fontSize: 12, marginTop: 6, color: onlineStatus.online ? '#2ecc71' : '#999', display: 'flex', alignItems: 'center', gap: 4, fontWeight: onlineStatus.online ? 600 : 400 }}>
                   {onlineStatus.online
-                    ? <><span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22a722', display: 'inline-block' }} /> Online</>
+                    ? 'Online'
                     : onlineStatus.lastSeen ? `Last seen ${new Date(onlineStatus.lastSeen).toLocaleDateString()}` : null
                   }
                 </span>
@@ -346,11 +369,19 @@ function PostsViewer() {
                 </div>
               )}
             </div>
+            {showAvatarPopup && (
+              <AvatarPopup
+                src={avatar ? IMAGES_BASE_URL + avatar : undefined}
+                username={username}
+                profileUrl={`${window.location.origin}/users/${username}`}
+                onClose={() => setShowAvatarPopup(false)}
+              />
+            )}
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
               <Heading username={username}/>
               <FollowButton username={username} onFollowChange={delta => setFollowCounts(c => ({ ...c, followers: c.followers + delta }))} />
-              {followsMe && <span style={{ fontSize: '12px', color: '#333', fontStyle: 'italic' }}>follows you</span>}
+              {!canEdit && followsMe && <span style={{ fontSize: '12px', color: '#333', fontStyle: 'italic' }}>follows you</span>}
             </div>
 
             {/* Bio display / edit form */}
@@ -407,7 +438,7 @@ function PostsViewer() {
                   {bioLinks.map((l, i) => (
                     <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
                       style={{ fontSize: '13px', color: '#1a73e8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', border: '1px solid #93c5fd', borderRadius: '12px', background: 'rgba(219,234,254,0.5)' }}
-                      onClick={e => confirmExternal(e, l.url, confirm)}>
+                      onClick={e => confirmExternal(e, l.url, linkWarning)}>
                       {l.label || l.url}
                     </a>
                   ))}
@@ -415,35 +446,42 @@ function PostsViewer() {
               )
             )}
 
-            {/* Owner action row: Edit bio | Edit links | Wallpaper | Download my data */}
+            {/* Owner action row: two groups separated by a divider */}
             {canEdit && !editingBio && !editingLinks && (
-              <div style={{ marginTop: '10px', display: 'flex', gap: '6px', justifyContent: 'space-evenly', flexWrap: 'wrap', alignItems: 'center' }}>
-                <button type="button" className="edit-bio-btn" onClick={() => { setBioInput(bio); setEditingBio(true); }}>
-                  {bio ? 'Edit bio' : '+ Add bio'}
-                </button>
-                <button type="button" className="edit-bio-btn" onClick={() => {
-                  const padded = [...bioLinks];
-                  while (padded.length < 3) padded.push({ label: '', url: '' });
-                  setLinksInput(padded);
-                  setEditingLinks(true);
-                }}>
-                  {bioLinks.length > 0 ? 'Edit links' : '+ Add links'}
-                </button>
-                <span ref={bgPickerRef} style={{ position: 'relative', display: 'inline-block' }}>
-                  <button type="button" className="edit-bio-btn" onClick={() => showBgPicker ? closeBgPicker() : setShowBgPicker(true)}>
-                    {showBgPicker ? 'Hide wallpaper' : 'Wallpaper'}
+              <div style={{ marginTop: '10px', display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap', alignItems: 'center' }}>
+                {/* Group 1: content */}
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <button type="button" className="edit-bio-btn" onClick={() => { setBioInput(bio); setEditingBio(true); }}>
+                    {bio ? 'Edit bio' : '+ Bio'}
                   </button>
-                </span>
-                <button
-                  type="button"
-                  className="edit-bio-btn"
-                  onClick={async () => {
-                    try { await EXPORT_MY_DATA(username); }
-                    catch { alert('Export failed. Please try again.'); }
-                  }}
-                >
-                  Download my data
-                </button>
+                  <button type="button" className="edit-bio-btn" onClick={() => {
+                    const padded = [...bioLinks];
+                    while (padded.length < 3) padded.push({ label: '', url: '' });
+                    setLinksInput(padded);
+                    setEditingLinks(true);
+                  }}>
+                    {bioLinks.length > 0 ? 'Edit links' : '+ Links'}
+                  </button>
+                </div>
+                <div style={{ width: '1px', height: '18px', background: 'rgba(0,0,0,0.12)', borderRadius: '1px', flexShrink: 0 }} />
+                {/* Group 2: appearance + export */}
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <span ref={bgPickerRef} style={{ position: 'relative', display: 'inline-block' }}>
+                    <button type="button" className="edit-bio-btn" onClick={() => showBgPicker ? closeBgPicker() : setShowBgPicker(true)}>
+                      {showBgPicker ? 'Hide wallpaper' : 'Wallpaper'}
+                    </button>
+                  </span>
+                  <button
+                    type="button"
+                    className="edit-bio-btn"
+                    onClick={async () => {
+                      try { await EXPORT_MY_DATA(username); }
+                      catch { alert('Export failed. Please try again.'); }
+                    }}
+                  >
+                    Export data
+                  </button>
+                </div>
               </div>
             )}
             {canEdit && showBgPicker && (
@@ -498,33 +536,12 @@ function PostsViewer() {
           )}
           {(!Array.isArray(visiblePosts) || !visiblePosts.length) && !loadingMore
             ? <p>There are no posts, yet. Create one to get started.</p>
-            : <>
-                {folderNames.map(name => (
-                  <div key={name} style={{ marginBottom: '8px' }}>
-                    <button
-                      type="button"
-                      onClick={() => toggleFolder(name)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px 12px', fontSize: '14px', fontWeight: 600, color: '#444', display: 'flex', alignItems: 'center', gap: '6px', width: '100%', textAlign: 'left' }}
-                    >
-                      <span style={{ fontSize: '12px', transition: 'transform 0.15s', transform: collapsedFolders.has(name) ? 'rotate(-90deg)' : 'rotate(0deg)', display: 'inline-block' }}>▼</span>
-                      {name}
-                      <span style={{ fontSize: '12px', fontWeight: 400, color: '#888', marginLeft: '4px' }}>({folderMap[name].length})</span>
-                    </button>
-                    {!collapsedFolders.has(name) && folderMap[name].map((record, index) => (
-                      <div className="PostContainer" key={record.id ?? index}>
-                        <BasicTextPost postdata={record} updatePostsFlagCallback={() => loadPosts(true)}
-                          uploaded={true} hasModifyPermissions={canEdit} ownerUsername={username}/>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-                {ungroupedPosts.map((record, index) => (
-                  <div className="PostContainer" key={record.id ?? index}>
-                    <BasicTextPost postdata={record} updatePostsFlagCallback={() => loadPosts(true)}
-                      uploaded={true} hasModifyPermissions={canEdit} ownerUsername={username}/>
-                  </div>
-                ))}
-              </>
+            : <ProfilePostList
+                posts={nonPinnedPosts}
+                canEdit={canEdit}
+                username={username}
+                onRefresh={() => loadPosts(true)}
+              />
           }
           <div ref={sentinelRef} style={{ height: '1px' }} />
           {loadingMore && <p style={{ textAlign: 'center', color: '#888', fontSize: '14px' }}>Loading…</p>}

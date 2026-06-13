@@ -2,9 +2,9 @@
 
 ## How it works
 
-Migrations are numbered SQL files in `config/migrations/`. Each file is named `V###__description.sql` and is idempotent — safe to re-run even if partially applied. A `schema_migrations` table in the database tracks which versions have been applied.
+Migrations are numbered SQL files in `server/src/main/resources/db/migrations/`. Each file is named `V###__description.sql`. The server runs migrations automatically at startup via a custom `DatabaseMigrationService` that tracks applied versions in a `schema_migrations` table.
 
-The shell script `config/migrate.sh` applies any pending migrations in version order. It creates `schema_migrations` on first run if it doesn't exist.
+There is also a `config/migrations/` directory with the same files for reference and manual use via the `config/migrate.sh` script.
 
 ---
 
@@ -78,6 +78,14 @@ COMMIT;
 | V003 | Add `pinned_post_id` column to `users` |
 | V004 | Add `folder` column to `posts` |
 | V005 | Scalability indexes (all `CREATE INDEX IF NOT EXISTS`) |
+| V006 | Admin storage limit raised to 500 MB |
+| V007 | Remove `audited` role |
+| V008 | Direct messages, post views, invite codes, avatars, online heartbeat |
+| V009 | Post upvote/downvote (`post_votes` table) |
+| V010 | System settings table |
+| V011 | DM reactions (`dm_reactions`), group conversations (`group_conversations`, `group_conversation_members`, `group_messages`, `group_message_read`), post sort order |
+| V012 | Security and scalability indexes |
+| V013 | Group message reactions (`group_message_reactions`), group ownership transfer support |
 
 ---
 

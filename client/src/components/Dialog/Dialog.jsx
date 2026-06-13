@@ -21,6 +21,13 @@ export function DialogProvider({ children }) {
     });
   }, []);
 
+  const linkWarning = useCallback((url) => {
+    return new Promise(resolve => {
+      resolveRef.current = resolve;
+      setDialog({ type: 'link', url, resolve });
+    });
+  }, []);
+
   const dismiss = (result) => {
     if (resolveRef.current) resolveRef.current(result);
     resolveRef.current = null;
@@ -28,24 +35,39 @@ export function DialogProvider({ children }) {
   };
 
   return (
-    <DialogContext.Provider value={{ confirm, alert }}>
+    <DialogContext.Provider value={{ confirm, alert, linkWarning }}>
       {children}
       {dialog && (
         <div className="dialog-overlay" onMouseDown={() => dismiss(false)}>
           <div className="dialog-box" onMouseDown={e => e.stopPropagation()} role="dialog" aria-modal="true">
             <button className="dialog-close" onClick={() => dismiss(false)} aria-label="Close">✕</button>
-            {dialog.title && <div className="dialog-title">{dialog.title}</div>}
-            <div className="dialog-message">{dialog.message}</div>
-            <div className="dialog-actions">
-              {dialog.type === 'confirm' ? (
-                <>
-                  <button className="dialog-btn dialog-btn--confirm" onClick={() => dismiss(true)}>Continue</button>
-                  <button className="dialog-btn dialog-btn--cancel" onClick={() => dismiss(false)}>Cancel</button>
-                </>
-              ) : (
-                <button className="dialog-btn dialog-btn--confirm" onClick={() => dismiss(true)}>OK</button>
-              )}
-            </div>
+            {dialog.type === 'link' ? (
+              <>
+                <div className="dialog-title">Leaving webpost.ing</div>
+                <div className="dialog-message dialog-message--link">
+                  <span className="dialog-link-label">You're heading to:</span>
+                  <span className="dialog-link-url">{dialog.url}</span>
+                </div>
+                <div className="dialog-actions">
+                  <button className="dialog-btn dialog-btn--confirm" onClick={() => dismiss(true)}>Continue →</button>
+                </div>
+              </>
+            ) : (
+              <>
+                {dialog.title && <div className="dialog-title">{dialog.title}</div>}
+                <div className="dialog-message">{dialog.message}</div>
+                <div className="dialog-actions">
+                  {dialog.type === 'confirm' ? (
+                    <>
+                      <button className="dialog-btn dialog-btn--confirm" onClick={() => dismiss(true)}>Continue</button>
+                      <button className="dialog-btn dialog-btn--cancel" onClick={() => dismiss(false)}>Cancel</button>
+                    </>
+                  ) : (
+                    <button className="dialog-btn dialog-btn--confirm" onClick={() => dismiss(true)}>OK</button>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

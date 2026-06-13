@@ -3,7 +3,48 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Blog Maker</title>
+
+    <!-- Primary meta -->
+    <title>webpost.ing — Share your thoughts</title>
+    <meta name="description" content="webpost.ing is a minimalist social blogging platform. Write posts, follow people, and share your ideas." />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://webpost.ing/" />
+
+    <!-- Open Graph -->
+    <meta property="og:type"        content="website" />
+    <meta property="og:site_name"   content="webpost.ing" />
+    <meta property="og:url"         content="https://webpost.ing/" />
+    <meta property="og:title"       content="webpost.ing — Share your thoughts" />
+    <meta property="og:description" content="A minimalist social blogging platform. Write posts, follow people, and share your ideas." />
+    <meta property="og:image"       content="https://webpost.ing/og-image.png" />
+    <meta property="og:image:width"  content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <!-- Twitter / X card -->
+    <meta name="twitter:card"        content="summary_large_image" />
+    <meta name="twitter:title"       content="webpost.ing — Share your thoughts" />
+    <meta name="twitter:description" content="A minimalist social blogging platform. Write posts, follow people, and share your ideas." />
+    <meta name="twitter:image"       content="https://webpost.ing/og-image.png" />
+
+    <!-- Theme / app -->
+    <meta name="theme-color" content="#7060e8" />
+    <meta name="application-name" content="webpost.ing" />
+
+    <!-- Structured data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "webpost.ing",
+      "url": "https://webpost.ing/",
+      "description": "A minimalist social blogging platform.",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://webpost.ing/search?q={search_term_string}",
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>

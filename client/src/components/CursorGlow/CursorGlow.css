@@ -1,0 +1,4 @@
+/* Touch screens: hide the glow (no cursor) */
+@media (hover: none) {
+  .cursor-glow { display: none; }
+}

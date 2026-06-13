@@ -39,6 +39,8 @@ function TitleBar(props) {
                         defaultValue={stripHtml(postdata.title)}
                         placeholder="Type a title…"
                         maxLength={200}
+                        spellCheck={false}
+                        autoCorrect="off"
                         onKeyDown={e => { if (e.key === 'Enter') e.preventDefault(); }}
                         onChange={handleEditTitleCallback}
                     />

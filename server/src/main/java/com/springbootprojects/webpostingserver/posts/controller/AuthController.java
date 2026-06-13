@@ -43,7 +43,8 @@ public class AuthController {
 
     // Registration rate limiter: IP → blocked-until epoch ms (1 attempt then 1-hour block)
     private static final java.util.concurrent.ConcurrentHashMap<String, Long> REG_BLOCK = new java.util.concurrent.ConcurrentHashMap<>();
-    private static final long REG_BLOCK_MS = 60 * 60 * 1000L; // 1 hour
+    private static final long REG_BLOCK_MS      = 60 * 60 * 1000L; // 1 hour  — post-success (prevent multi-account)
+    private static final long REG_BLOCK_SHORT_MS = 5 * 60 * 1000L; // 5 minutes — after bad code attempt
 
     private static boolean hasValidImageMagicBytes(byte[] h) {
         if (h.length < 4) return false;
@@ -379,6 +380,15 @@ public class AuthController {
         return new ResponseEntity<>(loginRepository.getAllUsers(), HttpStatus.OK);
     }
 
+    /** Returns all users sorted by most-recently-active first. */
+    @GetMapping("/users/recently-active")
+    public ResponseEntity<List<Map<String, Object>>> getRecentlyActive() {
+        List<Map<String, Object>> rows = jdbc.queryForList(
+            "SELECT username, last_active_at FROM users " +
+            "ORDER BY last_active_at DESC NULLS LAST");
+        return ResponseEntity.ok(rows);
+    }
+
     @PostMapping("logoutSessionAttempt")
     public ResponseEntity<String> logoutSessionAttempt(@CookieValue(name = "username") String username, @CookieValue(name = "authToken") String token, HttpServletResponse response) {
         try {
@@ -437,12 +447,21 @@ public class AuthController {
     public ResponseEntity<String> register(@RequestBody Map<String, String> body,
                                            HttpServletRequest request) {
         String ip = getClientIp(request);
+        boolean isLoopback;
+        try {
+            isLoopback = java.net.InetAddress.getByName(ip).isLoopbackAddress();
+        } catch (Exception e) {
+            isLoopback = ip.equals("127.0.0.1") || ip.equals("::1") || ip.startsWith("127.");
+        }
 
         // IP rate limit: block after first failed or successful attempt for 1 hour
-        Long blockedUntil = REG_BLOCK.get(ip);
-        if (blockedUntil != null && System.currentTimeMillis() < blockedUntil)
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                .body("Registration temporarily unavailable from this network. Please try again later.");
+        // Loopback addresses are not rate-limited (local development / admin testing).
+        if (!isLoopback) {
+            Long blockedUntil = REG_BLOCK.get(ip);
+            if (blockedUntil != null && System.currentTimeMillis() < blockedUntil)
+                return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body("Registration temporarily unavailable from this network. Please try again later.");
+        }
 
         String username  = body.get("username");
         String password  = body.get("password");
@@ -473,7 +492,7 @@ public class AuthController {
                 "SELECT value FROM system_settings WHERE key='max_daily_registrations'", String.class);
             int limit = limitStr != null ? Integer.parseInt(limitStr.trim()) : 5;
             if (limit >= 0) {
-                int todayCount = jdbc.queryForObject(
+                Integer todayCount = jdbc.queryForObject(
                     "SELECT COUNT(*) FROM users WHERE registration_date >= CURRENT_DATE",
                     Integer.class);
                 if (todayCount != null && todayCount >= limit) {
@@ -488,18 +507,24 @@ public class AuthController {
         List<Map<String, Object>> codeRows = jdbc.queryForList(
             "SELECT expires_at, used_by FROM invite_codes WHERE code=?", code.trim());
         if (codeRows.isEmpty()) {
-            REG_BLOCK.put(ip, System.currentTimeMillis() + REG_BLOCK_MS);
+            if (!isLoopback) REG_BLOCK.put(ip, System.currentTimeMillis() + REG_BLOCK_SHORT_MS);
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Invalid invite code.");
         }
         Map<String, Object> codeRow = codeRows.get(0);
         if (codeRow.get("used_by") != null) {
-            REG_BLOCK.put(ip, System.currentTimeMillis() + REG_BLOCK_MS);
+            // Already used — not an attack, don't block
             return ResponseEntity.status(HttpStatus.GONE).body("Invite code has already been used.");
         }
         try {
-            java.time.OffsetDateTime expiresAt = (java.time.OffsetDateTime) codeRow.get("expires_at");
-            if (expiresAt != null && expiresAt.isBefore(java.time.OffsetDateTime.now())) {
-                REG_BLOCK.put(ip, System.currentTimeMillis() + REG_BLOCK_MS);
+            Object expiresRaw = codeRow.get("expires_at");
+            java.time.Instant expiresAt = null;
+            if (expiresRaw instanceof java.sql.Timestamp ts) {
+                expiresAt = ts.toInstant();
+            } else if (expiresRaw instanceof java.time.OffsetDateTime odt) {
+                expiresAt = odt.toInstant();
+            }
+            if (expiresAt != null && expiresAt.isBefore(java.time.Instant.now())) {
+                // Expired — not an attack, don't block
                 return ResponseEntity.status(HttpStatus.GONE).body("Invite code has expired.");
             }
         } catch (Exception ignored) {}
@@ -511,13 +536,12 @@ public class AuthController {
             jdbc.update("INSERT INTO users(username, password, email) VALUES(?,?,?)",
                 username, bcrypt.encode(password), email);
         } catch (Exception e) {
-            REG_BLOCK.put(ip, System.currentTimeMillis() + REG_BLOCK_MS);
             return ResponseEntity.status(HttpStatus.CONFLICT).body("Username already taken.");
         }
 
         // Mark code as used, then block IP for 1 hour to prevent multi-account creation
         jdbc.update("UPDATE invite_codes SET used_by=?, used_at=NOW() WHERE code=?", username, code.trim());
-        REG_BLOCK.put(ip, System.currentTimeMillis() + REG_BLOCK_MS);
+        if (!isLoopback) REG_BLOCK.put(ip, System.currentTimeMillis() + REG_BLOCK_MS);
         return ResponseEntity.status(HttpStatus.CREATED).body("Account created. You can now log in.");
     }
 
@@ -654,16 +678,13 @@ public class AuthController {
         if (LoginRateLimiter.isBlocked(clientIp)) {
             return new ResponseEntity<>("Too many failed login attempts. Try again in 15 minutes.", HttpStatus.TOO_MANY_REQUESTS);
         }
-        System.out.println("Attempting to login user");
-	AuthSession loginResult = loginRepository.login(loginInfo);
+        AuthSession loginResult = loginRepository.login(loginInfo);
         try {
             switch (loginResult.loginHttpStatusCodeResult) {
                 case HttpStatus.FORBIDDEN:
-		    System.out.println("Failed to authenticate, error 403");
                     LoginRateLimiter.recordFailure(clientIp);
-                    return new ResponseEntity<>("Failed to authenticate: Incorrect login information, loginResult: ." + loginResult, HttpStatus.FORBIDDEN);
-   		case HttpStatus.OK:
-                    System.out.println("AUTHENTICATION OK!! : Logging in user: " + loginInfo.getUsername());
+                    return new ResponseEntity<>("Incorrect username or password.", HttpStatus.FORBIDDEN);
+                case HttpStatus.OK:
                     LoginRateLimiter.recordSuccess(clientIp);
                     HttpCookie tokenCookie = ResponseCookie.from("authToken", loginResult.token)
                             .httpOnly(true)
@@ -679,14 +700,12 @@ public class AuthController {
                             .path("/")
                             .maxAge(60 * 60 * 24)
                             .build();
-                    System.out.println("AUTHENTICATION OK!! : Logging in user: " + loginResult.username);
                     return ResponseEntity.ok()
                             .header(HttpHeaders.SET_COOKIE, tokenCookie.toString())
                             .header(HttpHeaders.SET_COOKIE, usernameCookie.toString())
                             .body(loginResult.username);
                 default:
-		    System.out.println("Failed to authenticate, bad request");
-                    return new ResponseEntity<>("Failed to authenticate:  Bad request, loginResult: " + loginResult, HttpStatus.BAD_REQUEST);
+                    return new ResponseEntity<>("Authentication failed. Please try again.", HttpStatus.BAD_REQUEST);
             }
 
         } catch (Exception e) {

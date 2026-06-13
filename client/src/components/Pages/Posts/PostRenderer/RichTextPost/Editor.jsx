@@ -3,11 +3,12 @@ import {
   $insertNodes, KEY_BACKSPACE_COMMAND, KEY_DELETE_COMMAND, KEY_ESCAPE_COMMAND, KEY_ENTER_COMMAND,
   COMMAND_PRIORITY_EDITOR, COMMAND_PRIORITY_LOW,
   UNDO_COMMAND, REDO_COMMAND, CAN_UNDO_COMMAND, CAN_REDO_COMMAND,
-  FORMAT_TEXT_COMMAND, $getNodeByKey, $getRoot, $isParagraphNode,
+  FORMAT_TEXT_COMMAND, $getNodeByKey, $getRoot, $isParagraphNode, $isTextNode,
 } from 'lexical';
 import { $isHeadingNode } from '@lexical/rich-text';
 import { $isListNode } from '@lexical/list';
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import './Editor.css'
 import TitleBar from "./TitleBar"
 
@@ -27,7 +28,7 @@ import { CustomCodeNode, $createCustomCodeNode } from './CustomCodeNode.jsx';
 import { LinkNode, $createLinkNode, $isLinkNode, TOGGLE_LINK_COMMAND } from '@lexical/link';
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
 import { ClickableLinkPlugin } from '@lexical/react/LexicalClickableLinkPlugin';
-import { READ_POST, CREATE_POST, UPDATE_POST, GET_USER_FROM_POST, GET_POST_FEATURES, SET_REACTIONS_ENABLED, SET_DISCUSSION_ENABLED } from '../../BasicTextPostServerApi.js';
+import { READ_POST, CREATE_POST, UPDATE_POST, GET_USER_FROM_POST, GET_POST_FEATURES, SET_REACTIONS_ENABLED, SET_DISCUSSION_ENABLED, SEARCH_POSTS } from '../../BasicTextPostServerApi.js';
 import { useDialog } from '../../../../Dialog/Dialog.jsx';
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ImageNode, $createImageNode } from './ImageNode.jsx';
@@ -41,6 +42,14 @@ const EDITOR_NODES = [HeadingNode, ListNode, ListItemNode, CustomCodeNode, CodeH
 
 const FONT_SIZES   = ['12px', '14px', '16px', '18px', '24px', '32px', '48px'];
 const LINE_HEIGHTS = ['1', '1.25', '1.5', '1.75', '2', '2.5'];
+const FONT_FAMILIES = [
+  { label: 'Default', value: '' },
+  { label: 'Serif', value: 'Georgia, "Times New Roman", serif' },
+  { label: 'Mono', value: '"Fira Code", "SF Mono", Menlo, monospace' },
+  { label: 'Rounded', value: '"Nunito", "Varela Round", sans-serif' },
+  { label: 'Elegant', value: '"Playfair Display", "Garamond", serif' },
+  { label: 'Handwritten', value: '"Caveat", "Patrick Hand", cursive' },
+];
 
 const initialConfig = {
   namespace: 'MyEditor',
@@ -93,6 +102,7 @@ function InlineStylePlugin() {
   const [color, setColor]           = useState('#000000');
   const [fontSize, setFontSize]     = useState('16px');
   const [lineHeight, setLineHeight] = useState('1.5');
+  const [fontFamily, setFontFamily] = useState('');
 
   // Keep toolbar controls in sync with the cursor / selection
   useEffect(() => {
@@ -102,16 +112,15 @@ function InlineStylePlugin() {
         if ($isRangeSelection(selection)) {
           const currentColor  = $getSelectionStyleValueForProperty(selection, 'color', '#000000');
           const currentSize   = $getSelectionStyleValueForProperty(selection, 'font-size', '16px');
+          const currentFont   = $getSelectionStyleValueForProperty(selection, 'font-family', '');
           if (currentColor)  setColor(currentColor);
           if (currentSize)   setFontSize(currentSize);
-          // Read line-height from the block-level node (applied via setStyle, not $patchStyleText)
+          setFontFamily(currentFont || '');
+          // Read line-height from the anchor text node (stored inline on TextNodes)
           try {
             const node = selection.anchor.getNode();
-            const block = typeof node.getTopLevelElement === 'function' ? node.getTopLevelElement() : null;
-            if (block && typeof block.getStyle === 'function') {
-              const lhMatch = (block.getStyle() || '').match(/line-height:\s*([\d.]+)/);
-              setLineHeight(lhMatch ? lhMatch[1] : '1.5');
-            }
+            const lhMatch = ($isTextNode(node) ? node.getStyle() || '' : '').match(/line-height:\s*([\d.]+)/);
+            setLineHeight(lhMatch ? lhMatch[1] : '1.5');
           } catch { /* ignore */ }
         }
       });
@@ -134,22 +143,44 @@ function InlineStylePlugin() {
     });
   };
 
+  const applyFontFamily = (value) => {
+    setFontFamily(value);
+    editor.update(() => {
+      const selection = $getSelection();
+      if ($isRangeSelection(selection)) $patchStyleText(selection, { 'font-family': value || '' });
+    });
+  };
+
   const applyLineHeight = (value) => {
     setLineHeight(value);
     editor.update(() => {
       const selection = $getSelection();
       if (!$isRangeSelection(selection)) return;
+
+      // Apply line-height to all TextNodes in every block touched by the selection.
+      // (ElementNode.setStyle() exists but ParagraphNode never renders __style to DOM,
+      //  so we patch TextNodes directly — they do apply style to DOM spans.)
       const seen = new Set();
+      const applyToTextDescendants = (node) => {
+        if ($isTextNode(node)) {
+          const existing = node.getStyle() || '';
+          const parts = existing.split(';').map(p => p.trim()).filter(p => p && !p.toLowerCase().startsWith('line-height'));
+          if (value && value !== '1') parts.push(`line-height: ${value}`);
+          node.setStyle(parts.join('; '));
+        } else if (typeof node.getChildren === 'function') {
+          node.getChildren().forEach(applyToTextDescendants);
+        }
+      };
+
       for (const node of selection.getNodes()) {
         const block = typeof node.getTopLevelElement === 'function' ? node.getTopLevelElement() : null;
         if (!block || seen.has(block.getKey())) continue;
         seen.add(block.getKey());
-        if (typeof block.setStyle !== 'function') continue;
-        const existing = block.getStyle?.() || '';
-        const parts = existing.split(';').map(p => p.trim()).filter(p => p && !p.toLowerCase().startsWith('line-height'));
-        if (value && value !== '1') parts.push(`line-height: ${value}`);
-        block.setStyle(parts.join('; '));
+        applyToTextDescendants(block);
       }
+
+      // Also patch via $patchStyleText so new text typed will inherit the line-height
+      $patchStyleText(selection, { 'line-height': value !== '1' ? value : '' });
     });
   };
 
@@ -164,6 +195,20 @@ function InlineStylePlugin() {
           className="toolbar-color-picker"
           title="Text color"
         />
+      </label>
+      <label className="toolbar-label">
+        Font
+        <select
+          value={fontFamily}
+          onChange={(e) => applyFontFamily(e.target.value)}
+          className="toolbar-select"
+          title="Font family"
+          style={{ fontFamily: fontFamily || 'inherit' }}
+        >
+          {FONT_FAMILIES.map(({ label, value }) => (
+            <option key={label} value={value} style={{ fontFamily: value || 'inherit' }}>{label}</option>
+          ))}
+        </select>
       </label>
       <label className="toolbar-label">
         Size
@@ -368,7 +413,7 @@ function CodeHoverControlsPlugin() {
       if (active.has(el)) return;
 
       // Read Lexical node info
-      let nodeKey = null, lightMode = false, lineNumbers = false, language = '';
+      let nodeKey = null, lightMode = false, lineNumbers = true, language = '';
       editor.getEditorState().read(() => {
         for (const child of $getRoot().getChildren()) {
           if ($isCodeNode(child) && editor.getElementByKey(child.getKey()) === el) {
@@ -385,14 +430,18 @@ function CodeHoverControlsPlugin() {
 
       const overlay = document.createElement('div');
       overlay.className = 'code-hover-controls';
-      // Position fixed over the code block, outside any overflow:auto container
-      const rect = el.getBoundingClientRect();
       overlay.style.position = 'fixed';
-      overlay.style.top = (rect.top + 4) + 'px';
-      overlay.style.right = (window.innerWidth - rect.right + 4) + 'px';
       overlay.style.zIndex = '9999';
-      // Remove absolute positioning from class (handled inline above)
-      overlay.style.setProperty('position', 'fixed', 'important');
+
+      // Continuously track the code block's position so the controls follow on scroll/resize
+      let trackRaf = null;
+      function trackPosition() {
+        const r = el.getBoundingClientRect();
+        overlay.style.top  = (r.top  + 4) + 'px';
+        overlay.style.right = (window.innerWidth - r.right + 4) + 'px';
+        trackRaf = requestAnimationFrame(trackPosition);
+      }
+      trackRaf = requestAnimationFrame(trackPosition);
 
       const mkBtn = (label, title, active_, onClick) => {
         const btn = document.createElement('button');
@@ -521,6 +570,7 @@ function CodeHoverControlsPlugin() {
         () => el.removeEventListener('mouseenter', cancelRemove),
         () => overlay.removeEventListener('mouseleave', scheduleRemove),
         () => overlay.removeEventListener('mouseenter', cancelRemove),
+        () => { if (trackRaf !== null) cancelAnimationFrame(trackRaf); },
       );
     }
 
@@ -778,6 +828,94 @@ function getViewportRect(domSel) {
   return rects.length > 0 ? rects[0] : range.getBoundingClientRect();
 }
 
+function LinkModal({ mode, initialUrl, onConfirm, onRemove, onCancel }) {
+  const [url, setUrl] = useState(initialUrl || '');
+  const inputRef = useRef(null);
+  useEffect(() => { inputRef.current?.focus(); inputRef.current?.select(); }, []);
+  const handleSubmit = () => {
+    if (!url.trim()) { if (mode === 'edit') { onRemove(); } else { onCancel(); } return; }
+    const href = url.startsWith('http') ? url : 'https://' + url;
+    onConfirm(href);
+  };
+  return createPortal(
+    <div className="editor-modal-overlay" onMouseDown={e => { if (e.target === e.currentTarget) onCancel(); }}>
+      <div className="editor-modal" onMouseDown={e => e.stopPropagation()}>
+        <div className="editor-modal-title">{mode === 'edit' ? 'Edit link' : 'Insert link'}</div>
+        <input
+          ref={inputRef}
+          className="editor-modal-input"
+          type="url"
+          placeholder="https://..."
+          value={url}
+          onChange={e => setUrl(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleSubmit(); } if (e.key === 'Escape') { e.preventDefault(); onCancel(); } }}
+        />
+        <div className="editor-modal-actions">
+          <button className="editor-modal-btn editor-modal-btn--confirm" onClick={handleSubmit}>
+            {mode === 'edit' ? 'Save' : 'Insert'}
+          </button>
+          {mode === 'edit' && <button className="editor-modal-btn editor-modal-btn--remove" onClick={onRemove}>Remove link</button>}
+          <button className="editor-modal-btn editor-modal-btn--cancel" onClick={onCancel}>Cancel</button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+function PostSearchModal({ onSelect, onCancel }) {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const inputRef = useRef(null);
+  useEffect(() => { inputRef.current?.focus(); }, []);
+  useEffect(() => {
+    if (!query.trim()) { setResults([]); return; }
+    const timer = setTimeout(() => {
+      setLoading(true);
+      SEARCH_POSTS(query.trim())
+        .then(r => { setResults(r || []); setLoading(false); })
+        .catch(() => { setResults([]); setLoading(false); });
+    }, 280);
+    return () => clearTimeout(timer);
+  }, [query]);
+  return createPortal(
+    <div className="editor-modal-overlay" onMouseDown={e => { if (e.target === e.currentTarget) onCancel(); }}>
+      <div className="editor-modal editor-modal--search" onMouseDown={e => e.stopPropagation()}>
+        <div className="editor-modal-title">Insert post link</div>
+        <input
+          ref={inputRef}
+          className="editor-modal-input"
+          placeholder="Search posts by title..."
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); onCancel(); } }}
+        />
+        {loading && <div className="editor-modal-status">Searching…</div>}
+        {results.length > 0 && (
+          <ul className="editor-modal-results">
+            {results.slice(0, 10).map(p => (
+              <li key={p.id}>
+                <button className="editor-modal-result-item" onClick={() => onSelect(p)}>
+                  <span className="editor-modal-result-title">{p.title || `Post #${p.id}`}</span>
+                  <span className="editor-modal-result-meta">by {p.username}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {!loading && query.trim() && results.length === 0 && (
+          <div className="editor-modal-status">No posts found</div>
+        )}
+        <div className="editor-modal-actions">
+          <button className="editor-modal-btn editor-modal-btn--cancel" onClick={onCancel}>Cancel</button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 function LinkToolbarPlugin() {
   const [editor] = useLexicalComposerContext();
   const [isLink, setIsLink] = useState(false);
@@ -818,6 +956,8 @@ function LinkToolbarPlugin() {
     });
   }, [editor]);
 
+  const [linkModal, setLinkModal] = useState(null); // null | 'add' | 'edit'
+
   const getCurrentUrl = () => {
     let url = '';
     editor.getEditorState().read(() => {
@@ -828,26 +968,18 @@ function LinkToolbarPlugin() {
     return url;
   };
 
-  const addLink = () => {
-    const url = window.prompt('Enter URL:');
-    if (!url || !url.trim()) return;
-    const href = url.startsWith('http') ? url : 'https://' + url;
-    editor.dispatchCommand(TOGGLE_LINK_COMMAND, { url: href, target: '_blank' });
-  };
-
-  const editLink = () => {
-    const current = getCurrentUrl();
-    const url = window.prompt('Edit URL:', current);
-    if (url === null) return; // cancelled
-    if (!url.trim()) {
-      editor.dispatchCommand(TOGGLE_LINK_COMMAND, null);
-      return;
-    }
-    const href = url.startsWith('http') ? url : 'https://' + url;
-    editor.dispatchCommand(TOGGLE_LINK_COMMAND, { url: href, target: '_blank' });
-  };
-
+  const addLink    = () => setLinkModal('add');
+  const editLink   = () => setLinkModal('edit');
   const removeLink = () => editor.dispatchCommand(TOGGLE_LINK_COMMAND, null);
+
+  const commitLink = (href) => {
+    editor.dispatchCommand(TOGGLE_LINK_COMMAND, { url: href, target: '_blank' });
+    setLinkModal(null);
+  };
+  const commitRemove = () => {
+    editor.dispatchCommand(TOGGLE_LINK_COMMAND, null);
+    setLinkModal(null);
+  };
 
   return (
     <>
@@ -872,6 +1004,15 @@ function LinkToolbarPlugin() {
             <button onClick={addLink} title="Add link">🔗 Link</button>
           )}
         </div>
+      )}
+      {linkModal && (
+        <LinkModal
+          mode={linkModal}
+          initialUrl={linkModal === 'edit' ? getCurrentUrl() : ''}
+          onConfirm={commitLink}
+          onRemove={commitRemove}
+          onCancel={() => setLinkModal(null)}
+        />
       )}
     </>
   );
@@ -904,32 +1045,27 @@ function MathToolbarPlugin() {
 
 function PostLinkToolbarPlugin() {
   const [editor] = useLexicalComposerContext();
+  const [showSearch, setShowSearch] = useState(false);
 
-  const insertPostLink = async () => {
-    const input = window.prompt('Enter post ID to link to:');
-    if (!input || !input.trim()) return;
-    const postId = parseInt(input.trim());
-    if (isNaN(postId) || postId <= 0) { alert('Invalid post ID.'); return; }
-    try {
-      const [post, author] = await Promise.all([
-        READ_POST(postId),
-        GET_USER_FROM_POST(postId),
-      ]);
-      const href = `/users/${author}/${postId}`;
-      const title = post.title || `Post #${postId}`;
-      editor.update(() => {
-        const linkNode = $createLinkNode(href);
-        linkNode.append($createTextNode(title));
-        const sel = $getSelection();
-        if ($isRangeSelection(sel)) sel.insertNodes([linkNode]);
-        else $insertNodes([linkNode]);
-      });
-    } catch {
-      alert('Post not found or could not be loaded.');
-    }
+  const handleSelect = (post) => {
+    setShowSearch(false);
+    const href = `/users/${post.username}/${post.id}`;
+    const title = post.title || `Post #${post.id}`;
+    editor.update(() => {
+      const linkNode = $createLinkNode(href);
+      linkNode.append($createTextNode(title));
+      const sel = $getSelection();
+      if ($isRangeSelection(sel)) sel.insertNodes([linkNode]);
+      else $insertNodes([linkNode]);
+    });
   };
 
-  return <button onClick={insertPostLink} title="Insert link to another post on this site">Post link</button>;
+  return (
+    <>
+      <button onClick={() => setShowSearch(true)} title="Insert link to another post on this site">Post link</button>
+      {showSearch && <PostSearchModal onSelect={handleSelect} onCancel={() => setShowSearch(false)} />}
+    </>
+  );
 }
 
 function BackgroundToolbarPlugin({ pattern, onPatternChange, username }) {
@@ -959,17 +1095,21 @@ function BackgroundToolbarPlugin({ pattern, onPatternChange, username }) {
   );
 }
 
-function FeatureTogglePlugin({ postid, features, onFeaturesChange, backgroundPattern, onPatternChange, username }) {
+function FeatureTogglePlugin({ postid, features, onFeaturesChange }) {
   const { confirm } = useDialog();
-  if (!postid || postid <= 0) return null;
+  const isNew = !postid || postid <= 0;
 
   const toggle = async (key) => {
     const next = !features[key];
+    if (isNew) {
+      onFeaturesChange(f => ({ ...f, [key]: next }));
+      return;
+    }
     const label = key === 'reactionsEnabled' ? 'reactions' : 'comments';
     const msg = next
       ? `Enable ${label} on this post?`
-      : `Disable ${label}? ${next ? '' : 'They will be hidden from readers until re-enabled.'}`;
-    if (!(await confirm(msg.trim()))) return;
+      : `Disable ${label}? They will be hidden from readers until re-enabled.`;
+    if (!(await confirm(msg))) return;
     try {
       if (key === 'reactionsEnabled') await SET_REACTIONS_ENABLED(postid, next);
       else await SET_DISCUSSION_ENABLED(postid, next);
@@ -982,7 +1122,7 @@ function FeatureTogglePlugin({ postid, features, onFeaturesChange, backgroundPat
       <button
         className={`post-toggle-btn toolbar-fmt-btn${features.reactionsEnabled ? ' active' : ''}`}
         onClick={() => toggle('reactionsEnabled')}
-        title="Toggle reactions"
+        title="Toggle reactions on this post"
         style={{ fontSize: '12px' }}
       >
         {features.reactionsEnabled ? 'Reactions: on' : 'Reactions: off'}
@@ -990,17 +1130,16 @@ function FeatureTogglePlugin({ postid, features, onFeaturesChange, backgroundPat
       <button
         className={`post-toggle-btn toolbar-fmt-btn${features.discussionEnabled ? ' active' : ''}`}
         onClick={() => toggle('discussionEnabled')}
-        title="Toggle comments/discussion"
+        title="Toggle comments on this post"
         style={{ fontSize: '12px' }}
       >
         {features.discussionEnabled ? 'Comments: on' : 'Comments: off'}
       </button>
-      <BackgroundToolbarPlugin pattern={backgroundPattern} onPatternChange={onPatternChange} username={username} />
     </>
   );
 }
 
-function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublishedChange, titleRef, onSaved, username, folder, onFolderChange }) {
+function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublishedChange, titleRef, onSaved, username, folder, onFolderChange, features }) {
   const { confirm } = useDialog();
   const [editor] = useLexicalComposerContext();
   const [saveStatus, setSaveStatus] = useState('');
@@ -1047,6 +1186,9 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
         .then((newId) => {
           showStatus(published ? 'Published!' : 'Draft created.');
           setSavedId(newId);
+          // Apply any non-default feature settings chosen before saving
+          if (features && !features.reactionsEnabled) SET_REACTIONS_ENABLED(newId, false).catch(() => {});
+          if (features && !features.discussionEnabled) SET_DISCUSSION_ENABLED(newId, false).catch(() => {});
           onSaved?.();
         })
         .catch(err => {
@@ -1189,14 +1331,11 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
         <MathToolbarPlugin />
         <ImageToolbarPlugin />
       </CollapsibleSection>
-      {postid > 0 && (
-        <>
-          <span className='toolbar-divider' />
-          <CollapsibleSection label="Preferences" defaultOpen={allOpen}>
-            <FeatureTogglePlugin postid={postid} features={features} onFeaturesChange={onFeaturesChange} backgroundPattern={backgroundPattern} onPatternChange={onPatternChange} username={username} />
-          </CollapsibleSection>
-        </>
-      )}
+      <span className='toolbar-divider' />
+      <CollapsibleSection label="Preferences" defaultOpen={allOpen}>
+        <BackgroundToolbarPlugin pattern={backgroundPattern} onPatternChange={onPatternChange} username={username} />
+        <FeatureTogglePlugin postid={postid} features={features} onFeaturesChange={onFeaturesChange} />
+      </CollapsibleSection>
     </>
   );
   const formattingSections = buildSections(true);
@@ -1207,7 +1346,7 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
       <div className='toolbar-sticky toolbar-desktop'>
         {formattingSections}
         <span className='toolbar-divider' />
-        <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} titleRef={titleRef} onSaved={onSaved} username={username} folder={folder} onFolderChange={onFolderChange} />
+        <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} titleRef={titleRef} onSaved={onSaved} username={username} folder={folder} onFolderChange={onFolderChange} features={features} />
       </div>
 
       {/* Mobile toolbar: slim bar with hamburger + save */}
@@ -1220,7 +1359,7 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
           <span className='toolbar-mobile-hamburger-icon'><span /><span /><span /></span>
           <span className='toolbar-mobile-hamburger-label'>Format</span>
         </button>
-        <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} titleRef={titleRef} onSaved={onSaved} username={username} folder={folder} onFolderChange={onFolderChange} />
+        <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} titleRef={titleRef} onSaved={onSaved} username={username} folder={folder} onFolderChange={onFolderChange} features={features} />
       </div>
 
       {/* Mobile formatting panel (glass popup) */}
@@ -1297,7 +1436,7 @@ export default function RichTextEditor() {
   const [postFolder, setPostFolder] = useState('');
   const [dataReady, setDataReady] = useState(0);
   const [postLoaded, setPostLoaded] = useState(false);
-  const [features, setFeatures] = useState({ reactionsEnabled: false, discussionEnabled: false });
+  const [features, setFeatures] = useState({ reactionsEnabled: true, discussionEnabled: true });
   const [isDirty, setIsDirty] = useState(false);
   const savedOnceRef = useRef(false);
 
@@ -1337,7 +1476,7 @@ export default function RichTextEditor() {
       // Mark dirty after the initial load has populated the editor
       if (savedOnceRef.current || dataReady > 0) setIsDirty(true);
     } catch (e) {
-      console.log("failed to serialize editor state: " + e);
+      console.error("failed to serialize editor state:", e);
     }
   }, [dataReady]);
 

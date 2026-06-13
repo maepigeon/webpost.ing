@@ -360,6 +360,60 @@ public class PostController {
         return ResponseEntity.ok(social.getPostsByHashtag(tag));
     }
 
+    @GetMapping("/hashtags/suggest")
+    public ResponseEntity<List<String>> suggestHashtags(@RequestParam(defaultValue = "") String q) {
+        if (q.isBlank() || q.length() > 50) return ResponseEntity.ok(List.of());
+        List<String> tags = jdbc.queryForList(
+            "SELECT tag FROM hashtags WHERE tag LIKE ? ORDER BY tag LIMIT 8",
+            String.class, q.toLowerCase().replaceAll("[^a-z0-9_]", "") + "%");
+        return ResponseEntity.ok(tags);
+    }
+
+    /** Search published posts by title/content, optionally filtered to a specific author. */
+    @GetMapping("/search/posts")
+    public ResponseEntity<List<Map<String, Object>>> searchPosts(
+            @RequestParam(defaultValue = "") String q,
+            @RequestParam(required = false)  String from) {
+
+        if (q.isBlank() && (from == null || from.isBlank())) return ResponseEntity.ok(List.of());
+        if (q.length() > 200) return ResponseEntity.badRequest().build();
+        if (from != null && from.length() > 50)
+            from = null; // ignore suspicious from param
+
+        String pattern = "%" + q.trim().replace("%", "\\%").replace("_", "\\_") + "%";
+
+        List<Map<String, Object>> rows;
+        if (from != null && !from.isBlank()) {
+            rows = jdbc.queryForList(
+                "SELECT p.id, p.title, u.username FROM posts p " +
+                "JOIN users_posts_junctions j ON j.post_id = p.id " +
+                "JOIN users u ON u.id = j.user_id " +
+                "WHERE p.published = true " +
+                "  AND (p.title ILIKE ? OR p.description ILIKE ?) " +
+                "  AND u.username = ? " +
+                "ORDER BY p.date DESC LIMIT 25",
+                pattern, pattern, from.trim());
+        } else if (q.isBlank()) {
+            rows = jdbc.queryForList(
+                "SELECT p.id, p.title, u.username FROM posts p " +
+                "JOIN users_posts_junctions j ON j.post_id = p.id " +
+                "JOIN users u ON u.id = j.user_id " +
+                "WHERE p.published = true AND u.username = ? " +
+                "ORDER BY p.date DESC LIMIT 25",
+                from == null ? "" : from.trim());
+        } else {
+            rows = jdbc.queryForList(
+                "SELECT p.id, p.title, u.username FROM posts p " +
+                "JOIN users_posts_junctions j ON j.post_id = p.id " +
+                "JOIN users u ON u.id = j.user_id " +
+                "WHERE p.published = true " +
+                "  AND (p.title ILIKE ? OR p.description ILIKE ?) " +
+                "ORDER BY p.date DESC LIMIT 25",
+                pattern, pattern);
+        }
+        return ResponseEntity.ok(rows);
+    }
+
     @GetMapping("/posts/published")
     public ResponseEntity<List<Post>> findByPublished() {
         try {
@@ -372,5 +426,44 @@ public class PostController {
         } catch (Exception e) {
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    /**
+     * Bulk-update post sort_order and folder for a user's posts.
+     * Body: { "updates": [ { "id": 1, "sortOrder": 0, "folder": null }, ... ] }
+     */
+    @PutMapping("/users/{username}/posts/order")
+    public ResponseEntity<String> updatePostOrder(
+            @PathVariable String username,
+            @RequestBody Map<String, Object> body,
+            @CookieValue(name = "username") String authUsername,
+            @CookieValue(name = "authToken") String token) {
+
+        if (!authUsername.equals(username))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Forbidden.");
+        AuthSession session = null;
+        try { session = loginRepository.authorize(authUsername, token); }
+        catch (JdbcLoginRepository.TokenExpiredException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized.");
+        }
+        if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized.");
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> updates = body.get("updates") instanceof List<?> l
+            ? (List<Map<String, Object>>) l : List.of();
+
+        for (Map<String, Object> u : updates) {
+            if (!(u.get("id") instanceof Number)) continue;
+            int postId    = ((Number) u.get("id")).intValue();
+            int sortOrder = u.get("sortOrder") instanceof Number n ? n.intValue() : 0;
+            String folder = u.get("folder") instanceof String s && !((String) s).isBlank()
+                ? ((String) s).trim() : null;
+            if (folder != null && folder.length() > 100) folder = folder.substring(0, 100);
+            jdbc.update(
+                "UPDATE posts SET sort_order=?, folder=? WHERE id=? " +
+                "AND EXISTS (SELECT 1 FROM users_posts_junctions WHERE post_id=? AND user_id=?)",
+                sortOrder, folder, postId, postId, session.userId);
+        }
+        return ResponseEntity.ok("Updated.");
     }
 }

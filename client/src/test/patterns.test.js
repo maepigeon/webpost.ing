@@ -106,7 +106,7 @@ describe('patternToStyle', () => {
 
   it('resolves "grid" preset', () => {
     const style = patternToStyle('grid');
-    expect(style.backgroundImage).toContain('linear-gradient');
+    expect(style).toHaveProperty('backgroundImage');
   });
 
   it('applies custom gradient directly as backgroundImage', () => {

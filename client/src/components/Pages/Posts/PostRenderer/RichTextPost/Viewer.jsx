@@ -16,11 +16,13 @@ import { CustomCodeNode } from './CustomCodeNode.jsx';
 import TitleBar from './TitleBar';
 import ReactionBar from '../../../../Social/ReactionBar.jsx';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { usePageTitle } from '../../../../../utils/usePageTitle.js';
 import { useDialog } from '../../../../Dialog/Dialog.jsx';
 import {
   READ_POST, GET_USER_FROM_POST,
   GET_POST_FEATURES, GET_PINNED_POST, SET_PINNED_POST, UNPIN_POST,
   RECORD_POST_VIEW, GET_POST_VIEWS, GET_POST_VOTE, VOTE_POST,
+  GET_OR_CREATE_CONVERSATION, SEND_CONVERSATION_MESSAGE,
 } from '../../BasicTextPostServerApi.js';
 import { ImageNode } from './ImageNode.jsx';
 import { MathNode } from './MathNode.jsx';
@@ -112,9 +114,10 @@ function HashtagLinkerPlugin({ contentRef, navigate }) {
 export default function RichTextViewer() {
   const { id, username } = useParams();
   const navigate = useNavigate();
-  const { confirm } = useDialog();
+  const { linkWarning } = useDialog();
 
-  const [postTitle, setPostTitle] = useState('Loading...');
+  const [postTitle, setPostTitle] = useState('');
+  usePageTitle(postTitle || null);
   const [postDate, setPostDate] = useState('');
   const [postPublished, setPostPublished] = useState(false);
   const [postAuthor, setPostAuthor] = useState('');
@@ -128,6 +131,10 @@ export default function RichTextViewer() {
   const [shareCopied, setShareCopied] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const shareRef = useRef(null);
+  const [showDmShare, setShowDmShare] = useState(false);
+  const [dmRecipient, setDmRecipient] = useState('');
+  const [dmSending, setDmSending] = useState(false);
+  const [dmFeedback, setDmFeedback] = useState(null); // { ok, msg }
   const [isPinned, setIsPinned] = useState(false);
   const [viewCounts, setViewCounts] = useState(null); // { total_views, unique_views }
   const [postScore, setPostScore] = useState(0);
@@ -147,6 +154,24 @@ export default function RichTextViewer() {
       document.removeEventListener('keydown', handleKey);
     };
   }, [shareOpen]);
+
+  const sendViaDm = async () => {
+    const recipient = dmRecipient.trim();
+    if (!recipient) return;
+    setDmSending(true);
+    setDmFeedback(null);
+    try {
+      const conv = await GET_OR_CREATE_CONVERSATION(recipient);
+      const msg = `📎 Shared a post with you: "${postTitle}"\n${window.location.href}`;
+      await SEND_CONVERSATION_MESSAGE(conv.id, msg);
+      setDmFeedback({ ok: true, msg: `Sent to @${recipient}!` });
+      setTimeout(() => { setShowDmShare(false); setDmRecipient(''); setDmFeedback(null); }, 1800);
+    } catch {
+      setDmFeedback({ ok: false, msg: 'Could not send — check the username.' });
+    } finally {
+      setDmSending(false);
+    }
+  };
 
   useEffect(() => {
     if (!postLoaded || !isAuthor) return;
@@ -210,7 +235,7 @@ export default function RichTextViewer() {
         if (new URL(url).origin === window.location.origin) return;
       } catch { return; }
       e.preventDefault();
-      confirm(`You are leaving this site.\n\n${url}\n\nContinue?`).then(ok => {
+      linkWarning(url).then(ok => {
         if (ok) window.open(url, '_blank', 'noopener,noreferrer');
       });
     };
@@ -389,6 +414,17 @@ export default function RichTextViewer() {
                     >
                       {shareCopied ? '✓ Copied!' : 'Copy link'}
                     </button>
+                    {loggedIn && (
+                      <>
+                        <div className="share-menu-divider" />
+                        <button
+                          className="share-menu-item"
+                          onClick={() => { setShowDmShare(true); setShareOpen(false); }}
+                        >
+                          💬 Send via DM
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -409,6 +445,57 @@ export default function RichTextViewer() {
           </div>
         </div>
       </LexicalComposer>
+
+      {/* DM share dialog */}
+      {showDmShare && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 10001,
+          background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+        }} onMouseDown={() => { setShowDmShare(false); setDmRecipient(''); setDmFeedback(null); }}>
+          <div style={{
+            position: 'relative',
+            background: 'radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0) 70%), linear-gradient(to bottom, rgba(255,255,255,0.82) 0%, rgba(235,231,226,0.86) 100%)',
+            backdropFilter: 'blur(28px) saturate(180%)',
+            border: '1px solid rgba(255,255,255,0.8)',
+            borderRadius: 20, padding: '28px 24px 22px',
+            boxShadow: 'inset 0 2px 0 rgba(255,255,255,0.95), 0 20px 60px rgba(0,0,0,0.22)',
+            maxWidth: 380, width: '100%',
+            animation: 'dialog-pop-in 0.2s cubic-bezier(0.34,1.56,0.64,1)',
+          }} onMouseDown={e => e.stopPropagation()}>
+            <button onClick={() => { setShowDmShare(false); setDmRecipient(''); setDmFeedback(null); }}
+              style={{ position: 'absolute', top: 12, right: 14, background: 'rgba(0,0,0,0.07)', border: '1px solid rgba(0,0,0,0.12)', borderRadius: '50%', width: 28, height: 28, cursor: 'pointer', fontSize: 13, color: '#555' }}>✕</button>
+            <div style={{ fontWeight: 700, fontSize: '1rem', marginBottom: 6 }}>💬 Send via DM</div>
+            <div style={{ fontSize: '0.82rem', color: '#666', marginBottom: 14 }}>
+              "{postTitle}"
+            </div>
+            <input
+              type="text"
+              placeholder="Recipient username"
+              value={dmRecipient}
+              onChange={e => setDmRecipient(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') sendViaDm(); }}
+              autoFocus
+              style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.18)', fontSize: '0.9rem', marginBottom: 12 }}
+            />
+            {dmFeedback && (
+              <div style={{ fontSize: '0.83rem', marginBottom: 10, color: dmFeedback.ok ? '#2ecc71' : '#e74c3c', fontWeight: 600 }}>
+                {dmFeedback.msg}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => { setShowDmShare(false); setDmRecipient(''); setDmFeedback(null); }}
+                style={{ padding: '7px 16px', borderRadius: 9, border: '1px solid rgba(0,0,0,0.15)', background: 'rgba(0,0,0,0.06)', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 600 }}>
+                Cancel
+              </button>
+              <button onClick={sendViaDm} disabled={dmSending || !dmRecipient.trim()}
+                style={{ padding: '7px 18px', borderRadius: 9, border: 'none', background: 'linear-gradient(to bottom, #8880ff 0%, #6c63ff 50%, #5246e8 100%)', color: '#fff', cursor: dmSending ? 'default' : 'pointer', fontSize: '0.875rem', fontWeight: 700, opacity: (!dmRecipient.trim() || dmSending) ? 0.6 : 1 }}>
+                {dmSending ? 'Sending…' : 'Send'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

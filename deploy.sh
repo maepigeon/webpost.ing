@@ -6,10 +6,14 @@
 #   ./deploy.sh
 #
 # Prerequisites:
-#   - Java 17+, Maven wrapper (./mvnw) present in server/
+#   - Java 21+, Maven wrapper (./mvnw) present in server/
 #   - Node.js 18+, npm present
 #   - nginx configured to serve client/dist/ and proxy /api/ -> :8080
-#   - server/src/main/resources/application.properties set to prod profile
+#   - /var/www/webposting/uploads/ exists and is writable by this user
+#
+# Profile note: this script always passes -Dspring.profiles.active=prod to
+# the JVM, so application.properties can stay set to 'dev' for local work —
+# you never need to manually flip that file before deploying.
 #
 # The script stops any running JAR, rebuilds both artifacts, then starts
 # the new JAR in the background.  Log output goes to /tmp/webposting.log.
@@ -49,7 +53,7 @@ echo "      Done → server/target/server-0.0.1-SNAPSHOT.jar"
 # ── 4. Start new server ───────────────────────────────────────────────────────
 echo "[4/4] Starting new server..."
 cd "$REPO_ROOT/server/target"
-nohup java -jar server-0.0.1-SNAPSHOT.jar >> "$LOG" 2>&1 &
+nohup java -Dspring.profiles.active=prod -jar server-0.0.1-SNAPSHOT.jar >> "$LOG" 2>&1 &
 NEW_PID=$!
 echo "      Started PID $NEW_PID — logs at $LOG"
 

@@ -62,14 +62,17 @@ function Navbar() {
 
   return (
     <nav className="navBar">
-      {/* ── Always-visible items ── */}
-      <Navbutton label="Home" route="/" variant="yellow" />
-      {loggedIn && <Navbutton label="New Post" route="/editor" />}
-      <Navbutton label="Search" route="/search" variant="teal" />
+      {/* ── Left: always-visible items ── */}
+      <div className="nav-left-group">
+        {!loggedIn && <Navbutton label="Log In" route="/routes/Login" variant="orange" />}
+        <Navbutton label="Home" route="/" variant="yellow" />
+        {loggedIn && <Navbutton label="New Post" route="/editor" variant="green" />}
+        <Navbutton label="Search" route="/search" variant="teal" />
+      </div>
 
-      {/* ── Desktop-only items ── */}
+      {/* ── Center: desktop items + mobile welcome ── */}
       <span className="nav-desktop-group">
-        {!loggedIn && <Navbutton label="Log In" route="/routes/Login" />}
+        {/* Login handled in left group */}
         {loggedIn && (
           <>
             <Navbutton label="My Profile" route={`/users/${username}`} variant="purple" />
@@ -83,14 +86,13 @@ function Navbar() {
         <Userdata />
       </span>
 
-      {/* ── Mobile: Log In button when logged out ── */}
+      {/* ── Right: login on mobile (logged-out) or hamburger (logged-in) ── */}
       {!loggedIn && (
         <span className="nav-mobile-login">
           <Navbutton label="Log In" route="/routes/Login" />
         </span>
       )}
 
-      {/* ── Mobile hamburger (logged-in only) ── */}
       {loggedIn && (
         <div className="nav-hamburger-wrap" ref={menuRef}>
           <button
@@ -116,7 +118,6 @@ function Navbar() {
                 <Navbutton label="Notifications" route="/inbox" variant="purple" />
                 <Navbutton label="Log Out" route="/routes/Logout" variant="orange" />
                 {isAdmin && <Navbutton label="Admin" route="/routes/AdminPanel" variant="blue" />}
-                <Userdata />
               </div>
             </div>
           )}

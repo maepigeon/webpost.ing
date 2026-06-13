@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import './FollowListModal.css';
 
@@ -17,7 +18,7 @@ export default function FollowListModal({ title, users, onClose }) {
     if (e.target === overlayRef.current) onClose();
   };
 
-  return (
+  return createPortal(
     <div className="follow-modal-overlay" ref={overlayRef} onClick={handleOverlayClick}>
       <div className="follow-modal" role="dialog" aria-modal="true" aria-label={title}>
         <div className="follow-modal-header">
@@ -35,6 +36,7 @@ export default function FollowListModal({ title, users, onClose }) {
           ))}
         </ul>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -166,3 +166,8 @@
     transform: translateY(0);
     box-shadow: var(--neo-shadow-active);
 }
+
+@keyframes online-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(46,204,113,0.35), 0 0 8px rgba(46,204,113,0.5); }
+  50%       { box-shadow: 0 0 0 5px rgba(46,204,113,0.15), 0 0 16px rgba(46,204,113,0.7); }
+}
