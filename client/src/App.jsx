@@ -21,6 +21,9 @@ import MessagesPage from './components/Social/MessagesPage.jsx';
 import DiscussionPage from './components/Social/DiscussionPage.jsx';
 import SearchPage from './components/Pages/Search/SearchPage.jsx';
 import ActivityPage from './components/Pages/Activity/ActivityPage.jsx';
+import SettingsPage from './components/Pages/Settings/SettingsPage.jsx';
+import EmailActionPage from './components/Pages/Settings/EmailActionPage.jsx';
+import ForgotPasswordPage from './components/Pages/Settings/ForgotPasswordPage.jsx';
 
 import axios from 'axios'
 
@@ -70,6 +73,12 @@ function App() {
         <Route path="/messages" element={<MessagesPage />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/activity/:username" element={<ActivityPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        {/* Opened from links in emails, so these must work while signed out. */}
+        <Route path="/verify-email" element={<EmailActionPage mode="verify" />} />
+        <Route path="/unsubscribe" element={<EmailActionPage mode="unsubscribe" />} />
+        <Route path="/reset-password" element={<EmailActionPage mode="reset" />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </div>

@@ -26,6 +26,8 @@ import com.springbootprojects.webpostingserver.posts.repository.SocialRepository
 @RestController
 @RequestMapping("/api")
 public class PostController {
+
+    @Autowired private com.springbootprojects.webpostingserver.posts.service.EmailNotificationService emailNotifications;
     @Autowired PostRepository postRepository;
     @Autowired LoginRepository loginRepository;
     @Autowired SocialRepository social;
@@ -189,6 +191,10 @@ public class PostController {
                 if (post.isPublished()) {
                     social.votePost(postId, userId, 1);
                     social.notifyFollowers(userId, username, postId);
+                    // Email is opt-in per recipient and asynchronous; a mail
+                    // failure must not fail the post.
+                    emailNotifications.notifyFollowersOfPost(username, post.getTitle(), postId);
+                    emailNotifications.sendPublishReceipt(username, post.getTitle(), postId);
                 }
                 return new ResponseEntity<>(String.valueOf(postId), HttpStatus.CREATED);
             } catch (Exception e) {
@@ -235,6 +241,8 @@ public class PostController {
             if (!wasPublished && post.isPublished()) {
                 int authorId = social.getUserIdByUsername(username);
                 if (authorId > 0) social.notifyFollowers(authorId, username, (int) id);
+                emailNotifications.notifyFollowersOfPost(username, post.getTitle(), id);
+                emailNotifications.sendPublishReceipt(username, post.getTitle(), id);
             }
             return new ResponseEntity<>("Post was updated successfully.", HttpStatus.OK);
         } else {

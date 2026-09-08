@@ -77,6 +77,7 @@ function Navbar() {
           <>
             <Navbutton label="My Profile" route={`/users/${username}`} variant="purple" />
             <Navbutton label="Activity" route={`/activity/${username}`} variant="purple" />
+            <Navbutton label="Settings" route="/settings" variant="purple" />
             <MessagesBell />
             <NotificationBell />
             <Navbutton label="Log Out" route="/routes/Logout" variant="orange" />
@@ -116,6 +117,7 @@ function Navbar() {
                 <Navbutton label="Activity" route={`/activity/${username}`} variant="purple" />
                 <Navbutton label="Messages" route="/messages" variant="purple" />
                 <Navbutton label="Notifications" route="/inbox" variant="purple" />
+                <Navbutton label="Settings" route="/settings" variant="purple" />
                 <Navbutton label="Log Out" route="/routes/Logout" variant="orange" />
                 {isAdmin && <Navbutton label="Admin" route="/routes/AdminPanel" variant="blue" />}
               </div>

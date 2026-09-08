@@ -640,3 +640,53 @@ export function UPDATE_POST_ORDER(username, updates) {
   return axios.put(baseUrl + `/api/users/${username}/posts/order`,
     { updates }, { withCredentials: true }).then(r => r.data);
 }
+
+// ── Settings, email verification, and password reset ──────────────────────────
+// The whole email feature is optional: GET_SETTINGS reports mailEnabled so the
+// UI can say so plainly rather than offering a verification that cannot happen.
+
+export function GET_SETTINGS(username) {
+  return axios.get(baseUrl + "/api/users/" + username + "/settings", { withCredentials: true })
+    .then(r => r.data);
+}
+
+export function UPDATE_EMAIL_PREFERENCES(username, prefs) {
+  return axios.put(baseUrl + "/api/users/" + username + "/settings/preferences", prefs, {
+    headers: { 'Content-Type': 'application/json' },
+    withCredentials: true,
+  }).then(r => r.data);
+}
+
+export function UPDATE_EMAIL_ADDRESS(username, email) {
+  return axios.put(baseUrl + "/api/users/" + username + "/settings/email", { email }, {
+    headers: { 'Content-Type': 'application/json' },
+    withCredentials: true,
+  }).then(r => r.data);
+}
+
+export function RESEND_VERIFICATION(username) {
+  return axios.post(baseUrl + "/api/users/" + username + "/settings/email/resend", {}, {
+    withCredentials: true,
+  }).then(r => r.data);
+}
+
+// Public — opened from a link in an email, where there may be no session.
+export function VERIFY_EMAIL(token) {
+  return axios.post(baseUrl + "/api/email/verify", { token },
+    { headers: { 'Content-Type': 'application/json' } }).then(r => r.data);
+}
+
+export function UNSUBSCRIBE_EMAIL(token, category) {
+  return axios.post(baseUrl + "/api/email/unsubscribe", { token, category },
+    { headers: { 'Content-Type': 'application/json' } }).then(r => r.data);
+}
+
+export function FORGOT_PASSWORD(email) {
+  return axios.post(baseUrl + "/api/password/forgot", { email },
+    { headers: { 'Content-Type': 'application/json' } }).then(r => r.data);
+}
+
+export function RESET_PASSWORD(token, password) {
+  return axios.post(baseUrl + "/api/password/reset", { token, password },
+    { headers: { 'Content-Type': 'application/json' } }).then(r => r.data);
+}

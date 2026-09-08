@@ -25,6 +25,7 @@ public class SocialController {
 
     @Autowired
     private SocialRepository social;
+    @Autowired private com.springbootprojects.webpostingserver.posts.service.EmailNotificationService emailNotifications;
 
     @Autowired
     private LoginRepository loginRepository;
@@ -81,6 +82,8 @@ public class SocialController {
 
         social.follow(session.userId, targetId);
         social.createNotification(targetId, "follow", authUsername, null, null);
+        // Best-effort and asynchronous; a mail problem must not fail the follow.
+        emailNotifications.notifyNewFollower(username, authUsername);
         return ResponseEntity.ok("Followed.");
     }
 
@@ -179,6 +182,7 @@ public class SocialController {
 
         social.sendMessage(targetId, authUsername, message.trim());
         MSG_LIMITER.recordUse(key);
+        emailNotifications.notifyDirectMessage(username, authUsername);
         return ResponseEntity.ok("Message sent.");
     }
 

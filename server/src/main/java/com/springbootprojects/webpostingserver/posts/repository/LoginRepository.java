@@ -19,6 +19,15 @@ public interface LoginRepository {
     public String getUserBio(String username);
     public void updateUserBio(String username, String bio);
     public boolean isAdmin(String username);
+
+    /**
+     * Ends every session belonging to a user.
+     *
+     * Used when an account is frozen or deleted, and after a password reset —
+     * whoever reset it may be locking an intruder out, so any session the
+     * intruder holds has to die with the old password.
+     */
+    public void evictSession(String username);
     public void touchLastVisited(String username);
     public String getUserPresets(String username);
     public void updateUserPresets(String username, String presetsJson);

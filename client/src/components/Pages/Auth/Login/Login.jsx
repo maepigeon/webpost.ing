@@ -95,6 +95,13 @@ function Login() {
           Have an invite code?{' '}
           <Link to="/routes/NewAccount" className="login-register-link">Create an account</Link>
         </div>
+
+        {/* Only useful once an address has been confirmed, which the endpoint
+            enforces — it reports the same thing either way so an unregistered
+            address cannot be told apart from a registered one. */}
+        <div className="login-have-code">
+          <Link to="/forgot-password" className="login-register-link">Forgot your password?</Link>
+        </div>
       </div>
     </div>
   );

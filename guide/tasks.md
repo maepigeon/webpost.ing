@@ -47,7 +47,7 @@ data or the running deployment and need hardening beyond ordinary auth.
 ### P2 — Product features
 - [ ] **Set the real logo; remove the React logo** everywhere (favicon, PWA icons,
       any leftover Vite asset).
-- [ ] **Logo: drop the on-load splash and the droplets**, keep the hover/click
+- [x] **Logo: drop the on-load splash and the droplets**, keep the hover/click
       animation.
 - [ ] **Report post** — user-facing report action; reported posts queue in the
       admin dashboard with reporter, reason and resolution state.
@@ -57,20 +57,23 @@ data or the running deployment and need hardening beyond ordinary auth.
       binaries served to every visitor.
 - [ ] **Post font options** — font-family picker in the editor, sourced from the
       fonts directory above.
-- [ ] **Preferences area** — one page for the settings below.
-- [ ] **Email: connect and verify an address** — token-based double opt-in, with a
-      documented SMTP configuration.
-- [ ] **Email notifications** — per-type toggles (new DM, new post from someone you
-      follow, post-publish receipt) plus a one-click unsubscribe link that works
+- [x] **Preferences area** — `/settings`, linked from the navbar.
+- [x] **Email: connect and verify an address** — token-based double opt-in; see
+      `guide/EMAIL.md`. Off by default (`MAIL_ENABLED`), and degrades cleanly
+      when off rather than offering a verification that cannot arrive.
+- [x] **Email notifications** — per-type toggles (DMs, new followers, posts from
+      people you follow, publish receipts) plus one-click unsubscribe that works
       without logging in.
-- [ ] **Email as a login option**, and password change gated on email verification.
+- [x] **Password reset by email** — confirmed addresses only, no account
+      enumeration, single-use 1-hour tokens, ends every session on success.
+- [ ] **Email as a *login* option** — signing in with an address instead of a
+      username. The reset half is done; this is the remaining piece.
 - [ ] **Account deletion and data download** from Preferences (export already
       exists at `GET /api/users/{u}/export` — wire it up and add a copy-to-admin).
-- [ ] **Responsive images** **[needs decision]** — generate width variants at upload
-      and serve via `srcset`/`sizes`. Client-side bandwidth detection
-      (`navigator.connection`) is unreliable and unavailable in Safari; `srcset`
-      lets the browser decide, which is the better mechanism. Confirm before I
-      build a bandwidth-sniffing path instead.
+- [x] **Responsive images** — 480/960/1600px variants generated at upload (V014),
+      served via `srcset`; the `sizes` hint is capped on save-data and 2G.
+- [x] **Image crop before upload** — dependency-free canvas dialog.
+- [x] **Server-side upload verification** — decode-based, with a 40MP ceiling.
 - [ ] **Make the app look less AI-generated** — design pass; see
       `guide/style-guide.md`. More skeuomorphism / 2.5D depth, fewer uniform
       cards-and-gradients, real typographic hierarchy.
