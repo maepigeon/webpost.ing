@@ -29,6 +29,8 @@ import { MathNode } from './MathNode.jsx';
 import { LinkNode } from '@lexical/link';
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
 import { ClickableLinkPlugin } from '@lexical/react/LexicalClickableLinkPlugin';
+import { parsePostId, postPath } from '../../../../../utils/postUrl.js';
+import ReportDialog from '../../../../Social/ReportDialog.jsx';
 
 const VIEWER_NODES = [HeadingNode, ListNode, ListItemNode, CustomCodeNode, CodeHighlightNode, ImageNode, MathNode, LinkNode];
 
@@ -112,7 +114,11 @@ function HashtagLinkerPlugin({ contentRef, navigate }) {
 }
 
 export default function RichTextViewer() {
-  const { id, username } = useParams();
+  // The route segment is "{id}-{slug}"; the slug is cosmetic and a stale or
+  // hand-edited one still resolves to the right post.
+  const { id: idParam, username } = useParams();
+  const id = parsePostId(idParam);
+
   const navigate = useNavigate();
   const { linkWarning } = useDialog();
 
@@ -125,9 +131,20 @@ export default function RichTextViewer() {
   const [dataReady, setDataReady] = useState(false);
   const [postLoaded, setPostLoaded] = useState(false);
   const [features, setFeatures] = useState({ reactionsEnabled: false, discussionEnabled: false });
+  // Rewrite the address bar to the canonical slugged URL once the title is
+  // known. replace, not push, so Back still goes where the reader came from,
+  // and only when it actually differs so this cannot loop.
+  useEffect(() => {
+    if (!postTitle || !id || !username) return;
+    const canonical = postPath(username, { id, title: postTitle });
+    if (window.location.pathname !== canonical) {
+      window.history.replaceState(null, '', canonical + window.location.search + window.location.hash);
+    }
+  }, [postTitle, id, username]);
 
   const me = localStorage.getItem('userName');
   const isAuthor = me && me === postAuthor;
+  const [showReport, setShowReport] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const shareRef = useRef(null);
@@ -372,6 +389,15 @@ export default function RichTextViewer() {
                 </div>
               )}
               {features.reactionsEnabled && <ReactionBar postId={parseInt(id)} isOwner={isAuthor} />}
+              {/* Reporting your own post would be noise, and signing in is
+                  required, so the trigger only appears when it can be used. */}
+              {me && !isAuthor && (
+                <button type="button" className="report-trigger"
+                        onClick={() => setShowReport(true)}
+                        title="Report this post to the moderators">
+                  Report
+                </button>
+              )}
               <div className="share-menu-wrapper" ref={shareRef}>
                 <button
                   className="viewer-share-btn"
@@ -495,6 +521,9 @@ export default function RichTextViewer() {
             </div>
           </div>
         </div>
+      )}
+      {showReport && (
+        <ReportDialog postId={parseInt(id)} postTitle={postTitle} onClose={() => setShowReport(false)} />
       )}
     </div>
   );

@@ -21,16 +21,17 @@ export function DELETE_POST(id) {
   return dataPromise;
 }
 
+/**
+ * Confirms the session is still alive.
+ *
+ * Resolves to the username, or rejects with a 401 that the interceptor in
+ * utils/session.js turns into a sign-out. This used to inspect the response
+ * body for emptiness and call window.location.reload() — a reload rather than a
+ * redirect, so a user whose session had died was bounced back to the same page
+ * still looking signed out.
+ */
 export function AUTHORIZE_SESSION() {
-  const promise = axios.post(baseUrl + "/api/authorizeSession");
-  const dataPromise = promise.then((response) => response.data);
-  promise.then((response) => {
-    if (response.data == null || response.data == "") {
-      localStorage.removeItem("userName");
-      window.location.reload();
-    }
-  });
-  return dataPromise;
+  return axios.post(baseUrl + "/api/authorizeSession").then((response) => response.data);
 };
 
 // Gets a list of all users, including user name, user id, and account creation date
@@ -689,4 +690,26 @@ export function FORGOT_PASSWORD(email) {
 export function RESET_PASSWORD(token, password) {
   return axios.post(baseUrl + "/api/password/reset", { token, password },
     { headers: { 'Content-Type': 'application/json' } }).then(r => r.data);
+}
+
+// ── Post reports ──────────────────────────────────────────────────────────────
+
+export function REPORT_POST(postId, reason, details) {
+  return axios.post(baseUrl + "/api/posts/" + postId + "/report", { reason, details }, {
+    headers: { 'Content-Type': 'application/json' },
+    withCredentials: true,
+  }).then(r => r.data);
+}
+
+export function ADMIN_GET_REPORTS(status = 'open') {
+  return axios.get(baseUrl + "/api/admin/reports?status=" + encodeURIComponent(status), {
+    withCredentials: true,
+  }).then(r => r.data);
+}
+
+export function ADMIN_UPDATE_REPORT(reportId, status) {
+  return axios.put(baseUrl + "/api/admin/reports/" + reportId, { status }, {
+    headers: { 'Content-Type': 'application/json' },
+    withCredentials: true,
+  }).then(r => r.data);
 }

@@ -7,6 +7,7 @@ import {
 import CommentItem from './CommentItem.jsx';
 import { patternToStyle } from '../PatternPicker/patterns.js';
 import './Social.css';
+import { parsePostId, postPath } from '../../utils/postUrl.js';
 
 function flattenTree(comments) {
   const result = [];
@@ -16,7 +17,10 @@ function flattenTree(comments) {
 }
 
 export default function DiscussionPage() {
-  const { id, username } = useParams();
+  // The route segment is "{id}-{slug}"; the slug is cosmetic and a stale or
+  // hand-edited one still resolves to the right post.
+  const { id: idParam, username } = useParams();
+  const id = parsePostId(idParam);
   const navigate = useNavigate();
 
   const [postTitle, setPostTitle] = useState('');
@@ -110,7 +114,7 @@ export default function DiscussionPage() {
     <div className="discussion-page">
       <div className="discussion-glass-panel">
       <div className="discussion-page-header">
-        <button className="discussion-back-btn" onClick={() => navigate(`/users/${username}/${id}`)}>
+        <button className="discussion-back-btn" onClick={() => navigate(postPath(username, { id, title: postTitle }))}>
           ← Back to post
         </button>
         <div>

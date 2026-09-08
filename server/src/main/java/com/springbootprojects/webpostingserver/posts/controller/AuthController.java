@@ -403,22 +403,35 @@ public class AuthController {
     }
 
 
+    /**
+     * Reports whether the caller's session is still valid.
+     *
+     * Returns 200 with the username when it is, and **401** when it is not —
+     * this used to answer 200 with an empty body, which meant the only way to
+     * detect a dead session was to inspect the body, every client had to know
+     * that convention, and a stale session looked like a success to anything
+     * that did not. A 401 lets one interceptor handle it everywhere.
+     *
+     * The session cookies are cleared on the way out either way, so the browser
+     * stops presenting a token that is known to be dead.
+     */
     @PostMapping("/authorizeSession")
-    public ResponseEntity<String> authorizeSession(@CookieValue(name = "username") String username, @CookieValue(name = "authToken") String token, HttpServletResponse response) {
+    public ResponseEntity<String> authorizeSession(
+            @CookieValue(name = "username", required = false) String username,
+            @CookieValue(name = "authToken", required = false) String token,
+            HttpServletResponse response) {
+
         AuthSession loginResult = null;
         try {
             loginResult = loginRepository.authorize(username, token);
         } catch (JdbcLoginRepository.TokenExpiredException e) {
-            System.out.println(e.getMessage());
-            // Delete the cookie by setting maxAge to 0
-            return loginRepository.deleteCookie();
+            return loginRepository.expireCookies(HttpStatus.UNAUTHORIZED, "Session expired");
         }
         if (loginResult != null) {
             loginRepository.touchLastVisited(username);
             return ResponseEntity.ok().body(username);
-        } else {
-            return loginRepository.deleteCookie();
         }
+        return loginRepository.expireCookies(HttpStatus.UNAUTHORIZED, "Not signed in");
     }
 
 

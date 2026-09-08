@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import './BasicTextPost.css'
 import ContentEditable from 'react-contenteditable';
 import { useDialog } from '../../../../Dialog/Dialog.jsx';
+import { postPath } from '../../../../../utils/postUrl.js';
 
 
 function BasicTextPost(props) {
@@ -22,7 +23,7 @@ function BasicTextPost(props) {
     const [currentPostMode, setCurrentPostMode] = useState(editMode ? Modes.EDIT : Modes.VIEW);
 
     const viewPath = ownerUsername
-        ? `/users/${ownerUsername}/${postdata.id}`
+        ? postPath(ownerUsername, postdata)
         : `/editor/${postdata.id}`;
 
     const submitEditPost = () => {

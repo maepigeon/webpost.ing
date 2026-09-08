@@ -188,3 +188,18 @@
   transition: color 0.14s;
 }
 .login-register-link:hover { color: #5246c8; text-decoration: underline; }
+
+/* Shown when a 401 redirected the user here, so being signed out is explained
+   rather than mysterious. Amber, not red: nothing has gone wrong. */
+.login-expired {
+  font-size: 13px;
+  color: #6b4300;
+  background: rgba(253, 235, 195, 0.75);
+  border: 1px solid rgba(200, 150, 40, 0.4);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 16px;
+  text-align: center;
+  font-weight: 500;
+  line-height: 1.5;
+}

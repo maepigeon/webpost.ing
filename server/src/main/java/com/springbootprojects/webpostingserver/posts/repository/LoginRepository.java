@@ -28,6 +28,14 @@ public interface LoginRepository {
      * intruder holds has to die with the old password.
      */
     public void evictSession(String username);
+
+    /**
+     * Clears the session cookies and returns them with the given status and
+     * body — used to reject a dead session with a 401 rather than the 200 that
+     * {@code deleteCookie()} returns.
+     */
+    public org.springframework.http.ResponseEntity<String> expireCookies(
+            org.springframework.http.HttpStatus status, String body);
     public void touchLastVisited(String username);
     public String getUserPresets(String username);
     public void updateUserPresets(String username, String presetsJson);

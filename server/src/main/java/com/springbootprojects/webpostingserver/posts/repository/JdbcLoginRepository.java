@@ -29,6 +29,30 @@ public class JdbcLoginRepository implements LoginRepository {
     @Value("${app.dev-mode:false}")
     private boolean devMode;
 
+    /**
+     * Clears the session cookies and returns them with the given status and body.
+     *
+     * deleteCookie() always answers 200, which is right for a logout — the
+     * logout itself succeeded — but wrong for a rejected session, where the
+     * status is the whole point.
+     */
+    public ResponseEntity<String> expireCookies(HttpStatus status, String body) {
+        return ResponseEntity.status(status)
+                .header(HttpHeaders.SET_COOKIE, expiredCookie("authToken").toString())
+                .header(HttpHeaders.SET_COOKIE, expiredCookie("username").toString())
+                .body(body);
+    }
+
+    private ResponseCookie expiredCookie(String name) {
+        return ResponseCookie.from(name, "")
+                .httpOnly(true)
+                .sameSite("Lax")
+                .secure(!devMode)
+                .path("/")
+                .maxAge(0)
+                .build();
+    }
+
     public ResponseEntity<String> deleteCookie() {
         HttpCookie deleteTokenCookie = ResponseCookie.from("authToken", "token")
                 .httpOnly(true)

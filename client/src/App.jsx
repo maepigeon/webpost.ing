@@ -25,14 +25,23 @@ import SettingsPage from './components/Pages/Settings/SettingsPage.jsx';
 import EmailActionPage from './components/Pages/Settings/EmailActionPage.jsx';
 import ForgotPasswordPage from './components/Pages/Settings/ForgotPasswordPage.jsx';
 
-import axios from 'axios'
+import { installSessionInterceptor } from './utils/session.js'
 
+
+// Installed once at module load, before any component can issue a request.
+installSessionInterceptor();
 
 function App() {
-  axios.defaults.withCredentials = true;
-  if (localStorage.getItem("userName") != null) {
-    AUTHORIZE_SESSION();
-  }
+  // Confirm the stored session is still good. Sessions live in memory on the
+  // server, so a restart invalidates every one of them while the browser still
+  // believes it is signed in; a 401 here is turned into a sign-out by the
+  // interceptor above.
+  //
+  // In an effect, not the render body: this is a side effect, and running it
+  // inline fired on every re-render (and twice under StrictMode).
+  useEffect(() => {
+    if (localStorage.getItem("userName")) AUTHORIZE_SESSION().catch(() => {});
+  }, []);
 
   // Heartbeat: keep online status fresh every 2 minutes
   useEffect(() => {

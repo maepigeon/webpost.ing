@@ -17,9 +17,14 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public class JdbcPostRepository implements PostRepository {
+
+    private static final Logger log = LoggerFactory.getLogger(JdbcPostRepository.class);
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -57,8 +62,18 @@ public class JdbcPostRepository implements PostRepository {
     }
 
     @Override
+    /**
+     * Creates a post and records its author.
+     *
+     * Transactional because these are two statements: the row in `posts` and
+     * the ownership row in `users_posts_junctions`. Without it, a failure
+     * between them leaves a post with no author — invisible on every profile,
+     * failing every ownership check, so nobody can edit or delete it. Half the
+     * posts in one development database were in exactly that state.
+     */
+    @Transactional
     public int save(Post post, int userId) {
-        System.out.println("Saving post: " + post.getTitle() + " published: " + post.isPublished());
+        log.debug("Saving post \"{}\" (published={})", post.getTitle(), post.isPublished());
 
         final String INSERT_SQL = "INSERT INTO posts (title, description, published, background_pattern, folder) VALUES(?,?,?,?,?) RETURNING \"id\";";
         KeyHolder keyHolder = new GeneratedKeyHolder();
@@ -77,7 +92,6 @@ public class JdbcPostRepository implements PostRepository {
                 keyHolder);
         post.setId((int) keyHolder.getKey());
 
-        System.out.println("Saved post id=" + post.getId() + " for user=" + userId);
         jdbcTemplate.update(
             "INSERT INTO users_posts_junctions (\"post_id\", \"user_id\") VALUES(?,?);",
             post.getId(), userId);
@@ -104,7 +118,12 @@ public class JdbcPostRepository implements PostRepository {
         }
     }
 
+    /**
+     * Transactional for the same reason as save: dropping the ownership row and
+     * then failing to drop the post would leave an authorless orphan.
+     */
     @Override
+    @Transactional
     public int deleteById(Long id) {
         jdbcTemplate.update("DELETE FROM users_posts_junctions WHERE post_id=?", id);
         return jdbcTemplate.update("DELETE FROM posts WHERE id=?", id);

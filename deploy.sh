@@ -56,7 +56,11 @@ if [ "$BUILD" = "1" ]; then
   run bash -c "cd '$REPO_ROOT/client' && npm ci --prefer-offline --silent && npm run build"
 
   echo "[2/4] Building backend..."
-  run bash -c "cd '$REPO_ROOT/server' && ./mvnw package -DskipTests -q"
+  # `clean` is not optional. Maven's incremental compilation can leave a stale
+  # class behind when a signature changes elsewhere, producing a JAR that builds
+  # cleanly and then throws "Unresolved compilation problems" at runtime — which
+  # looks like a mystery 500 in production rather than a build failure.
+  run bash -c "cd '$REPO_ROOT/server' && ./mvnw clean package -DskipTests -q"
 else
   echo "[1-2/4] Skipping build (--no-build)"
 fi
