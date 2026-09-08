@@ -37,6 +37,7 @@ import axios from 'axios';
 import { BASE_URL } from '../../../../../config.js';
 import PatternPicker from '../../../../PatternPicker/PatternPicker.jsx';
 import { patternToStyle } from '../../../../PatternPicker/patterns.js';
+import { normaliseUploadResponse } from '../../../../../utils/responsiveImage.js';
 
 const EDITOR_NODES = [HeadingNode, ListNode, ListItemNode, CustomCodeNode, CodeHighlightNode, ImageNode, MathNode, LinkNode];
 
@@ -680,9 +681,9 @@ function ImageDragPastePlugin() {
     formData.append('file', file);
     try {
       const response = await axios.post(BASE_URL + '/api/upload', formData, { withCredentials: true });
-      const src = response.data;
+      const { url, srcset } = normaliseUploadResponse(response.data);
       editor.update(() => {
-        $insertNodes([$createImageNode(src, file.name)]);
+        $insertNodes([$createImageNode(url, file.name, srcset)]);
       });
     } catch (err) {
       console.error('Image upload failed:', err);
@@ -759,9 +760,9 @@ function ImageToolbarPlugin() {
       const response = await axios.post(BASE_URL + '/api/upload', formData, {
         withCredentials: true,
       });
-      const src = response.data;
+      const { url, srcset } = normaliseUploadResponse(response.data);
       editor.update(() => {
-        const imageNode = $createImageNode(src, file.name);
+        const imageNode = $createImageNode(url, file.name, srcset);
         $insertNodes([imageNode]);
       });
     } catch (err) {

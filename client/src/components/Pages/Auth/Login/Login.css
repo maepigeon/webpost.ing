@@ -128,7 +128,7 @@
 
 .login-error {
   font-size: 13px;
-  color: #d32f2f;
+  color: #b71c1c;
   background: rgba(211,47,47,0.08);
   border: 1px solid rgba(211,47,47,0.2);
   border-radius: 8px;
@@ -177,7 +177,7 @@
 .login-have-code {
   margin-top: 20px;
   font-size: 13px;
-  color: #888;
+  color: #5f5a70;
   text-align: center;
 }
 

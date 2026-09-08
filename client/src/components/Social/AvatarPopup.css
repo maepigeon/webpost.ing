@@ -79,7 +79,7 @@
   width: min(180px, 55vw);
   height: min(180px, 55vw);
   border-radius: 50%;
-  background: linear-gradient(145deg, #d8d0f8 0%, #9c7ed8 55%, #7050b8 100%);
+  background: #7050b8;
   display: flex;
   align-items: center;
   justify-content: center;

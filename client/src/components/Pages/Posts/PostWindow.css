@@ -66,7 +66,7 @@
 .edit-bio-btn:hover {
     box-shadow: var(--neo-shadow-hover);
     transform: translateY(-1px);
-    color: #1a73e8;
+    color: #4b44cc;
 }
 .edit-bio-btn:active {
     transform: translateY(0);
@@ -127,7 +127,7 @@
 }
 
 .follow-count-btn:hover {
-    color: #1a73e8;
+    color: #4b44cc;
     box-shadow: var(--neo-shadow-hover);
     transform: translateY(-1px);
 }

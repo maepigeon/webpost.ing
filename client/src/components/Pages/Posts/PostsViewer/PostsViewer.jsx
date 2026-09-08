@@ -308,7 +308,7 @@ function PostsViewer() {
                     <div
                       onClick={() => setShowAvatarPopup(true)}
                       style={{ width: 96, height: 96, borderRadius: '50%',
-                                background: 'linear-gradient(145deg, #d8d0f8 0%, #9c7ed8 55%, #7050b8 100%)',
+                                background: '#9c7ed8',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 fontSize: 36, fontWeight: 800, color: '#fff',
                                 border: '3px solid rgba(255,255,255,0.9)',

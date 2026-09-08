@@ -154,7 +154,7 @@
 }
 
 .admin-row--frozen td { background: rgba(239, 68, 68, 0.06); }
-.admin-row--frozen td:first-child { color: #ef4444; font-weight: 600; }
+.admin-row--frozen td:first-child { color: #b71c1c; font-weight: 600; }
 
 .admin-th-sort {
   cursor: pointer;

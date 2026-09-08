@@ -3,9 +3,12 @@
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: white;
+  /* Was the Vite starter's dark-mode default: near-white text on a white
+     background, i.e. invisible. Every screen happened to override it, so
+     anything that did not would have rendered blank. */
+  color-scheme: light;
+  color: #1a1060;
+  background-color: #ece9e2;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -15,7 +18,7 @@
 
 a {
   font-weight: 500;
-  color: #646cff;
+  color: #4b44cc;
   text-decoration: inherit;
 }
 a:hover {

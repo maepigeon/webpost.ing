@@ -54,7 +54,7 @@
   font-size: 18px;
   line-height: 1;
   cursor: pointer;
-  color: #6c63ff;
+  color: #4b44cc;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -89,11 +89,11 @@
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .messages-new-form input:focus {
-  border-color: #6c63ff;
+  border-color: #4b44cc;
   box-shadow: 0 0 0 2px rgba(108,99,255,0.15);
 }
 .messages-new-form button {
-  background: linear-gradient(to bottom, #9480f4 0%, #6c63ff 55%, #4b44cc 100%);
+  background: linear-gradient(to bottom, #8578ee 0%, #5b52e8 55%, #443dbb 100%);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -219,7 +219,7 @@
 }
 
 .messages-badge {
-  background: #6c63ff;
+  background: #4b44cc;
   color: #fff;
   border-radius: 10px;
   font-size: 10px;
@@ -319,7 +319,7 @@
   font-size: 14px;
   line-height: 1;
   cursor: pointer;
-  color: #6c63ff;
+  color: #4b44cc;
   opacity: 0.75;
   flex-shrink: 0;
   align-self: center;
@@ -379,7 +379,10 @@
   border-top: none;
 }
 .messages-bubble--mine .messages-bubble-text {
-  background: linear-gradient(to bottom, #8880ff 0%, #6c63ff 50%, #5246e8 100%);
+  /* Flat. A bubble is a surface, not a raised control — per the gradient rule
+     in guide/style-guide.md, gradients here would be decoration. Depth comes
+     from the border and shadow instead. */
+  background: #4b44cc;
   border: 1px solid rgba(255,255,255,0.22);
   color: #fff;
   border-radius: 18px 18px 4px 18px;
@@ -423,7 +426,7 @@
 .messages-reply-preview-label {
   font-size: 11px;
   font-weight: 700;
-  color: #6c63ff;
+  color: #4b44cc;
   letter-spacing: 0.03em;
 }
 .messages-reply-preview-text {
@@ -441,7 +444,7 @@
   height: 22px;
   cursor: pointer;
   font-size: 10px;
-  color: #888;
+  color: #5f5a70;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -476,12 +479,12 @@
   box-shadow: 0 1px 4px rgba(0,0,0,0.05) inset;
 }
 .messages-input:focus {
-  border-color: #6c63ff;
+  border-color: #4b44cc;
   box-shadow: 0 0 0 3px rgba(108,99,255,0.13);
 }
 
 .messages-send-btn {
-  background: linear-gradient(to bottom, #9480f4 0%, #6c63ff 50%, #4b44cc 100%);
+  background: linear-gradient(to bottom, #8578ee 0%, #5b52e8 50%, #443dbb 100%);
   color: #fff;
   border: none;
   border-radius: 12px;
@@ -566,7 +569,7 @@
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  color: #8880cc;
+  color: #5f5a700cc;
   margin-bottom: 6px;
 }
 .messages-member-row {
@@ -584,7 +587,7 @@
 .messages-owner-badge {
   font-size: 10px;
   font-weight: 700;
-  color: #7c5cdf;
+  color: #4b44cc;
   background: rgba(108,99,255,0.12);
   border: 1px solid rgba(108,99,255,0.22);
   border-radius: 5px;
@@ -597,7 +600,7 @@
   border-radius: 6px;
   padding: 2px 8px;
   font-size: 11px;
-  color: #c44;
+  color: #a01515;
   cursor: pointer;
   transition: background 0.12s;
 }
@@ -608,7 +611,7 @@
   border-radius: 6px;
   padding: 2px 8px;
   font-size: 12px;
-  color: #7c5cdf;
+  color: #4b44cc;
   cursor: pointer;
   transition: background 0.12s;
 }
@@ -634,7 +637,7 @@
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #c2b8f0 0%, #7050b8 100%);
+  background: #7e63c8;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -653,7 +656,7 @@
 .messages-sender-name {
   font-size: 11px;
   font-weight: 700;
-  color: #8880cc;
+  color: #5f5a700cc;
 }
 
 /* ── Message action buttons (reply + react) ─────────────────────── */
@@ -809,7 +812,7 @@
 }
 .messages-dialog-cancel:hover { background: rgba(0,0,0,0.10); }
 .messages-dialog-confirm {
-  background: linear-gradient(135deg, #7c5cdf 0%, #5246e8 100%);
+  background: linear-gradient(to bottom, #7a71ff 0%, #5b52e8 50%, #443dbb 100%);
   border: none;
   border-radius: 9px;
   padding: 7px 18px;

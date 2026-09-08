@@ -21,36 +21,111 @@
 }
 
 .profile-post-row--editable {
-  display: flex;
-  align-items: flex-start;
+  /* The handle is positioned inside the card now, so no side column. */
   max-width: 666px;
   margin: 0 auto;
-  gap: 4px;
 }
 
-/* ── Drag handle — unified style matching folder section handles ─────────── */
+/* ── Drag handle ──────────────────────────────────────────────────────────
+   Sits inside the post's glass panel, on its top-left corner, styled as part
+   of the card's own chrome. It used to be a separate column beside the card at
+   45% opacity with 40px of dead margin, which read as decoration and gave a
+   small target. */
+
 .profile-post-drag-handle {
-  flex-shrink: 0;
-  width: 26px;
-  align-self: stretch;
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 22;
+  width: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: grab;
   font-size: 17px;
-  color: rgba(108,99,255,0.45);
-  border-radius: 8px;
-  margin-top: 40px;
-  margin-bottom: 40px;
-  transition: color 0.12s, background 0.12s;
+  line-height: 1;
+  color: #4b44cc;
+  border-radius: 10px;
   user-select: none;
   touch-action: none;
+  background: linear-gradient(to bottom, rgba(255,255,255,0.92) 0%, rgba(226,222,245,0.92) 100%);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 0 0 1px rgba(108, 99, 255, 0.22),
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.98),
+    inset 0 -1.5px 0 rgba(108, 99, 255, 0.14),
+    0 2px 6px rgba(26, 16, 96, 0.14);
+  transition: color 0.13s, background 0.13s, box-shadow 0.15s, transform 0.1s;
 }
+
 .profile-post-drag-handle:hover {
-  color: rgba(108,99,255,0.90);
-  background: rgba(108,99,255,0.10);
+  color: #2f2a8f;
+  background: linear-gradient(to bottom, rgba(255,255,255,1) 0%, rgba(212,207,242,1) 100%);
+  box-shadow:
+    0 0 0 1px rgba(108, 99, 255, 0.4),
+    inset 0 1.5px 0 rgba(255, 255, 255, 1),
+    0 4px 11px rgba(26, 16, 96, 0.2);
+  transform: translateY(-1px);
 }
-.profile-post-drag-handle:active { cursor: grabbing; }
+
+.profile-post-drag-handle:active,
+.profile-post-item--dragging .profile-post-drag-handle {
+  cursor: grabbing;
+  transform: translateY(0);
+  color: #2f2a8f;
+  background: linear-gradient(to bottom, rgba(198,192,238,1) 0%, rgba(222,218,246,1) 100%);
+  box-shadow: inset 0 2px 5px rgba(75, 68, 204, 0.24);
+}
+
+.profile-post-drag-handle:focus-visible,
+.profile-folder-drag-handle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.45), inset 0 1.5px 0 rgba(255, 255, 255, 0.95);
+}
+
+/* ── Drop preview ─────────────────────────────────────────────────────────
+   After dwelling over a target the list previews the order it would land in,
+   so the result is visible before the pointer is released. */
+
+.profile-post-item--preview-shift .profile-post-card-wrap {
+  outline: 2px solid rgba(108, 99, 255, 0.55);
+  outline-offset: 3px;
+  border-radius: 12px;
+}
+
+.profile-drop-indicator {
+  height: 4px;
+  margin: 6px auto 10px;
+  max-width: 640px;
+  border-radius: 999px;
+  background: linear-gradient(to right,
+    rgba(108, 99, 255, 0) 0%,
+    rgba(108, 99, 255, 0.85) 18%,
+    rgba(108, 99, 255, 0.85) 82%,
+    rgba(108, 99, 255, 0) 100%);
+  box-shadow: 0 0 10px rgba(108, 99, 255, 0.5);
+  animation: profile-drop-in 0.18s ease-out;
+}
+
+@keyframes profile-drop-in {
+  from { opacity: 0; transform: scaleX(0.82); }
+  to   { opacity: 1; transform: scaleX(1); }
+}
+
+@media (max-width: 700px) {
+  .profile-post-drag-handle { width: 38px; height: 38px; top: 8px; left: 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-post-drag-handle,
+  .profile-folder-drag-handle { transition: none; }
+  .profile-post-drag-handle:hover,
+  .profile-folder-drag-handle:hover { transform: none; }
+  .profile-drop-indicator { animation: none; }
+}
 
 /* ── Card wrap: sizing + positioning context for folder button ───────────── */
 .profile-post-card-wrap {
@@ -73,12 +148,6 @@
   .profile-post-row--editable {
     max-width: 100%;
     gap: 2px;
-  }
-  .profile-post-drag-handle {
-    width: 22px;
-    font-size: 14px;
-    margin-top: 8px;
-    margin-bottom: 8px;
   }
 }
 
@@ -161,8 +230,8 @@
   box-shadow: none;
 }
 .profile-post-folder-menu-item:hover { background: rgba(108,99,255,0.08); filter: none; transform: none !important; }
-.profile-post-folder-menu-item.active { color: #6c63ff; font-weight: 600; }
-.profile-post-folder-menu-item--remove { color: #c44; }
+.profile-post-folder-menu-item.active { color: #4b44cc; font-weight: 600; }
+.profile-post-folder-menu-item--remove { color: #a01515; }
 .profile-post-folder-menu-item--remove:hover { background: rgba(204,68,68,0.08); }
 
 .profile-post-folder-new-row {
@@ -182,7 +251,7 @@
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .profile-post-folder-new-input:focus {
-  border-color: #6c63ff;
+  border-color: #4b44cc;
   box-shadow: 0 0 0 2px rgba(108,99,255,0.14);
 }
 
@@ -247,27 +316,56 @@
 }
 
 /* ── Folder drag handle (in header) ──────────────────────────────────────── */
+/* Matches the post handle — same rail, same affordance. */
 .profile-folder-drag-handle {
   flex-shrink: 0;
-  width: 26px;
+  width: 30px;
+  min-height: 34px;
   align-self: stretch;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: grab;
-  font-size: 17px;
-  color: rgba(108,99,255,0.50);
-  border-radius: 8px;
-  transition: color 0.12s, background 0.12s;
+  font-size: 18px;
+  line-height: 1;
+  color: #4b44cc;
+  border-radius: 9px;
   user-select: none;
   touch-action: none;
-  margin-right: 4px;
+  margin-right: 6px;
+  background: linear-gradient(to bottom, rgba(255,255,255,0.82) 0%, rgba(226,222,245,0.82) 100%);
+  border: 1px solid rgba(108, 99, 255, 0.26);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1.5px 0 rgba(108, 99, 255, 0.13),
+    0 1.5px 4px rgba(26, 16, 96, 0.1);
+  transition: color 0.13s, background 0.13s, box-shadow 0.15s, transform 0.1s;
 }
+
 .profile-folder-drag-handle:hover {
-  color: rgba(108,99,255,0.90);
-  background: rgba(108,99,255,0.10);
+  color: #4b44cc;
+  background: linear-gradient(to bottom, rgba(255,255,255,0.95) 0%, rgba(214,209,242,0.95) 100%);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, 1),
+    inset 0 -1.5px 0 rgba(108, 99, 255, 0.18),
+    0 3px 9px rgba(26, 16, 96, 0.16);
+  transform: translateY(-1px);
 }
-.profile-folder-drag-handle:active { cursor: grabbing; }
+
+.profile-folder-drag-handle:active,
+.profile-folder-section--dragging .profile-folder-drag-handle {
+  cursor: grabbing;
+  transform: translateY(0);
+  background: linear-gradient(to bottom, rgba(200,194,238,0.95) 0%, rgba(224,220,246,0.95) 100%);
+  box-shadow: inset 0 2px 5px rgba(75, 68, 204, 0.22);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-post-drag-handle,
+  .profile-folder-drag-handle { transition: none; }
+  .profile-post-drag-handle:hover,
+  .profile-folder-drag-handle:hover { transform: none; }
+}
 
 /* ── Folder header (top of glass panel) ─────────────────────────────────── */
 .profile-folder-header {
@@ -331,7 +429,7 @@
 .profile-folder-badge {
   flex-shrink: 0;
   background: rgba(108,99,255,0.14);
-  color: #6c63ff;
+  color: #4b44cc;
   font-size: 11px;
   font-weight: 700;
   padding: 1px 7px;
@@ -378,7 +476,7 @@
   padding: 4px 11px;
   font-size: 12px;
   font-weight: 600;
-  color: #6c63ff;
+  color: #4b44cc;
   cursor: pointer;
   transition: background 0.12s;
   white-space: nowrap;
@@ -400,7 +498,7 @@
   transition: background 0.12s;
   box-shadow: none;
 }
-.profile-folder-toggle-btn:hover { background: rgba(108,99,255,0.10); color: #6c63ff; filter: none; transform: none !important; }
+.profile-folder-toggle-btn:hover { background: rgba(108,99,255,0.10); color: #4b44cc; filter: none; transform: none !important; }
 
 .profile-folder-chevron {
   font-size: 11px;
@@ -424,7 +522,7 @@
 .profile-folder-drop-zone--active {
   border-color: rgba(108,99,255,0.6);
   background: rgba(108,99,255,0.07);
-  color: #6c63ff;
+  color: #4b44cc;
 }
 
 /* ── Folder popup ────────────────────────────────────────────────────────── */
@@ -484,7 +582,7 @@
 
 .folder-popup-count {
   font-size: 12px;
-  color: #888;
+  color: #5f5a70;
 }
 
 .folder-popup-close {
@@ -538,10 +636,25 @@
   border-radius: 8px !important;
   padding: 5px 12px !important;
   font-size: 12px !important;
-  color: #c44 !important;
+  color: #a01515 !important;
   cursor: pointer;
   transition: background 0.12s;
   align-self: flex-end;
   box-shadow: none !important;
 }
 .folder-popup-remove:hover { background: rgba(220,50,50,0.15) !important; filter: none; }
+
+/* Announces that the list on screen is a preview, not the saved order. */
+.profile-drop-preview-note {
+  max-width: 640px;
+  margin: 0 auto 10px;
+  padding: 6px 14px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #2f2a8f;
+  background: linear-gradient(to bottom, rgba(238,235,252,0.96), rgba(224,219,248,0.96));
+  border: 1px solid rgba(108, 99, 255, 0.34);
+  border-radius: 999px;
+  box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.9), 0 2px 8px rgba(26,16,96,0.12);
+}
