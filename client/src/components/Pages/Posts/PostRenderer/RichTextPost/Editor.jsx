@@ -38,6 +38,7 @@ import { BASE_URL } from '../../../../../config.js';
 import PatternPicker from '../../../../PatternPicker/PatternPicker.jsx';
 import { patternToStyle } from '../../../../PatternPicker/patterns.js';
 import { normaliseUploadResponse } from '../../../../../utils/responsiveImage.js';
+import ImageCropDialog from '../../../../ImageCrop/ImageCropDialog.jsx';
 
 const EDITOR_NODES = [HeadingNode, ListNode, ListItemNode, CustomCodeNode, CodeHighlightNode, ImageNode, MathNode, LinkNode];
 
@@ -740,6 +741,7 @@ function ImageToolbarPlugin() {
   const fileInputRef = useRef(null);
   const [infoOpen, setInfoOpen] = useState(false);
   const infoRef = useRef(null);
+  const [pendingFile, setPendingFile] = useState(null);
 
   useEffect(() => {
     if (!infoOpen) return;
@@ -750,9 +752,10 @@ function ImageToolbarPlugin() {
     return () => document.removeEventListener('mousedown', close);
   }, [infoOpen]);
 
-  const handleFileChange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  // Picking a file opens the crop dialog rather than uploading immediately;
+  // uploadFile runs once the user confirms, with either the cropped image or
+  // the untouched original.
+  const uploadFile = async (file) => {
     const formData = new FormData();
     formData.append('file', file);
     try {
@@ -771,15 +774,31 @@ function ImageToolbarPlugin() {
         alert('Image is too large. Maximum file size is 5 MB.');
       } else if (err.response?.status === 401) {
         alert('Please log in before uploading an image.');
+      } else if (err.response?.status === 400) {
+        alert(typeof err.response.data === 'string' ? err.response.data : 'That file was rejected.');
       } else {
         alert('Image upload failed (status ' + (err.response?.status ?? 'unknown') + ').');
       }
     }
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    // Reset immediately so picking the same file twice in a row still fires.
     e.target.value = '';
+    if (!file) return;
+    setPendingFile(file);
   };
 
   return (
     <>
+      {pendingFile && (
+        <ImageCropDialog
+          file={pendingFile}
+          onCancel={() => setPendingFile(null)}
+          onConfirm={(result) => { setPendingFile(null); uploadFile(result); }}
+        />
+      )}
       <input
         type="file"
         ref={fileInputRef}
