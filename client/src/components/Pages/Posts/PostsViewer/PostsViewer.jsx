@@ -8,6 +8,7 @@ import FollowButton from '../../../Social/FollowButton.jsx';
 import FollowListModal from '../../../Social/FollowListModal.jsx';
 import AvatarPopup from '../../../Social/AvatarPopup.jsx';
 import { patternToStyle } from '../../../PatternPicker/patterns.js';
+import './ProfileEditor.css';
 import { useDialog } from '../../../Dialog/Dialog.jsx';
 import '../PostWindow.css';
 import {useParams, Link, useNavigate} from "react-router-dom";
@@ -93,7 +94,7 @@ function hasModifyPermissions(viewedUser) {
 
 // Loads a view of title cards for all posts by the user specified in the url
 function PostsViewer() {
-    const { confirm, linkWarning } = useDialog();
+    const { confirm, alert, linkWarning } = useDialog();
     const [postsArray, setPostsArray] = useState([]);
     const [hasMore, setHasMore] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
@@ -248,7 +249,7 @@ function PostsViewer() {
         await SEND_MESSAGE(username, text);
         setMessageText('');
         setShowMessageForm(false);
-      } catch { alert('Failed to send message.'); }
+      } catch { alert('Failed to send message.', 'Message not sent'); }
     }
 
     function saveLinks() {
@@ -358,7 +359,7 @@ function PostsViewer() {
                         setAvatar(relativePath);
                       } catch (err) {
                         const msg = err?.response?.data;
-                        alert(typeof msg === 'string' ? msg : 'Avatar upload failed.');
+                        alert(typeof msg === 'string' ? msg : 'Avatar upload failed.', 'Upload failed');
                       }
                       e.target.value = '';
                     }}
@@ -434,10 +435,10 @@ function PostsViewer() {
               </div>
             ) : (
               bioLinks.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', marginTop: '6px' }}>
+                <div className="profile-bio-links">
                   {bioLinks.map((l, i) => (
                     <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
-                      style={{ fontSize: '13px', color: '#1a73e8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', border: '1px solid #93c5fd', borderRadius: '12px', background: 'rgba(219,234,254,0.5)' }}
+                      className="profile-bio-link"
                       onClick={e => confirmExternal(e, l.url, linkWarning)}>
                       {l.label || l.url}
                     </a>
@@ -448,9 +449,9 @@ function PostsViewer() {
 
             {/* Owner action row: two groups separated by a divider */}
             {canEdit && !editingBio && !editingLinks && (
-              <div style={{ marginTop: '10px', display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap', alignItems: 'center' }}>
+              <div className="profile-owner-actions">
                 {/* Group 1: content */}
-                <div style={{ display: 'flex', gap: '4px' }}>
+                <div className="profile-owner-group">
                   <button type="button" className="edit-bio-btn" onClick={() => { setBioInput(bio); setEditingBio(true); }}>
                     {bio ? 'Edit bio' : '+ Bio'}
                   </button>
@@ -463,10 +464,10 @@ function PostsViewer() {
                     {bioLinks.length > 0 ? 'Edit links' : '+ Links'}
                   </button>
                 </div>
-                <div style={{ width: '1px', height: '18px', background: 'rgba(0,0,0,0.12)', borderRadius: '1px', flexShrink: 0 }} />
+                <div className="profile-owner-divider" />
                 {/* Group 2: appearance + export */}
-                <div style={{ display: 'flex', gap: '4px' }}>
-                  <span ref={bgPickerRef} style={{ position: 'relative', display: 'inline-block' }}>
+                <div className="profile-owner-group">
+                  <span ref={bgPickerRef} className="profile-wallpaper-anchor">
                     <button type="button" className="edit-bio-btn" onClick={() => showBgPicker ? closeBgPicker() : setShowBgPicker(true)}>
                       {showBgPicker ? 'Hide wallpaper' : 'Wallpaper'}
                     </button>
@@ -476,7 +477,7 @@ function PostsViewer() {
                     className="edit-bio-btn"
                     onClick={async () => {
                       try { await EXPORT_MY_DATA(username); }
-                      catch { alert('Export failed. Please try again.'); }
+                      catch { alert('Export failed. Please try again.', 'Export failed'); }
                     }}
                   >
                     Export data
@@ -485,11 +486,9 @@ function PostsViewer() {
               </div>
             )}
             {canEdit && showBgPicker && (
-              <div
-                style={{ background: '#fff', border: '1px solid #ccc', borderRadius: '8px', padding: '12px', marginTop: '6px' }}
-                onMouseDown={e => e.stopPropagation()}
-              >
-                {bgSaveError && <p style={{ margin: '0 0 6px', color: '#d32f2f', fontSize: '12px' }}>{bgSaveError}</p>}
+              <div className="profile-wallpaper-panel" onMouseDown={e => e.stopPropagation()}>
+                <p className="profile-wallpaper-panel-title">Wallpaper</p>
+                {bgSaveError && <p className="profile-inline-error">{bgSaveError}</p>}
                 <PatternPicker value={bgPattern} onChange={handleBgChange} onPreview={handleBgPreview} username={username} />
               </div>
             )}

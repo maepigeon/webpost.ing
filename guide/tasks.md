@@ -1,14 +1,111 @@
 # Priority Task List
 
-Last updated: 2026-06-13
+Last updated: 2026-09-08
 
 ---
 
-## Pending
+## Session — 2026-09-08 — Backlog
 
-- [ ] **Persistent sessions** — sessions are in-memory; server restart logs everyone out. Fix by storing tokens in the DB.
-- [ ] **CSRF protection review** — cookies + CORS cover the common cases, but worth an explicit audit.
-- [ ] **Integration tests for auth flows** — no automated coverage of login, token expiry, or ownership checks.
+Ordered roughly by (value / risk). Items marked **[needs decision]** have a
+question that changes the implementation; items marked **[dangerous]** touch
+data or the running deployment and need hardening beyond ordinary auth.
+
+### P0 — Deploy blockers (done this session)
+- [x] **Wallpaper crash on profile pages** — `GET /api/users/{u}/background` returns
+      text/plain whose body is JSON, so axios silently parsed it into an object and
+      `parseWallpaper` threw `stored.trim is not a function`, blanking the page.
+      Fixed at the root (`TEXT_GET` identity `transformResponse`) and hardened in
+      `parseWallpaper`; 4 regression tests added.
+- [x] **Wallpaper editor looked inert** — `handlePreset` carried the previous
+      `bgColor` over, so a dark page background made every new preset invisible.
+      Preset switch now resets `bgColor` to `DEFAULT_BG_COLOR`.
+- [x] **Colour choices silently dropped** — native `<input type="color">` does not
+      reliably fire `blur`; pattern colour slots now commit on the DOM `change`
+      event, matching how the background input already worked.
+- [x] **Migration runner could not apply V001** — `ScriptUtils.executeSqlScript`
+      splits on `;` without understanding dollar quoting, shredding `DO $$ … $$`
+      blocks. Prod had to be worked around by hand-seeding `schema_migrations`.
+      Scripts containing a dollar-quoted block now go to the driver whole.
+- [x] **Deployment runbook** — `guide/DEPLOYMENT.md`, written from the real host
+      layout. `README.md` §5 was describing paths, a database name and a restart
+      procedure that do not exist on the server.
+
+### P1 — Correctness and hygiene
+- [ ] **Fix themes** — needs a repro; investigate theme token application and
+      persistence.
+- [ ] **Fix broken editor features** **[needs decision]** — need the specific list
+      of what is broken.
+- [ ] **Remove the logout wait timer; detect and handle stale sessions** — sessions
+      are in-memory, so a restart invalidates every token while the client keeps
+      showing a logged-in UI. Auto-logout on any 401/empty `authorizeSession`.
+- [ ] **Vulnerability audit** — full pass over endpoints for missing auth and
+      ownership checks; report findings to Mae. See `guide/code-smells.txt`.
+- [ ] **Clean up smelly code** — running list in `guide/code-smells.txt`.
+- [ ] **Named post URLs** — slug-based `/users/{u}/posts/{slug}`, with the numeric
+      id kept as a permanent redirect target.
+
+### P2 — Product features
+- [ ] **Set the real logo; remove the React logo** everywhere (favicon, PWA icons,
+      any leftover Vite asset).
+- [ ] **Logo: drop the on-load splash and the droplets**, keep the hover/click
+      animation.
+- [ ] **Report post** — user-facing report action; reported posts queue in the
+      admin dashboard with reporter, reason and resolution state.
+- [ ] **Admin fonts directory** — admin uploads a font file; it becomes selectable
+      by every user immediately. Needs format allowlist (woff2/woff/ttf/otf),
+      magic-byte validation and a size cap — fonts are executable-adjacent
+      binaries served to every visitor.
+- [ ] **Post font options** — font-family picker in the editor, sourced from the
+      fonts directory above.
+- [ ] **Preferences area** — one page for the settings below.
+- [ ] **Email: connect and verify an address** — token-based double opt-in, with a
+      documented SMTP configuration.
+- [ ] **Email notifications** — per-type toggles (new DM, new post from someone you
+      follow, post-publish receipt) plus a one-click unsubscribe link that works
+      without logging in.
+- [ ] **Email as a login option**, and password change gated on email verification.
+- [ ] **Account deletion and data download** from Preferences (export already
+      exists at `GET /api/users/{u}/export` — wire it up and add a copy-to-admin).
+- [ ] **Responsive images** **[needs decision]** — generate width variants at upload
+      and serve via `srcset`/`sizes`. Client-side bandwidth detection
+      (`navigator.connection`) is unreliable and unavailable in Safari; `srcset`
+      lets the browser decide, which is the better mechanism. Confirm before I
+      build a bandwidth-sniffing path instead.
+- [ ] **Make the app look less AI-generated** — design pass; see
+      `guide/style-guide.md`. More skeuomorphism / 2.5D depth, fewer uniform
+      cards-and-gradients, real typographic hierarchy.
+- [ ] **Homepage pizzazz** — blurb about the app, visual interest.
+
+### P3 — Admin operations **[dangerous]**
+These put destructive, host-level power behind a web request. Each needs
+admin-only auth *plus* a second factor of protection (re-authentication,
+typed confirmation, rate limit, audit log, and IP allowlisting where possible),
+because a single session-token compromise otherwise means total data loss.
+- [ ] **Download database backup** — stream a `pg_dump` to the admin. Must never
+      accept a path or a database name from the request.
+- [ ] **Upload / create / merge databases** **[needs decision]** — restoring an
+      uploaded dump is arbitrary SQL execution by definition. Proposal: restore
+      only into a scratch database, diff it, and require an explicit second
+      confirmation to promote. Merge semantics need to be specified (which side
+      wins on a username or post-id collision?).
+- [ ] **Delete database button** — I would like to talk you out of this one, or at
+      minimum require a fresh backup to exist, a typed database name, and a
+      re-entered password.
+- [ ] **Upgrade / roll back the app from GitHub** **[dangerous]** — pull, build,
+      migrate, restart, with a one-click revert to the previous release. Wants a
+      release-directory + symlink layout so rollback is instant and does not
+      depend on a rebuild succeeding.
+- [ ] **Maintenance / migration landing page** — shown while an upgrade runs.
+- [ ] **Admin panel mobile** — responsive layout.
+
+### Carried over
+- [ ] **Persistent sessions** — store tokens in the DB (subsumes part of the
+      stale-session item above).
+- [ ] **CSRF protection review**
+- [ ] **Integration tests for auth flows**
+- [ ] **Share post/comment to DM** — from the share button
+- [ ] **Post list/collection on profile** — horizontal slider block
+- [ ] **View as visitor on own profile**
 
 ---
 

@@ -1,6 +1,8 @@
 package com.springbootprojects.webpostingserver.posts.repository;
 
 import com.springbootprojects.webpostingserver.posts.model.AuthSession;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.springbootprojects.webpostingserver.posts.model.LoginInfo;
 import com.springbootprojects.webpostingserver.posts.model.User;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,12 +13,18 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Repository;
 
+import java.security.MessageDigest;
 import java.security.SecureRandom;
-import java.time.LocalDate;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Repository
 public class JdbcLoginRepository implements LoginRepository {
+
+    private static final Logger log = LoggerFactory.getLogger(JdbcLoginRepository.class);
 
     @Value("${app.dev-mode:false}")
     private boolean devMode;
@@ -24,14 +32,14 @@ public class JdbcLoginRepository implements LoginRepository {
     public ResponseEntity<String> deleteCookie() {
         HttpCookie deleteTokenCookie = ResponseCookie.from("authToken", "token")
                 .httpOnly(true)
-                .sameSite(devMode ? "Lax" : "None")
+                .sameSite("Lax")
                 .secure(!devMode)
                 .path("/")
                 .maxAge(0)
                 .build();
         HttpCookie deleteUsernameCookie = ResponseCookie.from("username", "username")
                 .httpOnly(true)
-                .sameSite(devMode ? "Lax" : "None")
+                .sameSite("Lax")
                 .secure(!devMode)
                 .path("/")
                 .maxAge(0)
@@ -43,9 +51,32 @@ public class JdbcLoginRepository implements LoginRepository {
     }
 
     /**
-     * Maps usernames to authentication token data
+     * Live sessions, keyed by the session token.
+     *
+     * Keyed by token rather than by username so one account can hold several
+     * concurrent sessions — a phone and a laptop, say. Keying by username meant
+     * each login overwrote the previous one, so signing in anywhere signed you
+     * out everywhere.
+     *
+     * ConcurrentHashMap, not HashMap: this is static state touched by every
+     * request thread, and concurrent writes to a plain HashMap can corrupt its
+     * internal table, losing or duplicating entries during a resize.
+     *
+     * Sessions live only in memory, so a restart logs everyone out. Moving them
+     * to the database is tracked in guide/tasks.md.
      */
-    private static HashMap<String, AuthSession> loginMap = new HashMap<>();
+    private static final Map<String, AuthSession> sessionsByToken = new ConcurrentHashMap<>();
+
+    /** Hard ceiling on stored sessions, so a login flood cannot exhaust memory. */
+    private static final int MAX_SESSIONS = 10_000;
+
+    /** Absolute session lifetime, in minutes. */
+    @Value("${app.session-lifetime-minutes:1440}")
+    private long sessionLifetimeMinutes;
+
+    /** Idle timeout, in minutes — reset on each authorized request. */
+    @Value("${app.session-idle-minutes:720}")
+    private long sessionIdleMinutes;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -61,7 +92,25 @@ public class JdbcLoginRepository implements LoginRepository {
     }
 
     private boolean isTokenExpired(AuthSession authSession) {
-        return LocalDate.now().compareTo(authSession.expires) > 0;
+        return authSession.isExpired(Instant.now());
+    }
+
+    /**
+     * Compares two tokens without leaking their contents through timing.
+     * String.equals returns as soon as it finds a differing character, so the
+     * time it takes reveals how much of a guess was correct.
+     */
+    private static boolean tokensMatch(String expected, String presented) {
+        if (expected == null || presented == null) return false;
+        return MessageDigest.isEqual(
+                expected.getBytes(StandardCharsets.UTF_8),
+                presented.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /** Drops every session whose absolute or idle deadline has passed. */
+    private void purgeExpiredSessions() {
+        Instant now = Instant.now();
+        sessionsByToken.values().removeIf(s -> s.isExpired(now));
     }
 
     public List<User> getAllUsers() {
@@ -138,23 +187,31 @@ public class JdbcLoginRepository implements LoginRepository {
 
 
     // Attempts to log the user out
+    /**
+     * Ends the one session identified by {@code token}, leaving this account's
+     * other sessions (other devices) alone.
+     *
+     * Returns false when there was nothing to end — an already-expired or
+     * already-removed session. The caller clears the cookie either way, so a
+     * false result is not an error worth surfacing to the user.
+     */
     public boolean logout(String username, String token) {
-        try {
-            //If token expired, logout
-            if (loginMap.get(username) != null && isTokenExpired(loginMap.get(username))) {
-                loginMap.remove(username);
-            }
-            //If user is authorized, logout
-            AuthSession authSession = authorize(username, token);
-            if (authSession != null) {
-                System.out.println("Logged out " + username + " and removed corresponding server session");
-                loginMap.remove(username);
-                return true;
-            }
-        } catch (Exception ex) {
-                System.out.println("Tried to log out user " + username + " but no login session found on server. Attempting to delete cookie. Exception: " + ex.getMessage());
-        }
-        return false;
+        if (token == null) return false;
+        AuthSession session = sessionsByToken.get(token);
+        if (session == null) return false;
+
+        // Only the owner of a session may end it.
+        if (!tokensMatch(session.username, username)) return false;
+
+        sessionsByToken.remove(token);
+        log.debug("Ended session for {}", username);
+        return true;
+    }
+
+    /** Ends every session belonging to a user — used when freezing or deleting. */
+    private void evictAllSessionsFor(String username) {
+        if (username == null) return;
+        sessionsByToken.values().removeIf(s -> username.equals(s.username));
     }
 
 
@@ -170,7 +227,7 @@ public class JdbcLoginRepository implements LoginRepository {
                 BeanPropertyRowMapper.newInstance(LoginInfo.class), username);
         if (loginInfo.isEmpty()) return -1;
         if (loginInfo.size() > 1) {
-            System.out.println("Duplicate users detected for username: " + username);
+            log.error("Duplicate users detected for username: {}", username);
             return -1;
         }
         LoginInfo user = loginInfo.getFirst();
@@ -185,7 +242,7 @@ public class JdbcLoginRepository implements LoginRepository {
             if (!stored.equals(password)) return -1;
             String hashed = bcrypt.encode(password);
             jdbcTemplate.update("UPDATE users SET password = ? WHERE username = ?", hashed, username);
-            System.out.println("Migrated password to BCrypt for user: " + username);
+            log.info("Migrated password to BCrypt for user: {}", username);
             return user.getID();
         }
     }
@@ -197,33 +254,29 @@ public class JdbcLoginRepository implements LoginRepository {
      * @return
      */
     public AuthSession authorize(String username, String token) throws TokenExpiredException {
+        if (username == null || token == null) return null;
 
-        //If token expired, logout
-        if (loginMap.get(username) != null && isTokenExpired(loginMap.get(username))) {
-            loginMap.remove(username);
+        AuthSession authSession = sessionsByToken.get(token);
+        if (authSession == null) return null;
+
+        // Expired sessions are removed and reported distinctly from "wrong
+        // token", so the client can tell "log in again" from "access denied".
+        if (isTokenExpired(authSession)) {
+            sessionsByToken.remove(token);
             throw new TokenExpiredException();
         }
 
-        //get the user's authorization token
-        AuthSession authSession;
-        try {
-            authSession = loginMap.get(username);
-        } catch (Exception e) {
-            System.out.println("Username " + username + " not found. " + e.getMessage());
-            return null;
-        }
-        if (authSession == null) {
-            return null;
-        }
-        //authorize action if not expired and token matches server
-        if (authSession.token.equals(token)) {
-            // Reject frozen users even if they have a valid session
-            if ("frozen".equals(authSession.role)) return null;
-            System.out.println("Authorized user " + username + " to do something");
-            return authSession;
-        } else {
-            return null;
-        }
+        // The token is the credential; the username cookie only says who the
+        // client believes it is. They must agree, or a valid token could be
+        // replayed against another account's name.
+        if (!tokensMatch(authSession.username, username)) return null;
+
+        // Frozen users are refused even while holding a valid session.
+        if ("frozen".equals(authSession.role)) return null;
+
+        // Successful use pushes the idle deadline forward.
+        authSession.idleExpiresAt = Instant.now().plus(sessionIdleMinutes, ChronoUnit.MINUTES);
+        return authSession;
     }
 
 
@@ -234,13 +287,18 @@ public class JdbcLoginRepository implements LoginRepository {
      */
     @Override
     public AuthSession login(LoginInfo loginInfo) {
+        purgeExpiredSessions();
+
+        Instant now = Instant.now();
         AuthSession authSession = new AuthSession(loginInfo.getUsername());
-        authSession.expires = LocalDate.now().plusDays(1);
+        authSession.expiresAt = now.plus(sessionLifetimeMinutes, ChronoUnit.MINUTES);
+        authSession.idleExpiresAt = now.plus(sessionIdleMinutes, ChronoUnit.MINUTES);
         authSession.token = "-1";
 
         // Verify the credentials are not empty
         if (loginInfo.getUsername().isEmpty() || loginInfo.getPassword().isEmpty()) {
             authSession.loginHttpStatusCodeResult = HttpStatus.BAD_REQUEST;
+            return authSession;
         }
         authSession.userId = authenticate(loginInfo.getUsername(), loginInfo.getPassword());
         if (authSession.userId > 0) {
@@ -255,16 +313,18 @@ public class JdbcLoginRepository implements LoginRepository {
                 return authSession;
             }
 
-            String authToken;
-            if (loginMap.get(loginInfo.getUsername()) != null) {
-                authToken = loginMap.get(loginInfo.getUsername()).token;
-            } else {
-                authToken = generateNewToken();
-            }
-            authSession.token = authToken;
+            // Always issue a fresh token. Reusing the previous one meant a token
+            // captured once stayed valid indefinitely, because each new login
+            // pushed the expiry forward without changing the secret.
+            authSession.token = generateNewToken();
             authSession.loginHttpStatusCodeResult = HttpStatus.OK;
 
-            loginMap.put(loginInfo.getUsername(), authSession);
+            // Refuse to grow without bound if purging cannot keep up.
+            if (sessionsByToken.size() >= MAX_SESSIONS) {
+                authSession.loginHttpStatusCodeResult = HttpStatus.SERVICE_UNAVAILABLE;
+                return authSession;
+            }
+            sessionsByToken.put(authSession.token, authSession);
 
         } else {
             authSession.loginHttpStatusCodeResult = HttpStatus.FORBIDDEN;
@@ -272,9 +332,9 @@ public class JdbcLoginRepository implements LoginRepository {
         return authSession;
     }
 
-    /** Immediately invalidate an active session, e.g. when a user is frozen. */
+    /** Immediately invalidate a user's sessions, e.g. when a user is frozen. */
     public void evictSession(String username) {
-        loginMap.remove(username);
+        evictAllSessionsFor(username);
     }
 
     public void deleteUser(String username) {
@@ -290,7 +350,7 @@ public class JdbcLoginRepository implements LoginRepository {
         }
         // Delete the user — cascades to uploads, reactions, follows, comments, notifications
         jdbcTemplate.update("DELETE FROM users WHERE id=?", userId);
-        loginMap.remove(username);
+        evictAllSessionsFor(username);
     }
 
     public static class TokenExpiredException extends Exception {

@@ -2,47 +2,74 @@
 
 ## How it works
 
-Migrations are numbered SQL files in `server/src/main/resources/db/migrations/`. Each file is named `V###__description.sql`. The server runs migrations automatically at startup via a custom `DatabaseMigrationService` that tracks applied versions in a `schema_migrations` table.
+Migrations are numbered SQL files in `server/src/main/resources/db/migrations/`,
+named `V###__description.sql`. **This directory is the single source of truth.**
 
-There is also a `config/migrations/` directory with the same files for reference and manual use via the `config/migrate.sh` script.
+`DatabaseMigrationService` runs at application startup, applies every pending
+version in numeric order, and records it in the `schema_migrations` table with a
+checksum. There is nothing to run by hand — deploying the JAR migrates the
+database. Watch the log for:
+
+```
+Found 13 migration script(s) on classpath
+Applying migration: V013__group_reactions_ownership
+Database migration complete — applied: 1, skipped (already applied): 12
+```
+
+A file edited after it was applied is reported as a checksum mismatch at
+startup, and not re-run.
+
+### Dollar-quoted blocks
+
+`DO $$ … $$` and `CREATE FUNCTION … $body$ … $body$` are supported. They need a
+special path: Spring's `ScriptUtils` splits a script on `;` with a scanner that
+does not understand dollar quoting, so it chops a PL/pgSQL body into fragments
+that individually fail to parse. Scripts containing a dollar-quoted block are
+therefore handed to the pgJDBC driver whole, since the driver's own statement
+splitter *does* understand dollar quoting.
+
+This previously failed in production and had to be worked around by hand-seeding
+`schema_migrations` with V001–V007 so the runner would skip them. If you inherit
+a database in that state, the versions are already recorded and will be skipped
+normally.
+
+> **Superseded scripts.** `config/migrate.sh` + `config/migrations/` and
+> `tools/migrate.sh` + `tools/migrations/` are earlier generations of this idea.
+> Production uses neither, and `config/migrations/` is *behind* the shipping
+> files (V010 vs V013), so running it against a fresh database produces a schema
+> the app rejects. See item 1 in [code-smells.txt](code-smells.txt).
 
 ---
 
 ## Daily commands
 
-**Check what's pending (no changes made):**
+**Apply pending migrations:** start the server. That is the whole procedure.
+
+**See what has been applied:**
 ```bash
-./config/migrate.sh --dry-run
+psql -U mae -d webpostingdb -c "SELECT version, applied_at FROM schema_migrations ORDER BY version;"
 ```
 
-**Show full migration history for this database:**
+**See what is pending:** compare that against the files on disk.
 ```bash
-./config/migrate.sh --status
+ls server/src/main/resources/db/migrations/
 ```
 
-**Apply all pending migrations:**
-```bash
-./config/migrate.sh
-```
-
-**Connection defaults** (match `application.properties`):
-```
-DB_HOST=localhost  DB_PORT=5432  DB_NAME=testdb  DB_USER=mae
-```
-
-Override any of them inline:
-```bash
-DB_NAME=webpostingdb DB_USER=yourname PGPASSWORD=yourpass ./config/migrate.sh
-```
-
----
+Connection settings come from `deploy.env` — see
+[CONFIGURATION.md](CONFIGURATION.md).
 
 ## Adding a new migration
 
-1. Create `config/migrations/V###__short_description.sql` — use the next version number.
+1. Create `server/src/main/resources/db/migrations/V###__short_description.sql`
+   with the next version number.
 2. Wrap the SQL in `BEGIN; ... COMMIT;`.
-3. Make it idempotent: use `IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`, `ON CONFLICT DO NOTHING`, etc.
-4. Add a corresponding test in `DatabaseSchemaTest.java` asserting the new column/table/data exists.
+3. Make it idempotent: `IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`,
+   `ON CONFLICT DO NOTHING`. The runner will not re-apply a recorded version,
+   but idempotence makes a partially-applied migration safe to retry.
+4. Add an assertion to `DatabaseSchemaTest.java` for the new column/table/row.
+5. Add a row to the history table below.
+6. Never edit a migration that has already been applied anywhere — the checksum
+   check will flag it. Write a new version instead.
 
 **Example — adding a new column:**
 ```sql
@@ -91,28 +118,37 @@ COMMIT;
 
 ## Fresh install vs migration
 
-| Scenario | Use |
-|----------|-----|
-| Brand new database | `psql -f config/database.sql` then `./config/migrate.sh` to register V001–V005 as applied |
-| Existing database from v1 | `./config/migrate.sh` — runs V001 through V005 |
-| Existing database already up to date | `./config/migrate.sh` — skips everything, no-op |
+| Scenario | What to do |
+|---|---|
+| Brand new database | Create an empty database, grant the app user rights on `public`, then start the server — it applies V001 onward and builds the whole schema. |
+| Existing database, any version | Start the server. Applied versions are skipped. |
+| Database whose `schema_migrations` was hand-seeded | Nothing special; those versions are recorded and skipped. |
 
-> **Note for fresh installs:** After running `database.sql`, the schema is already complete — but `schema_migrations` will be empty. Run `./config/migrate.sh` anyway so all versions get recorded and future migrations will skip correctly. (All the `IF NOT EXISTS` guards make it safe to run against the already-created schema.)
+`config/database.sql` is a snapshot of the schema for reference and for seeding
+`role_limits`. It is **not** required — the migrations build the same schema — and
+it lags behind them, so prefer letting the runner do it.
 
----
+On PostgreSQL 15+ a fresh database needs the schema grant, or every migration
+fails on permissions:
+
+```bash
+sudo -u postgres psql -c "CREATE DATABASE webpostingdb OWNER mae;"
+sudo -u postgres psql -d webpostingdb -c "GRANT ALL ON SCHEMA public TO mae;"
+```
 
 ## Schema validation test
 
 `DatabaseSchemaTest.java` is a Spring integration test that connects to the real database and asserts every expected table, column, and seed row exists. Run it after any migration to confirm the live schema is correct:
 
 ```bash
-./mvnw test -pl server -Dtest=DatabaseSchemaTest
+cd server && set -a && . ../deploy.env && set +a && ./mvnw test -Dtest=DatabaseSchemaTest
 ```
 
 It checks:
 - All 15 tables exist
 - Critical columns on `users`, `posts`, `discussions`, `notifications`, `uploads`, `activity_deletions`
-- All 6 roles in `role_limits` (`user`, `trusted`, `restricted`, `admin`, `frozen`, `audited`)
+- The seeded roles in `role_limits` (`user`, `trusted`, `restricted`, `admin`,
+  `frozen`) — note `audited` was added by V002 and removed again by V007
 - `frozen` has zero limits, `admin` has unlimited (-1)
 
 ---

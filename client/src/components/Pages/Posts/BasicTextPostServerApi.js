@@ -1,6 +1,18 @@
 import axios from 'axios';
 import { BASE_URL as baseUrl } from '../../../config.js';
 
+/**
+ * Request config for endpoints that return a raw string body (text/plain).
+ *
+ * Several endpoints (background pattern, bio) return text/plain whose *content*
+ * can itself look like JSON — the v2 wallpaper format is a JSON object, and a
+ * bio can begin with "{". Axios sniffs the body and silently JSON.parses
+ * anything that looks like JSON, handing callers an object where they expect a
+ * string. The identity `transformResponse` disables that sniffing so
+ * `response.data` is always the exact bytes the server sent.
+ */
+const TEXT_GET = { withCredentials: true, transformResponse: [(d) => d] };
+
 
 //delete
 export function DELETE_POST(id) {
@@ -87,7 +99,7 @@ export function UPDATE_POST(id, titleField, descriptionField, publishedField, ba
 }
 
 export function GET_USER_BACKGROUND(username) {
-  return axios.get(baseUrl + "/api/users/" + username + "/background", { withCredentials: true })
+  return axios.get(baseUrl + "/api/users/" + username + "/background", TEXT_GET)
     .then((response) => response.data);
 }
 
@@ -99,7 +111,7 @@ export function UPDATE_USER_BACKGROUND(username, pattern) {
 }
 
 export function GET_USER_BIO(username) {
-  return axios.get(baseUrl + "/api/users/" + username + "/bio", { withCredentials: true })
+  return axios.get(baseUrl + "/api/users/" + username + "/bio", TEXT_GET)
     .then((response) => response.data);
 }
 

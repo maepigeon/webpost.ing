@@ -1,0 +1,147 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Profile maker — the owner-only editing surfaces on a profile page.
+
+   These rules replace inline styles that had drifted off-palette (Google blue
+   links, a flat white wallpaper panel) and back onto the neoskeuomorphic glass
+   language in guide/style-guide.md.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --profile-ink: #1a1060;
+  --profile-ink-soft: #6b6580;
+  --profile-accent: #6c63ff;
+  --profile-accent-dark: #4b44cc;
+  --profile-hairline: rgba(26, 16, 96, 0.13);
+}
+
+/* ── Bio links ──────────────────────────────────────────────────────────── */
+
+.profile-bio-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.profile-bio-link {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--profile-accent-dark);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.9), rgba(232, 228, 245, 0.9));
+  border: 1px solid rgba(108, 99, 255, 0.32);
+  box-shadow:
+    0 0 0 1px var(--profile-hairline),
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1.5px 0 rgba(108, 99, 255, 0.1),
+    0 1.5px 4px rgba(26, 16, 96, 0.09);
+  transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s, color 0.15s;
+}
+
+.profile-bio-link:hover {
+  color: var(--profile-accent);
+  transform: translateY(-1.5px);
+  box-shadow:
+    0 0 0 1px var(--profile-hairline),
+    inset 0 1.5px 0 rgba(255, 255, 255, 1),
+    0 4px 11px rgba(26, 16, 96, 0.15);
+}
+
+.profile-bio-link:active { transform: translateY(0.5px); }
+
+/* ── Owner action row ───────────────────────────────────────────────────── */
+
+.profile-owner-actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.profile-owner-group { display: flex; gap: 5px; }
+
+.profile-owner-divider {
+  width: 1px;
+  height: 18px;
+  flex-shrink: 0;
+  border-radius: 1px;
+  background: linear-gradient(
+    to bottom,
+    rgba(26, 16, 96, 0) 0%,
+    rgba(26, 16, 96, 0.16) 50%,
+    rgba(26, 16, 96, 0) 100%
+  );
+  box-shadow: 1px 0 0 rgba(255, 255, 255, 0.7);
+}
+
+.profile-wallpaper-anchor { position: relative; display: inline-block; }
+
+/* ── Wallpaper panel ────────────────────────────────────────────────────────
+   Was a flat white box with a grey hairline, which read as a browser dialog
+   dropped onto the page rather than part of it. */
+
+.profile-wallpaper-panel {
+  margin-top: 10px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.62);
+  backdrop-filter: blur(22px) saturate(165%);
+  -webkit-backdrop-filter: blur(22px) saturate(165%);
+  border: 1.5px solid rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 10px 34px rgba(26, 16, 96, 0.15),
+    0 2px 8px rgba(0, 0, 0, 0.07),
+    inset 0 2px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.05),
+    inset 2px 0 0 rgba(255, 255, 255, 0.45),
+    inset -2px 0 0 rgba(0, 0, 0, 0.04);
+  animation: profile-panel-in 0.24s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes profile-panel-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.profile-wallpaper-panel-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--profile-ink-soft);
+  margin: 0 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-wallpaper-panel-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, var(--profile-hairline), transparent);
+}
+
+/* ── Inline error text ──────────────────────────────────────────────────── */
+
+.profile-inline-error {
+  margin: 0 0 8px;
+  color: #c62828;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-wallpaper-panel { animation: none; }
+  .profile-bio-link { transition: none; }
+  .profile-bio-link:hover { transform: none; }
+}

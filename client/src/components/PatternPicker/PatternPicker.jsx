@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   PRESET_PATTERNS, PRESET_COLOR_SLOTS, DEFAULT_BG_COLOR,
+  isPatternInvisible, readableInkFor, randomWallpaper, contrastRatio,
   parseWallpaper, buildWallpaper, wallpaperToStyle,
   renderPresetStyle, isValidCustomCss,
 } from './patterns.js';
@@ -149,7 +150,37 @@ export default function PatternPicker({ value, onChange, onPreview, username }) 
     setCustomCss('');
     setCustomError('');
     const slots = PRESET_COLOR_SLOTS[key] || [];
-    applyWdata({ ...wdataRef.current, pattern: key, colors: slots.map(s => s.default), css: undefined });
+    // Reset the page background along with the colors. Preset defaults are all
+    // dark, so carrying over a dark bgColor from the previous wallpaper renders
+    // the new preset invisible — the picker then looks broken because no swatch
+    // appears to do anything. The bg color remains editable below.
+    applyWdata({
+      ...wdataRef.current,
+      pattern: key,
+      colors: slots.map(s => s.default),
+      bgColor: DEFAULT_BG_COLOR,
+      css: undefined,
+    });
+  };
+
+  // ── Randomise ──────────────────────────────────────────────────────────────
+
+  const handleRandomise = () => {
+    setInputDirty(false);
+    setCustomCss('');
+    setCustomError('');
+    applyWdata(randomWallpaper());
+  };
+
+  /**
+   * One-click escape from an invisible wallpaper: repaint the pattern in an ink
+   * that actually shows up on the chosen background, keeping everything else.
+   */
+  const handleFixContrast = () => {
+    const w = wdataRef.current;
+    const ink = readableInkFor(w.bgColor || DEFAULT_BG_COLOR);
+    const slots = PRESET_COLOR_SLOTS[w.pattern] || [];
+    applyWdata({ ...w, colors: slots.map(() => ink) });
   };
 
   // ── User preset click ──────────────────────────────────────────────────────
@@ -206,8 +237,13 @@ export default function PatternPicker({ value, onChange, onPreview, username }) 
   const handleBgColorPreview = (hex) => previewWdata({ ...wdataRef.current, bgColor: hex });
   const commitBgColor = (hex)         => applyWdata({ ...wdataRef.current, bgColor: hex });
 
-  // Attach DOM 'change' listener to bg input to save when picker closes
+  // Native <input type="color"> pickers fire 'change' when the picker closes but
+  // do not reliably fire 'blur', so committing on blur can silently drop the
+  // user's choice. Both the background input and the per-pattern color inputs
+  // therefore save on the DOM 'change' event; React's onChange stays wired to
+  // live preview only.
   const bgInputRef = useRef(null);
+  const colorInputRefs = useRef([]);
   const latestOnChangeRef = useRef(onChange);
   latestOnChangeRef.current = onChange;
   useEffect(() => {
@@ -221,6 +257,18 @@ export default function PatternPicker({ value, onChange, onPreview, username }) 
     el.addEventListener('change', onClose);
     return () => el.removeEventListener('change', onClose);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keyed on wdata.pattern (not the derived colorSlots, which is declared far
+  // below this point) so the listeners are re-bound when the slot count changes.
+  useEffect(() => {
+    const els = colorInputRefs.current.filter(Boolean);
+    const handlers = els.map((el, i) => {
+      const onClose = () => handleColorChange(i, el.value);
+      el.addEventListener('change', onClose);
+      return [el, onClose];
+    });
+    return () => handlers.forEach(([el, h]) => el.removeEventListener('change', h));
+  }, [wdata.pattern]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Scale ──────────────────────────────────────────────────────────────────
 
@@ -290,19 +338,76 @@ export default function PatternPicker({ value, onChange, onPreview, username }) 
   const cssColors  = pattern === 'custom' ? parseColors(customCss) : [];
   const canSave    = pattern !== 'none' && (pattern !== 'custom' || isValidCustomCss(customCss));
 
-  // Active swatch renders user's current colors; inactive swatches use defaults
+  const invisible = isPatternInvisible(wdata);
+  const ratio = pattern !== 'none' && pattern !== 'custom' && colors[0]
+    ? contrastRatio(colors[0], bgColor)
+    : null;
+
+  /**
+   * Swatches are drawn over the wallpaper's own background colour, not white.
+   * Previewing every preset against a neutral card made the choice misleading —
+   * a pattern can look perfect in the swatch and vanish on the actual page.
+   */
   const swatchStyleFor = (key) => {
     if (key === 'none') return { background: bgColor };
-    if (key === pattern) return swatchStyleOf(renderPresetStyle(key, colors));
-    return swatchStyleOf(PRESET_PATTERNS[key]);
+    const style = key === pattern
+      ? renderPresetStyle(key, colors)
+      : renderPresetStyle(key, (PRESET_COLOR_SLOTS[key] || []).map(sl => sl.default));
+    return { ...swatchStyleOf(style), backgroundColor: bgColor };
   };
+
+  /** The live preview stage: the real wallpaper, at the real scale. */
+  const previewStyle = (() => {
+    const style = pattern === 'custom'
+      ? { backgroundImage: customCss || '' }
+      : wallpaperToStyle(wdata);
+    const { _bgColor, ...rest } = style;
+    return { ...rest, backgroundColor: bgColor };
+  })();
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="pattern-picker">
 
+      {/* ── 0. Live preview ─────────────────────────────────────────────────── */}
+      {/* The wallpaper is applied to the whole page behind this panel, which the
+          panel itself covers up. This stage shows the result in miniature —
+          including a stand-in profile card, since that is what actually sits on
+          top of the pattern in use. */}
+      <div className="pattern-preview-stage" style={previewStyle}>
+        <div className="pattern-preview-card">
+          <div className="pattern-preview-avatar" />
+          <div className="pattern-preview-lines">
+            <span className="pattern-preview-line pattern-preview-line--name" />
+            <span className="pattern-preview-line" />
+            <span className="pattern-preview-line pattern-preview-line--short" />
+          </div>
+        </div>
+        <span className="pattern-preview-tag">Preview</span>
+      </div>
+
+      {invisible && (
+        <div className="pattern-picker-contrast-warning" role="status">
+          <span className="pattern-picker-contrast-icon" aria-hidden="true">◐</span>
+          <span>
+            This pattern is nearly invisible on its background
+            {ratio ? ` (${ratio.toFixed(2)}:1 contrast)` : ''}.
+          </span>
+          <button type="button" className="pattern-picker-contrast-fix" onClick={handleFixContrast}>
+            Fix it
+          </button>
+        </div>
+      )}
+
       {/* ── 1. Built-in preset swatches ─────────────────────────────────────── */}
+      <div className="pattern-picker-section-label pattern-picker-section-label--row">
+        <span>Pattern</span>
+        <button type="button" className="pattern-picker-random-btn" onClick={handleRandomise}
+                title="Generate a random wallpaper">
+          ✦ Surprise me
+        </button>
+      </div>
       <div className="pattern-picker-presets">
         {Object.entries(PRESET_PATTERNS).map(([key, preset]) => (
           <button
@@ -329,11 +434,11 @@ export default function PatternPicker({ value, onChange, onPreview, username }) 
               <span className="pattern-color-swatch" style={{ background: hex }} />
               <span className="pattern-color-label">{slot.label}</span>
               <input
+                ref={el => { colorInputRefs.current[i] = el; }}
                 type="color"
                 className="pattern-color-hex"
                 value={hex}
                 onChange={e => previewColorChange(i, e.target.value)}
-                onBlur={e => handleColorChange(i, e.target.value)}
                 title={slot.label}
               />
               {hex !== slot.default && (
@@ -389,7 +494,7 @@ export default function PatternPicker({ value, onChange, onPreview, username }) 
       {pattern !== 'none' && (
         <div className="pattern-picker-section">
           <div className="pattern-picker-section-label">
-            Scale &nbsp;<span style={{ fontWeight: 400, color: '#666' }}>{scale.toFixed(2)}×</span>
+            Scale &nbsp;<span className="pattern-picker-scale-value">{scale.toFixed(2)}×</span>
             {scale !== 1 && (
               <button type="button" className="pattern-picker-cancel-btn" style={{ marginLeft: 8 }}
                 onClick={() => { handleScaleChange(1); commitScale(1); }}>Reset</button>

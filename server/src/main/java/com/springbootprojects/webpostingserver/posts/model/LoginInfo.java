@@ -53,9 +53,14 @@ public class LoginInfo {
     }
 
 
+    /**
+     * Deliberately omits the password. Anything that logs a LoginInfo — a debug
+     * statement, an exception message, a framework binding error — would
+     * otherwise write the user's plaintext password to the server log.
+     */
     @Override
     public String toString() {
-        return "LoginInfo [username=" + username + ", password=" + password + ", timestamp=" + date +  "]";
+        return "LoginInfo [username=" + username + ", password=***, timestamp=" + date + "]";
     }
 
     public int getID() {

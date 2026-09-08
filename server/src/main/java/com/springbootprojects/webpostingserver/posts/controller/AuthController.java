@@ -688,14 +688,14 @@ public class AuthController {
                     LoginRateLimiter.recordSuccess(clientIp);
                     HttpCookie tokenCookie = ResponseCookie.from("authToken", loginResult.token)
                             .httpOnly(true)
-                            .sameSite(devMode ? "Lax" : "None")
+                            .sameSite("Lax")
                             .secure(!devMode)
                             .path("/")
                             .maxAge(60 * 60 * 24)
                             .build();
                     HttpCookie usernameCookie = ResponseCookie.from("username", loginResult.username)
                             .httpOnly(true)
-                            .sameSite(devMode ? "Lax" : "None")
+                            .sameSite("Lax")
                             .secure(!devMode)
                             .path("/")
                             .maxAge(60 * 60 * 24)

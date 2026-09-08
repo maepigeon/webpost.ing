@@ -1,65 +1,76 @@
-# FRONT END (client/)
-client/logs
-client/*.log
-client/npm-debug.log*
-client/yarn-debug.log*
-client/yarn-error.log*
-client/pnpm-debug.log*
-client/lerna-debug.log*
-client/node_modules
-client/dist
-client/dist-ssr
-client/*.local
-client/.vscode/*
-client/.idea
-client/.DS_Store
-client/*.suo
-client/*.ntvs*
-client/*.njsproj
-client/*.sln
-client/*.sw?
+# ─── Dependencies ─────────────────────────────────────────────────────────────
+node_modules/
+.pnp
+.pnp.js
 
-# Legacy frontend/ entries (directory renamed to client/)
-frontend/node_modules
-frontend/dist
+# ─── Build output ─────────────────────────────────────────────────────────────
+dist/
+dist-ssr/
+build/
+target/
+BOOT-INF/
+META-INF/
+*.class
+*.jar
+!**/.mvn/wrapper/maven-wrapper.jar
 
+# ─── Secrets and local configuration ──────────────────────────────────────────
+# deploy.env is the ONE file that holds real credentials, and it never leaves the
+# host. The application*.properties files are secret-free by design (they read
+# ${VAR:default} from the environment) and ARE committed.
+# See config/deploy.env.example and guide/CONFIGURATION.md.
+deploy.env
+*.env
+!*.env.example
+!client/.env.development
+!client/.env.production
+*.local
+*.pem
+*.key
+*.p12
+*.keystore
 
-# SERVER
-server/HELP.md
-server/target/
-server/!.mvn/wrapper/maven-wrapper.jar
-server/!**/src/main/**/target/
-server/!**/src/test/**/target/
-server/src/main/resources/application.properties
-
-### STS ###
-server/.apt_generated
-server/.classpath
-server/.factorypath
-server/.project
-server/.settings
-server/.springBeans
-server/.sts4-cache
-
-### IntelliJ IDEA ###
-server/.idea
-server/*.iws
-server/*.iml
-server/*.ipr
-
-### NetBeans ###
-server/nbproject/private/
-server/nbbuild/
-server/dist/
-server/nbdist/
-server/.nb-gradle/
-server/build/
-server/!**/src/main/**/build/
-server/!**/src/test/**/build/
-
-### VS Code ###
-server/.vscode/
-
-# UPLOADS — user-uploaded files; never commit to source control
+# ─── User data — never commit ─────────────────────────────────────────────────
 uploads/
 server/uploads/
+*.dump
+*.sql.gz
+backups/
+tools/backups/
+
+# ─── Logs ─────────────────────────────────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ─── Editors and OS ───────────────────────────────────────────────────────────
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.iws
+*.iml
+*.ipr
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ─── Java / Spring tooling ────────────────────────────────────────────────────
+server/HELP.md
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+nbproject/private/
+nbbuild/
+nbdist/
+.nb-gradle/

@@ -172,7 +172,19 @@ export const DEFAULT_BG_COLOR = '#ece9e2';
  */
 export function parseWallpaper(stored) {
   const empty = { v: 2, pattern: 'none', scale: 1, bgColor: DEFAULT_BG_COLOR, colors: [] };
-  if (!stored || !stored.trim()) return empty;
+  if (!stored) return empty;
+
+  // Defensive: the stored value is a string everywhere it is produced, but an
+  // HTTP client that JSON-parses a text/plain body (axios does this by default)
+  // can hand us the already-decoded object. Re-encode rather than crash on
+  // `.trim()`. See TEXT_GET in BasicTextPostServerApi.js for the root fix.
+  if (typeof stored === 'object') {
+    if (Array.isArray(stored)) return empty;
+    try { stored = JSON.stringify(stored); } catch { return empty; }
+  } else if (typeof stored !== 'string') {
+    return empty;
+  }
+  if (!stored.trim()) return empty;
 
   const s = stored.trim();
 
@@ -370,3 +382,122 @@ export function extractScale(stored) {
 }
 
 export function findPresetByImage() { return null; } // no longer meaningful
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Colour maths — used by the picker to keep wallpapers legible
+// ══════════════════════════════════════════════════════════════════════════════
+
+/** Parses #rgb / #rrggbb into [r, g, b] 0-255, or null if unparseable. */
+export function hexToRgb(hex) {
+  if (typeof hex !== 'string') return null;
+  let h = hex.trim().replace(/^#/, '');
+  if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+  if (!/^[0-9a-f]{6}$/i.test(h)) return null;
+  return [
+    parseInt(h.slice(0, 2), 16),
+    parseInt(h.slice(2, 4), 16),
+    parseInt(h.slice(4, 6), 16),
+  ];
+}
+
+/**
+ * WCAG relative luminance, 0 (black) to 1 (white).
+ * https://www.w3.org/TR/WCAG21/#dfn-relative-luminance
+ */
+export function relativeLuminance(hex) {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return null;
+  const [r, g, b] = rgb.map(v => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/**
+ * WCAG contrast ratio between two colours, 1 (identical) to 21 (black on white).
+ * Returns null if either colour cannot be parsed.
+ */
+export function contrastRatio(hexA, hexB) {
+  const la = relativeLuminance(hexA);
+  const lb = relativeLuminance(hexB);
+  if (la === null || lb === null) return null;
+  const lighter = Math.max(la, lb);
+  const darker = Math.min(la, lb);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+/**
+ * Below this ratio a pattern is effectively invisible against its background.
+ * Not a WCAG text threshold — a wallpaper is decoration, and wants to sit well
+ * below the 4.5:1 needed for body copy. This only catches the case where the
+ * pattern has vanished entirely, which is what made the editor look broken.
+ */
+export const MIN_PATTERN_CONTRAST = 1.25;
+
+/**
+ * True when a wallpaper's pattern would be invisible against its own page
+ * background — the black-paws-on-black-page case.
+ */
+export function isPatternInvisible(data) {
+  if (!data || data.pattern === 'none' || data.pattern === 'custom') return false;
+  const patternColor = data.colors?.[0];
+  if (!patternColor) return false;
+  const ratio = contrastRatio(patternColor, data.bgColor || DEFAULT_BG_COLOR);
+  return ratio !== null && ratio < MIN_PATTERN_CONTRAST;
+}
+
+/**
+ * Returns whichever of black/white reads better on the given background, so a
+ * pattern colour picked automatically is always visible.
+ */
+export function readableInkFor(bgHex) {
+  const lum = relativeLuminance(bgHex);
+  if (lum === null) return '#000000';
+  return lum > 0.42 ? '#1a1060' : '#f4f1ea';
+}
+
+// ── Randomiser ────────────────────────────────────────────────────────────────
+
+/** Warm, palette-consistent backgrounds for the randomiser to draw from. */
+const RANDOM_BACKGROUNDS = [
+  '#ece9e2', '#f4f1ea', '#e8e4f5', '#f5ece4', '#e4eef0',
+  '#f0e6d3', '#1a1832', '#2a2340', '#23302e', '#f7e9ef',
+];
+
+/** Ink colours that sit well on the backgrounds above. */
+const RANDOM_INKS = [
+  '#6c63ff', '#4b44cc', '#f5891c', '#3cc85c', '#d32f2f',
+  '#1a1060', '#8880ff', '#c98b3c', '#2f7d6a', '#a03b6b',
+];
+
+function pick(arr, rand) { return arr[Math.floor(rand() * arr.length)]; }
+
+/**
+ * Builds a random wallpaper that is guaranteed legible: the ink is re-rolled
+ * (and finally forced) until it has enough contrast with the background.
+ *
+ * `rand` is injectable so tests can make this deterministic.
+ */
+export function randomWallpaper(rand = Math.random) {
+  const keys = Object.keys(PRESET_COLOR_SLOTS).filter(k => k !== 'none');
+  const pattern = pick(keys, rand);
+  const bgColor = pick(RANDOM_BACKGROUNDS, rand);
+
+  let ink = pick(RANDOM_INKS, rand);
+  for (let i = 0; i < 8 && contrastRatio(ink, bgColor) < 1.6; i++) {
+    ink = pick(RANDOM_INKS, rand);
+  }
+  if (contrastRatio(ink, bgColor) < 1.6) ink = readableInkFor(bgColor);
+
+  const slots = PRESET_COLOR_SLOTS[pattern] || [];
+  const colors = slots.map((_, i) => (i === 0 ? ink : readableInkFor(bgColor)));
+
+  return {
+    v: 2,
+    pattern,
+    scale: Math.round((0.6 + rand() * 1.6) * 20) / 20,
+    bgColor,
+    colors,
+  };
+}

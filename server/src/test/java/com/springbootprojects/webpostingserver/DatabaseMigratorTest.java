@@ -397,4 +397,59 @@ class DatabaseMigratorTest {
             Integer.class, table, column);
         return count != null && count > 0;
     }
+
+    // ── Dollar-quoted scripts ─────────────────────────────────────────────────
+    // ScriptUtils splits a script on ';' without understanding dollar quoting,
+    // which shredded PL/pgSQL bodies into unparseable fragments. Scripts holding
+    // a dollar-quoted block are now handed to the driver whole instead.
+
+    @Test
+    void detectsUntaggedDollarQuotedBlock() {
+        assertThat(DatabaseMigrator.hasDollarQuotedBlock(
+                "DO $$ BEGIN RAISE NOTICE 'hi'; END $$;")).isTrue();
+    }
+
+    @Test
+    void detectsTaggedDollarQuotedBlock() {
+        assertThat(DatabaseMigrator.hasDollarQuotedBlock(
+                "CREATE FUNCTION f() RETURNS int AS $body$ BEGIN RETURN 1; END $body$ LANGUAGE plpgsql;"))
+                .isTrue();
+    }
+
+    @Test
+    void plainDdlIsNotTreatedAsDollarQuoted() {
+        assertThat(DatabaseMigrator.hasDollarQuotedBlock(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS nickname VARCHAR(64);")).isFalse();
+    }
+
+    @Test
+    void aBareDollarSignIsNotADollarQuote() {
+        assertThat(DatabaseMigrator.hasDollarQuotedBlock(
+                "INSERT INTO prices(label) VALUES ('$5 and $10');")).isFalse();
+    }
+
+    @Test
+    void appliesAScriptContainingAConditionalDoBlock() {
+        // The exact shape that failed in production: a DO block whose body has
+        // internal semicolons, so a semicolon-splitting runner cannot apply it.
+        String sql = """
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = '%s') THEN
+                        CREATE TABLE %s (id SERIAL PRIMARY KEY, note TEXT);
+                    END IF;
+                END $$;
+                """.formatted(TBL_ALPHA, TBL_ALPHA);
+
+        DatabaseMigrator migrator = new DatabaseMigrator(jdbc, TRACKING);
+        migrator.ensureTrackingTable();
+        MigrationResult result = migrator.migrate(List.of(
+                DatabaseMigrator.fromSqlText("V001__do_block.sql", sql)));
+
+        assertThat(result.applied()).isEqualTo(1);
+        assertThat(result.hasFailures()).isFalse();
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM information_schema.tables WHERE table_name = ?",
+                Integer.class, TBL_ALPHA)).isEqualTo(1);
+    }
 }

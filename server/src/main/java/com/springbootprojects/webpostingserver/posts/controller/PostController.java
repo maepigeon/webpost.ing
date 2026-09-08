@@ -285,17 +285,6 @@ public class PostController {
         }
     }
 
-    /**
-     * Delete all posts
-    @DeleteMapping("/posts")
-    public ResponseEntity<String> deleteAllPosts() {
-        try {
-            int numRows = postRepository.deleteAll();
-            return new ResponseEntity<>("Deleted " + numRows + " Post(s) successfully.", HttpStatus.OK);
-        } catch (Exception e) {
-            return new ResponseEntity<>("Cannot delete Posts.", HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-    }*/
     // ── Pinned posts ──────────────────────────────────────────────────────────
 
     @GetMapping("/users/{username}/pinned-post")

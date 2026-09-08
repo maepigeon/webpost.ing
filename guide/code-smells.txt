@@ -1,0 +1,199 @@
+CODE SMELLS — webpost.ing
+Last updated: 2026-09-08
+
+Quality issues, not bugs. Nothing here is broken; all of it makes the codebase
+harder to change than it needs to be. Ordered by how much trouble it is likely
+to cause.
+
+Bugs and vulnerabilities are tracked separately, in guide/SECURITY.md and
+guide/tasks.md.
+
+FIXED items are kept for one revision so the pattern is recognisable next time,
+then dropped.
+
+
+================================================================================
+1. THREE COMPETING MIGRATION SYSTEMS                                     [HIGH]
+================================================================================
+
+  tools/migrations/         014,015,016 .sql   tracked in `_migrations`
+  config/migrations/        V001..V010  .sql   tracked in `schema_migrations`
+  server/.../db/migrations/ V001..V013  .sql   tracked in `schema_migrations`
+
+Only the third runs in production — DatabaseMigrationService applies it from the
+classpath at startup. The other two are shell-driven and reachable by hand.
+
+config/migrations/ is three versions BEHIND the ones that actually ship, so
+`./config/migrate.sh` against a fresh database produces a schema the app will
+reject. guide/MIGRATIONS.md claims the two directories hold "the same files".
+tools/migrate.sh is an older generation entirely, with a different tracking
+table and a different file-naming convention.
+
+Fix: keep server/src/main/resources/db/migrations/ as the single source. Delete
+tools/, and either delete config/migrations/ or make it a symlink. Point
+MIGRATIONS.md and README.md at whichever survives.
+
+Risk if left: someone runs the wrong script against production and half-applies
+a schema, with two tracking tables disagreeing about what happened.
+
+
+================================================================================
+2. 132 INLINE style={{...}} BLOCKS ACROSS THE CLIENT                     [HIGH]
+================================================================================
+
+  33  PostsViewer.jsx        (was 42; the profile-maker ones are now CSS)
+  17  AdminPanel.jsx
+  14  MessagesPage.jsx
+  14  Viewer.jsx
+  10  Editor.jsx
+   9  Logout.jsx
+  ... 132 total
+
+Inline styles cannot use the --neo-* variables, cannot be reused, and cannot
+express :hover, :active or media queries — so every one of them is a small
+divergence from the design system. This is the single biggest reason the UI
+reads as generic: the style guide describes a coherent neoskeuomorphic glass
+language that inline styles quietly opt out of.
+
+Fix: move to component CSS files, as done for the profile maker
+(ProfileEditor.css). Highest value per file: AdminPanel.jsx, MessagesPage.jsx.
+
+
+================================================================================
+3. OFF-PALETTE COLOURS — 39 OCCURRENCES                                  [HIGH]
+================================================================================
+
+Google blue #1a73e8, #0d47a1 and Tailwind-default #93c5fd / #dbeafe / #3b82f6
+appear in 10 files. The palette in guide/style-guide.md is warm cream with a
+purple accent (#6c63ff / #4b44cc); none of these belong to it.
+
+  linkifyText.jsx            Social.css            PostWindow.css
+  Editor.css / Editor.jsx    Viewer.css / .jsx     PostsViewer.jsx
+  Registration.css           ActivityPage.css      SearchPage.css
+
+Fix: define the palette as CSS variables in one place (there is currently no
+token file — --neo-* lives in PostWindow.css and nothing else is tokenised),
+then replace every literal. This plus item 2 is most of "make it look less
+AI-generated".
+
+  FIXED this session: PatternPicker.css was entirely off-palette (grey borders,
+  Google-blue active state, blue save button) and is now on-palette; the profile
+  bio-link chips and wallpaper panel likewise.
+
+
+================================================================================
+4. deploy.sh DESCRIBED A SERVER THAT DOES NOT EXIST                   [FIXED]
+================================================================================
+
+The old script killed the JVM by port and started a replacement with nohup as
+the invoking user. On the real host systemd owns the process, so that produced a
+second unmanaged server and a "port already in use" error — and `lsof` as a
+normal user cannot see the root-owned listener, so the port looked free.
+
+It also never copied anything to /var/www/webpost.ing/html/ or
+/home/webpost.ing/, meaning a "successful deploy" published nothing.
+
+Now reads deploy.env, publishes both artifacts, restarts via systemctl, and has
+--dry-run. See guide/DEPLOYMENT.md.
+
+
+================================================================================
+5. COMMENTED-OUT ENDPOINT LEFT IN PostController                       [MEDIUM]
+================================================================================
+
+PostController.java:288-297 — a `deleteAllPosts()` endpoint mapped to
+DELETE /api/posts, commented out with /* */ and no auth check inside it.
+
+It is inert, but it made the controller read as though it had an unauthenticated
+mass-delete during the security audit, and a careless uncomment would create
+exactly that. Delete it; git remembers.
+
+
+================================================================================
+6. AuthController IS A 717-LINE GRAB BAG                               [MEDIUM]
+================================================================================
+
+Login, logout, session check, registration, account deletion, password
+migration, bio, bio links, background pattern, wallpaper presets, avatar upload
+and the online heartbeat all live in one class. Only the first few are "auth".
+
+Fix: split the profile surface (bio, links, background, presets, avatar) into a
+ProfileController. Mechanical, since each handler is self-contained.
+
+Related: Editor.jsx is 1,593 lines and SocialRepository.java is 1,052.
+
+
+================================================================================
+7. NO SHARED AUTHORIZATION HELPER IN THE CONTROLLERS                   [MEDIUM]
+================================================================================
+
+This shape is repeated 80+ times across five controllers:
+
+    AuthSession session;
+    try { session = loginRepository.authorize(username, token); }
+    catch (JdbcLoginRepository.TokenExpiredException e) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Session expired");
+    }
+    if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+Every copy is a chance to get it subtly wrong — and the copies already differ in
+status code and body. The audit had to read all 80 to be sure none was missing.
+
+Fix: one `requireSession(username, token)` helper (or a small
+HandlerInterceptor) returning a session or throwing a mapped exception.
+AdminController already has `isAdmin()`, which is the right instinct.
+
+
+================================================================================
+8. /api/authorizeSession SIGNALS FAILURE WITH HTTP 200                 [MEDIUM]
+================================================================================
+
+An unauthorized session check returns 200 with an empty body; the client infers
+logged-out from the empty string:
+
+    if (response.data == null || response.data == "") { ...log out... }
+
+That is why "stale token -> HTTP 200" appears when probing the API, and it makes
+every session check indistinguishable from success to anything but this one
+client. Should be 401.
+
+Ties into the open task "auto-log out if session expired or not logged in" —
+worth doing together, since a 401 interceptor is the natural implementation.
+
+
+================================================================================
+9. DEAD CODE                                                              [LOW]
+================================================================================
+
+  - findPresetByImage() in patterns.js returns null with the comment
+    "no longer meaningful" and is still exported and called.
+  - patterns.js keeps extractBgColor / stripBgColor / extractScale for the
+    superseded pipe format ("dots|#1a1a2e"); still tested, so verify nothing
+    stored still uses it before removing.
+  - server-start.sh.save — an editor backup that was committed. (Deleted.)
+  - FIXED: five unused CSS classes in PatternPicker.css (--pending,
+    pending-bar, pending-label, apply-btn, custom-preview, color-editors).
+
+
+================================================================================
+10. UPLOAD QUOTA CHECK FAILS OPEN                                         [LOW]
+================================================================================
+
+UploadController wraps the quota lookup in
+`catch (Exception e) { /* allow the upload */ }`. Deliberate and commented, but
+a database hiccup lets a user past their storage limit. Rejecting is the safer
+default. Also noted in guide/SECURITY.md finding 11.
+
+
+================================================================================
+11. README.md DOCUMENTS A DIFFERENT APPLICATION                         [MEDIUM]
+================================================================================
+
+guide/README.md §5-6 still describe: frontend at /var/www/webposting/client
+(actually /var/www/webpost.ing/html), database testdb (actually webpostingdb),
+`tools/migrate.sh` as the migration path (superseded), the old pipe wallpaper
+format instead of JSON v2, and "you never need to edit application.properties"
+advice that predates the env-var configuration.
+
+Superseded by guide/DEPLOYMENT.md and guide/CONFIGURATION.md, but the stale text
+is still there to be believed. Trim §3-6 down to a pointer.
