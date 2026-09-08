@@ -68,27 +68,16 @@ export default function WaterTitle({ text = 'webpost.ing', className }) {
     const TEAL_R = 0, TEAL_G = 232, TEAL_B = 216;
 
     let animId;
-    let lastAutoDrop = 0;
-    let srcPixels    = null;
-    let mounted      = true;
+    let srcPixels = null;
+    let mounted   = true;
 
     // For cursor interpolation: track previous canvas-space position
     let prevCX = null, prevCY = null, prevT = null;
 
-    const tick = (t) => {
+    const tick = () => {
       if (!mounted) return;
       if (!srcPixels) {
         try { srcPixels = octx.getImageData(0, 0, W, H); } catch {}
-      }
-
-      // Tiny ambient drips
-      if (t - lastAutoDrop > 900 + Math.random() * 900) {
-        lastAutoDrop = t;
-        addDrop(
-          (0.2 + Math.random() * 0.6) * W,
-          (0.25 + Math.random() * 0.5) * H,
-          40 + Math.random() * 30,
-        );
       }
 
       // ── Wave equation ───────────────────────────────────────────────────
@@ -299,19 +288,8 @@ export default function WaterTitle({ text = 'webpost.ing', className }) {
       drawText();
       srcPixels = null;
 
-      // Initial splash — flood the whole surface with energy so the first
-      // thing the user sees is full teal→white distortion damping to rest.
-      const splashCount = 18;
-      for (let i = 0; i < splashCount; i++) {
-        const px = (0.05 + (i / (splashCount - 1)) * 0.9) * W;
-        const py = (0.1 + Math.random() * 0.8) * H;
-        addDrop(px, py, 900 + Math.random() * 400);
-      }
-      // A few extra ripple rings for texture
-      addRipple(W * 0.25, H * 0.5, 600, 8);
-      addRipple(W * 0.5,  H * 0.5, 700, 10);
-      addRipple(W * 0.75, H * 0.5, 600, 8);
-
+      // The title renders at rest. Hover and click still ripple it; there is
+      // deliberately no on-load animation and no ambient movement.
       animId = requestAnimationFrame(tick);
     });
 
