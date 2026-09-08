@@ -35,26 +35,25 @@ data or the running deployment and need hardening beyond ordinary auth.
       persistence.
 - [ ] **Fix broken editor features** **[needs decision]** — need the specific list
       of what is broken.
-- [ ] **Remove the logout wait timer; detect and handle stale sessions** — sessions
-      are in-memory, so a restart invalidates every token while the client keeps
-      showing a logged-in UI. Auto-logout on any 401/empty `authorizeSession`.
+- [x] **Remove the logout wait timer; detect and handle stale sessions** —
+      `authorizeSession` now returns 401 rather than 200-with-empty-body, and one
+      axios interceptor signs the user out and explains why. Logout is immediate.
 - [ ] **Vulnerability audit** — full pass over endpoints for missing auth and
       ownership checks; report findings to Mae. See `guide/code-smells.txt`.
 - [ ] **Clean up smelly code** — running list in `guide/code-smells.txt`.
-- [ ] **Named post URLs** — slug-based `/users/{u}/posts/{slug}`, with the numeric
-      id kept as a permanent redirect target.
+- [x] **Named post URLs** — `/users/{author}/{id}-{slug}`. Leading with the id
+      keeps lookups on the primary key and keeps every existing link working.
 
 ### P2 — Product features
 - [ ] **Set the real logo; remove the React logo** everywhere (favicon, PWA icons,
       any leftover Vite asset).
 - [x] **Logo: drop the on-load splash and the droplets**, keep the hover/click
       animation.
-- [ ] **Report post** — user-facing report action; reported posts queue in the
-      admin dashboard with reporter, reason and resolution state.
-- [ ] **Admin fonts directory** — admin uploads a font file; it becomes selectable
-      by every user immediately. Needs format allowlist (woff2/woff/ttf/otf),
-      magic-byte validation and a size cap — fonts are executable-adjacent
-      binaries served to every visitor.
+- [x] **Report post** — closed reason list plus optional detail; queue in a new
+      admin tab with resolve/dismiss/reopen. One report per person per post.
+- [x] **Admin fonts directory** — admin-only upload with an extension allowlist,
+      magic-byte verification, a 2 MB cap and CSS-safe family names; served via a
+      generated `/api/fonts.css`. Disabling is preferred over deletion.
 - [ ] **Post font options** — font-family picker in the editor, sourced from the
       fonts directory above.
 - [x] **Preferences area** — `/settings`, linked from the navbar.
@@ -100,6 +99,19 @@ because a single session-token compromise otherwise means total data loss.
       depend on a rebuild succeeding.
 - [ ] **Maintenance / migration landing page** — shown while an upgrade runs.
 - [ ] **Admin panel mobile** — responsive layout.
+
+### Added this session
+- [x] **Root error boundary** — a render error used to blank the page with no
+      explanation, which is exactly how the wallpaper crash presented.
+- [x] **`tools/backup.sh`** — database *and* uploads, verified. `pg_dump` alone
+      would restore every post with its images broken.
+- [x] **Post creation is transactional** — it was two statements, and a failure
+      between them left an authorless post. 48 of 97 posts in the dev database
+      are in that state.
+- [ ] **Clean up the 48 orphaned posts** — see `guide/RECOMMENDATIONS.md` item 7.
+- [ ] **CI** — `guide/RECOMMENDATIONS.md` item 3. Would have caught four separate
+      breakages in this session before they reached a built artefact.
+- [ ] **Rate-limit read endpoints** — writes are limited, reads are not.
 
 ### Carried over
 - [ ] **Persistent sessions** — store tokens in the DB (subsumes part of the

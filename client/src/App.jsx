@@ -26,6 +26,7 @@ import EmailActionPage from './components/Pages/Settings/EmailActionPage.jsx';
 import ForgotPasswordPage from './components/Pages/Settings/ForgotPasswordPage.jsx';
 
 import { installSessionInterceptor } from './utils/session.js'
+import AppErrorBoundary from './components/ErrorBoundary/AppErrorBoundary.jsx'
 
 
 // Installed once at module load, before any component can issue a request.
@@ -61,6 +62,8 @@ function App() {
       <Navbar />
       <ScrollToTop />
 
+      <AppErrorBoundary>
+
       <Routes>
         <Route index element={ <Home />} />
         <Route path="/routes" element={<Home />} />
@@ -90,6 +93,7 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
+        </AppErrorBoundary>
     </div>
   )
 }

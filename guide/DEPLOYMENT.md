@@ -143,15 +143,18 @@ fails with a permissions error. This is what made a freshly recreated
 ## 5. Back up before anything destructive
 
 ```bash
-pg_dump -Fc -U mae webpostingdb > ~/backup_$(date +%Y%m%d_%H%M%S).dump
-pg_restore -c -d webpostingdb ~/backup_20260709_120000.dump   # restore
+./tools/backup.sh              # into ./backups
+./tools/backup.sh /mnt/backups # or wherever
 ```
 
-Also back up the uploads directory — images live on disk, not in the database:
+Takes both halves and verifies them. **`pg_dump` alone is not a backup of this
+application**: images, avatars and fonts live on disk, so a database-only
+restore brings back every post with every image broken. The script archives
+`UPLOAD_DIR` alongside the dump with a matching timestamp, and reads both back
+before reporting success — an unreadable backup is worse than none, because you
+believe you have one.
 
-```bash
-tar czf ~/uploads_$(date +%Y%m%d).tar.gz -C /var/www/webposting uploads
-```
+To restore, the script prints the exact two commands for the pair it just made.
 
 ---
 
