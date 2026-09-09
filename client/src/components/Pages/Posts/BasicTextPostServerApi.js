@@ -751,3 +751,9 @@ export function UPDATE_CODE_DISPLAY(username, prefs) {
     withCredentials: true,
   }).then(r => r.data);
 }
+
+/** The signed-in user's own uploaded images, for the "choose an existing one" picker. */
+export function LIST_MY_UPLOADS(limit = 60) {
+  return axios.get(baseUrl + "/api/uploads/mine?limit=" + limit, { withCredentials: true })
+    .then(r => r.data);
+}

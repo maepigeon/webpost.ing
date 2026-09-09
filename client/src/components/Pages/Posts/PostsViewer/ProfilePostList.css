@@ -297,7 +297,9 @@
     inset 0 2px 0 rgba(255,255,255,0.92),
     0 10px 32px rgba(108,99,255,0.18),
     0 4px 12px rgba(0,0,0,0.09);
-  outline: 2px dashed rgba(108,99,255,0.30);
+  /* Solid rather than dashed, and stronger: this says "release here and the
+     post lands in this folder", which is worth being unmistakable. */
+  outline: 2.5px solid rgba(108, 99, 255, 0.65);
   outline-offset: 4px;
 }
 
@@ -654,4 +656,16 @@
   border: 1px solid rgba(108, 99, 255, 0.34);
   border-radius: 999px;
   box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.9), 0 2px 8px rgba(26,16,96,0.12);
+}
+
+
+/* The header itself reads as armed while a post hovers over the folder. */
+.profile-folder-header--dragover {
+  background: rgba(108, 99, 255, 0.14);
+  border-radius: 12px;
+}
+
+.profile-folder-header--dragover .profile-folder-name,
+.profile-folder-header--dragover .profile-folder-icon {
+  color: var(--accent-strong, #2f2a8f);
 }

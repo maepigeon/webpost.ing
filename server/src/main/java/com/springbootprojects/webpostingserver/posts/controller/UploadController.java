@@ -211,4 +211,75 @@ public class UploadController {
         body.put("srcset", String.join(", ", srcsetParts));
         return body;
     }
+
+    /**
+     * The signed-in user's own uploaded images, newest first.
+     *
+     * Backs the "choose one you have already uploaded" picker. Re-uploading the
+     * same picture is the common case — a header, a logo, a diagram used across
+     * several posts — and it wastes the user's storage quota every time.
+     *
+     * Scoped to the caller: this lists files, and one person's uploads are not
+     * another's to browse. Avatars and headers are excluded because they are
+     * profile furniture rather than things to place in a post.
+     */
+    @GetMapping("/uploads/mine")
+    public ResponseEntity<?> listMyUploads(
+            @RequestParam(defaultValue = "60") int limit,
+            @CookieValue(name = "username", required = false) String username,
+            @CookieValue(name = "authToken", required = false) String token) {
+
+        AuthSession session;
+        try {
+            session = loginRepository.authorize(username, token);
+        } catch (JdbcLoginRepository.TokenExpiredException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Session expired");
+        }
+        if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+        int capped = Math.min(Math.max(limit, 1), 200);
+
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+                SELECT u.id, u.filename, u.original_name, u.size_bytes, u.uploaded_at,
+                       u.width, u.height
+                  FROM uploads u
+                  JOIN users usr ON usr.id = u.user_id
+                 WHERE usr.username = ?
+                   AND u.filename NOT LIKE 'avatar/%'
+                   AND u.filename NOT LIKE 'headers/%'
+                 ORDER BY u.uploaded_at DESC
+                 LIMIT ?
+                """, username, capped);
+
+        List<Map<String, Object>> images = new ArrayList<>();
+        for (Map<String, Object> row : rows) {
+            String filename = (String) row.get("filename");
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("id", row.get("id"));
+            item.put("url", "/uploads/" + filename);
+            item.put("name", row.get("original_name"));
+            item.put("sizeBytes", row.get("size_bytes"));
+            item.put("uploadedAt", row.get("uploaded_at"));
+            item.put("width", row.get("width"));
+            item.put("height", row.get("height"));
+
+            // Hand back the same srcset a fresh upload would produce, so an
+            // image picked from the library is served as responsively as one
+            // uploaded on the spot.
+            List<Map<String, Object>> variants = jdbc.queryForList(
+                    "SELECT filename, width FROM upload_variants WHERE upload_id = ? ORDER BY width",
+                    row.get("id"));
+            List<String> parts = new ArrayList<>();
+            for (Map<String, Object> v : variants) {
+                parts.add("/uploads/" + v.get("filename") + " " + v.get("width") + "w");
+            }
+            if (!parts.isEmpty() && row.get("width") != null) {
+                parts.add("/uploads/" + filename + " " + row.get("width") + "w");
+            }
+            item.put("srcset", String.join(", ", parts));
+            images.add(item);
+        }
+
+        return ResponseEntity.ok(Map.of("images", images));
+    }
 }

@@ -1,0 +1,124 @@
+/* Image picker — the app's glass dialog language, flat fills. */
+
+.imgpick-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(26, 16, 96, 0.34);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+.imgpick-dialog {
+  width: min(720px, 100%);
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 22px 16px;
+  border-radius: var(--radius-lg, 18px);
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: var(--blur-glass, blur(22px) saturate(165%));
+  -webkit-backdrop-filter: var(--blur-glass, blur(22px) saturate(165%));
+  border: 1.5px solid rgba(255, 255, 255, 0.9);
+  box-shadow: var(--raise-3, 0 14px 44px rgba(26, 16, 96, 0.2));
+}
+
+.imgpick-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.imgpick-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ink, #1a1060);
+}
+
+/* A label wrapping a hidden input: the whole thing is the button. */
+.imgpick-upload {
+  padding: 7px 14px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: var(--accent-fill, #5b52e8);
+  border-radius: var(--radius-sm, 9px);
+  cursor: pointer;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1.5px 0 rgba(0, 0, 0, 0.2),
+    0 2px 8px rgba(68, 61, 187, 0.3);
+}
+
+.imgpick-upload:hover { filter: brightness(1.08); }
+.imgpick-upload input { display: none; }
+
+.imgpick-grid {
+  list-style: none;
+  margin: 0;
+  padding: 2px;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.imgpick-item {
+  width: 100%;
+  padding: 0;
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-md, 12px);
+  background: var(--surface-3, rgba(255, 255, 255, 0.86));
+  cursor: pointer;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--raise-1);
+  transition: transform var(--dur-fast, 0.13s) var(--ease-spring), box-shadow 0.15s;
+}
+
+.imgpick-item:hover { transform: translateY(-2px); box-shadow: var(--raise-2); }
+.imgpick-item:focus-visible { outline: none; box-shadow: var(--focus-ring), var(--raise-1); }
+
+.imgpick-item img {
+  width: 100%;
+  height: 96px;
+  object-fit: cover;
+  display: block;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.imgpick-name {
+  padding: 5px 8px;
+  font-size: 11px;
+  color: var(--ink-soft, #524c63);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.imgpick-status { margin: 18px 4px; font-size: 13px; color: var(--ink-soft, #524c63); }
+.imgpick-error  { margin: 18px 4px; font-size: 13px; color: var(--danger, #b71c1c); }
+
+.imgpick-actions { display: flex; justify-content: flex-end; margin-top: 14px; }
+
+.imgpick-btn {
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-soft, #524c63);
+  background: var(--surface-3, rgba(255, 255, 255, 0.86));
+  border: 1px solid var(--hairline, rgba(26, 16, 96, 0.13));
+  border-radius: var(--radius-sm, 9px);
+  cursor: pointer;
+}
+
+.imgpick-btn:hover { color: var(--ink, #1a1060); background: #ffffff; }

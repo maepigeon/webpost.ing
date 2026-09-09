@@ -40,6 +40,7 @@ import PatternPicker from '../../../../PatternPicker/PatternPicker.jsx';
 import { patternToStyle } from '../../../../PatternPicker/patterns.js';
 import { normaliseUploadResponse, describeUploadError } from '../../../../../utils/responsiveImage.js';
 import ImageCropDialog from '../../../../ImageCrop/ImageCropDialog.jsx';
+import ImagePicker from '../../../../ImagePicker/ImagePicker.jsx';
 import { postPath, slugify } from '../../../../../utils/postUrl.js';
 
 const EDITOR_NODES = [HeadingNode, ListNode, ListItemNode, CustomCodeNode, CodeHighlightNode, ImageNode, MathNode, LinkNode];
@@ -797,10 +798,10 @@ function ImageDragPastePlugin() {
 
 function ImageToolbarPlugin() {
   const [editor] = useLexicalComposerContext();
-  const fileInputRef = useRef(null);
   const [infoOpen, setInfoOpen] = useState(false);
   const infoRef = useRef(null);
   const [pendingFile, setPendingFile] = useState(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
     if (!infoOpen) return;
@@ -832,16 +833,23 @@ function ImageToolbarPlugin() {
     }
   };
 
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    // Reset immediately so picking the same file twice in a row still fires.
-    e.target.value = '';
-    if (!file) return;
-    setPendingFile(file);
+  /** Inserts an image the user already has, without re-uploading it. */
+  const insertExisting = (image) => {
+    setPickerOpen(false);
+    editor.update(() => {
+      insertBlockInner(() => $createImageNode(image.url, image.name || '', image.srcset || null));
+    });
   };
 
   return (
     <>
+      {pickerOpen && (
+        <ImagePicker
+          onClose={() => setPickerOpen(false)}
+          onSelect={insertExisting}
+          onUpload={(file) => { setPickerOpen(false); setPendingFile(file); }}
+        />
+      )}
       {pendingFile && (
         <ImageCropDialog
           file={pendingFile}
@@ -849,15 +857,8 @@ function ImageToolbarPlugin() {
           onConfirm={(result) => { setPendingFile(null); uploadFile(result); }}
         />
       )}
-      <input
-        type="file"
-        ref={fileInputRef}
-        style={{ display: 'none' }}
-        accept="image/*"
-        onChange={handleFileChange}
-      />
       <span className="image-btn-group" ref={infoRef}>
-        <button className="toolbar-btn-image" onClick={() => fileInputRef.current.click()}>Image</button>
+        <button className="toolbar-btn-image" onClick={() => setPickerOpen(true)}>Image</button>
         <button
           className="toolbar-btn-image-info"
           title="Image upload info"

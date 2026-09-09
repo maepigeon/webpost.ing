@@ -1,5 +1,29 @@
+/* "Welcome, <name>" in the navbar.
+
+   It used to run to the very edge of the bar with no wrapping rules, so a long
+   name — or a narrow window, or an overlay scrollbar sitting on top of the
+   content — clipped it mid-character. It now truncates with an ellipsis, which
+   reads as deliberate, and steps aside entirely when the bar is short of room;
+   the name is still in the menu. */
+
 .username {
     color: white;
     font-size: 16px;
     display: inline-block;
+    margin: 0;
+    padding-right: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 22ch;
+}
+
+@media (max-width: 900px) {
+    .username { max-width: 14ch; font-size: 15px; }
+}
+
+/* Below this the greeting is the first thing worth dropping: it is decoration,
+   and the same name is at the top of the menu. */
+@media (max-width: 700px) {
+    .username { display: none; }
 }

@@ -48,6 +48,20 @@ function FolderPopup({ name, posts, canEdit, onClose, onRemoveFromFolder, userna
   );
 }
 
+
+/**
+ * Where a post should land when dropped on a folder header rather than on a
+ * specific post: at the end of that folder's contents, or at the end of the
+ * ungrouped posts.
+ */
+function lastIndexOfFolder(posts, folder) {
+  let index = -1;
+  posts.forEach((p, i) => {
+    if ((p.folder || null) === folder) index = i;
+  });
+  return index === -1 ? posts.length : index + 1;
+}
+
 /** How long the pointer must rest over a target before the order previews. */
 const PREVIEW_DELAY_MS = 700;
 
@@ -310,6 +324,26 @@ export default function ProfilePostList({ posts, canEdit, username, onRefresh })
 
   const isPreviewing = previewItems !== displayItems;
 
+  /**
+   * True when releasing now would file the dragged post into this folder.
+   *
+   * Covers hovering the folder's header and hovering any post inside it, and is
+   * false when the post is already in that folder — highlighting a no-op move
+   * suggests something will happen when nothing will. The header's highlight
+   * was previously hardcoded to false, so filing a post by dragging gave no
+   * feedback at all.
+   */
+  function folderIsDropTarget(folderName) {
+    if (!activeId || !overId) return false;
+    const dragged = localPosts.find(p => String(p.id) === String(activeId));
+    if (!dragged || (dragged.folder || null) === folderName) return false;
+
+    const overStr = String(overId);
+    if (overStr === 'folder:' + folderName) return true;
+    const overPost = localPosts.find(p => String(p.id) === overStr);
+    return !!overPost && overPost.folder === folderName;
+  }
+
   // ── Persist ─────────────────────────────────────────────────────────────────
 
   // persistOrder: when reorderOnly=true, preserve existing sort_order values (folder change only).
@@ -371,14 +405,42 @@ export default function ProfilePostList({ posts, canEdit, username, onRefresh })
     const overStr = String(over.id);
 
     const activeDispIdx = displayItems.findIndex(d => d.id === activeStr);
-    let overDispIdx = displayItems.findIndex(d => d.id === overStr);
+    const overDispIdx = displayItems.findIndex(d => d.id === overStr);
 
-    // If the active item is from the outer list but over landed on a post inside a folder
-    // (inner SortableContext captured it), redirect over to the folder container instead.
-    if (activeDispIdx >= 0 && overDispIdx < 0) {
-      const overPost = localPosts.find(p => String(p.id) === overStr);
-      if (overPost?.folder) {
-        overDispIdx = displayItems.findIndex(d => d.type === 'folder' && d.name === overPost.folder);
+    const draggedPost = localPosts.find(p => String(p.id) === activeStr);
+    const droppedOnPost = localPosts.find(p => String(p.id) === overStr);
+
+    /**
+     * Which folder, if any, the drop lands in.
+     *
+     * Dropping on a folder's header, or on any post inside it, means "put this
+     * in that folder". Dropping on an ungrouped post means "put it beside that
+     * post, outside any folder". Previously a post dragged onto a folder was
+     * reordered *next to* the folder instead of going into it, so there was no
+     * way to file a post by dragging at all.
+     */
+    const dropTargetFolder =
+      overStr.startsWith('folder:') ? overStr.slice('folder:'.length)
+      : droppedOnPost ? (droppedOnPost.folder || null)
+      : undefined;
+
+    if (draggedPost && dropTargetFolder !== undefined) {
+      const from = draggedPost.folder || null;
+      const to = dropTargetFolder || null;
+
+      if (from !== to) {
+        // Moving between folders, or in or out of one. The post is placed just
+        // after whatever it was dropped on, so the drop position is respected
+        // rather than always appending to the end.
+        const without = localPosts.filter(p => String(p.id) !== activeStr);
+        const moved = { ...draggedPost, folder: to };
+        const anchor = droppedOnPost
+          ? without.findIndex(p => String(p.id) === overStr) + 1
+          : lastIndexOfFolder(without, to);
+        const updated = [...without.slice(0, anchor), moved, ...without.slice(anchor)];
+        setLocalPosts(updated);
+        persistOrder(updated);
+        return;
       }
     }
 
@@ -480,7 +542,7 @@ export default function ProfilePostList({ posts, canEdit, username, onRefresh })
                   collapsed={collapsedFolders.has(item.name)}
                   onToggle={() => toggleFolder(item.name)}
                   onOpenPopup={() => setOpenFolder(item.name)}
-                  isDragOver={false}
+                  isDragOver={folderIsDropTarget(item.name)}
                 >
                   {/* Inner context: posts within this folder */}
                   <SortableContext items={innerIds} strategy={verticalListSortingStrategy}>

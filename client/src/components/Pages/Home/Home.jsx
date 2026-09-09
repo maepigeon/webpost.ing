@@ -40,12 +40,11 @@ function Home() {
   return (
     <div className="home-page">
       {/* ── Hero ── */}
-      <section className="home-hero">
-        {/* The shared .glass-card surface, the same one the profile header
-            uses — not a bespoke panel. */}
-        <div className="glass-card home-title-glass">
-          <WaterTitle text="webpost.ing" className="home-water-title" />
-        </div>
+      {/* The whole hero sits on one glass panel — the shared .glass-card
+          surface, the same one the profile header uses. Previously only the
+          title had a panel and the text and buttons floated beside it. */}
+      <section className="home-hero glass-card">
+        <WaterTitle text="webpost.ing" className="home-water-title" />
         <p className="home-hero-sub">
           A cozy, invite-only corner of the web for writing, sharing ideas,
           and connecting with others.

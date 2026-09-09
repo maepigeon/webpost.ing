@@ -57,6 +57,10 @@
     gap: 4px;
     margin-left: auto;
     flex-shrink: 0;
+    /* Clear of an overlay scrollbar, which sits on top of the content on macOS
+       and was clipping the last few characters of the greeting. */
+    padding-right: 2px;
+    min-width: 0;
 }
 
 /* Measured, never shown. Off-screen rather than display:none, because a hidden
