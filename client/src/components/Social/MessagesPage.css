@@ -93,7 +93,7 @@
   box-shadow: 0 0 0 2px rgba(108,99,255,0.15);
 }
 .messages-new-form button {
-  background: linear-gradient(to bottom, #8578ee 0%, #5b52e8 55%, #443dbb 100%);
+  background: #5b52e8;
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -167,7 +167,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(to bottom, #c8c0f0 0%, #9070c8 100%);
+  background: #c8c0f0;
   border: 2px solid rgba(255,255,255,0.85);
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
@@ -484,7 +484,7 @@
 }
 
 .messages-send-btn {
-  background: linear-gradient(to bottom, #8578ee 0%, #5b52e8 50%, #443dbb 100%);
+  background: #5b52e8;
   color: #fff;
   border: none;
   border-radius: 12px;
@@ -812,7 +812,7 @@
 }
 .messages-dialog-cancel:hover { background: rgba(0,0,0,0.10); }
 .messages-dialog-confirm {
-  background: linear-gradient(to bottom, #7a71ff 0%, #5b52e8 50%, #443dbb 100%);
+  background: #5b52e8;
   border: none;
   border-radius: 9px;
   padding: 7px 18px;

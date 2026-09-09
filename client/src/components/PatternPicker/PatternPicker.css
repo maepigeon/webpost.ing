@@ -58,7 +58,7 @@
   height: 30px;
   border-radius: 50%;
   flex-shrink: 0;
-  background: linear-gradient(to bottom, #7a71ff 0%, #5b52e8 55%, #443dbb 100%);
+  background: #5b52e8;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
@@ -113,7 +113,7 @@
   padding: 8px 11px;
   font-size: 12px;
   color: #7a4a00;
-  background: linear-gradient(to bottom, rgba(255, 246, 224, 0.95), rgba(253, 235, 195, 0.95));
+  background: rgba(255, 246, 224, 0.95);
   border: 1px solid rgba(200, 150, 40, 0.4);
   border-radius: 10px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 1px 3px rgba(0, 0, 0, 0.07);
@@ -136,7 +136,7 @@
   border: none;
   border-radius: 7px;
   cursor: pointer;
-  background: linear-gradient(to bottom, #ffb347 0%, #f5891c 55%, #d06010 100%);
+  background: #f5891c;
   box-shadow:
     inset 0 1.5px 0 rgba(255, 255, 255, 0.55),
     inset 0 -1.5px 0 rgba(0, 0, 0, 0.2),
@@ -176,7 +176,7 @@
   padding: 4px 11px;
   border-radius: 999px;
   cursor: pointer;
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.9), rgba(232, 228, 245, 0.9));
+  background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(108, 99, 255, 0.34);
   box-shadow:
     inset 0 1.5px 0 rgba(255, 255, 255, 0.95),
@@ -268,7 +268,7 @@
   right: -5px;
   width: 18px;
   height: 18px;
-  background: linear-gradient(to bottom, #ef5350 0%, #d32f2f 60%, #a02020 100%);
+  background: #d32f2f;
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.7);
   border-radius: 50%;
@@ -384,7 +384,7 @@
   font-size: 11px;
   font-weight: 600;
   color: var(--pp-ink-soft);
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.85), rgba(228, 224, 236, 0.85));
+  background: rgba(255, 255, 255, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.8);
   border-radius: 7px;
   cursor: pointer;
@@ -400,7 +400,7 @@
   font-size: 11.5px;
   font-weight: 600;
   color: var(--pp-accent-dark);
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.9), rgba(232, 228, 245, 0.9));
+  background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(108, 99, 255, 0.3);
   border-radius: 8px;
   cursor: pointer;
@@ -549,7 +549,7 @@
 .pattern-save-dialog-btns { display: flex; gap: 10px; justify-content: flex-end; }
 
 .pattern-save-dialog-cancel {
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.85), rgba(228, 224, 236, 0.85));
+  background: rgba(255, 255, 255, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.8);
   border-radius: 9px;
   padding: 8px 16px;
@@ -565,7 +565,7 @@
 .pattern-save-dialog-cancel:active { transform: translateY(1px); }
 
 .pattern-save-dialog-save {
-  background: linear-gradient(to bottom, #7a71ff 0%, #5b52e8 50%, #443dbb 100%);
+  background: #5b52e8;
   border: none;
   border-radius: 9px;
   padding: 8px 18px;

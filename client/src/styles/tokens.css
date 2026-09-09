@@ -1,0 +1,100 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Design tokens
+
+   One place for the palette and the surface recipes. Before this, --neo-* lived
+   inside PostWindow.css and every other colour was a literal scattered across
+   40 stylesheets, which is why the app drifted off-palette.
+
+   ── The gradient rule ──────────────────────────────────────────────────────
+   Fills are FLAT. Depth comes from the inset edge highlights and the drop
+   shadow, never from a gradient in the background.
+
+   A gradient in a `background` is almost always decoration pretending to be
+   depth: it reads as a colour effect, it makes two adjacent surfaces impossible
+   to match, and it is the main reason the UI looked inconsistent. The raised
+   look survives without it because the inset light-top / dark-bottom edges were
+   doing the work all along.
+
+   Gradients remain legitimate only where the gradient *is* the content — the
+   wallpaper engine in PatternPicker/patterns.js, and a deliberate fade such as
+   a scroll shadow. Not for buttons, cards, panels, avatars or badges.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Palette ─────────────────────────────────────────────────────────── */
+  --page-bg:        #ece9e2;   /* warm cream */
+  --ink:            #1a1060;   /* headings, body */
+  --ink-soft:       #524c63;   /* meta, hints — 5.4:1 on cream */
+  --ink-faint:      #837e94;   /* placeholders only, never body text */
+
+  --accent:         #4b44cc;   /* purple, as TEXT on light surfaces (5.2:1) */
+  --accent-strong:  #2f2a8f;   /* hover for accent text */
+  --accent-fill:    #5b52e8;   /* purple, as a FILL under white text (5.5:1) */
+  --accent-fill-dk: #443dbb;   /* pressed / bottom edge */
+
+  --danger:         #b71c1c;
+  --danger-fill:    #c62828;
+  --warn-ink:       #6b4300;
+  --warn-bg:        #fdebc3;
+  --ok-ink:         #14532d;
+
+  /* ── Hairlines and edges ─────────────────────────────────────────────── */
+  --hairline:       rgba(26, 16, 96, 0.13);
+  --edge-light:     rgba(255, 255, 255, 0.95);
+  --edge-dark:      rgba(0, 0, 0, 0.10);
+
+  /* ── Flat glass surfaces ─────────────────────────────────────────────── */
+  /* Translucency plus backdrop-filter is what makes these read as glass; the
+     radial sheen they used to carry added nothing but inconsistency. */
+  --surface-1:      rgba(255, 255, 255, 0.58);   /* cards over a wallpaper */
+  --surface-2:      rgba(255, 255, 255, 0.72);   /* dialogs, popovers */
+  --surface-3:      rgba(255, 255, 255, 0.86);   /* inputs, inner wells */
+  --surface-sunken: rgba(255, 255, 255, 0.35);   /* recessed areas */
+
+  --blur-glass:     blur(22px) saturate(165%);
+
+  /* ── Raised surface: a flat fill plus edges ──────────────────────────── */
+  --raise-1:
+    0 0 0 1px var(--hairline),
+    0 2px 6px rgba(26, 16, 96, 0.10),
+    inset 0 1.5px 0 var(--edge-light),
+    inset 0 -1.5px 0 var(--edge-dark);
+
+  --raise-2:
+    0 0 0 1px var(--hairline),
+    0 6px 18px rgba(26, 16, 96, 0.14),
+    inset 0 1.5px 0 var(--edge-light),
+    inset 0 -1.5px 0 var(--edge-dark);
+
+  --raise-3:
+    0 12px 40px rgba(26, 16, 96, 0.18),
+    0 2px 8px rgba(0, 0, 0, 0.07),
+    inset 0 2px 0 var(--edge-light),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.05);
+
+  --pressed:
+    inset 0 2px 5px rgba(26, 16, 96, 0.18),
+    inset 0 1px 0 rgba(0, 0, 0, 0.05);
+
+  --focus-ring:     0 0 0 3px rgba(91, 82, 232, 0.32);
+
+  /* ── Shape and motion ────────────────────────────────────────────────── */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
+
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-fast: 0.13s;
+  --dur-base: 0.2s;
+}
+
+/* Honour the system setting everywhere at once, rather than per-component. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

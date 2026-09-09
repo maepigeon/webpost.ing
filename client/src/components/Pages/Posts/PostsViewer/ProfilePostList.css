@@ -52,7 +52,7 @@
   border-radius: 8px 0 0 8px;
   user-select: none;
   touch-action: none;
-  background: linear-gradient(to right, rgba(255,255,255,0.9) 0%, rgba(226,222,245,0.62) 100%);
+  background: rgba(255, 255, 255, 0.9);
   border-right: 1px solid rgba(108, 99, 255, 0.22);
   box-shadow:
     inset 1.5px 0 0 rgba(255, 255, 255, 0.95),
@@ -62,7 +62,7 @@
 
 .profile-post-drag-handle:hover {
   color: #2f2a8f;
-  background: linear-gradient(to right, rgba(255,255,255,1) 0%, rgba(212,207,242,0.85) 100%);
+  background: #ffffff;
   box-shadow:
     inset 1.5px 0 0 rgba(255, 255, 255, 1),
     inset -1px 0 0 rgba(108, 99, 255, 0.28);
@@ -72,7 +72,7 @@
 .profile-post-item--dragging .profile-post-drag-handle {
   cursor: grabbing;
   color: #2f2a8f;
-  background: linear-gradient(to right, rgba(198,192,238,0.95) 0%, rgba(222,218,246,0.8) 100%);
+  background: rgba(198, 192, 238, 0.95);
   box-shadow: inset 0 2px 5px rgba(75, 68, 204, 0.2);
 }
 
@@ -97,11 +97,7 @@
   margin: 6px auto 10px;
   max-width: 640px;
   border-radius: 999px;
-  background: linear-gradient(to right,
-    rgba(108, 99, 255, 0) 0%,
-    rgba(108, 99, 255, 0.85) 18%,
-    rgba(108, 99, 255, 0.85) 82%,
-    rgba(108, 99, 255, 0) 100%);
+  background: rgba(108, 99, 255, 0.85);
   box-shadow: 0 0 10px rgba(108, 99, 255, 0.5);
   animation: profile-drop-in 0.18s ease-out;
 }
@@ -190,9 +186,7 @@
   right: 0;
   top: calc(100% + 6px);
   z-index: 500;
-  background:
-    radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0) 60%),
-    rgba(255,255,255,0.92);
+  background: rgba(255, 255, 255, 0.98);
   backdrop-filter: blur(22px) saturate(180%);
   -webkit-backdrop-filter: blur(22px) saturate(180%);
   border-radius: 14px;
@@ -261,7 +255,7 @@
 }
 
 .profile-post-folder-new-btn {
-  background: linear-gradient(to bottom, #9a92ff, #6c63ff) !important;
+  background: #9a92ff;
   border: none !important;
   border-radius: 8px !important;
   width: 28px;
@@ -283,9 +277,7 @@
   max-width: 700px;
   margin: 16px auto;
   position: relative;
-  background:
-    radial-gradient(ellipse at 30% 0%, rgba(108,99,255,0.07) 0%, transparent 55%),
-    rgba(255,255,255,0.52);
+  background: rgba(108, 99, 255, 0.07);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1.5px solid rgba(255,255,255,0.78);
@@ -315,9 +307,7 @@
 /* ── Folder section drag state ───────────────────────────────────────────── */
 .profile-folder-section--dragging {
   border-color: rgba(108,99,255,0.35);
-  background:
-    radial-gradient(ellipse at 30% 0%, rgba(108,99,255,0.12) 0%, transparent 55%),
-    rgba(255,255,255,0.72);
+  background: rgba(108, 99, 255, 0.12);
 }
 
 /* ── Folder drag handle (in header) ──────────────────────────────────────── */
@@ -338,7 +328,7 @@
   user-select: none;
   touch-action: none;
   margin-right: 6px;
-  background: linear-gradient(to bottom, rgba(255,255,255,0.82) 0%, rgba(226,222,245,0.82) 100%);
+  background: rgba(255, 255, 255, 0.82);
   border: 1px solid rgba(108, 99, 255, 0.26);
   box-shadow:
     inset 0 1.5px 0 rgba(255, 255, 255, 0.95),
@@ -349,7 +339,7 @@
 
 .profile-folder-drag-handle:hover {
   color: #4b44cc;
-  background: linear-gradient(to bottom, rgba(255,255,255,0.95) 0%, rgba(214,209,242,0.95) 100%);
+  background: rgba(255, 255, 255, 0.95);
   box-shadow:
     inset 0 1.5px 0 rgba(255, 255, 255, 1),
     inset 0 -1.5px 0 rgba(108, 99, 255, 0.18),
@@ -361,7 +351,7 @@
 .profile-folder-section--dragging .profile-folder-drag-handle {
   cursor: grabbing;
   transform: translateY(0);
-  background: linear-gradient(to bottom, rgba(200,194,238,0.95) 0%, rgba(224,220,246,0.95) 100%);
+  background: rgba(200, 194, 238, 0.95);
   box-shadow: inset 0 2px 5px rgba(75, 68, 204, 0.22);
 }
 
@@ -658,7 +648,7 @@
   font-size: 12px;
   font-weight: 600;
   color: #2f2a8f;
-  background: linear-gradient(to bottom, rgba(238,235,252,0.96), rgba(224,219,248,0.96));
+  background: rgba(238, 235, 252, 0.96);
   border: 1px solid rgba(108, 99, 255, 0.34);
   border-radius: 999px;
   box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.9), 0 2px 8px rgba(26,16,96,0.12);

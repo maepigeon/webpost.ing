@@ -33,7 +33,7 @@
   font-size: 13px;
   line-height: 1.5;
   color: #6b4300;
-  background: linear-gradient(to bottom, rgba(255, 246, 224, 0.95), rgba(253, 235, 195, 0.95));
+  background: rgba(255, 246, 224, 0.95);
   border: 1px solid rgba(200, 150, 40, 0.4);
   border-radius: 10px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
@@ -107,7 +107,7 @@
 .settings-btn--primary {
   color: #ffffff;
   border: none;
-  background: linear-gradient(to bottom, #7a71ff 0%, #5b52e8 50%, #443dbb 100%);
+  background: #5b52e8;
   box-shadow:
     0 3px 11px rgba(68, 61, 187, 0.34),
     inset 0 2px 0 rgba(255, 255, 255, 0.4),

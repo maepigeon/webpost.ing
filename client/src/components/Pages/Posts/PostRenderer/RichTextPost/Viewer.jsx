@@ -484,7 +484,7 @@ export default function RichTextViewer() {
         }} onMouseDown={() => { setShowDmShare(false); setDmRecipient(''); setDmFeedback(null); }}>
           <div style={{
             position: 'relative',
-            background: 'radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0) 70%), linear-gradient(to bottom, rgba(255,255,255,0.82) 0%, rgba(235,231,226,0.86) 100%)',
+            background: 'rgba(243, 241, 238, 0.86)',
             backdropFilter: 'blur(28px) saturate(180%)',
             border: '1px solid rgba(255,255,255,0.8)',
             borderRadius: 20, padding: '28px 24px 22px',
@@ -518,7 +518,7 @@ export default function RichTextViewer() {
                 Cancel
               </button>
               <button onClick={sendViaDm} disabled={dmSending || !dmRecipient.trim()}
-                style={{ padding: '7px 18px', borderRadius: 9, border: 'none', background: 'linear-gradient(to bottom, #8880ff 0%, #6c63ff 50%, #5246e8 100%)', color: '#fff', cursor: dmSending ? 'default' : 'pointer', fontSize: '0.875rem', fontWeight: 700, opacity: (!dmRecipient.trim() || dmSending) ? 0.6 : 1 }}>
+                style={{ padding: '7px 18px', borderRadius: 9, border: 'none', background: '#5b52e8', color: '#fff', cursor: dmSending ? 'default' : 'pointer', fontSize: '0.875rem', fontWeight: 700, opacity: (!dmRecipient.trim() || dmSending) ? 0.6 : 1 }}>
                 {dmSending ? 'Sending…' : 'Send'}
               </button>
             </div>

@@ -137,7 +137,7 @@
 
 .report-btn--ghost {
   color: #524c63;
-  background: linear-gradient(to bottom, rgba(255,255,255,0.88), rgba(228,224,236,0.88));
+  background: rgba(255, 255, 255, 0.88);
   border: 1px solid rgba(255, 255, 255, 0.85);
   box-shadow: 0 0 0 1px rgba(26, 16, 96, 0.1), inset 0 1.5px 0 rgba(255, 255, 255, 0.92);
 }
@@ -147,7 +147,7 @@
 .report-btn--primary {
   color: #ffffff;
   border: none;
-  background: linear-gradient(to bottom, #d05a5a 0%, #b71c1c 50%, #8f1414 100%);
+  background: #b71c1c;
   box-shadow:
     0 3px 11px rgba(143, 20, 20, 0.32),
     inset 0 2px 0 rgba(255, 255, 255, 0.3),

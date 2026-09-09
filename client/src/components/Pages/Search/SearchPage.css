@@ -202,12 +202,7 @@
 .search-user-card {
   position: relative;
   isolation: isolate;
-  background: linear-gradient(
-    168deg,
-    rgba(255,255,255,0.94) 0%,
-    rgba(240,237,252,0.91) 55%,
-    rgba(222,217,244,0.89) 100%
-  );
+  background: rgba(240, 237, 252, 0.91);
   backdrop-filter: blur(18px) saturate(170%);
   -webkit-backdrop-filter: blur(18px) saturate(170%);
   border-radius: 16px;
