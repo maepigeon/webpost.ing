@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { GET_SETTINGS } from '../Pages/Posts/BasicTextPostServerApi.js';
-import { patternToStyle, relativeLuminance, DEFAULT_BG_COLOR } from '../PatternPicker/patterns.js';
+import { patternToStyle } from '../PatternPicker/patterns.js';
 import { RESERVED_USERNAMES } from '../../utils/reservedUsernames.js';
 import { applyCodeDisplay } from '../../utils/codeDisplay.js';
 import './SiteBackground.css';
@@ -67,21 +67,18 @@ export default function SiteBackground() {
   const active = background && !ownsItsOwnBackground(location.pathname);
   const style = active ? patternToStyle(background) : {};
 
-  /**
-   * Flip the whole palette to light ink when the background is dark.
-   *
-   * A user picking a near-black wallpaper would otherwise get the default dark
-   * text on it, which is unreadable. The threshold is measured luminance rather
-   * than a guess, and the attribute lives on <html> so every token can respond
-   * in one place instead of each component testing for itself.
-   */
-  useEffect(() => {
-    const bg = active ? (style._bgColor || DEFAULT_BG_COLOR) : null;
-    const lum = bg ? relativeLuminance(bg) : null;
-    const dark = lum !== null && lum < 0.35;
-    document.documentElement.setAttribute('data-surface', dark ? 'dark' : 'light');
-    return () => document.documentElement.setAttribute('data-surface', 'light');
-  }, [active, style._bgColor]);
+  // No global ink flip here.
+  //
+  // An earlier version measured the background's luminance and switched every
+  // colour token to a light palette. That only works if the whole app reads
+  // from those tokens, and only five of thirty-five stylesheets do — so a dark
+  // background flipped a handful of components to light text while the rest
+  // kept their hard-coded dark text, on a dark page. It made things
+  // dramatically worse, not better.
+  //
+  // The right guarantee is narrower and does not depend on adoption: a
+  // background sits *behind* content, and content carries its own readable
+  // surface. See .site-background-scrim for the one case that does not.
 
   if (!active) return null;
   return (

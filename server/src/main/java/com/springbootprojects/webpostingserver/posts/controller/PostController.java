@@ -253,11 +253,26 @@ public class PostController {
         return new ResponseEntity<>(page, HttpStatus.OK);
     }
 
+    /**
+     * A published post needs a title; a draft does not.
+     *
+     * Requiring one on every save meant "Save draft" failed outright on a new
+     * post before the writer had thought of a title — which is exactly when a
+     * draft is most useful. An untitled draft is saved as "Untitled" and can be
+     * named before it is published.
+     */
     private static ResponseEntity<String> validatePost(Post post) {
         String title = post.getTitle();
         String desc  = post.getDescription();
-        if (title == null || title.isBlank() || title.length() > 255)
-            return new ResponseEntity<>("Title must be 1–255 characters.", HttpStatus.BAD_REQUEST);
+
+        if (title != null && title.length() > 255)
+            return new ResponseEntity<>("Title must be 255 characters or fewer.", HttpStatus.BAD_REQUEST);
+
+        if (title == null || title.isBlank()) {
+            if (post.isPublished())
+                return new ResponseEntity<>("Add a title before publishing.", HttpStatus.BAD_REQUEST);
+            post.setTitle("Untitled");
+        }
         if (desc != null && desc.length() > 100_000)
             return new ResponseEntity<>("Post content must be under 100,000 characters.", HttpStatus.BAD_REQUEST);
         if (!PatternValidator.isValid(post.getBackgroundPattern()))

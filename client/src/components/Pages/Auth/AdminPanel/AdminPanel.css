@@ -487,12 +487,11 @@
   width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  /* A hint that there is more to the right, which a plain overflow does not
-     give on a trackpad or a touchscreen with hidden scrollbars. */
-  background:
-    linear-gradient(to right, var(--surface-2, rgba(255,255,255,0.72)) 30%, rgba(255,255,255,0)) left / 28px 100% no-repeat,
-    linear-gradient(to left,  var(--surface-2, rgba(255,255,255,0.72)) 30%, rgba(255,255,255,0)) right / 28px 100% no-repeat;
-  background-attachment: local, local;
+  /* A visible edge on each side, so it is obvious the table scrolls. A gradient
+     fade would read better but the flat-fill rule applies here too, and a
+     hairline does the job. */
+  border-left: 1px solid var(--hairline, rgba(26, 16, 96, 0.13));
+  border-right: 1px solid var(--hairline, rgba(26, 16, 96, 0.13));
 }
 
 .admin-table-scroll .admin-table { min-width: 100%; }

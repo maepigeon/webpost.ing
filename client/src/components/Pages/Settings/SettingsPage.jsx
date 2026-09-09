@@ -1,9 +1,14 @@
-import { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import {
   GET_SETTINGS, UPDATE_EMAIL_PREFERENCES, UPDATE_EMAIL_ADDRESS, RESEND_VERIFICATION,
   UPDATE_SITE_BACKGROUND, UPDATE_CODE_DISPLAY,
+  GET_USER_BACKGROUND, UPDATE_USER_BACKGROUND,
+  GET_PROFILE_HEADER, UPLOAD_PROFILE_HEADER, UPDATE_PROFILE_HEADER,
 } from '../Posts/BasicTextPostServerApi.js';
+import PatternPicker from '../../PatternPicker/PatternPicker.jsx';
+import { IMAGES_BASE_URL } from '../../../config.js';
+import { describeUploadError } from '../../../utils/responsiveImage.js';
 import {
   CODE_FONTS, MIN_CODE_SIZE, MAX_CODE_SIZE, DEFAULT_CODE_SIZE, applyCodeDisplay,
 } from '../../../utils/codeDisplay.js';
@@ -73,12 +78,23 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // Appearance lives here rather than on the profile page: these are settings,
+  // and the profile is where the result is seen, not where it is configured.
+  const [profileWallpaper, setProfileWallpaper] = useState('');
+  const [header, setHeader] = useState({ headerPath: null, headerInk: 'auto' });
+  const [headerBusy, setHeaderBusy] = useState(false);
+  const headerFileRef = useRef(null);
+
   useEffect(() => {
     if (!username) { navigate('/routes/Login'); return; }
     GET_SETTINGS(username)
       .then(data => { setSettings(data); setEmailInput(data.email || ''); })
       .catch(() => setError('Could not load your settings. Try reloading the page.'))
       .finally(() => setLoading(false));
+    GET_USER_BACKGROUND(username).then(p => setProfileWallpaper(p || '')).catch(() => {});
+    GET_PROFILE_HEADER(username)
+      .then(d => setHeader({ headerPath: d.headerPath || null, headerInk: d.headerInk || 'auto' }))
+      .catch(() => {});
   }, [username, navigate]);
 
   const togglePreference = useCallback(async (key, value) => {
@@ -150,6 +166,48 @@ export default function SettingsPage() {
       applyCodeDisplay(previous);
       setError('Could not save that.');
     }
+  };
+
+  const saveWallpaper = async (pattern) => {
+    const previous = profileWallpaper;
+    setProfileWallpaper(pattern);
+    try {
+      await UPDATE_USER_BACKGROUND(username, pattern);
+      setStatus('Wallpaper saved.');
+    } catch (err) {
+      setProfileWallpaper(previous);
+      setError(err?.response?.data || 'Could not save that wallpaper.');
+    }
+  };
+
+  const uploadHeader = async (file) => {
+    if (!file) return;
+    setHeaderBusy(true);
+    setError('');
+    try {
+      const result = await UPLOAD_PROFILE_HEADER(username, file);
+      setHeader(h => ({ ...h, headerPath: result.headerPath }));
+      setStatus(result.message);
+    } catch (err) {
+      setError(describeUploadError(err));
+    } finally {
+      setHeaderBusy(false);
+    }
+  };
+
+  const removeHeader = async () => {
+    try {
+      await UPDATE_PROFILE_HEADER(username, { remove: true });
+      setHeader(h => ({ ...h, headerPath: null }));
+      setStatus('Header image removed.');
+    } catch { setError('Could not remove the header image.'); }
+  };
+
+  const changeHeaderInk = async (choice) => {
+    const previous = header.headerInk;
+    setHeader(h => ({ ...h, headerInk: choice }));
+    try { await UPDATE_PROFILE_HEADER(username, { headerInk: choice }); }
+    catch { setHeader(h => ({ ...h, headerInk: previous })); }
   };
 
   const resend = async () => {
@@ -228,6 +286,74 @@ export default function SettingsPage() {
                   </>}
             </p>
           )}
+        </section>
+
+        {/* ── Profile appearance ──────────────────────────────────────────── */}
+        <section className="settings-section">
+          <h2 className="settings-section-title">Your profile</h2>
+          <p className="settings-section-hint">
+            How your profile looks to everyone who visits it. Your bio, links and
+            avatar are still edited on <Link className="settings-link" to={`/${username}`}>your profile</Link>,
+            where you can see them in place.
+          </p>
+
+          <h3 className="settings-subheading">Header image</h3>
+          <p className="settings-section-hint">
+            Sits behind your avatar, name and links, replacing the plain panel.
+          </p>
+
+          {header.headerPath && (
+            <div
+              className="settings-header-preview"
+              style={{ backgroundImage: `url(${IMAGES_BASE_URL}${header.headerPath})` }}
+            >
+              <span className={`settings-header-preview-scrim settings-header-preview-scrim--${header.headerInk}`} />
+              <span className={`settings-header-preview-text settings-header-preview-text--${header.headerInk}`}>
+                {username}
+              </span>
+            </div>
+          )}
+
+          <div className="settings-header-controls">
+            <input
+              type="file"
+              ref={headerFileRef}
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={e => { const f = e.target.files[0]; e.target.value = ''; uploadHeader(f); }}
+            />
+            <button type="button" className="settings-btn settings-btn--primary"
+                    disabled={headerBusy} onClick={() => headerFileRef.current?.click()}>
+              {headerBusy ? 'Uploading…' : header.headerPath ? 'Change image' : 'Choose an image'}
+            </button>
+            {header.headerPath && (
+              <>
+                <button type="button" className="settings-btn settings-btn--ghost" onClick={removeHeader}>
+                  Remove
+                </button>
+                <span className="settings-ink-group" role="group" aria-label="Text colour over the header">
+                  <span className="settings-ink-label">Text</span>
+                  {[['auto', 'Auto'], ['light', 'Light'], ['dark', 'Dark']].map(([v, l]) => (
+                    <button key={v} type="button"
+                            className={`settings-ink-btn${header.headerInk === v ? ' settings-ink-btn--active' : ''}`}
+                            onClick={() => changeHeaderInk(v)}>{l}</button>
+                  ))}
+                </span>
+              </>
+            )}
+          </div>
+
+          <h3 className="settings-subheading">Wallpaper</h3>
+          <p className="settings-section-hint">
+            The background of your profile page, shown to everyone who visits.
+          </p>
+          <div className="settings-wallpaper-panel">
+            <PatternPicker
+              value={profileWallpaper}
+              onChange={saveWallpaper}
+              username={username}
+            />
+          </div>
         </section>
 
         {/* ── Site background ─────────────────────────────────────────────── */}

@@ -41,7 +41,11 @@ function Home() {
     <div className="home-page">
       {/* ── Hero ── */}
       <section className="home-hero">
-        <WaterTitle text="webpost.ing" className="home-water-title" />
+        {/* The shared .glass-card surface, the same one the profile header
+            uses — not a bespoke panel. */}
+        <div className="glass-card home-title-glass">
+          <WaterTitle text="webpost.ing" className="home-water-title" />
+        </div>
         <p className="home-hero-sub">
           A cozy, invite-only corner of the web for writing, sharing ideas,
           and connecting with others.

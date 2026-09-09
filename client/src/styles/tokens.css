@@ -100,39 +100,19 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Dark surfaces
+   A note on dark backgrounds
 
-   A user can set a near-black site background, which would leave the default
-   dark ink unreadable on it. SiteBackground measures the chosen colour's
-   luminance and stamps `data-surface="dark"` on <html>; the tokens below are
-   the whole response, so no component has to test for itself.
+   There is deliberately no dark-ink override here.
 
-   Only the ink and the glass fills change. The accents keep their hue and move
-   to the lighter end of the ramp, which is what keeps the app recognisable
-   rather than becoming a separate dark theme.
+   An earlier version measured the user's chosen background and switched every
+   token to a light palette when it was dark. That is only safe once the whole
+   app reads from these tokens, and five of thirty-five stylesheets do — so it
+   flipped a few components to light text while thirty kept hard-coded dark
+   text, all on a dark page.
+
+   Until token adoption is complete, readability is guaranteed the narrower way:
+   content sits on its own light surface (--surface-1/2/3 plus backdrop-filter),
+   and anything that would otherwise sit directly on the user's wallpaper gets
+   a scrim. A background goes *behind* content; it is never the thing text is
+   read against.
    ═══════════════════════════════════════════════════════════════════════════ */
-
-:root[data-surface="dark"] {
-  --ink:            #f4f1ea;   /* 13.9:1 on #1a1832 */
-  --ink-soft:       #c9c4d6;   /*  8.4:1 */
-  --ink-faint:      #9c96ad;   /*  4.7:1 — still legible, unlike the light value */
-
-  --accent:         #b3abff;   /* purple as text: 7.4:1 on a dark ground */
-  --accent-strong:  #d0caff;
-  /* Fills keep their light-mode values: white text on them is unchanged, and a
-     fill is its own surface rather than part of the page. */
-
-  --danger:         #ff9b9b;
-  --warn-ink:       #ffd28a;
-  --ok-ink:         #8fe0ab;
-
-  --hairline:       rgba(255, 255, 255, 0.16);
-  --edge-light:     rgba(255, 255, 255, 0.22);
-  --edge-dark:      rgba(0, 0, 0, 0.32);
-
-  /* Glass over a dark ground has to darken, not lighten, or it glows. */
-  --surface-1:      rgba(28, 24, 48, 0.58);
-  --surface-2:      rgba(28, 24, 48, 0.74);
-  --surface-3:      rgba(38, 33, 60, 0.86);
-  --surface-sunken: rgba(0, 0, 0, 0.24);
-}

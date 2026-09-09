@@ -1,9 +1,8 @@
-import { useState, useEffect, useRef, useCallback, React} from 'react';
-import {AUTHORIZE_SESSION, READ_POSTS_BY_USER, GET_USER_BACKGROUND, UPDATE_USER_BACKGROUND, GET_USER_BIO, UPDATE_USER_BIO, GET_USER_BIO_LINKS, UPDATE_USER_BIO_LINKS, GET_USER_STORAGE, SEND_MESSAGE, GET_FOLLOWERS, GET_FOLLOWING, GET_BLOCK_MESSAGE_STATUS, BLOCK_MESSAGES, UNBLOCK_MESSAGES, EXPORT_MY_DATA, GET_PINNED_POST, GET_USER_AVATAR, POST_USER_AVATAR, GET_USER_ONLINE} from '../BasicTextPostServerApi.js'
+import { useState, useEffect, useRef, useCallback } from 'react';
+import {AUTHORIZE_SESSION, READ_POSTS_BY_USER, GET_USER_BACKGROUND, GET_USER_BIO, UPDATE_USER_BIO, GET_USER_BIO_LINKS, UPDATE_USER_BIO_LINKS, GET_USER_STORAGE, GET_FOLLOWERS, GET_FOLLOWING, GET_BLOCK_MESSAGE_STATUS, BLOCK_MESSAGES, UNBLOCK_MESSAGES, EXPORT_MY_DATA, GET_PINNED_POST, GET_USER_AVATAR, POST_USER_AVATAR, GET_USER_ONLINE} from '../BasicTextPostServerApi.js'
 import ProfilePostList from './ProfilePostList.jsx';
 import { IMAGES_BASE_URL } from '../../../../config.js';
 import BasicTextPost from '../PostRenderer/BasicTextPost/BasicTextPost.jsx';
-import PatternPicker from '../../../PatternPicker/PatternPicker.jsx';
 import FollowButton from '../../../Social/FollowButton.jsx';
 import FollowListModal from '../../../Social/FollowListModal.jsx';
 import AvatarPopup from '../../../Social/AvatarPopup.jsx';
@@ -14,7 +13,7 @@ import '../PostWindow.css';
 import {useParams, Link, useNavigate} from "react-router-dom";
 import { usePageTitle } from '../../../../utils/usePageTitle.js';
 import { describeUploadError } from '../../../../utils/responsiveImage.js';
-import { GET_PROFILE_HEADER, UPLOAD_PROFILE_HEADER, UPDATE_PROFILE_HEADER } from '../BasicTextPostServerApi.js';
+import { GET_PROFILE_HEADER } from '../BasicTextPostServerApi.js';
 
 function Heading(props) {
  if (props.username != null && props.username != "") {
@@ -105,11 +104,6 @@ function PostsViewer() {
     const [bgPattern, setBgPattern] = useState('');
     // Banner image behind the header card, and how text over it is coloured.
     const [header, setHeader] = useState({ headerPath: null, headerInk: 'auto' });
-    const [headerBusy, setHeaderBusy] = useState(false);
-    const headerFileRef = useRef(null);
-    const savedBgRef = useRef(''); // tracks what's actually saved to backend
-    const [showBgPicker, setShowBgPicker] = useState(false);
-    const [bgSaveError, setBgSaveError] = useState('');
     const [bio, setBio] = useState('');
     const [editingBio, setEditingBio] = useState(false);
     const [bioInput, setBioInput] = useState('');
@@ -122,8 +116,6 @@ function PostsViewer() {
     const [linksInput, setLinksInput] = useState([{ label: '', url: '' }]);
     const [linksError, setLinksError] = useState('');
     const [storage, setStorage] = useState(null);
-    const [showMessageForm, setShowMessageForm] = useState(false);
-    const [messageText, setMessageText] = useState('');
     const [followModal, setFollowModal] = useState(null); // 'followers' | 'following' | null
     const [followList, setFollowList] = useState([]);
     const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 });
@@ -135,7 +127,6 @@ function PostsViewer() {
     const [onlineStatus, setOnlineStatus] = useState(null); // { online, lastSeen }
     const [showAvatarPopup, setShowAvatarPopup] = useState(false);
     const avatarInputRef = useRef(null);
-    const bgPickerRef = useRef(null);
     const sentinelRef = useRef(null);
     const { username } = useParams();
     usePageTitle(username ? `${username}'s profile` : null);
@@ -160,7 +151,7 @@ function PostsViewer() {
       offsetRef.current = 0;
       setHasMore(true);
       loadPosts(true);
-      GET_USER_BACKGROUND(username).then(p => { const v = p || ''; setBgPattern(v); savedBgRef.current = v; }).catch(() => {});
+      GET_USER_BACKGROUND(username).then(p => setBgPattern(p || '')).catch(() => {});
       GET_PROFILE_HEADER(username)
         .then(d => setHeader({ headerPath: d.headerPath || null, headerInk: d.headerInk || 'auto' }))
         .catch(() => {});
@@ -201,14 +192,7 @@ function PostsViewer() {
     }, [hasMore, loadingMore, loadPosts]);
 
     // Close wallpaper picker when clicking outside
-    useEffect(() => {
-      if (!showBgPicker) return;
-      const handleOutside = (e) => {
-        if (bgPickerRef.current && !bgPickerRef.current.contains(e.target)) closeBgPicker();
-      };
-      document.addEventListener('mousedown', handleOutside);
-      return () => document.removeEventListener('mousedown', handleOutside);
-    }, [showBgPicker]);
+
 
     // Apply profile page background to body
     useEffect(() => {
@@ -225,48 +209,8 @@ function PostsViewer() {
       };
     }, [bgPattern]);
 
-    /**
-     * Uploads a header banner. The file is validated server-side; here we only
-     * guard the obvious case so the user gets an instant answer.
-     */
-    async function uploadHeader(file) {
-      if (!file) return;
-      if (!file.type.startsWith('image/')) { alert('Choose an image file.', 'Not an image'); return; }
-      setHeaderBusy(true);
-      try {
-        const result = await UPLOAD_PROFILE_HEADER(username, file);
-        setHeader(h => ({ ...h, headerPath: result.headerPath }));
-      } catch (err) {
-        alert(describeUploadError(err), 'Upload failed');
-      } finally {
-        setHeaderBusy(false);
-      }
-    }
 
-    async function removeHeader() {
-      if (!(await confirm('Remove your header image?'))) return;
-      try {
-        await UPDATE_PROFILE_HEADER(username, { remove: true });
-        setHeader(h => ({ ...h, headerPath: null }));
-      } catch {
-        alert('Could not remove the header image.', 'Something went wrong');
-      }
-    }
 
-    /**
-     * Text over a photo cannot be measured the way a flat colour can, so the
-     * user picks: automatic (a scrim plus light text, which works on most
-     * images), or forced light/dark when their image defeats it.
-     */
-    async function setHeaderInk(choice) {
-      const previous = header.headerInk;
-      setHeader(h => ({ ...h, headerInk: choice }));
-      try {
-        await UPDATE_PROFILE_HEADER(username, { headerInk: choice });
-      } catch {
-        setHeader(h => ({ ...h, headerInk: previous }));
-      }
-    }
 
     async function openFollowModal(type) {
       try {
@@ -276,36 +220,8 @@ function PostsViewer() {
       } catch { setFollowList([]); setFollowModal(type); }
     }
 
-    function handleBgPreview(pattern) {
-      setBgPattern(pattern); // live preview, no save
-    }
 
-    function handleBgChange(pattern) {
-      setBgPattern(pattern);
-      savedBgRef.current = pattern;
-      setBgSaveError('');
-      UPDATE_USER_BACKGROUND(username, pattern).catch(err => {
-        const msg = err?.response?.data || err?.message || 'Unknown error';
-        setBgSaveError(`Wallpaper save failed: ${msg}`);
-        console.error('Failed to save background:', err);
-      });
-    }
 
-    function closeBgPicker() {
-      // Revert to last saved value if the user previewed but didn't Apply
-      setBgPattern(savedBgRef.current);
-      setShowBgPicker(false);
-    }
-
-    async function sendMessage() {
-      const text = messageText.trim();
-      if (!text) return;
-      try {
-        await SEND_MESSAGE(username, text);
-        setMessageText('');
-        setShowMessageForm(false);
-      } catch { alert('Failed to send message.', 'Message not sent'); }
-    }
 
     function saveLinks() {
       setLinksError('');
@@ -554,39 +470,11 @@ function PostsViewer() {
                 <div className="profile-owner-divider" />
                 {/* Group 2: appearance + export */}
                 <div className="profile-owner-group">
-                  <input
-                    type="file"
-                    ref={headerFileRef}
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                    onChange={e => { const f = e.target.files[0]; e.target.value = ''; uploadHeader(f); }}
-                  />
-                  <button type="button" className="edit-bio-btn" disabled={headerBusy}
-                          onClick={() => headerFileRef.current?.click()}>
-                    {headerBusy ? 'Uploading…' : header.headerPath ? 'Change banner' : '+ Banner'}
-                  </button>
-                  {header.headerPath && (
-                    <>
-                      <button type="button" className="edit-bio-btn" onClick={removeHeader}>
-                        Remove banner
-                      </button>
-                      <span className="profile-header-ink-group" role="group" aria-label="Banner text colour">
-                        {[['auto', 'Auto'], ['light', 'Light text'], ['dark', 'Dark text']].map(([v, l]) => (
-                          <button
-                            key={v}
-                            type="button"
-                            className={`profile-header-ink-btn${header.headerInk === v ? ' profile-header-ink-btn--active' : ''}`}
-                            onClick={() => setHeaderInk(v)}
-                          >{l}</button>
-                        ))}
-                      </span>
-                    </>
-                  )}
-                  <span ref={bgPickerRef} className="profile-wallpaper-anchor">
-                    <button type="button" className="edit-bio-btn" onClick={() => showBgPicker ? closeBgPicker() : setShowBgPicker(true)}>
-                      {showBgPicker ? 'Hide wallpaper' : 'Wallpaper'}
-                    </button>
-                  </span>
+                  {/* Appearance is configured in Settings; the profile is
+                      where the result is seen. */}
+                  <Link to="/settings" className="edit-bio-btn profile-appearance-link">
+                    Appearance
+                  </Link>
                   <button
                     type="button"
                     className="edit-bio-btn"
@@ -600,13 +488,7 @@ function PostsViewer() {
                 </div>
               </div>
             )}
-            {canEdit && showBgPicker && (
-              <div className="profile-wallpaper-panel" onMouseDown={e => e.stopPropagation()}>
-                <p className="profile-wallpaper-panel-title">Wallpaper</p>
-                {bgSaveError && <p className="profile-inline-error">{bgSaveError}</p>}
-                <PatternPicker value={bgPattern} onChange={handleBgChange} onPreview={handleBgPreview} username={username} />
-              </div>
-            )}
+
 
             {/* Followers / Following + Message / Block DMs — combined row */}
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '14px', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -628,7 +510,7 @@ function PostsViewer() {
                       try {
                         if (dmBlocked) { await UNBLOCK_MESSAGES(username); setDmBlocked(false); }
                         else { await BLOCK_MESSAGES(username); setDmBlocked(true); }
-                      } catch {}
+                      } catch { /* the button reflects the server state on reload */ }
                     }}
                   >
                     {dmBlocked ? 'Unblock DMs' : 'Block DMs'}
