@@ -13,6 +13,8 @@ import { useDialog } from '../../../Dialog/Dialog.jsx';
 import '../PostWindow.css';
 import {useParams, Link, useNavigate} from "react-router-dom";
 import { usePageTitle } from '../../../../utils/usePageTitle.js';
+import { describeUploadError } from '../../../../utils/responsiveImage.js';
+import { GET_PROFILE_HEADER, UPLOAD_PROFILE_HEADER, UPDATE_PROFILE_HEADER } from '../BasicTextPostServerApi.js';
 
 function Heading(props) {
  if (props.username != null && props.username != "") {
@@ -101,6 +103,10 @@ function PostsViewer() {
     const offsetRef = useRef(0);
     const PAGE_SIZE = 20;
     const [bgPattern, setBgPattern] = useState('');
+    // Banner image behind the header card, and how text over it is coloured.
+    const [header, setHeader] = useState({ headerPath: null, headerInk: 'auto' });
+    const [headerBusy, setHeaderBusy] = useState(false);
+    const headerFileRef = useRef(null);
     const savedBgRef = useRef(''); // tracks what's actually saved to backend
     const [showBgPicker, setShowBgPicker] = useState(false);
     const [bgSaveError, setBgSaveError] = useState('');
@@ -110,7 +116,10 @@ function PostsViewer() {
     const [bioError, setBioError] = useState('');
     const [bioLinks, setBioLinks] = useState([]);
     const [editingLinks, setEditingLinks] = useState(false);
-    const [linksInput, setLinksInput] = useState([{ label: '', url: '' }, { label: '', url: '' }, { label: '', url: '' }]);
+    // A list the user grows and shrinks, rather than three fixed slots. Ten is
+    // the server's cap.
+    const MAX_BIO_LINKS = 10;
+    const [linksInput, setLinksInput] = useState([{ label: '', url: '' }]);
     const [linksError, setLinksError] = useState('');
     const [storage, setStorage] = useState(null);
     const [showMessageForm, setShowMessageForm] = useState(false);
@@ -152,6 +161,9 @@ function PostsViewer() {
       setHasMore(true);
       loadPosts(true);
       GET_USER_BACKGROUND(username).then(p => { const v = p || ''; setBgPattern(v); savedBgRef.current = v; }).catch(() => {});
+      GET_PROFILE_HEADER(username)
+        .then(d => setHeader({ headerPath: d.headerPath || null, headerInk: d.headerInk || 'auto' }))
+        .catch(() => {});
       GET_USER_BIO(username).then(b => setBio(b || '')).catch(() => {});
       GET_USER_BIO_LINKS(username).then(d => {
         const links = Array.isArray(d) ? d : (typeof d === 'string' ? JSON.parse(d) : []);
@@ -212,6 +224,49 @@ function PostsViewer() {
         document.documentElement.style.backgroundColor = '';
       };
     }, [bgPattern]);
+
+    /**
+     * Uploads a header banner. The file is validated server-side; here we only
+     * guard the obvious case so the user gets an instant answer.
+     */
+    async function uploadHeader(file) {
+      if (!file) return;
+      if (!file.type.startsWith('image/')) { alert('Choose an image file.', 'Not an image'); return; }
+      setHeaderBusy(true);
+      try {
+        const result = await UPLOAD_PROFILE_HEADER(username, file);
+        setHeader(h => ({ ...h, headerPath: result.headerPath }));
+      } catch (err) {
+        alert(describeUploadError(err), 'Upload failed');
+      } finally {
+        setHeaderBusy(false);
+      }
+    }
+
+    async function removeHeader() {
+      if (!(await confirm('Remove your header image?'))) return;
+      try {
+        await UPDATE_PROFILE_HEADER(username, { remove: true });
+        setHeader(h => ({ ...h, headerPath: null }));
+      } catch {
+        alert('Could not remove the header image.', 'Something went wrong');
+      }
+    }
+
+    /**
+     * Text over a photo cannot be measured the way a flat colour can, so the
+     * user picks: automatic (a scrim plus light text, which works on most
+     * images), or forced light/dark when their image defeats it.
+     */
+    async function setHeaderInk(choice) {
+      const previous = header.headerInk;
+      setHeader(h => ({ ...h, headerInk: choice }));
+      try {
+        await UPDATE_PROFILE_HEADER(username, { headerInk: choice });
+      } catch {
+        setHeader(h => ({ ...h, headerInk: previous }));
+      }
+    }
 
     async function openFollowModal(type) {
       try {
@@ -287,7 +342,15 @@ function PostsViewer() {
           />
         )}
         <div className="postsViewerContainer">
-          <div className="profile-header-card">
+          <div
+            className={`profile-header-card${header.headerPath ? ' profile-header-card--image' : ''}${
+              header.headerPath ? ` profile-header-card--ink-${header.headerInk}` : ''}`}
+            style={header.headerPath ? { backgroundImage: `url(${IMAGES_BASE_URL}${header.headerPath})` } : undefined}
+          >
+            {/* A scrim under the text, not over the image as a whole: it keeps
+                the photo legible while guaranteeing the name and bio stay
+                readable whatever the image behind them. */}
+            {header.headerPath && <span className="profile-header-scrim" aria-hidden="true" />}
             {/* Avatar */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 8 }}>
               <div style={{ position: 'relative', display: 'inline-block' }}>
@@ -358,8 +421,7 @@ function PostsViewer() {
                         const relativePath = typeof path === 'string' ? path : path?.avatarPath || '';
                         setAvatar(relativePath);
                       } catch (err) {
-                        const msg = err?.response?.data;
-                        alert(typeof msg === 'string' ? msg : 'Avatar upload failed.', 'Upload failed');
+                        alert(describeUploadError(err), 'Upload failed');
                       }
                       e.target.value = '';
                     }}
@@ -408,30 +470,56 @@ function PostsViewer() {
 
             {/* Bio links display / edit form */}
             {editingLinks ? (
-              <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+              <div className="profile-links-editor">
                 {linksInput.map((l, i) => (
-                  <div key={i} style={{ display: 'flex', gap: '6px', width: '100%', maxWidth: '480px' }}>
+                  <div key={i} className="profile-link-row">
                     <input
+                      className="profile-link-input profile-link-input--label"
                       value={l.label}
                       onChange={e => setLinksInput(prev => prev.map((x, j) => j === i ? { ...x, label: e.target.value } : x))}
                       placeholder="Personal website, Instagram…"
                       maxLength={50}
-                      style={{ flex: '0 0 160px', padding: '5px 8px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '13px', boxSizing: 'border-box' }}
+                      aria-label={`Link ${i + 1} label`}
                     />
                     <input
+                      className="profile-link-input"
                       value={l.url}
                       onChange={e => setLinksInput(prev => prev.map((x, j) => j === i ? { ...x, url: e.target.value } : x))}
                       placeholder="https://..."
                       maxLength={500}
-                      style={{ flex: 1, padding: '5px 8px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '13px', boxSizing: 'border-box' }}
+                      aria-label={`Link ${i + 1} address`}
                     />
+                    <button
+                      type="button"
+                      className="profile-link-remove"
+                      title="Remove this link"
+                      aria-label={`Remove link ${i + 1}`}
+                      onClick={() => setLinksInput(prev =>
+                        // Never leave zero rows: an empty editor gives the user
+                        // nothing to type into and no obvious way forward.
+                        prev.length === 1 ? [{ label: '', url: '' }] : prev.filter((_, j) => j !== i))}
+                    >×</button>
                   </div>
                 ))}
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button type="button" onClick={saveLinks}>Save</button>
-                  <button type="button" onClick={() => { setEditingLinks(false); setLinksError(''); }}>Cancel</button>
+
+                <div className="profile-links-actions">
+                  <button
+                    type="button"
+                    className="profile-link-add"
+                    disabled={linksInput.length >= MAX_BIO_LINKS}
+                    onClick={() => setLinksInput(prev => [...prev, { label: '', url: '' }])}
+                  >
+                    + Add link
+                  </button>
+                  <span className="profile-links-count">
+                    {linksInput.length} of {MAX_BIO_LINKS}
+                  </span>
+                  <span className="profile-links-spacer" />
+                  <button type="button" className="edit-bio-btn" onClick={saveLinks}>Save</button>
+                  <button type="button" className="edit-bio-btn"
+                          onClick={() => { setEditingLinks(false); setLinksError(''); }}>Cancel</button>
                 </div>
-                {linksError && <p style={{ margin: '4px 0 0', color: '#d32f2f', fontSize: '12px' }}>{linksError}</p>}
+                {linksError && <p className="profile-inline-error">{linksError}</p>}
               </div>
             ) : (
               bioLinks.length > 0 && (
@@ -456,9 +544,8 @@ function PostsViewer() {
                     {bio ? 'Edit bio' : '+ Bio'}
                   </button>
                   <button type="button" className="edit-bio-btn" onClick={() => {
-                    const padded = [...bioLinks];
-                    while (padded.length < 3) padded.push({ label: '', url: '' });
-                    setLinksInput(padded);
+                    // Open on what they have, plus one empty row to type into.
+                    setLinksInput(bioLinks.length ? [...bioLinks] : [{ label: '', url: '' }]);
                     setEditingLinks(true);
                   }}>
                     {bioLinks.length > 0 ? 'Edit links' : '+ Links'}
@@ -467,6 +554,34 @@ function PostsViewer() {
                 <div className="profile-owner-divider" />
                 {/* Group 2: appearance + export */}
                 <div className="profile-owner-group">
+                  <input
+                    type="file"
+                    ref={headerFileRef}
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={e => { const f = e.target.files[0]; e.target.value = ''; uploadHeader(f); }}
+                  />
+                  <button type="button" className="edit-bio-btn" disabled={headerBusy}
+                          onClick={() => headerFileRef.current?.click()}>
+                    {headerBusy ? 'Uploading…' : header.headerPath ? 'Change banner' : '+ Banner'}
+                  </button>
+                  {header.headerPath && (
+                    <>
+                      <button type="button" className="edit-bio-btn" onClick={removeHeader}>
+                        Remove banner
+                      </button>
+                      <span className="profile-header-ink-group" role="group" aria-label="Banner text colour">
+                        {[['auto', 'Auto'], ['light', 'Light text'], ['dark', 'Dark text']].map(([v, l]) => (
+                          <button
+                            key={v}
+                            type="button"
+                            className={`profile-header-ink-btn${header.headerInk === v ? ' profile-header-ink-btn--active' : ''}`}
+                            onClick={() => setHeaderInk(v)}
+                          >{l}</button>
+                        ))}
+                      </span>
+                    </>
+                  )}
                   <span ref={bgPickerRef} className="profile-wallpaper-anchor">
                     <button type="button" className="edit-bio-btn" onClick={() => showBgPicker ? closeBgPicker() : setShowBgPicker(true)}>
                       {showBgPicker ? 'Hide wallpaper' : 'Wallpaper'}

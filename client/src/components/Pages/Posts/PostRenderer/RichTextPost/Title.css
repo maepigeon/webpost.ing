@@ -17,7 +17,7 @@ body {
         inset 0 2px 0 rgba(255, 255, 255, 0.98),
         inset 0 -1px 0 rgba(0, 0, 0, 0.04),
         inset 1px 0 0 rgba(255, 255, 255, 0.6),
-        inset -1px 0 0 rgba(0, 0, 0, 0.03);
+        inset -1px 0 0 rgba(255, 255, 255, 0.6);
     margin-bottom: 32px;
     text-align: left;
     overflow: hidden;

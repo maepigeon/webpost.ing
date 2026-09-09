@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { slugify, postPath, parsePostId } from '../utils/postUrl.js';
+import { slugify, postPath, parsePostId, effectiveSlug, needsResolution } from '../utils/postUrl.js';
 
 describe('slugify', () => {
   it('lowercases and hyphenates', () => {
@@ -32,9 +32,27 @@ describe('slugify', () => {
   });
 });
 
+describe('effectiveSlug', () => {
+  it('uses an author-chosen slug', () => {
+    expect(effectiveSlug({ id: 1, title: 'Anything', slug: 'chosen' })).toBe('chosen');
+  });
+  it('derives one from the title otherwise', () => {
+    expect(effectiveSlug({ id: 1, title: 'My Post' })).toBe('my-post');
+  });
+  it('treats placeholder slugs as none, so the URL falls back to the id', () => {
+    for (const slug of ['untitled', 'undefined', 'null', 'post']) {
+      expect(effectiveSlug({ id: 1, slug }), slug).toBe('');
+    }
+  });
+});
+
 describe('postPath', () => {
-  it('builds an id-and-slug path', () => {
-    expect(postPath("mae", { id: 42, title: "My Post" })).toBe("/mae/42-my-post");
+  it('uses the slug alone, without the id', () => {
+    expect(postPath('mae', { id: 42, title: 'My Post' })).toBe('/mae/my-post');
+  });
+  it('never renders a placeholder slug into the URL', () => {
+    // /mae/123-untitled tells the reader nothing; /mae/123 is honest.
+    expect(postPath('mae', { id: 123, title: 'Untitled' })).toBe('/mae/123');
   });
   it('falls back to the bare id when the title has no slug', () => {
     expect(postPath('mae', { id: 42, title: '🎉' })).toBe('/mae/42');
@@ -44,11 +62,11 @@ describe('postPath', () => {
   });
   it('prefers an author-chosen slug over the title', () => {
     expect(postPath('mae', { id: 42, title: 'My Post', slug: 'custom-name' }))
-      .toBe('/mae/42-custom-name');
+      .toBe('/mae/custom-name');
   });
   it('appends a suffix', () => {
     expect(postPath('mae', { id: 42, title: 'My Post' }, '/discussion'))
-      .toBe('/mae/42-my-post/discussion');
+      .toBe('/mae/my-post/discussion');
   });
   it('falls back to the profile when there is no post', () => {
     expect(postPath('mae', null)).toBe('/mae');
@@ -70,8 +88,10 @@ describe('parsePostId', () => {
   it('returns null when there is no leading number', () => {
     for (const bad of ['abc', '-42', '', null, undefined]) expect(parsePostId(bad)).toBeNull();
   });
-  it('round-trips with postPath', () => {
-    const path = postPath('mae', { id: 1234, title: 'Round Trip' });
-    expect(parsePostId(path.split('/').pop())).toBe('1234');
+  it('returns null for a slug-only segment, which the server must resolve', () => {
+    expect(parsePostId('my-post')).toBeNull();
+    expect(needsResolution('my-post')).toBe(true);
+    expect(needsResolution('42')).toBe(false);
+    expect(needsResolution('42-my-post')).toBe(false);
   });
 });

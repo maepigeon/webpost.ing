@@ -715,3 +715,39 @@ export function ADMIN_UPDATE_REPORT(reportId, status) {
     withCredentials: true,
   }).then(r => r.data);
 }
+
+export function UPDATE_SITE_BACKGROUND(username, background) {
+  return axios.put(baseUrl + "/api/users/" + username + "/settings/site-background",
+    { background: background || '' },
+    { headers: { 'Content-Type': 'application/json' }, withCredentials: true },
+  ).then(r => r.data);
+}
+
+// ── Profile header image ──────────────────────────────────────────────────────
+
+export function GET_PROFILE_HEADER(username) {
+  return axios.get(baseUrl + "/api/users/" + username + "/header", { withCredentials: true })
+    .then(r => r.data);
+}
+
+export function UPLOAD_PROFILE_HEADER(username, file) {
+  const form = new FormData();
+  form.append('file', file);
+  // Content-Type is left unset so the browser adds the multipart boundary.
+  return axios.post(baseUrl + "/api/users/" + username + "/header", form, { withCredentials: true })
+    .then(r => r.data);
+}
+
+export function UPDATE_PROFILE_HEADER(username, body) {
+  return axios.put(baseUrl + "/api/users/" + username + "/header", body, {
+    headers: { 'Content-Type': 'application/json' },
+    withCredentials: true,
+  }).then(r => r.data);
+}
+
+export function UPDATE_CODE_DISPLAY(username, prefs) {
+  return axios.put(baseUrl + "/api/users/" + username + "/settings/code-display", prefs, {
+    headers: { 'Content-Type': 'application/json' },
+    withCredentials: true,
+  }).then(r => r.data);
+}

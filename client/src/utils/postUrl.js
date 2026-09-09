@@ -1,23 +1,21 @@
 /**
  * Post URLs.
  *
- * A post lives at `/{author}/{id}-{slug}` — the numeric id first, then a
- * readable slug, which is the author's own if they set one and derived from the
- * title otherwise:
+ * A post's address is `/{author}/{slug}`, falling back to `/{author}/{id}` when
+ * it has no usable slug:
  *
- *     /mae/42-how-i-built-the-wallpaper-maker
+ *     /mae/how-i-built-the-wallpaper-maker
+ *     /mae/42                                (no title yet, or an unsluggable one)
  *
- * The older `/users/{author}/...` form still routes, so links already shared
- * keep working.
+ * Three forms all resolve, so no link ever breaks:
  *
- * Leading with the id means lookups stay by primary key. A pure slug would need
- * a unique column, collision handling, a backfill for every existing post, and
- * a decision about what happens when a title is edited. This form gets the
- * readable URL with none of that, and bare-id links keep working unchanged —
- * `parsePostId` just takes the digits off the front.
+ *   /mae/42            the id
+ *   /mae/my-post       the slug alone
+ *   /mae/42-my-post    the older combined form
  *
- * It also means the slug is cosmetic: a stale or hand-edited slug still resolves
- * to the right post, the way it does on Stack Overflow or Medium.
+ * The id wins when both are present, so a stale slug still finds the right
+ * post. Slugs are made unique per author on save, because a slug now has to
+ * identify one post rather than merely decorate an id.
  */
 
 /** Longest slug we will generate. Long enough to be useful, short enough to read. */
@@ -29,14 +27,14 @@ const MAX_SLUG_LENGTH = 60;
  * Accents are decomposed and stripped so "Café" becomes "cafe" rather than
  * being dropped. Anything else outside [a-z0-9] collapses to a single hyphen,
  * which handles punctuation, emoji and non-Latin scripts — a title written
- * entirely in one of those yields an empty slug, and the URL is then just the
+ * entirely in one of those yields an empty slug, and the URL falls back to the
  * id, which is correct rather than a row of hyphens.
  */
 export function slugify(title) {
   if (!title || typeof title !== 'string') return '';
   return title
     .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')   // strip combining accents
+    .replace(/[\u0300-\u036f]/g, '')   // strip combining accents
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
@@ -45,27 +43,46 @@ export function slugify(title) {
 }
 
 /**
+ * Placeholder slugs that carry no information. A post with no title should be
+ * `/mae/42`, not `/mae/42-untitled`.
+ */
+const EMPTY_SLUGS = new Set(['untitled', 'undefined', 'null', 'new-post', 'post']);
+
+/** The slug a post should appear under, or '' if it has none worth showing. */
+export function effectiveSlug(post) {
+  if (!post) return '';
+  const slug = (post.slug || slugify(post.title) || '').trim();
+  return EMPTY_SLUGS.has(slug) ? '' : slug;
+}
+
+/**
  * Builds the canonical path for a post.
  *
  * @param {string} username author's username
- * @param {{id: number|string, title?: string}} post
+ * @param {{id: number|string, title?: string, slug?: string}} post
  * @param {string} [suffix] e.g. '/discussion'
  */
 export function postPath(username, post, suffix = '') {
   if (!post || post.id == null) return `/${username}`;
-  const slug = post.slug || slugify(post.title);
-  const segment = slug ? `${post.id}-${slug}` : String(post.id);
-  return `/${username}/${segment}${suffix}`;
+  const slug = effectiveSlug(post);
+  return `/${username}/${slug || post.id}${suffix}`;
 }
 
 /**
- * Extracts the numeric id from a route segment, accepting both the slugged form
- * and a bare id.
+ * Reads a numeric id from a route segment, if it has one.
  *
- * @returns {string|null} the id as a string, or null if the segment has none
+ * Returns null for a slug-only segment — that has to be resolved by the server,
+ * since only it knows which post the slug belongs to.
+ *
+ * @returns {string|null}
  */
 export function parsePostId(segment) {
   if (segment == null) return null;
-  const match = String(segment).match(/^(\d+)/);
+  const match = String(segment).match(/^(\d+)(?:-|$)/);
   return match ? match[1] : null;
+}
+
+/** True when a segment is a slug rather than an id, and so needs resolving. */
+export function needsResolution(segment) {
+  return segment != null && String(segment).length > 0 && parsePostId(segment) === null;
 }

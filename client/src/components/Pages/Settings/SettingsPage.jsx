@@ -2,7 +2,12 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   GET_SETTINGS, UPDATE_EMAIL_PREFERENCES, UPDATE_EMAIL_ADDRESS, RESEND_VERIFICATION,
+  UPDATE_SITE_BACKGROUND, UPDATE_CODE_DISPLAY,
 } from '../Posts/BasicTextPostServerApi.js';
+import {
+  CODE_FONTS, MIN_CODE_SIZE, MAX_CODE_SIZE, DEFAULT_CODE_SIZE, applyCodeDisplay,
+} from '../../../utils/codeDisplay.js';
+import { patternToStyle, parseWallpaper } from '../../PatternPicker/patterns.js';
 import { usePageTitle } from '../../../utils/usePageTitle.js';
 import './SettingsPage.css';
 
@@ -25,6 +30,36 @@ const CATEGORIES = [
   { key: 'onPostPublished', label: 'Your own publish receipts',
     hint: 'A confirmation to you each time one of your posts goes live.' },
 ];
+
+
+/**
+ * One background option, previewed at the size it will be seen rather than
+ * described in words — a wallpaper is not something a label can convey.
+ */
+function BackgroundChoice({ label, value, current, onChoose }) {
+  const selected = (current || null) === (value || null);
+  const style = value ? patternToStyle(value) : {};
+  const data = value ? parseWallpaper(value) : null;
+
+  return (
+    <button
+      type="button"
+      className={`settings-bg-choice${selected ? ' settings-bg-choice--selected' : ''}`}
+      onClick={() => onChoose(value)}
+      aria-pressed={selected}
+    >
+      <span
+        className="settings-bg-swatch"
+        style={{
+          backgroundColor: data?.bgColor || 'var(--page-bg)',
+          backgroundImage: style.backgroundImage,
+          backgroundSize: style.backgroundSize,
+        }}
+      />
+      <span className="settings-bg-name">{label}</span>
+    </button>
+  );
+}
 
 export default function SettingsPage() {
   usePageTitle('Settings');
@@ -79,6 +114,44 @@ export default function SettingsPage() {
     }
   };
 
+  /**
+   * Saves the site-wide background and tells the layer to repaint immediately,
+   * rather than waiting for a reload.
+   */
+  const chooseBackground = async (value) => {
+    setStatus('');
+    setError('');
+    const previous = settings.siteBackground;
+    setSettings(s => ({ ...s, siteBackground: value }));
+    window.dispatchEvent(new CustomEvent('site-background-changed', { detail: value }));
+    try {
+      const result = await UPDATE_SITE_BACKGROUND(username, value);
+      setStatus(result.message);
+    } catch (err) {
+      setSettings(s => ({ ...s, siteBackground: previous }));
+      window.dispatchEvent(new CustomEvent('site-background-changed', { detail: previous }));
+      setError(err?.response?.data?.message || 'Could not save that background.');
+    }
+  };
+
+  /**
+   * Saves how this reader sees code blocks and applies it at once, so the
+   * sample below the controls reflects the change as it is made.
+   */
+  const changeCodeDisplay = async (patch) => {
+    const previous = { codeFont: settings.codeFont, codeFontSize: settings.codeFontSize };
+    const next = { ...previous, ...patch };
+    setSettings(s => ({ ...s, ...next }));
+    applyCodeDisplay(next);
+    try {
+      await UPDATE_CODE_DISPLAY(username, patch);
+    } catch {
+      setSettings(s => ({ ...s, ...previous }));
+      applyCodeDisplay(previous);
+      setError('Could not save that.');
+    }
+  };
+
   const resend = async () => {
     setStatus('');
     setError('');
@@ -94,6 +167,14 @@ export default function SettingsPage() {
   if (!settings) return <div className="settings-page"><p className="settings-error">{error}</p></div>;
 
   const { email, emailVerified, mailEnabled, preferences } = settings;
+
+  // The preset library is stored as a JSON object of name -> wallpaper string.
+  let savedPresets = [];
+  try {
+    savedPresets = Object.entries(JSON.parse(settings.presets || '{}'));
+  } catch {
+    savedPresets = [];   // a malformed library should not break the page
+  }
   const addressChanged = emailInput.trim() !== (email || '');
   const notificationsUsable = mailEnabled && emailVerified;
 
@@ -147,6 +228,97 @@ export default function SettingsPage() {
                   </>}
             </p>
           )}
+        </section>
+
+        {/* ── Site background ─────────────────────────────────────────────── */}
+        <section className="settings-section">
+          <h2 className="settings-section-title">Site background</h2>
+          <p className="settings-section-hint">
+            Shown to you across the site — home, search, your inbox, messages and
+            settings. Profiles and posts are left alone: those show the wallpaper
+            their author chose, and nobody else sees this.
+          </p>
+
+          <div className="settings-bg-grid">
+            <BackgroundChoice
+              label="None"
+              value={null}
+              current={settings.siteBackground}
+              onChoose={chooseBackground}
+            />
+            {settings.profileBackground && (
+              <BackgroundChoice
+                label="My profile wallpaper"
+                value={settings.profileBackground}
+                current={settings.siteBackground}
+                onChoose={chooseBackground}
+              />
+            )}
+            {savedPresets.map(([name, stored]) => (
+              <BackgroundChoice
+                key={name}
+                label={name}
+                value={stored}
+                current={settings.siteBackground}
+                onChoose={chooseBackground}
+              />
+            ))}
+          </div>
+
+          {savedPresets.length === 0 && !settings.profileBackground && (
+            <p className="settings-section-hint">
+              You have no saved wallpapers yet. Make one with the wallpaper maker
+              on your profile and save it as a preset, and it will appear here.
+            </p>
+          )}
+        </section>
+
+        {/* ── Code blocks ─────────────────────────────────────────────────── */}
+        <section className="settings-section">
+          <h2 className="settings-section-title">Code blocks</h2>
+          <p className="settings-section-hint">
+            How code looks to you in every post you read. This is your setting, not
+            the author's — it does not change how anyone else sees their posts.
+          </p>
+
+          <div className="settings-code-controls">
+            <label className="settings-code-field">
+              <span className="settings-code-label">Font</span>
+              <select
+                className="settings-select"
+                value={settings.codeFont || 'default'}
+                onChange={e => changeCodeDisplay({ codeFont: e.target.value })}
+              >
+                {Object.entries(CODE_FONTS).map(([key, { label }]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="settings-code-field">
+              <span className="settings-code-label">
+                Size <span className="settings-code-size">{settings.codeFontSize || DEFAULT_CODE_SIZE}px</span>
+              </span>
+              <input
+                type="range"
+                className="settings-range"
+                min={MIN_CODE_SIZE}
+                max={MAX_CODE_SIZE}
+                step={1}
+                value={settings.codeFontSize || DEFAULT_CODE_SIZE}
+                onChange={e => changeCodeDisplay({ codeFontSize: Number(e.target.value) })}
+              />
+            </label>
+          </div>
+
+          {/* A live sample, because a font name and a pixel count do not tell
+              anyone what the result will look like. */}
+          <pre className="settings-code-sample" aria-label="Preview"><code>{
+`function greet(name) {
+  // Your code will look like this
+  return \`Hello, \${name}\`;
+}`
+          }</code></pre>
         </section>
 
         {/* ── Notification preferences ────────────────────────────────────── */}

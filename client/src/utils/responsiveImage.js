@@ -82,3 +82,40 @@ export function normaliseUploadResponse(data) {
   }
   return { url: '' };
 }
+
+/**
+ * Turns an upload failure into something worth showing a person.
+ *
+ * The server already explains itself — "Image dimensions are too large (40
+ * megapixel limit)", "File is not a readable image", "Storage quota exceeded.
+ * Used 48 MB of 50 MB limit." — but the client used to branch on the status
+ * code and substitute its own generic text, so all of that was thrown away and
+ * the user saw "Image upload failed." with no way to act on it.
+ *
+ * The server's message wins whenever there is one. The status-based fallbacks
+ * are only for failures that never reached the application: a proxy limit, a
+ * dropped connection.
+ */
+export function describeUploadError(err) {
+  const status = err?.response?.status;
+  const data = err?.response?.data;
+
+  // Errors arrive as a plain string from some endpoints and { message } from
+  // others; both shapes are handled rather than assuming one.
+  const serverMessage =
+    typeof data === 'string' ? data.trim()
+    : typeof data?.message === 'string' ? data.message.trim()
+    : '';
+
+  if (serverMessage) return serverMessage;
+
+  if (status === 401) return 'Your session ended. Sign in again to upload.';
+  if (status === 403) return 'You are not allowed to upload here.';
+  if (status === 413) return 'That file is too large to upload.';
+  if (status === 415) return 'That file type is not supported. Try a JPG, PNG, GIF or WebP.';
+  if (status === 429) return 'Too many uploads just now. Wait a moment and try again.';
+  if (status >= 500)  return 'The server could not store that file. Try again shortly.';
+  if (err?.code === 'ERR_NETWORK' || !status) return 'Could not reach the server. Check your connection.';
+
+  return `Upload failed (status ${status}).`;
+}

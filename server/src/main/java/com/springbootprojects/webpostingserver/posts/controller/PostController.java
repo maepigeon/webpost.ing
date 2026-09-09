@@ -26,6 +26,100 @@ import com.springbootprojects.webpostingserver.posts.repository.SocialRepository
 @RestController
 @RequestMapping("/api")
 public class PostController {
+    // ── Resolving a post from a URL segment ───────────────────────────────────
+
+    /**
+     * Finds a post from whatever appears in the URL after the author's name.
+     *
+     * Three forms all resolve, so no link ever breaks:
+     *   /mae/42            — the id
+     *   /mae/my-post       — the slug alone
+     *   /mae/42-my-post    — the older combined form
+     *
+     * The id is authoritative when present: a stale or edited slug alongside a
+     * valid id still finds the right post. A slug-only lookup is scoped to the
+     * named author and ordered by id, so a duplicate — which the save path tries
+     * to prevent but cannot guarantee under a race — always resolves to the same
+     * post rather than alternating.
+     */
+    @GetMapping("/users/{username}/resolve/{segment}")
+    public ResponseEntity<?> resolvePost(@PathVariable String username, @PathVariable String segment) {
+        java.util.regex.Matcher leadingId = java.util.regex.Pattern.compile("^(\\d+)(?:-.*)?$").matcher(segment);
+
+        Integer postId = null;
+        if (leadingId.matches()) {
+            postId = Integer.valueOf(leadingId.group(1));
+        } else {
+            List<Integer> matches = jdbc.queryForList("""
+                    SELECT p.id
+                      FROM posts p
+                      JOIN users_posts_junctions j ON j.post_id = p.id
+                      JOIN users u ON u.id = j.user_id
+                     WHERE u.username = ? AND lower(p.slug) = lower(?)
+                     ORDER BY p.id
+                     LIMIT 1
+                    """, Integer.class, username, segment);
+            if (!matches.isEmpty()) postId = matches.get(0);
+        }
+
+        if (postId == null) return ResponseEntity.notFound().build();
+
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+                SELECT p.id, p.title, p.slug, p.published, COALESCE(u.username, '') AS author
+                  FROM posts p
+                  LEFT JOIN users_posts_junctions j ON j.post_id = p.id
+                  LEFT JOIN users u ON u.id = j.user_id
+                 WHERE p.id = ?
+                """, postId);
+        if (rows.isEmpty()) return ResponseEntity.notFound().build();
+
+        return ResponseEntity.ok(rows.get(0));
+    }
+
+    /**
+     * Finds the author of a post from its id alone, so a bare /123 can be sent
+     * on to the post's real address.
+     */
+    @GetMapping("/posts/{id}/canonical")
+    public ResponseEntity<?> canonicalPath(@PathVariable long id) {
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+                SELECT p.id, p.title, p.slug, COALESCE(u.username, '') AS author
+                  FROM posts p
+                  LEFT JOIN users_posts_junctions j ON j.post_id = p.id
+                  LEFT JOIN users u ON u.id = j.user_id
+                 WHERE p.id = ?
+                """, id);
+        if (rows.isEmpty() || String.valueOf(rows.get(0).get("author")).isEmpty())
+            return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(rows.get(0));
+    }
+
+    /**
+     * Makes a slug unique among the author's other posts by appending a counter.
+     *
+     * Posts are now reachable by slug alone, so a duplicate would make one of
+     * the two unreachable. Silently adjusting beats rejecting the save: the
+     * author cannot see their other slugs from the editor, so "that name is
+     * taken" would be a puzzle rather than a prompt.
+     */
+    private String uniqueSlugFor(String slug, String username, Integer excludePostId) {
+        if (slug == null || slug.isBlank()) return null;
+        String candidate = slug;
+        for (int suffix = 2; suffix < 100; suffix++) {
+            List<Integer> clash = jdbc.queryForList("""
+                    SELECT p.id
+                      FROM posts p
+                      JOIN users_posts_junctions j ON j.post_id = p.id
+                      JOIN users u ON u.id = j.user_id
+                     WHERE u.username = ? AND lower(p.slug) = lower(?) AND (? IS NULL OR p.id <> ?)
+                     LIMIT 1
+                    """, Integer.class, username, candidate, excludePostId, excludePostId);
+            if (clash.isEmpty()) return candidate;
+            candidate = slug + "-" + suffix;
+        }
+        return slug + "-" + System.currentTimeMillis();
+    }
+
     /**
      * Normalises an author-chosen slug, or returns null to fall back to the
      * title.
@@ -205,7 +299,7 @@ public class PostController {
             try {
                 int userId = loginResult.userId;
                 System.out.println("User ID: " + userId);
-                post.setSlug(normaliseSlug(post.getSlug()));
+                post.setSlug(uniqueSlugFor(normaliseSlug(post.getSlug()), username, null));
                 int postId = postRepository.save(post, userId);
                 syncPostUploads(postId, post.getDescription());
                 social.parseAndSaveHashtags(postId, post.getDescription());
@@ -255,7 +349,7 @@ public class PostController {
             _post.setDate(post.getDate());
             _post.setBackgroundPattern(post.getBackgroundPattern());
             _post.setFolder(post.getFolder() != null && !post.getFolder().isBlank() ? post.getFolder().trim() : null);
-            _post.setSlug(normaliseSlug(post.getSlug()));
+            _post.setSlug(uniqueSlugFor(normaliseSlug(post.getSlug()), username, (int) id));
             postRepository.update(_post);
             syncPostUploads(id, post.getDescription());
             social.parseAndSaveHashtags((int) id, post.getDescription());

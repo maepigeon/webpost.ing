@@ -205,3 +205,14 @@
   min-width: 20px;
   text-align: center;
 }
+
+/* Signed-out readers see the score without controls they cannot use. */
+.post-vote-bar--readonly {
+  gap: 5px;
+  cursor: default;
+}
+
+.post-vote-caption {
+  font-size: 11.5px;
+  color: var(--ink-soft, #524c63);
+}

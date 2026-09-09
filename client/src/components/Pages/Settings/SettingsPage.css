@@ -221,3 +221,111 @@
   .settings-btn, .settings-toggle { transition: none; }
   .settings-btn:hover { transform: none; }
 }
+
+/* ── Site background picker ─────────────────────────────────────────────── */
+
+.settings-bg-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.settings-bg-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 7px;
+  border-radius: var(--radius-md, 12px);
+  background: var(--surface-3, rgba(255, 255, 255, 0.86));
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  box-shadow: var(--raise-1);
+  transition: transform var(--dur-fast, 0.13s) var(--ease-spring), box-shadow 0.15s;
+}
+
+.settings-bg-choice:hover { transform: translateY(-2px); box-shadow: var(--raise-2); }
+.settings-bg-choice:active { transform: translateY(0); }
+
+.settings-bg-choice--selected {
+  border-color: var(--accent-fill, #5b52e8);
+  box-shadow: 0 0 0 2px var(--accent-fill, #5b52e8), var(--raise-1);
+}
+
+/* The swatch is the label: a wallpaper is not something words convey. */
+.settings-bg-swatch {
+  display: block;
+  height: 62px;
+  border-radius: var(--radius-sm, 8px);
+  background-color: var(--page-bg, #ece9e2);
+  background-repeat: repeat;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.settings-bg-name {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink, #1a1060);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Code block preferences ─────────────────────────────────────────────── */
+
+.settings-code-controls {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin-bottom: 14px;
+}
+
+.settings-code-field { display: flex; flex-direction: column; gap: 6px; min-width: 190px; }
+
+.settings-code-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink, #1a1060);
+}
+
+.settings-code-size {
+  font-weight: 400;
+  color: var(--ink-soft, #524c63);
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-select {
+  padding: 8px 11px;
+  font-size: 0.9rem;
+  color: var(--ink, #1a1060);
+  background: var(--surface-3, rgba(255, 255, 255, 0.86));
+  border: 1.5px solid rgba(255, 255, 255, 0.9);
+  border-radius: var(--radius-sm, 10px);
+  outline: none;
+  cursor: pointer;
+  box-shadow: 0 0 0 1px var(--hairline), inset 0 1.5px 3px rgba(0, 0, 0, 0.05);
+}
+
+.settings-select:focus { border-color: rgba(108, 99, 255, 0.6); box-shadow: var(--focus-ring); }
+
+.settings-range { width: 100%; accent-color: var(--accent-fill, #5b52e8); cursor: pointer; }
+
+/* The sample uses the same custom properties as a real code block, so what is
+   shown here is exactly what a post will render. */
+.settings-code-sample {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: var(--radius-md, 10px);
+  background: #1f1f1f;
+  color: #d4d4d4;
+  border: 1px solid #303030;
+  overflow-x: auto;
+  font-family: var(--code-font, ui-monospace, Menlo, Consolas, monospace);
+  font-size: var(--code-font-size, 13px);
+  line-height: 1.55;
+  font-variant-ligatures: contextual;
+}
+
+.settings-code-sample code { font: inherit; color: inherit; }

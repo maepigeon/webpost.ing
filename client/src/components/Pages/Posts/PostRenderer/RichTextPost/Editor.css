@@ -586,20 +586,37 @@
 
 /* ── Code blocks ─────────────────────────────────────────────────────────── */
 
+/* Code block — VS Code's Dark+ as the reference.
+
+   The family and size come from the reader's settings via custom properties
+   (see utils/codeDisplay.js), falling back to a proper monospace stack. The
+   old default was 'Courier New', which is the one monospace font almost nobody
+   chooses on purpose. */
 .editor-code {
   display: block;
-  background: #1e1e1e;
+  background: #1f1f1f;                       /* VS Code Dark+ editor background */
   color: #d4d4d4;
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 13px;
-  line-height: 1.5;
-  padding: 32px 16px 12px;
-  border-radius: 6px;
-  margin: 12px 0;
+  font-family: var(--code-font, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace);
+  font-size: var(--code-font-size, 13px);
+  line-height: 1.55;
+  font-variant-ligatures: contextual;        /* Fira Code and JetBrains Mono */
+  padding: 34px 16px 14px;
+  border-radius: 8px;
+  border: 1px solid #303030;
+  margin: 14px 0;
   overflow-x: auto;
   white-space: pre;
-  tab-size: 2;
+  tab-size: 4;                               /* VS Code's default */
   position: relative;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.22);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The active-line tint VS Code uses, applied on hover so a long block is easier
+   to track across without adding a permanent stripe. */
+.editor-code::selection,
+.editor-code *::selection {
+  background: #264f78;                       /* VS Code selection blue */
 }
 
 /* Line numbers */
@@ -647,30 +664,11 @@
 .editor-code.code-light .token-property   { color: #005cc5; }
 .editor-code.code-light .token-variable,
 .editor-code.code-light .token-attr       { color: #e36209; }
-.editor-code.code-light[data-highlight-language]::before {
-  background: rgba(0,0,0,0.05);
-  border-bottom-color: rgba(0,0,0,0.08);
-  color: #4f4a5c;
-}
+
 
 
 /* Language label shown at the top of code blocks */
-.editor-code[data-highlight-language]::before {
-  content: attr(data-highlight-language);
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  padding: 4px 14px;
-  background: rgba(255,255,255,0.07);
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  border-radius: 6px 6px 0 0;
-  font-size: 11px;
-  font-family: system-ui, sans-serif;
-  color: #5f5a70;
-  text-transform: lowercase;
-  letter-spacing: 0.5px;
-}
+
 
 /* Code block hover controls panel — positioned fixed over the code block via JS */
 .code-hover-controls {
@@ -1201,3 +1199,159 @@
   border-color: rgba(0,0,0,0.1);
 }
 .editor-modal-btn--cancel:hover { background: rgba(0,0,0,0.11); }
+
+
+/* ── Code block header bar ────────────────────────────────────────────────
+   A real element above the block rather than a fixed-position overlay kept in
+   place by a per-block requestAnimationFrame loop. The language name and the
+   actions share one line, the way an editor tab bar does. */
+
+.code-header-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 5px 8px;
+  margin: 14px 0 -14px;              /* sits directly on top of the block */
+  background: #2d2d2d;               /* VS Code tab bar */
+  border: 1px solid #303030;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  font-size: 11.5px;
+  position: relative;
+  z-index: 2;
+}
+
+.code-header-bar::-webkit-scrollbar { display: none; }
+
+/* The block itself loses its top corners so the two read as one object. */
+.code-header-bar + .editor-code {
+  margin-top: 0;
+  border-radius: 0 0 8px 8px;
+}
+
+.code-header-spacer { flex: 1 1 auto; }
+
+/* The language name is the control: click it to change it. */
+.code-lang-label {
+  padding: 3px 9px;
+  font-family: var(--code-font, ui-monospace, Menlo, Consolas, monospace);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #d4d4d4;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.code-lang-label:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.code-lang-label::after {
+  content: ' ▾';
+  opacity: 0.5;
+  font-size: 9px;
+}
+
+/* ── Responsive toolbar ───────────────────────────────────────────────────
+   One toolbar at every width: it fills the line and moves what will not fit
+   into an overflow menu. Replaces a fixed desktop/mobile split, which wasted a
+   wide window and crowded a narrow one because a breakpoint cannot know how
+   wide the controls actually are. */
+
+.toolbar-responsive {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: nowrap;
+  overflow: visible;
+}
+
+.toolbar-item { display: inline-flex; align-items: center; flex-shrink: 0; }
+
+/* Measured once, never seen. Off-screen rather than display:none, because a
+   hidden element has no width to measure. */
+.toolbar-measure {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  display: flex;
+  gap: 4px;
+  white-space: nowrap;
+  top: -9999px;
+  left: -9999px;
+}
+
+.toolbar-trailing {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.toolbar-overflow { position: relative; display: inline-flex; flex-shrink: 0; }
+
+.toolbar-overflow-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 28px;
+  border-radius: 8px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(108, 99, 255, 0.26);
+  transition: background var(--dur-fast, 0.13s), border-color var(--dur-fast, 0.13s);
+}
+
+.toolbar-overflow-trigger:hover {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(108, 99, 255, 0.45);
+}
+
+.toolbar-overflow-trigger--open {
+  background: var(--accent, #4b44cc);
+  border-color: transparent;
+}
+
+.toolbar-overflow-icon { display: flex; flex-direction: column; gap: 3px; }
+
+.toolbar-overflow-icon span {
+  display: block;
+  width: 15px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent, #4b44cc);
+}
+
+.toolbar-overflow-trigger--open .toolbar-overflow-icon span { background: #ffffff; }
+
+.toolbar-overflow-panel {
+  position: absolute;
+  top: calc(100% + 7px);
+  right: 0;
+  z-index: 400;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 220px;
+  max-width: min(460px, 92vw);
+  padding: 10px 12px;
+  border-radius: var(--radius-md, 14px);
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: var(--blur-glass, blur(20px) saturate(165%));
+  -webkit-backdrop-filter: var(--blur-glass, blur(20px) saturate(165%));
+  border: 1.5px solid rgba(255, 255, 255, 0.92);
+  box-shadow: var(--raise-3);
+}
+
+.toolbar-overflow-item { display: inline-flex; align-items: center; }

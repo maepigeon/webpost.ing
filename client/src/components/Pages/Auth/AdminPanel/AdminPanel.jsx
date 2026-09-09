@@ -252,7 +252,7 @@ export default function AdminPanel() {
             <span className="admin-count">{filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''}</span>
           </div>
 
-          <table className="admin-table">
+          <div className="admin-table-scroll"><table className="admin-table">
             <thead>
               <tr>
                 <th className="admin-th-sort" onClick={() => sortUser('username')}>Username{sortArrow('username')}</th>
@@ -301,7 +301,7 @@ export default function AdminPanel() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </div>
       )}
 
@@ -342,7 +342,7 @@ export default function AdminPanel() {
       {tab === 'limits' && (
         <div>
           <p className="admin-hint">Set default limits for each user role. Use -1 for unlimited.</p>
-          <table className="admin-table">
+          <div className="admin-table-scroll"><table className="admin-table">
             <thead>
               <tr><th>Role</th><th>Max Storage (bytes)</th><th>Max Posts/Day</th><th></th></tr>
             </thead>
@@ -371,7 +371,7 @@ export default function AdminPanel() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </div>
       )}
 
@@ -382,7 +382,7 @@ export default function AdminPanel() {
           {flagged.length === 0
             ? <p className="admin-empty">No flagged users.</p>
             : (
-              <table className="admin-table">
+              <div className="admin-table-scroll"><table className="admin-table">
                 <thead>
                   <tr><th>Username</th><th>Posts Today</th><th>Total Posts</th><th>Storage</th><th>Uploads</th><th>Actions</th></tr>
                 </thead>
@@ -398,7 +398,7 @@ export default function AdminPanel() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             )
           }
         </div>
@@ -505,7 +505,7 @@ export default function AdminPanel() {
             {inviteCodes.length === 0
               ? <p className="admin-empty">No active invite codes.</p>
               : (
-                <table className="admin-table">
+                <div className="admin-table-scroll"><table className="admin-table">
                   <thead>
                     <tr><th>Code</th><th>Created</th><th>Expires</th><th>Used by</th><th></th></tr>
                   </thead>
@@ -545,7 +545,7 @@ export default function AdminPanel() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></div>
               )
             }
           </div>
@@ -558,7 +558,7 @@ export default function AdminPanel() {
           <p style={{ fontSize: 13, color: '#666', marginBottom: 16 }}>
             These settings take effect immediately. Use -1 for unlimited.
           </p>
-          <table className="admin-table">
+          <div className="admin-table-scroll"><table className="admin-table">
             <thead><tr><th>Setting</th><th>Value</th><th>Action</th></tr></thead>
             <tbody>
               {Object.entries(settings).map(([key, val]) => (
@@ -586,7 +586,7 @@ export default function AdminPanel() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </div>
       )}
     </div>

@@ -6,6 +6,7 @@ import {
   FORMAT_TEXT_COMMAND, $getNodeByKey, $getRoot, $isParagraphNode, $isTextNode,
 } from 'lexical';
 import { $isHeadingNode } from '@lexical/rich-text';
+import { $insertNodeToNearestRoot } from '@lexical/utils';
 import { $isListNode } from '@lexical/list';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
@@ -37,7 +38,7 @@ import axios from 'axios';
 import { BASE_URL } from '../../../../../config.js';
 import PatternPicker from '../../../../PatternPicker/PatternPicker.jsx';
 import { patternToStyle } from '../../../../PatternPicker/patterns.js';
-import { normaliseUploadResponse } from '../../../../../utils/responsiveImage.js';
+import { normaliseUploadResponse, describeUploadError } from '../../../../../utils/responsiveImage.js';
 import ImageCropDialog from '../../../../ImageCrop/ImageCropDialog.jsx';
 import { postPath, slugify } from '../../../../../utils/postUrl.js';
 
@@ -431,20 +432,21 @@ function CodeHoverControlsPlugin() {
         }
       });
 
+      // A header bar inside the block, not a floating overlay.
+      //
+      // The overlay was positioned `fixed` and kept in place by a
+      // requestAnimationFrame loop that ran for the lifetime of the block — one
+      // permanent loop per code block on the page, purely to make an absolutely
+      // positioned element follow an element it sits on top of. Anchoring the
+      // bar to the block means the browser keeps it in place for free, and puts
+      // the language name and the buttons on one line as a proper toolbar.
       const overlay = document.createElement('div');
-      overlay.className = 'code-hover-controls';
-      overlay.style.position = 'fixed';
-      overlay.style.zIndex = '9999';
-
-      // Continuously track the code block's position so the controls follow on scroll/resize
+      overlay.className = 'code-header-bar';
+      overlay.addEventListener('mousedown', ev => {
+        // Clicks in the chrome must not move the caret into the code.
+        if (ev.target === overlay) ev.preventDefault();
+      });
       let trackRaf = null;
-      function trackPosition() {
-        const r = el.getBoundingClientRect();
-        overlay.style.top  = (r.top  + 4) + 'px';
-        overlay.style.right = (window.innerWidth - r.right + 4) + 'px';
-        trackRaf = requestAnimationFrame(trackPosition);
-      }
-      trackRaf = requestAnimationFrame(trackPosition);
 
       const mkBtn = (label, title, active_, onClick) => {
         const btn = document.createElement('button');
@@ -462,30 +464,84 @@ function CodeHoverControlsPlugin() {
         return s;
       };
 
-      // Language select
+      // ── Language ──────────────────────────────────────────────────────────
+      // The name is the control: click it to change it, the way an editor tab
+      // works. A select sitting there permanently made the bar look like a form.
+      const CUSTOM = '__custom__';
+
+      const langLabel = document.createElement('button');
+      langLabel.className = 'code-lang-label';
+      langLabel.title = 'Click to change the language';
+      langLabel.textContent = language ? getLanguageFriendlyName(language) : 'Plain text';
+      langLabel.addEventListener('mousedown', ev => ev.preventDefault());
+
       const select = document.createElement('select');
       select.className = 'code-ctrl-select';
       select.title = 'Code language';
-      const plainOpt = document.createElement('option');
-      plainOpt.value = '';
-      plainOpt.textContent = 'Plain text';
-      select.appendChild(plainOpt);
-      LANGS.forEach(lang => {
+      select.hidden = true;
+
+      const addOption = (value, text) => {
         const opt = document.createElement('option');
-        opt.value = lang;
-        opt.textContent = getLanguageFriendlyName(lang);
+        opt.value = value;
+        opt.textContent = text;
         select.appendChild(opt);
-      });
-      select.value = language;
-      select.addEventListener('mousedown', ev => ev.stopPropagation());
-      select.addEventListener('change', () => {
+      };
+      addOption('', 'Plain text');
+      LANGS.forEach(lang => addOption(lang, getLanguageFriendlyName(lang)));
+      addOption(CUSTOM, 'Custom…');
+
+      // A language the highlighter does not know is still a valid label — the
+      // block just is not syntax-highlighted. Show it rather than falling back
+      // to "Plain text", which would silently discard what the author typed.
+      if (language && !LANGS.includes(language)) addOption(language, language);
+      select.value = language || '';
+
+      const showSelect = () => {
+        select.hidden = false;
+        langLabel.hidden = true;
+        select.focus();
+      };
+      const hideSelect = () => {
+        select.hidden = true;
+        langLabel.hidden = false;
+      };
+
+      const applyLanguage = (value) => {
+        langLabel.textContent = value
+          ? (LANGS.includes(value) ? getLanguageFriendlyName(value) : value)
+          : 'Plain text';
         editor.update(() => {
           const node = $getNodeByKey(nodeKey);
-          if ($isCodeNode(node)) node.setLanguage(select.value);
+          if ($isCodeNode(node)) node.setLanguage(value);
         });
+      };
+
+      langLabel.addEventListener('click', ev => { ev.stopPropagation(); showSelect(); });
+      select.addEventListener('mousedown', ev => ev.stopPropagation());
+      select.addEventListener('blur', hideSelect);
+      select.addEventListener('change', () => {
+        if (select.value === CUSTOM) {
+          const typed = window.prompt('Label this code block:', langLabel.textContent);
+          hideSelect();
+          if (typed === null) { select.value = language || ''; return; }
+          // Free text, but it becomes an attribute and a label, so keep it to
+          // something that cannot carry markup.
+          const clean = typed.trim().replace(/[^A-Za-z0-9+#.\- ]/g, '').slice(0, 24);
+          if (!clean) { select.value = language || ''; return; }
+          if (!Array.from(select.options).some(o => o.value === clean)) addOption(clean, clean);
+          select.value = clean;
+          language = clean;
+          applyLanguage(clean);
+          return;
+        }
+        language = select.value;
+        applyLanguage(select.value);
+        hideSelect();
       });
+
+      overlay.appendChild(langLabel);
       overlay.appendChild(select);
-      overlay.appendChild(sep());
+      overlay.appendChild(document.createElement('span')).className = 'code-header-spacer';
 
       if (nodeKey) {
         const lightBtn = mkBtn(lightMode ? 'Light' : 'Dark', 'Toggle light/dark', lightMode, (btn) => {
@@ -551,7 +607,9 @@ function CodeHoverControlsPlugin() {
         }).catch(() => {});
       }));
 
-      document.body.appendChild(overlay);
+      // Inserted before the block so it reads as its header, and so the
+      // browser keeps them together without any position tracking.
+      el.parentNode?.insertBefore(overlay, el);
 
       const state = { overlay, leaveTimer: null, cleanupFns: [] };
       active.set(el, state);
@@ -685,13 +743,13 @@ function ImageDragPastePlugin() {
       const response = await axios.post(BASE_URL + '/api/upload', formData, { withCredentials: true });
       const { url, srcset } = normaliseUploadResponse(response.data);
       editor.update(() => {
-        $insertNodes([$createImageNode(url, file.name, srcset)]);
+        insertBlockInner(() => $createImageNode(url, file.name, srcset));
       });
     } catch (err) {
       console.error('Image upload failed:', err);
-      if (err.response?.status === 413) alert('Image is too large (max 5 MB).');
-      else if (err.response?.status === 401) alert('Please log in to upload images.');
-      else alert('Image upload failed.');
+      // The server explains the specific reason — a size cap, an unreadable
+      // file, a full quota — so show that rather than replacing it.
+      alert(describeUploadError(err));
     }
   }, [editor]);
 
@@ -766,20 +824,11 @@ function ImageToolbarPlugin() {
       });
       const { url, srcset } = normaliseUploadResponse(response.data);
       editor.update(() => {
-        const imageNode = $createImageNode(url, file.name, srcset);
-        $insertNodes([imageNode]);
+        insertBlockInner(() => $createImageNode(url, file.name, srcset));
       });
     } catch (err) {
       console.error('Image upload failed:', err);
-      if (err.response?.status === 413) {
-        alert('Image is too large. Maximum file size is 5 MB.');
-      } else if (err.response?.status === 401) {
-        alert('Please log in before uploading an image.');
-      } else if (err.response?.status === 400) {
-        alert(typeof err.response.data === 'string' ? err.response.data : 'That file was rejected.');
-      } else {
-        alert('Image upload failed (status ' + (err.response?.status ?? 'unknown') + ').');
-      }
+      alert(describeUploadError(err));
     }
   };
 
@@ -1039,14 +1088,65 @@ function LinkToolbarPlugin() {
   );
 }
 
+
+/**
+ * Inserts a block-level node at a sensible place, whatever the selection is.
+ *
+ * The insert buttons used to fail silently in two common situations: an empty
+ * document, where there is no selection at all, and a caret sitting inside an
+ * existing block node such as an image or an equation, where the selection is a
+ * NodeSelection rather than a RangeSelection. The code button in particular was
+ * guarded by `if ($isRangeSelection(selection))` and simply did nothing
+ * otherwise.
+ *
+ * $insertNodeToNearestRoot handles the block placement — it walks up to the
+ * nearest root-level ancestor and inserts after it, rather than trying to nest
+ * a block inside whatever the caret happens to be in. When there is no
+ * selection we place one at the end of the document first, so there is always
+ * somewhere for the new block to go.
+ *
+ * A paragraph is added after the new node and focused, so the writer can keep
+ * typing instead of hunting for a cursor below a freshly inserted image.
+ */
+/** The body of insertBlock, for callers already inside an editor.update(). */
+function insertBlockInner(createNode) {
+  const selection = $getSelection();
+  if (!$isRangeSelection(selection) && !$isNodeSelection(selection)) {
+    $getRoot().selectEnd();
+  }
+  const node = createNode();
+  $insertNodeToNearestRoot(node);
+  const paragraph = $createParagraphNode();
+  node.insertAfter(paragraph);
+  paragraph.selectEnd();
+}
+
+function insertBlock(editor, createNode) {
+  editor.update(() => {
+    insertBlockInner(createNode);
+  });
+}
+
 function CodeToolbarPlugin() {
   const [editor] = useLexicalComposerContext();
   const onClick = () => {
+    // Converting the current paragraph is the right behaviour when the caret is
+    // in text; anywhere else there is nothing to convert, so insert a fresh
+    // code block instead of doing nothing.
     editor.update(() => {
       const selection = $getSelection();
-      if ($isRangeSelection(selection)) {
-        $setBlocksType(selection, () => $createCustomCodeNode());
+      if ($isRangeSelection(selection) && selection.isCollapsed()) {
+        const block = selection.anchor.getNode().getTopLevelElement();
+        if (block && block.getTextContent().length === 0) {
+          $setBlocksType(selection, () => $createCustomCodeNode());
+          return;
+        }
       }
+      if ($isRangeSelection(selection) && !selection.isCollapsed()) {
+        $setBlocksType(selection, () => $createCustomCodeNode());
+        return;
+      }
+      insertBlockInner(() => $createCustomCodeNode());
     });
   };
   return <button onClick={onClick}>Code</button>;
@@ -1057,9 +1157,7 @@ function MathToolbarPlugin() {
   const onClick = () => {
     const equation = window.prompt('Enter LaTeX equation (e.g. \\frac{a}{b}):');
     if (equation === null) return;
-    editor.update(() => {
-      $insertNodes([$createMathNode(equation.trim())]);
-    });
+    insertBlock(editor, () => $createMathNode(equation.trim()));
   };
   return <button onClick={onClick} title="Insert LaTeX math block">∑ Math</button>;
 }
@@ -1446,6 +1544,121 @@ function FormatToolbarPlugin() {
   );
 }
 
+
+/**
+ * A toolbar that shows as many controls as fit on one line and moves the rest
+ * into an overflow menu.
+ *
+ * The previous arrangement had a fixed split: a set of controls always inline,
+ * and a hamburger below a breakpoint. That wastes a wide window and crowds a
+ * narrow one, because the breakpoint cannot know how wide the controls actually
+ * are. Measuring instead means the line is always as full as it can be.
+ *
+ * How it works: every item is rendered into a hidden measuring row once, its
+ * width recorded, and then only the ones that fit are rendered for real. A
+ * ResizeObserver re-runs the sum when the window changes. Widths are measured,
+ * never guessed, because a language name or a font list changes them.
+ */
+function ResponsiveToolbar({ items, children }) {
+  const containerRef = useRef(null);
+  const measureRef = useRef(null);
+  const [visibleCount, setVisibleCount] = useState(items.length);
+  const [overflowOpen, setOverflowOpen] = useState(false);
+  const overflowRef = useRef(null);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    const measure = measureRef.current;
+    if (!container || !measure) return;
+
+    const recompute = () => {
+      const widths = Array.from(measure.children).map(c => c.getBoundingClientRect().width);
+      // Reserve room for the trailing content (the save buttons) and, when it
+      // is needed, the overflow trigger itself.
+      const trailing = container.querySelector('.toolbar-trailing');
+      const available = container.getBoundingClientRect().width
+        - (trailing ? trailing.getBoundingClientRect().width : 0)
+        - OVERFLOW_TRIGGER_WIDTH
+        - TOOLBAR_BREATHING_ROOM;
+
+      let used = 0;
+      let fit = 0;
+      for (const width of widths) {
+        if (used + width > available) break;
+        used += width + TOOLBAR_GAP;
+        fit += 1;
+      }
+      // Showing everything but one is worse than showing everything: the
+      // trigger costs about as much as the item it would hide.
+      setVisibleCount(fit >= items.length - 1 ? items.length : fit);
+    };
+
+    recompute();
+    const observer = new ResizeObserver(recompute);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [items.length]);
+
+  useEffect(() => {
+    if (!overflowOpen) return;
+    const onDown = (e) => {
+      if (overflowRef.current && !overflowRef.current.contains(e.target)) setOverflowOpen(false);
+    };
+    const onKey = (e) => { if (e.key === 'Escape') setOverflowOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [overflowOpen]);
+
+  const hidden = items.slice(visibleCount);
+
+  return (
+    <div className="toolbar-sticky toolbar-responsive" ref={containerRef}>
+      {/* Measured once, never shown. aria-hidden and inert so it is invisible
+          to assistive technology and to the tab order. */}
+      <div className="toolbar-measure" ref={measureRef} aria-hidden="true">
+        {items.map(item => <span key={`m-${item.key}`}>{item.node}</span>)}
+      </div>
+
+      {items.slice(0, visibleCount).map(item => (
+        <span className="toolbar-item" key={item.key}>{item.node}</span>
+      ))}
+
+      {hidden.length > 0 && (
+        <span className="toolbar-overflow" ref={overflowRef}>
+          <button
+            type="button"
+            className={`toolbar-overflow-trigger${overflowOpen ? ' toolbar-overflow-trigger--open' : ''}`}
+            onClick={() => setOverflowOpen(o => !o)}
+            aria-expanded={overflowOpen}
+            title={`${hidden.length} more ${hidden.length === 1 ? 'tool' : 'tools'}`}
+          >
+            <span className="toolbar-overflow-icon" aria-hidden="true"><span /><span /><span /></span>
+          </button>
+          {overflowOpen && (
+            <span className="toolbar-overflow-panel">
+              {hidden.map(item => (
+                <span className="toolbar-overflow-item" key={`o-${item.key}`}>{item.node}</span>
+              ))}
+            </span>
+          )}
+        </span>
+      )}
+
+      <span className="toolbar-trailing">{children}</span>
+    </div>
+  );
+}
+
+/** Width reserved for the overflow trigger, in pixels. */
+const OVERFLOW_TRIGGER_WIDTH = 42;
+/** Slack so the last item never sits flush against the edge. */
+const TOOLBAR_BREATHING_ROOM = 12;
+const TOOLBAR_GAP = 4;
+
 function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, postPublished, onPublishedChange, features, onFeaturesChange, titleRef, onSaved, folder, onFolderChange, slug, onSlugChange }) {
   // Only one popover open at a time; two would overlap.
   const [openMenu, setOpenMenu] = useState(null);
@@ -1470,41 +1683,41 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
    * of around thirty buttons above every post and pushed the writing area down
    * the page.
    */
-  const desktopToolbar = (
-    <>
-      <UndoRedoPlugin />
-      <span className='toolbar-divider' />
+  /**
+   * Ordered most-used first, because that is the order they survive in when the
+   * window is too narrow to show everything.
+   */
+  const toolbarItems = [
+    { key: 'history', node: <UndoRedoPlugin /> },
+    { key: 'block',   node: <BlockTypePlugin /> },
+    { key: 'format',  node: <FormatToolbarPlugin /> },
+    { key: 'list',    node: <ListToolbarPlugin /> },
 
-      {/* Structure: what this block of text is. */}
-      <BlockTypePlugin />
-      <ListToolbarPlugin />
-      <span className='toolbar-divider' />
-
-      {/* The four everyone uses. */}
-      <FormatToolbarPlugin />
-      <span className='toolbar-divider' />
-
-      <ToolbarMenu id="style" label="Style" hint="Colour, highlight and alignment"
-                   openId={openMenu} setOpenId={setOpenMenu}>
-        <InlineStylePlugin />
-      </ToolbarMenu>
-
-      <ToolbarMenu id="insert" label="Insert" hint="Links, images, code and maths"
-                   openId={openMenu} setOpenId={setOpenMenu}>
-        <LinkToolbarPlugin />
-        <PostLinkToolbarPlugin />
-        <ImageToolbarPlugin />
-        <CodeToolbarPlugin />
-        <MathToolbarPlugin />
-      </ToolbarMenu>
-
-      <ToolbarMenu id="page" label="Page" hint="Wallpaper, URL, comments and reactions"
-                   openId={openMenu} setOpenId={setOpenMenu}>
-        <BackgroundToolbarPlugin pattern={backgroundPattern} onPatternChange={onPatternChange} username={username} />
-        <FeatureTogglePlugin postid={postid} features={features} onFeaturesChange={onFeaturesChange} />
-      </ToolbarMenu>
-    </>
-  );
+    { key: 'link',   node: <LinkToolbarPlugin /> },
+    { key: 'image',  node: <ImageToolbarPlugin /> },
+    { key: 'code',   node: <CodeToolbarPlugin /> },
+    { key: 'math',   node: <MathToolbarPlugin /> },
+    { key: 'postlink', node: <PostLinkToolbarPlugin /> },
+    {
+      key: 'style',
+      node: (
+        <ToolbarMenu id="style" label="Style" hint="Colour, highlight and alignment"
+                     openId={openMenu} setOpenId={setOpenMenu}>
+          <InlineStylePlugin />
+        </ToolbarMenu>
+      ),
+    },
+    {
+      key: 'page',
+      node: (
+        <ToolbarMenu id="page" label="Page" hint="Wallpaper, comments and reactions"
+                     openId={openMenu} setOpenId={setOpenMenu}>
+          <BackgroundToolbarPlugin pattern={backgroundPattern} onPatternChange={onPatternChange} username={username} />
+          <FeatureTogglePlugin postid={postid} features={features} onFeaturesChange={onFeaturesChange} />
+        </ToolbarMenu>
+      ),
+    },
+  ];
 
   /** Mobile shows everything at once inside its own panel, so nothing is hidden. */
   const mobileToolbar = (
@@ -1529,44 +1742,11 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
 
   return (
     <>
-      {/* Desktop toolbar */}
-      <div className='toolbar-sticky toolbar-desktop'>
-        {desktopToolbar}
-        <span className='toolbar-spacer' />
+      {/* One toolbar at every width: it fills the line and overflows the rest. */}
+      <ResponsiveToolbar items={toolbarItems}>
         <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} titleRef={titleRef} onSaved={onSaved} username={username} folder={folder} onFolderChange={onFolderChange} features={features} slug={slug} />
-      </div>
+      </ResponsiveToolbar>
 
-      {/* Mobile toolbar: slim bar with hamburger + save */}
-      <div className='toolbar-sticky toolbar-mobile'>
-        <button
-          className='toolbar-mobile-hamburger'
-          onClick={() => setMobileOpen(o => !o)}
-          title="Formatting tools"
-        >
-          <span className='toolbar-mobile-hamburger-icon'><span /><span /><span /></span>
-          <span className='toolbar-mobile-hamburger-label'>Format</span>
-        </button>
-        <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} titleRef={titleRef} onSaved={onSaved} username={username} folder={folder} onFolderChange={onFolderChange} features={features} slug={slug} />
-      </div>
-
-      {/* Mobile formatting panel (glass popup) */}
-      {mobileOpen && (
-        <div className='toolbar-mobile-panel-overlay' onClick={() => setMobileOpen(false)}>
-          <div
-            className='toolbar-mobile-panel'
-            ref={panelRef}
-            onClick={e => e.stopPropagation()}
-          >
-            <div className='toolbar-mobile-panel-header'>
-              <span className='toolbar-mobile-panel-title'>Formatting</span>
-              <button className='toolbar-mobile-panel-close' onClick={() => setMobileOpen(false)}>✕</button>
-            </div>
-            <div className='toolbar-mobile-panel-body'>
-              {buildSections(false)}
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }

@@ -160,7 +160,9 @@ public class AuthController {
             java.util.List<java.util.Map<String, String>> links = mapper.readValue(body,
                     mapper.getTypeFactory().constructCollectionType(java.util.List.class,
                             mapper.getTypeFactory().constructMapType(java.util.Map.class, String.class, String.class)));
-            if (links.size() > 3) return ResponseEntity.badRequest().body("Maximum 3 links allowed.");
+            // Ten is generous for a profile and still bounded, so the header
+            // cannot be turned into a link farm.
+            if (links.size() > 10) return ResponseEntity.badRequest().body("Maximum 10 links allowed.");
             for (java.util.Map<String, String> link : links) {
                 String url = link.get("url");
                 String label = link.getOrDefault("label", "");

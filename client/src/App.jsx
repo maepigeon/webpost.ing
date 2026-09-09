@@ -27,6 +27,7 @@ import ForgotPasswordPage from './components/Pages/Settings/ForgotPasswordPage.j
 
 import { installSessionInterceptor } from './utils/session.js'
 import AppErrorBoundary from './components/ErrorBoundary/AppErrorBoundary.jsx'
+import SiteBackground from './components/SiteBackground/SiteBackground.jsx'
 
 
 // Installed once at module load, before any component can issue a request.
@@ -61,6 +62,8 @@ function App() {
       <CursorGlow />
       <Navbar />
       <ScrollToTop />
+
+      <SiteBackground />
 
       <AppErrorBoundary>
 

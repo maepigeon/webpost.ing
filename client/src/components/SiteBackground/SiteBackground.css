@@ -1,0 +1,13 @@
+/* The user's own site-wide background.
+
+   A fixed layer behind everything rather than a body style: profile and post
+   pages write to document.body directly, and sharing that property would mean
+   racing them on every route change. */
+
+.site-background {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-repeat: repeat;
+}

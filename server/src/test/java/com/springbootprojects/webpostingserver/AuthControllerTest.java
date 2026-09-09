@@ -188,11 +188,37 @@ class AuthControllerTest {
 
     @Test
     void updateBioLinks_tooManyLinks_returns400() throws Exception {
+        // The cap moved from 3 to 10 when the links editor became an
+        // add/remove list rather than three fixed slots.
         when(loginRepository.authorize("whiskers", "tok")).thenReturn(whiskersSession);
-        String body = "[{\"url\":\"https://a.com\"},{\"url\":\"https://b.com\"},{\"url\":\"https://c.com\"},{\"url\":\"https://d.com\"}]";
-        ResponseEntity<String> resp = authController.updateUserBioLinks("whiskers", body, "whiskers", "tok");
+        StringBuilder body = new StringBuilder("[");
+        for (int i = 0; i < 11; i++) {
+            if (i > 0) body.append(',');
+            body.append("{\"url\":\"https://site").append(i).append(".com\"}");
+        }
+        body.append(']');
+
+        ResponseEntity<String> resp =
+                authController.updateUserBioLinks("whiskers", body.toString(), "whiskers", "tok");
+
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(resp.getBody()).contains("3");
+        assertThat(resp.getBody()).contains("10");
+    }
+
+    @Test
+    void updateBioLinks_atTheLimit_isAccepted() throws Exception {
+        when(loginRepository.authorize("whiskers", "tok")).thenReturn(whiskersSession);
+        StringBuilder body = new StringBuilder("[");
+        for (int i = 0; i < 10; i++) {
+            if (i > 0) body.append(',');
+            body.append("{\"url\":\"https://site").append(i).append(".com\"}");
+        }
+        body.append(']');
+
+        ResponseEntity<String> resp =
+                authController.updateUserBioLinks("whiskers", body.toString(), "whiskers", "tok");
+
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
     }
 
     @Test

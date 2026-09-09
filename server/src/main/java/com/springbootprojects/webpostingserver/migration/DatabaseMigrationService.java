@@ -12,7 +12,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Runs pending database migrations automatically on application startup.
@@ -49,6 +51,26 @@ public class DatabaseMigrationService {
             String filename = resource.getFilename();
             String sql = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             scripts.add(DatabaseMigrator.fromSqlText(filename, sql));
+        }
+
+        // Two files sharing a version number is always a mistake — usually a
+        // rename that left the original behind, or two branches picking the
+        // same next number. The runner would apply one and then fail on the
+        // other, leaving the schema half-migrated with no record of why, so it
+        // is better to refuse before touching the database.
+        Map<String, List<String>> byVersion = new LinkedHashMap<>();
+        for (DatabaseMigrator.MigrationScript script : scripts) {
+            String number = script.version().split("__", 2)[0];
+            byVersion.computeIfAbsent(number, k -> new ArrayList<>()).add(script.version());
+        }
+        List<String> duplicates = byVersion.entrySet().stream()
+                .filter(e -> e.getValue().size() > 1)
+                .map(e -> e.getKey() + " -> " + e.getValue())
+                .toList();
+        if (!duplicates.isEmpty()) {
+            throw new IllegalStateException(
+                    "Duplicate migration version(s): " + duplicates
+                    + ". Each V number must appear exactly once — delete or renumber the extra file.");
         }
 
         log.info("Found {} migration script(s) on classpath", scripts.size());

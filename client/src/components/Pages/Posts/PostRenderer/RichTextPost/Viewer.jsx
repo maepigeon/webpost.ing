@@ -354,7 +354,10 @@ export default function RichTextViewer() {
 
             {/* Post footer: author controls + reactions + share + discussion — all one row */}
             <div className="post-footer">
-              {/* Post vote */}
+              {/* Vote controls only for signed-in readers. They were rendered
+                  disabled for everyone else, which offers an action that can
+                  never be taken; the score itself is still shown. */}
+              {loggedIn ? (
               <div className="post-vote-bar">
                 <button
                   className={`post-vote-btn${userPostVote === 1 ? ' post-vote-btn--up' : ''}`}
@@ -384,6 +387,12 @@ export default function RichTextViewer() {
                   }}
                 >▼</button>
               </div>
+              ) : (
+                <div className="post-vote-bar post-vote-bar--readonly" title="Sign in to vote">
+                  <span className="post-vote-score">{postScore}</span>
+                  <span className="post-vote-caption">{Math.abs(postScore) === 1 ? 'point' : 'points'}</span>
+                </div>
+              )}
               {isAuthor && (
                 <div className="post-author-controls">
                   <Link to={`/editor/${id}`}>

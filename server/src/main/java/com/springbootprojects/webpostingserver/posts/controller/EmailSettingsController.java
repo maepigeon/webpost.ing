@@ -5,6 +5,7 @@ import com.springbootprojects.webpostingserver.posts.repository.JdbcLoginReposit
 import com.springbootprojects.webpostingserver.posts.repository.LoginRepository;
 import com.springbootprojects.webpostingserver.posts.service.EmailService;
 import com.springbootprojects.webpostingserver.posts.service.EmailTokenService;
+import com.springbootprojects.webpostingserver.posts.validator.PatternValidator;
 import com.springbootprojects.webpostingserver.posts.validator.RateLimiter;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -99,11 +101,19 @@ public class EmailSettingsController {
         if (userId == null) return ResponseEntity.notFound().build();
 
         Map<String, Object> user = jdbc.queryForMap(
-                "SELECT email, email_verified FROM users WHERE id = ?", userId);
+                "SELECT email, email_verified, site_background, background_pattern, pattern_presets, " +
+                "code_font, code_font_size FROM users WHERE id = ?", userId);
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("email", user.get("email"));
         body.put("emailVerified", Boolean.TRUE.equals(user.get("email_verified")));
+        // The site-wide background, plus the two sources a user can pick from:
+        // their own profile wallpaper and their saved preset library.
+        body.put("siteBackground", user.get("site_background"));
+        body.put("profileBackground", user.get("background_pattern"));
+        body.put("presets", user.get("pattern_presets") == null ? "{}" : user.get("pattern_presets"));
+        body.put("codeFont", user.get("code_font"));
+        body.put("codeFontSize", user.get("code_font_size"));
         body.put("mailEnabled", emailService.isEnabled());
         body.put("preferences", preferencesFor(userId));
         return ResponseEntity.ok(body);
@@ -391,5 +401,95 @@ public class EmailSettingsController {
 
         log.info("Password reset completed for user {}", result.userId());
         return ResponseEntity.ok(Map.of("message", "Password changed. Sign in with your new password."));
+    }
+
+    // ── Site-wide background ──────────────────────────────────────────────────
+
+    /**
+     * Sets the background shown to this user across the site.
+     *
+     * Applies only to its owner and only outside profiles and posts — those
+     * belong to whoever wrote them and keep showing their wallpaper. Sending an
+     * empty value clears it.
+     *
+     * The pattern goes through the same validator as a profile wallpaper, since
+     * it reaches CSS by the same route.
+     */
+    @PutMapping("/users/{username}/settings/site-background")
+    public ResponseEntity<?> setSiteBackground(
+            @PathVariable String username,
+            @RequestBody Map<String, String> body,
+            @CookieValue(name = "username", required = false) String authUsername,
+            @CookieValue(name = "authToken", required = false) String token) {
+
+        AuthSession session = authorize(authUsername, token);
+        if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        if (!username.equals(authUsername)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+
+        String pattern = body.getOrDefault("background", "").trim();
+        if (pattern.length() > 2000)
+            return ResponseEntity.badRequest().body(Map.of("message", "That background is too large."));
+        if (!pattern.isEmpty() && !PatternValidator.isValid(pattern))
+            return ResponseEntity.badRequest().body(Map.of("message", "That background is not a valid pattern."));
+
+        Integer userId = userIdOf(username);
+        if (userId == null) return ResponseEntity.notFound().build();
+
+        jdbc.update("UPDATE users SET site_background = ? WHERE id = ?",
+                pattern.isEmpty() ? null : pattern, userId);
+
+        return ResponseEntity.ok(Map.of(
+                "siteBackground", pattern,
+                "message", pattern.isEmpty() ? "Site background cleared." : "Site background saved."));
+    }
+
+    // ── Code block display ────────────────────────────────────────────────────
+
+    /** Monospace families offered for code blocks, as an allowlist. */
+    private static final Set<String> CODE_FONTS = Set.of(
+            "default", "system", "jetbrains", "fira", "ibm-plex", "source-code",
+            "courier", "menlo", "consolas");
+
+    /**
+     * How this reader sees code blocks, across every post they read.
+     *
+     * A reading preference rather than a publishing one: the author chose the
+     * code, the reader chooses how comfortably to read it.
+     */
+    @PutMapping("/users/{username}/settings/code-display")
+    public ResponseEntity<?> updateCodeDisplay(
+            @PathVariable String username,
+            @RequestBody Map<String, Object> body,
+            @CookieValue(name = "username", required = false) String authUsername,
+            @CookieValue(name = "authToken", required = false) String token) {
+
+        AuthSession session = authorize(authUsername, token);
+        if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        if (!username.equals(authUsername)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+
+        Integer userId = userIdOf(username);
+        if (userId == null) return ResponseEntity.notFound().build();
+
+        Object fontValue = body.get("codeFont");
+        if (fontValue instanceof String font) {
+            if (!CODE_FONTS.contains(font))
+                return ResponseEntity.badRequest().body(Map.of("message", "Unknown font."));
+            jdbc.update("UPDATE users SET code_font = ? WHERE id = ?", font, userId);
+        }
+
+        Object sizeValue = body.get("codeFontSize");
+        if (sizeValue instanceof Number size) {
+            int px = size.intValue();
+            if (px < 10 || px > 24)
+                return ResponseEntity.badRequest().body(Map.of("message", "Size must be between 10 and 24."));
+            jdbc.update("UPDATE users SET code_font_size = ? WHERE id = ?", px, userId);
+        }
+
+        Map<String, Object> row = jdbc.queryForMap(
+                "SELECT code_font, code_font_size FROM users WHERE id = ?", userId);
+        return ResponseEntity.ok(Map.of(
+                "codeFont", row.get("code_font"),
+                "codeFontSize", row.get("code_font_size"),
+                "message", "Saved."));
     }
 }
