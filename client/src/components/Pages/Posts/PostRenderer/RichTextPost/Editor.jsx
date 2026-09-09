@@ -1585,11 +1585,9 @@ function ResponsiveToolbar({ items, children }) {
 
     const recompute = () => {
       const widths = Array.from(measure.children).map(c => c.getBoundingClientRect().width);
-      // Reserve room for the trailing content (the save buttons) and, when it
-      // is needed, the overflow trigger itself.
-      const trailing = container.querySelector('.toolbar-trailing');
+      // The save controls are on their own row now, so the tools get the full
+      // width; only the overflow trigger has to be accounted for.
       const available = container.getBoundingClientRect().width
-        - (trailing ? trailing.getBoundingClientRect().width : 0)
         - OVERFLOW_TRIGGER_WIDTH
         - TOOLBAR_BREATHING_ROOM;
 
@@ -1628,39 +1626,47 @@ function ResponsiveToolbar({ items, children }) {
   const hidden = items.slice(visibleCount);
 
   return (
-    <div className="toolbar-sticky toolbar-responsive" ref={containerRef}>
-      {/* Measured once, never shown. aria-hidden and inert so it is invisible
-          to assistive technology and to the tab order. */}
-      <div className="toolbar-measure" ref={measureRef} aria-hidden="true">
-        {items.map(item => <span key={`m-${item.key}`}>{item.node}</span>)}
+    <div className="toolbar-sticky toolbar-stack">
+      {/* Row one: the tools, filling the line. */}
+      <div className="toolbar-responsive" ref={containerRef}>
+        {/* Measured once, never shown. aria-hidden so it is invisible to
+            assistive technology and to the tab order. */}
+        <div className="toolbar-measure" ref={measureRef} aria-hidden="true">
+          {items.map(item => <span key={`m-${item.key}`}>{item.node}</span>)}
+        </div>
+
+        {items.slice(0, visibleCount).map(item => (
+          <span className="toolbar-item" key={item.key}>{item.node}</span>
+        ))}
+
+        {hidden.length > 0 && (
+          <span className="toolbar-overflow" ref={overflowRef}>
+            <button
+              type="button"
+              className={`toolbar-overflow-trigger${overflowOpen ? ' toolbar-overflow-trigger--open' : ''}`}
+              onClick={() => setOverflowOpen(o => !o)}
+              aria-expanded={overflowOpen}
+              title={`${hidden.length} more ${hidden.length === 1 ? 'tool' : 'tools'}`}
+            >
+              <span className="toolbar-overflow-icon" aria-hidden="true"><span /><span /><span /></span>
+            </button>
+            {overflowOpen && (
+              <span className="toolbar-overflow-panel">
+                {hidden.map(item => (
+                  <span className="toolbar-overflow-item" key={`o-${item.key}`}>{item.node}</span>
+                ))}
+              </span>
+            )}
+          </span>
+        )}
       </div>
 
-      {items.slice(0, visibleCount).map(item => (
-        <span className="toolbar-item" key={item.key}>{item.node}</span>
-      ))}
-
-      {hidden.length > 0 && (
-        <span className="toolbar-overflow" ref={overflowRef}>
-          <button
-            type="button"
-            className={`toolbar-overflow-trigger${overflowOpen ? ' toolbar-overflow-trigger--open' : ''}`}
-            onClick={() => setOverflowOpen(o => !o)}
-            aria-expanded={overflowOpen}
-            title={`${hidden.length} more ${hidden.length === 1 ? 'tool' : 'tools'}`}
-          >
-            <span className="toolbar-overflow-icon" aria-hidden="true"><span /><span /><span /></span>
-          </button>
-          {overflowOpen && (
-            <span className="toolbar-overflow-panel">
-              {hidden.map(item => (
-                <span className="toolbar-overflow-item" key={`o-${item.key}`}>{item.node}</span>
-              ))}
-            </span>
-          )}
-        </span>
-      )}
-
-      <span className="toolbar-trailing">{children}</span>
+      {/* Row two: Save draft, Upload, View post.
+          These were on the tools row, where three word-labelled buttons plus a
+          status message ran past the edge of the post area. They are the
+          actions people look for deliberately rather than reach for mid-word,
+          so a line of their own costs nothing. */}
+      <div className="toolbar-actions">{children}</div>
     </div>
   );
 }

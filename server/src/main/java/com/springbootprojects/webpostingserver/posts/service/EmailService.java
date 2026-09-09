@@ -188,4 +188,28 @@ public class EmailService {
                 Change what you get: %s/settings
                 """.formatted(baseUrl, unsubscribeToken, category, baseUrl);
     }
+
+    /**
+     * One message summarising everything held back by the daily cap.
+     *
+     * The alternative to a digest is silence, which loses the news, or sending
+     * anyway, which is what the cap exists to prevent.
+     */
+    public void sendDigest(String to, String username, java.util.List<String> lines, String unsubscribeToken) {
+        send(to, "What you missed on webpost.ing", """
+                Hi %s,
+
+                A few things happened while you were away:
+
+                %s
+
+                See them: %s/inbox
+
+                (You are getting one message instead of several — there is a
+                limit on how much email webpost.ing will send you in a day.)
+
+                %s
+                """.formatted(username, String.join("\n", lines), baseUrl,
+                              unsubscribeFooter(unsubscribeToken, "all")));
+    }
 }

@@ -145,4 +145,21 @@ public class EmailTokenService {
         jdbc.update("UPDATE users SET unsubscribe_token = ? WHERE id = ?", token, userId);
         return token;
     }
+
+    /**
+     * The address a user is currently being asked to confirm, if any.
+     *
+     * An unconfirmed address is deliberately not stored on the account — it
+     * lives here on the outstanding token — so this is where the pending value
+     * is read from.
+     */
+    public String pendingEmailFor(int userId) {
+        List<String> rows = jdbc.queryForList("""
+                SELECT email FROM email_tokens
+                 WHERE user_id = ? AND purpose = ? AND used_at IS NULL AND expires_at > NOW()
+                 ORDER BY created_at DESC
+                 LIMIT 1
+                """, String.class, userId, PURPOSE_VERIFY);
+        return rows.isEmpty() ? null : rows.get(0);
+    }
 }

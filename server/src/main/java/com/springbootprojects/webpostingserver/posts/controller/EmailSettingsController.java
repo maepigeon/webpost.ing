@@ -104,9 +104,15 @@ public class EmailSettingsController {
                 "SELECT email, email_verified, site_background, background_pattern, pattern_presets, " +
                 "code_font, code_font_size FROM users WHERE id = ?", userId);
 
+        boolean verified = Boolean.TRUE.equals(user.get("email_verified"));
+
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("email", user.get("email"));
-        body.put("emailVerified", Boolean.TRUE.equals(user.get("email_verified")));
+        // Only a confirmed address is ever reported as the account's email. An
+        // unconfirmed one is reported separately as pending, so the UI cannot
+        // put a tick beside an address nobody has proved they own.
+        body.put("email", verified ? user.get("email") : null);
+        body.put("emailVerified", verified);
+        body.put("pendingEmail", tokenService.pendingEmailFor(userId));
         // The site-wide background, plus the two sources a user can pick from:
         // their own profile wallpaper and their saved preset library.
         body.put("siteBackground", user.get("site_background"));
@@ -221,19 +227,25 @@ public class EmailSettingsController {
         if (userId == null) return ResponseEntity.notFound().build();
         VERIFY_LIMITER.recordUse(clientIp(request));
 
-        jdbc.update("UPDATE users SET email = ?, email_verified = FALSE, email_verified_at = NULL WHERE id = ?",
-                email, userId);
-
+        // The address is NOT written to the account here. It lives only on the
+        // token until the person who owns it clicks the link.
+        //
+        // Writing it immediately let anyone put someone else's address on their
+        // own account: that address then received a confirmation mail, and
+        // another every time "resend" was pressed. Holding it here means an
+        // address only reaches an account whose owner proved they can read it,
+        // and an unwilling recipient gets exactly one message.
         EmailTokenService.IssuedToken issued =
                 tokenService.issue(userId, email, EmailTokenService.PURPOSE_VERIFY);
         emailService.sendVerification(email, username, issued.plaintext());
 
         Map<String, Object> response = new LinkedHashMap<>();
-        response.put("email", email);
+        response.put("email", currentEmailOf(userId));   // unchanged until confirmed
+        response.put("pendingEmail", email);
         response.put("emailVerified", false);
         response.put("message", emailService.isEnabled()
-                ? "Check your inbox for a confirmation link."
-                : "Address saved. Email sending is switched off on this server, so it cannot be verified yet.");
+                ? "Check " + email + " for a confirmation link. The address joins your account once you confirm it."
+                : "Email sending is switched off on this server, so this address cannot be confirmed yet.");
         return ResponseEntity.ok(response);
     }
 
@@ -256,18 +268,17 @@ public class EmailSettingsController {
         if (userId == null) return ResponseEntity.notFound().build();
         VERIFY_LIMITER.recordUse(clientIp(request));
 
-        List<Map<String, Object>> rows = jdbc.queryForList(
-                "SELECT email, email_verified FROM users WHERE id = ?", userId);
-        String email = (String) rows.get(0).get("email");
-        if (email == null || email.isBlank())
-            return ResponseEntity.badRequest().body(Map.of("message", "No email address on file."));
-        if (Boolean.TRUE.equals(rows.get(0).get("email_verified")))
-            return ResponseEntity.ok(Map.of("message", "That address is already confirmed."));
+        // The address being confirmed lives on the outstanding token, not on the
+        // account — see setEmail for why.
+        String email = tokenService.pendingEmailFor(userId);
+        if (email == null)
+            return ResponseEntity.badRequest().body(Map.of("message",
+                    "No address is waiting to be confirmed. Enter one above."));
 
         EmailTokenService.IssuedToken issued =
                 tokenService.issue(userId, email, EmailTokenService.PURPOSE_VERIFY);
         emailService.sendVerification(email, username, issued.plaintext());
-        return ResponseEntity.ok(Map.of("message", "Confirmation email sent."));
+        return ResponseEntity.ok(Map.of("message", "Confirmation email sent to " + email + "."));
     }
 
     /**
@@ -284,16 +295,12 @@ public class EmailSettingsController {
             return ResponseEntity.badRequest()
                     .body(Map.of("message", "This confirmation link is " + result.reason() + "."));
 
-        // Confirm against the address the token was issued for. If the user has
-        // since changed it, an older link must not verify the new address.
-        int updated = jdbc.update("""
-                UPDATE users SET email_verified = TRUE, email_verified_at = NOW()
-                 WHERE id = ? AND email = ?
-                """, result.userId(), result.email());
-
-        if (updated == 0)
-            return ResponseEntity.badRequest()
-                    .body(Map.of("message", "This link was for a different address. Request a new one from Settings."));
+        // This is where the address is written to the account: the click is the
+        // proof that whoever reads that inbox agreed to it.
+        jdbc.update("""
+                UPDATE users SET email = ?, email_verified = TRUE, email_verified_at = NOW()
+                 WHERE id = ?
+                """, result.email(), result.userId());
 
         return ResponseEntity.ok(Map.of("message", "Email confirmed. Notifications are on."));
     }
@@ -491,5 +498,12 @@ public class EmailSettingsController {
                 "codeFont", row.get("code_font"),
                 "codeFontSize", row.get("code_font_size"),
                 "message", "Saved."));
+    }
+
+    /** The address currently on the account, or "" when none is confirmed. */
+    private String currentEmailOf(int userId) {
+        List<String> rows = jdbc.queryForList(
+                "SELECT email FROM users WHERE id = ? AND email_verified = TRUE", String.class, userId);
+        return rows.isEmpty() || rows.get(0) == null ? "" : rows.get(0);
     }
 }

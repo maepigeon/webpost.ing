@@ -88,7 +88,7 @@ export default function SettingsPage() {
   useEffect(() => {
     if (!username) { navigate('/routes/Login'); return; }
     GET_SETTINGS(username)
-      .then(data => { setSettings(data); setEmailInput(data.email || ''); })
+      .then(data => { setSettings(data); setEmailInput(data.email || data.pendingEmail || ''); })
       .catch(() => setError('Could not load your settings. Try reloading the page.'))
       .finally(() => setLoading(false));
     GET_USER_BACKGROUND(username).then(p => setProfileWallpaper(p || '')).catch(() => {});
@@ -121,7 +121,12 @@ export default function SettingsPage() {
     setError('');
     try {
       const result = await UPDATE_EMAIL_ADDRESS(username, emailInput.trim());
-      setSettings(s => ({ ...s, email: result.email, emailVerified: result.emailVerified }));
+      setSettings(s => ({
+        ...s,
+        email: result.email || null,
+        pendingEmail: result.pendingEmail || null,
+        emailVerified: !!result.emailVerified,
+      }));
       setStatus(result.message);
     } catch (err) {
       setError(err?.response?.data?.message || 'Could not save that address.');
@@ -233,7 +238,9 @@ export default function SettingsPage() {
   } catch {
     savedPresets = [];   // a malformed library should not break the page
   }
-  const addressChanged = emailInput.trim() !== (email || '');
+  // Changed relative to whichever address is in play — the confirmed one, or
+  // one already waiting to be confirmed.
+  const addressChanged = emailInput.trim() !== (email || settings.pendingEmail || '');
   const notificationsUsable = mailEnabled && emailVerified;
 
   return (
@@ -252,8 +259,11 @@ export default function SettingsPage() {
         <section className="settings-section">
           <h2 className="settings-section-title">Email address</h2>
           <p className="settings-section-hint">
-            Optional. Used for notifications and to reset your password if you forget it.
-            It is never shown to anyone else.
+            Optional. Used for notifications and to reset your password if you
+            forget it, and never shown to anyone else. An address is only added
+            to your account once you confirm it from that inbox, so nobody can
+            sign someone else up. At most 3 emails a day; anything beyond that
+            arrives as one digest.
           </p>
 
           <form className="settings-email-form" onSubmit={saveEmail}>
@@ -272,19 +282,31 @@ export default function SettingsPage() {
             </button>
           </form>
 
-          {email && (
-            <p className={`settings-verify-state settings-verify-state--${emailVerified ? 'ok' : 'pending'}`}>
-              {emailVerified
-                ? <>✓ <strong>{email}</strong> is confirmed.</>
-                : <>
-                    <strong>{email}</strong> is not confirmed yet.
-                    {mailEnabled && (
-                      <button type="button" className="settings-link-btn" onClick={resend}>
-                        Resend the confirmation email
-                      </button>
-                    )}
-                  </>}
+          {/* Confirmed and pending are different states with different text.
+              A tick can only ever appear beside an address whose owner has
+              clicked the link — an unconfirmed address is not on the account
+              at all until then. */}
+          {emailVerified && email && (
+            <p className="settings-verify-state settings-verify-state--ok">
+              ✓ <strong>{email}</strong> is confirmed.
             </p>
+          )}
+
+          {settings.pendingEmail && (
+            <p className="settings-verify-state settings-verify-state--pending">
+              Waiting for you to confirm <strong>{settings.pendingEmail}</strong>.
+              It is added to your account once you click the link in that email —
+              until then nothing else is sent to it.
+              {mailEnabled && (
+                <button type="button" className="settings-link-btn" onClick={resend}>
+                  Resend
+                </button>
+              )}
+            </p>
+          )}
+
+          {!emailVerified && !settings.pendingEmail && (
+            <p className="settings-section-hint">No email address on your account.</p>
           )}
         </section>
 

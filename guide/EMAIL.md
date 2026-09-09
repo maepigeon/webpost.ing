@@ -63,15 +63,46 @@ signing in. Transactional mail does not.
 
 ### Confirming an address
 
-1. `PUT /api/users/{u}/settings/email` stores the address, clears the verified
-   flag, and emails a link.
-2. The link opens `/verify-email?token=…`, which posts to `POST /api/email/verify`.
-3. On success `email_verified` is set.
+1. `PUT /api/users/{u}/settings/email` emails a link. **The address is not
+   written to the account.** It exists only on the token row until confirmed.
+2. The link opens `/verify-email?token=…` → `POST /api/email/verify`.
+3. *That* is what writes `users.email` and sets `email_verified`.
 
-Changing the address always clears the flag — the new one has not been proven,
-and leaving it set would let an account point at an address it does not control.
-Confirmation is matched against the address the token was issued for, so a link
-sent to a previous address cannot confirm a new one.
+**Why the address is not stored first.** It used to be, unverified. That let
+anyone put someone else's address on their own account — and that person then
+received a confirmation mail, and another every time "resend" was pressed.
+Holding it on the token means an address only ever reaches an account whose
+owner proved they can read that inbox, and an unwilling recipient gets exactly
+one message they can ignore.
+
+The settings API reports `email` only when confirmed, and an unconfirmed one
+separately as `pendingEmail`, so the UI cannot show a tick beside an address
+nobody has proved they own.
+
+---
+
+## The daily cap
+
+**Three notification emails per person per day.** Anything beyond that is held
+and sent as one digest.
+
+Without a ceiling a single busy thread could mail someone dozens of times in an
+evening. To them that is indistinguishable from spam; to their provider it is
+how a sending domain gets blocked — which then costs every user their
+password-reset mail too.
+
+- Counted in `email_send_log`, one row per user per day.
+- Over the cap, the news goes to `email_digest_queue` rather than being dropped:
+  the aim is to send less mail, not to lose what happened.
+- `EmailNotificationService.flushDigests` runs hourly and sends one summary to
+  each user with a backlog, provided they have a slot left. Hourly rather than
+  nightly, so news from the morning does not wait fifteen hours and every user's
+  mail does not leave in the same second.
+- A digest consumes a slot like anything else.
+- **Transactional mail is exempt** — verification and password reset are
+  requested by the recipient and must arrive.
+- A backlog for a user who no longer has a confirmed address is discarded rather
+  than kept forever.
 
 ### Password reset
 

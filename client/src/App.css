@@ -207,7 +207,7 @@ button:active {
  */
 .glass-card {
   position: relative;
-  background: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.68);
   backdrop-filter: blur(24px) saturate(200%) brightness(1.04);
   -webkit-backdrop-filter: blur(24px) saturate(200%) brightness(1.04);
   border-radius: 18px;
@@ -236,7 +236,25 @@ button:active {
   border-radius: inherit;
   pointer-events: none;
   z-index: -1;
-  background: rgba(30, 20, 100, 0.38);
+  /* The refractive ring: light around most of the rim with one dark arc, which
+     is what reads as a curved glass edge. Only the 1.5px outside the card is
+     meant to show — the card's own fill covers the rest.
+
+     Flattening this to a single colour picked the dark arc, turning the whole
+     plate navy behind a 55%-opaque card and darkening every glass surface in
+     the app. Symmetric left-to-right, so there is still no light direction. */
+  background: conic-gradient(
+    from 0deg at 50% 50%,
+    rgba(255, 255, 255, 0.92)   0deg,
+    rgba(220, 215, 255, 0.55)  45deg,
+    rgba(160, 140, 255, 0.32)  90deg,
+    rgba(120, 100, 220, 0.28) 135deg,
+    rgba(150, 135, 235, 0.30) 180deg,
+    rgba(120, 100, 220, 0.28) 225deg,
+    rgba(160, 140, 255, 0.32) 270deg,
+    rgba(220, 215, 255, 0.55) 315deg,
+    rgba(255, 255, 255, 0.92) 360deg
+  );
 }
 
 .under-construction {

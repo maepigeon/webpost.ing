@@ -23,6 +23,8 @@ const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /** file → why a gradient is legitimate there */
 const ALLOWED = {
+  'App.css':
+    'The .glass-card ::before refractive ring. Only the 1.5px outside the card shows; the card fill covers the rest. Flattening it to one colour picked its single dark arc and turned the plate behind every glass surface navy.',
   'components/PatternPicker/patterns.js':
     'The wallpaper engine. Gradients are the product it generates.',
   'components/PatternPicker/PatternPicker.jsx':

@@ -1289,12 +1289,32 @@
    wide window and crowded a narrow one because a breakpoint cannot know how
    wide the controls actually are. */
 
+/* Two rows: the tools, then the save actions. The actions used to share the
+   tools row, where "Save draft", "Upload", "View post" and a status message ran
+   past the edge of the post area. */
+.toolbar-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
 .toolbar-responsive {
   display: flex;
   align-items: center;
   gap: 4px;
   flex-wrap: nowrap;
   overflow: visible;
+  min-width: 0;
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 6px;
+  border-top: 1px solid var(--hairline, rgba(26, 16, 96, 0.13));
 }
 
 .toolbar-item { display: inline-flex; align-items: center; flex-shrink: 0; }
@@ -1310,14 +1330,6 @@
   white-space: nowrap;
   top: -9999px;
   left: -9999px;
-}
-
-.toolbar-trailing {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
 }
 
 .toolbar-overflow { position: relative; display: inline-flex; flex-shrink: 0; }

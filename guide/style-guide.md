@@ -82,6 +82,7 @@ box-shadow: var(--raise-2);
 | `PatternPicker.jsx` placeholder | Example text showing a user what to type. |
 | `MessagesPage.css` thread backdrop | `repeating-linear-gradient` — a texture, not a fill. |
 | `ImageCropDialog.css` crop frame | `repeating-conic-gradient` — the standard transparency checkerboard. |
+| `App.css` `.glass-card::before` | The refractive ring shared by every glass surface. Mostly light with one darker arc; flattening it picked the dark arc and turned the plate behind every card navy. |
 | `Home.css` card `::before` rims | The refractive edge. Only the 1.5px outside the card is visible, so it is an edge and not a fill; simulating light bending around a curved rim is what makes glass look like glass. Must be symmetric left-to-right. |
 
 Anything else is a regression. To check:
