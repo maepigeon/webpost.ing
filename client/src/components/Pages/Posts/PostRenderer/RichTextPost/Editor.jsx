@@ -433,21 +433,29 @@ function CodeHoverControlsPlugin() {
         }
       });
 
-      // A header bar inside the block, not a floating overlay.
+      // A single-line control bar pinned to the top-right of the block.
       //
-      // The overlay was positioned `fixed` and kept in place by a
-      // requestAnimationFrame loop that ran for the lifetime of the block — one
-      // permanent loop per code block on the page, purely to make an absolutely
-      // positioned element follow an element it sits on top of. Anchoring the
-      // bar to the block means the browser keeps it in place for free, and puts
-      // the language name and the buttons on one line as a proper toolbar.
+      // It lives in document.body, NOT inside the editor. Lexical reconciles the
+      // contenteditable against its own model, so a foreign element inserted
+      // there is removed on the next update — which is what happened when this
+      // was briefly made a sibling of the code element: the whole bar vanished.
+      //
+      // Position is refreshed on scroll and resize rather than by a
+      // requestAnimationFrame loop. The old version ran one such loop per code
+      // block for as long as the block existed, purely to keep a fixed element
+      // following one that does not move on its own.
       const overlay = document.createElement('div');
       overlay.className = 'code-header-bar';
       overlay.addEventListener('mousedown', ev => {
         // Clicks in the chrome must not move the caret into the code.
         if (ev.target === overlay) ev.preventDefault();
       });
-      let trackRaf = null;
+
+      const place = () => {
+        const r = el.getBoundingClientRect();
+        overlay.style.top = (r.top + 6) + 'px';
+        overlay.style.right = (window.innerWidth - r.right + 8) + 'px';
+      };
 
       const mkBtn = (label, title, active_, onClick) => {
         const btn = document.createElement('button');
@@ -608,9 +616,11 @@ function CodeHoverControlsPlugin() {
         }).catch(() => {});
       }));
 
-      // Inserted before the block so it reads as its header, and so the
-      // browser keeps them together without any position tracking.
-      el.parentNode?.insertBefore(overlay, el);
+      document.body.appendChild(overlay);
+      place();
+      // Passive: these only read layout, never block the scroll.
+      window.addEventListener('scroll', place, { passive: true, capture: true });
+      window.addEventListener('resize', place, { passive: true });
 
       const state = { overlay, leaveTimer: null, cleanupFns: [] };
       active.set(el, state);
@@ -632,7 +642,8 @@ function CodeHoverControlsPlugin() {
         () => el.removeEventListener('mouseenter', cancelRemove),
         () => overlay.removeEventListener('mouseleave', scheduleRemove),
         () => overlay.removeEventListener('mouseenter', cancelRemove),
-        () => { if (trackRaf !== null) cancelAnimationFrame(trackRaf); },
+        () => window.removeEventListener('scroll', place, { capture: true }),
+        () => window.removeEventListener('resize', place),
       );
     }
 

@@ -1201,38 +1201,61 @@
 .editor-modal-btn--cancel:hover { background: rgba(0,0,0,0.11); }
 
 
-/* ── Code block header bar ────────────────────────────────────────────────
-   A real element above the block rather than a fixed-position overlay kept in
-   place by a per-block requestAnimationFrame loop. The language name and the
-   actions share one line, the way an editor tab bar does. */
+/* The language, always visible on the block itself.
+   The hover bar carries the controls, but it is only there while the pointer
+   is over the block — without this the language was shown nowhere the rest of
+   the time. */
+.editor-code[data-highlight-language]::before {
+  content: attr(data-highlight-language);
+  position: absolute;
+  top: 8px;
+  left: 14px;
+  font-family: var(--code-font, ui-monospace, Menlo, Consolas, monospace);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  color: #9d9d9d;
+  pointer-events: none;
+  text-transform: lowercase;
+}
+
+.editor-code.code-light[data-highlight-language]::before { color: #6e6e6e; }
+
+/* ── Code block control bar ───────────────────────────────────────────────
+   One line: the language name, then the actions. Positioned over the top-right
+   of the block and rendered into document.body, because anything inserted into
+   the contenteditable itself is removed by Lexical on its next reconcile. */
 
 .code-header-bar {
+  position: fixed;
+  z-index: 9999;
   display: flex;
   align-items: center;
   gap: 4px;
   flex-wrap: nowrap;
+  max-width: min(560px, 90vw);
   overflow-x: auto;
   scrollbar-width: none;
-  padding: 5px 8px;
-  margin: 14px 0 -14px;              /* sits directly on top of the block */
+  padding: 4px 6px;
   background: #2d2d2d;               /* VS Code tab bar */
-  border: 1px solid #303030;
-  border-bottom: none;
-  border-radius: 8px 8px 0 0;
+  border: 1px solid #3c3c3c;
+  border-radius: 8px;
   font-size: 11.5px;
-  position: relative;
-  z-index: 2;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
 }
 
 .code-header-bar::-webkit-scrollbar { display: none; }
 
-/* The block itself loses its top corners so the two read as one object. */
-.code-header-bar + .editor-code {
-  margin-top: 0;
-  border-radius: 0 0 8px 8px;
-}
+/* Pushes the actions to the right of the language name. */
+.code-header-spacer { flex: 0 0 6px; }
 
-.code-header-spacer { flex: 1 1 auto; }
+/* The separators between action groups. */
+.code-ctrl-sep {
+  flex: 0 0 1px;
+  align-self: stretch;
+  margin: 2px 3px;
+  background: rgba(255, 255, 255, 0.18);
+}
 
 /* The language name is the control: click it to change it. */
 .code-lang-label {
