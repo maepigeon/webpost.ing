@@ -1171,8 +1171,9 @@ function FeatureTogglePlugin({ postid, features, onFeaturesChange }) {
  * Input is tidied as you type rather than rejected: someone typing "My Post!"
  * gets "my-post", which is what they meant.
  */
-function PostSlugPlugin({ slug, onSlugChange, username, titleRef }) {
+function PostSlugPlugin({ slug, onSlugChange, username, titleRef, postId }) {
   const [draft, setDraft] = useState(slug || '');
+  const [editing, setEditing] = useState(false);
 
   // Follow the saved value when the post loads or is reloaded.
   useEffect(() => { setDraft(slug || ''); }, [slug]);
@@ -1190,33 +1191,55 @@ function PostSlugPlugin({ slug, onSlugChange, username, titleRef }) {
   };
 
   const derived = slugify((titleRef?.current || '').replace(/<[^>]*>/g, ''));
-  const preview = tidy(draft).replace(/-+$/, '') || derived;
+  const effective = tidy(draft).replace(/-+$/, '') || derived;
+  const idPart = postId || '123';
+
+  // Collapsed to a single readable line until clicked. The address is worth
+  // seeing on every post; the input only matters when you want to change it.
+  if (!editing) {
+    return (
+      <div className="post-slug-row">
+        <span className="post-slug-static" title="This post's address">
+          <span className="post-slug-dim">/{username || 'you'}/{idPart}-</span>
+          <span className="post-slug-value">{effective || 'untitled'}</span>
+        </span>
+        <button type="button" className="post-slug-edit" onClick={() => setEditing(true)}>
+          {slug ? 'Change URL' : 'Set a custom URL'}
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <span className="toolbar-slug">
-      <label className="toolbar-slug-label" htmlFor="post-slug-input">Post URL</label>
+    <div className="post-slug-row post-slug-row--editing">
+      <label className="post-slug-label" htmlFor="post-slug-input">
+        <span className="post-slug-dim">/{username || 'you'}/{idPart}-</span>
+      </label>
       <input
         id="post-slug-input"
         type="text"
-        className="toolbar-slug-input"
+        className="post-slug-input"
         value={draft}
         placeholder={derived || 'my-post-name'}
         onChange={e => setDraft(tidy(e.target.value))}
-        onBlur={commit}
-        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); commit(); e.currentTarget.blur(); } }}
+        onBlur={() => { commit(); setEditing(false); }}
+        onKeyDown={e => {
+          if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); }
+          // Escape abandons the edit rather than committing a half-typed slug.
+          if (e.key === 'Escape') { setDraft(slug || ''); setEditing(false); }
+        }}
         maxLength={80}
+        autoFocus
       />
-      <span className="toolbar-slug-preview" title="How the address will look">
-        /{username || 'you'}/<span className="toolbar-slug-preview-id">123</span>-{preview || '…'}
-      </span>
       {draft && (
-        <button type="button" className="toolbar-slug-reset"
-                onClick={() => { setDraft(''); onSlugChange?.(null); }}
-                title="Go back to using the title">
+        <button type="button" className="post-slug-reset"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => { setDraft(''); onSlugChange?.(null); setEditing(false); }}
+                title="Go back to deriving it from the title">
           Use title
         </button>
       )}
-    </span>
+    </div>
   );
 }
 
@@ -1478,7 +1501,6 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
       <ToolbarMenu id="page" label="Page" hint="Wallpaper, URL, comments and reactions"
                    openId={openMenu} setOpenId={setOpenMenu}>
         <BackgroundToolbarPlugin pattern={backgroundPattern} onPatternChange={onPatternChange} username={username} />
-        <PostSlugPlugin slug={slug} onSlugChange={onSlugChange} username={username} titleRef={titleRef} />
         <FeatureTogglePlugin postid={postid} features={features} onFeaturesChange={onFeaturesChange} />
       </ToolbarMenu>
     </>
@@ -1500,7 +1522,6 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
       </ToolbarGroup>
       <ToolbarGroup label="Page">
         <BackgroundToolbarPlugin pattern={backgroundPattern} onPatternChange={onPatternChange} username={username} />
-        <PostSlugPlugin slug={slug} onSlugChange={onSlugChange} username={username} titleRef={titleRef} />
         <FeatureTogglePlugin postid={postid} features={features} onFeaturesChange={onFeaturesChange} />
       </ToolbarGroup>
     </>
@@ -1745,6 +1766,15 @@ export default function RichTextEditor() {
                 localStorage.setItem("currentPostTitle", val);
               }}
               editMode={true}
+            />
+            {/* Directly under the title, because that is where someone looks
+                for "what will this post's address be". */}
+            <PostSlugPlugin
+              slug={postSlug}
+              onSlugChange={setPostSlug}
+              username={postAuthor || me}
+              titleRef={titlehtml}
+              postId={id > 0 ? id : null}
             />
             <ToolbarPlugin postid={id} backgroundPattern={backgroundPattern} onPatternChange={setBackgroundPattern} username={postAuthor || me} postPublished={postPublished} onPublishedChange={setPostPublished} features={features} onFeaturesChange={setFeatures} titleRef={titlehtml} onSaved={handleSaved} folder={postFolder} onFolderChange={setPostFolder} slug={postSlug} onSlugChange={setPostSlug} />
             <div style={{ position: 'relative' }}>

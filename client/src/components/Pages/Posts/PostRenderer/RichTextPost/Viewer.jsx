@@ -131,16 +131,18 @@ export default function RichTextViewer() {
   const [dataReady, setDataReady] = useState(false);
   const [postLoaded, setPostLoaded] = useState(false);
   const [features, setFeatures] = useState({ reactionsEnabled: false, discussionEnabled: false });
+  // The author's chosen URL slug, if they set one.
+  const [postSlug, setPostSlug] = useState(null);
   // Rewrite the address bar to the canonical slugged URL once the title is
   // known. replace, not push, so Back still goes where the reader came from,
   // and only when it actually differs so this cannot loop.
   useEffect(() => {
     if (!postTitle || !id || !username) return;
-    const canonical = postPath(username, { id, title: postTitle });
+    const canonical = postPath(username, { id, title: postTitle, slug: postSlug });
     if (window.location.pathname !== canonical) {
       window.history.replaceState(null, '', canonical + window.location.search + window.location.hash);
     }
-  }, [postTitle, id, username]);
+  }, [postTitle, postSlug, id, username]);
 
   const me = localStorage.getItem('userName');
   const isAuthor = me && me === postAuthor;
@@ -201,6 +203,7 @@ export default function RichTextViewer() {
   useEffect(() => {
     READ_POST(id).then(data => {
       setPostTitle(data.title);
+      setPostSlug(data.slug || null);
       setPostDate(data.date);
       setPostPublished(data.published);
       setBackgroundPattern(data.backgroundPattern || '');

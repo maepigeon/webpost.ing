@@ -384,53 +384,31 @@
 /* Pushes the save controls to the right edge. */
 .toolbar-spacer { flex: 1 1 auto; min-width: 8px; }
 
-/* ── Post URL field ─────────────────────────────────────────────────────── */
+/* ── Post URL, under the title ────────────────────────────────────────────
+   Shown as plain text until you click to change it: the address is worth
+   seeing on every post, but the input only matters when editing it. */
 
-.toolbar-slug {
+.post-slug-row {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 7px;
-  width: 100%;
-}
-
-.toolbar-slug-label {
-  font-size: 11.5px;
-  font-weight: 600;
-  color: #1a1060;
-}
-
-.toolbar-slug-input {
-  flex: 1;
-  min-width: 140px;
-  padding: 6px 10px;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: -2px 0 10px;
+  padding: 0 4px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
-  color: #1a1060;
-  background: rgba(255, 255, 255, 0.85);
-  border: 1.5px solid rgba(255, 255, 255, 0.9);
-  border-radius: 8px;
-  outline: none;
-  box-shadow: 0 0 0 1px rgba(26, 16, 96, 0.12), inset 0 1.5px 3px rgba(0, 0, 0, 0.05);
 }
 
-.toolbar-slug-input:focus {
-  border-color: rgba(108, 99, 255, 0.6);
-  box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.16);
-}
+.post-slug-static { word-break: break-all; }
 
-.toolbar-slug-preview {
-  width: 100%;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
-  color: #524c63;
-  word-break: break-all;
-}
+.post-slug-dim { color: #837e94; }
 
-.toolbar-slug-preview-id { opacity: 0.55; }
+.post-slug-value { color: #4b44cc; font-weight: 600; }
 
-.toolbar-slug-reset {
-  padding: 4px 9px;
+.post-slug-edit,
+.post-slug-reset {
+  padding: 3px 9px;
+  font-family: inherit;
   font-size: 11px;
   font-weight: 600;
   color: #524c63;
@@ -438,9 +416,34 @@
   border: 1px solid rgba(26, 16, 96, 0.16);
   border-radius: 7px;
   cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.13s, background 0.13s, border-color 0.13s;
 }
 
-.toolbar-slug-reset:hover { color: #1a1060; background: #ffffff; }
+.post-slug-edit:hover,
+.post-slug-reset:hover {
+  color: #2f2a8f;
+  background: #ffffff;
+  border-color: rgba(108, 99, 255, 0.4);
+}
+
+.post-slug-label { color: #837e94; white-space: nowrap; }
+
+.post-slug-input {
+  flex: 1;
+  min-width: 140px;
+  padding: 5px 9px;
+  font-family: inherit;
+  font-size: 12px;
+  color: #1a1060;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1.5px solid rgba(108, 99, 255, 0.45);
+  border-radius: 7px;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.12);
+}
+
+.post-slug-input::placeholder { color: #a8a4b8; }
 
 /* ── Save status ────────────────────────────────────────────────────────── */
 

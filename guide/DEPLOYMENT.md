@@ -8,6 +8,73 @@ Last verified: 2026-09-08 (against the deploy session of 2026-07-09).
 
 ---
 
+## 0. Before the next deploy — one-time steps
+
+This release changes how the app is configured and how profile URLs work. Work
+through these once; afterwards §2 is the whole procedure.
+
+### a. nginx must fall back to index.html for every path
+
+Profiles now live at `/{username}`, so nginx sees requests for paths that are
+not files. Without a catch-all fallback it answers 404 and the request never
+reaches the SPA — **every profile link breaks**, while `/users/{username}` keeps
+working, which makes it look like a frontend bug.
+
+```nginx
+location / {
+    try_files $uri $uri/ /index.html;
+}
+```
+
+Check the live config before deploying:
+
+```bash
+sudo nginx -T | grep -A 3 'location / '
+```
+
+If `try_files … /index.html` is absent, add it and `sudo nginx -s reload`.
+Afterwards, confirm from outside the server:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' https://webpost.ing/Mae   # expect 200
+```
+
+### b. Move production settings into deploy.env
+
+`application.properties` is now committed and secret-free, so the untracked copy
+on the server will block `git pull`:
+
+```bash
+grep -E 'datasource|profiles' server/src/main/resources/application.properties  # note the values
+mv server/src/main/resources/application.properties /root/application.properties.bak
+git pull
+cp config/deploy.env.example deploy.env && chmod 600 deploy.env && $EDITOR deploy.env
+```
+
+The server now **refuses to start** under the `prod` profile if the database
+password is missing or still the development default, if the database is still
+`testdb`, if `ALLOWED_ORIGINS` points at localhost, or if `UPLOAD_DIR` is
+relative. Previously it would have started against an empty local database and
+looked like a successful deploy.
+
+### c. Take a backup first
+
+```bash
+./tools/backup.sh
+```
+
+Five migrations (V014–V018) will apply on first start: image variants, email,
+post reports, custom fonts, post slugs. All are additive — new tables and
+nullable columns — and all have been verified against a database built from
+scratch. There is nothing to run by hand.
+
+### d. Expect everyone to be signed out
+
+Sessions live in memory, so the restart ends all of them. Normal, but worth
+knowing before the messages arrive.
+
+---
+
 ## 1. Production facts
 
 | Thing | Value |
