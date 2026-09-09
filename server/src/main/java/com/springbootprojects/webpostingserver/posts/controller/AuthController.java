@@ -1,6 +1,7 @@
 package com.springbootprojects.webpostingserver.posts.controller;
 
 import com.springbootprojects.webpostingserver.posts.model.AuthSession;
+import com.springbootprojects.webpostingserver.posts.validator.ReservedUsernames;
 import com.springbootprojects.webpostingserver.posts.model.LoginInfo;
 import com.springbootprojects.webpostingserver.posts.model.User;
 import com.springbootprojects.webpostingserver.posts.repository.JdbcLoginRepository;
@@ -493,6 +494,10 @@ public class AuthController {
             return ResponseEntity.badRequest().body("Username must be 3–32 characters.");
         if (!username.matches("[A-Za-z0-9_\\-]+"))
             return ResponseEntity.badRequest().body("Username may only contain letters, numbers, underscores, and hyphens.");
+        // Profiles live at /{username}, so a name matching an application route
+        // would make both that route and the profile unreachable.
+        if (ReservedUsernames.isReserved(username))
+            return ResponseEntity.badRequest().body("That username is reserved. Please choose another.");
         if (email.length() > 255 || !email.contains("@"))
             return ResponseEntity.badRequest().body("Invalid email address.");
 

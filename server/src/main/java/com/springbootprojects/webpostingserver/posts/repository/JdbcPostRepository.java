@@ -39,12 +39,13 @@ public class JdbcPostRepository implements PostRepository {
         p.setDate(rs.getTimestamp("date"));
         p.setBackgroundPattern(rs.getString("background_pattern"));
         p.setFolder(rs.getString("folder"));
+        p.setSlug(rs.getString("slug"));
         return p;
     };
 
     public List<Post> getPostsFromUsername(String username) {
         return jdbcTemplate.query(
-            "SELECT post.id, post.title, post.description, post.published, post.date, post.background_pattern, post.folder " +
+            "SELECT post.id, post.title, post.description, post.published, post.date, post.background_pattern, post.folder, post.slug " +
             "FROM posts post " +
             "INNER JOIN users_posts_junctions junction ON junction.post_id = post.id " +
             "INNER JOIN users selected_user ON selected_user.id = junction.user_id " +
@@ -75,7 +76,7 @@ public class JdbcPostRepository implements PostRepository {
     public int save(Post post, int userId) {
         log.debug("Saving post \"{}\" (published={})", post.getTitle(), post.isPublished());
 
-        final String INSERT_SQL = "INSERT INTO posts (title, description, published, background_pattern, folder) VALUES(?,?,?,?,?) RETURNING \"id\";";
+        final String INSERT_SQL = "INSERT INTO posts (title, description, published, background_pattern, folder, slug) VALUES(?,?,?,?,?,?) RETURNING \"id\";";
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(
                 new PreparedStatementCreator() {
@@ -86,6 +87,7 @@ public class JdbcPostRepository implements PostRepository {
                         ps.setBoolean(3, post.isPublished());
                         ps.setString(4, post.getBackgroundPattern());
                         ps.setString(5, post.getFolder());
+                        ps.setString(6, post.getSlug());
                         return ps;
                     }
                 },
@@ -102,16 +104,16 @@ public class JdbcPostRepository implements PostRepository {
     @Override
     public int update(Post post) {
         return jdbcTemplate.update(
-            "UPDATE posts SET title=?, description=?, published=?, background_pattern=?, folder=? WHERE id=?",
+            "UPDATE posts SET title=?, description=?, published=?, background_pattern=?, folder=?, slug=? WHERE id=?",
             post.getTitle(), post.getDescription(), post.isPublished(),
-            post.getBackgroundPattern(), post.getFolder(), post.getId());
+            post.getBackgroundPattern(), post.getFolder(), post.getSlug(), post.getId());
     }
 
     @Override
     public Post findById(Long id) {
         try {
             return jdbcTemplate.queryForObject(
-                "SELECT id, title, description, published, date, background_pattern, folder FROM posts WHERE id=?",
+                "SELECT id, title, description, published, date, background_pattern, folder, slug FROM posts WHERE id=?",
                 POST_MAPPER, id);
         } catch (IncorrectResultSizeDataAccessException e) {
             return null;
@@ -132,21 +134,21 @@ public class JdbcPostRepository implements PostRepository {
     @Override
     public List<Post> findAll() {
         return jdbcTemplate.query(
-            "SELECT id, title, description, published, date, background_pattern, folder FROM posts",
+            "SELECT id, title, description, published, date, background_pattern, folder, slug FROM posts",
             POST_MAPPER);
     }
 
     @Override
     public List<Post> findByPublished(boolean published) {
         return jdbcTemplate.query(
-            "SELECT id, title, description, published, date, background_pattern, folder FROM posts WHERE published=?",
+            "SELECT id, title, description, published, date, background_pattern, folder, slug FROM posts WHERE published=?",
             POST_MAPPER, published);
     }
 
     @Override
     public List<Post> findByTitleContaining(String title) {
         return jdbcTemplate.query(
-            "SELECT id, title, description, published, date, background_pattern, folder FROM posts WHERE title ILIKE ?",
+            "SELECT id, title, description, published, date, background_pattern, folder, slug FROM posts WHERE title ILIKE ?",
             POST_MAPPER, "%" + title + "%");
     }
 

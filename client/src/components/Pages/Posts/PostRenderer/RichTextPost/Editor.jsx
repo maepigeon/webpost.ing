@@ -39,6 +39,7 @@ import PatternPicker from '../../../../PatternPicker/PatternPicker.jsx';
 import { patternToStyle } from '../../../../PatternPicker/patterns.js';
 import { normaliseUploadResponse } from '../../../../../utils/responsiveImage.js';
 import ImageCropDialog from '../../../../ImageCrop/ImageCropDialog.jsx';
+import { postPath, slugify } from '../../../../../utils/postUrl.js';
 
 const EDITOR_NODES = [HeadingNode, ListNode, ListItemNode, CustomCodeNode, CodeHighlightNode, ImageNode, MathNode, LinkNode];
 
@@ -1069,7 +1070,7 @@ function PostLinkToolbarPlugin() {
 
   const handleSelect = (post) => {
     setShowSearch(false);
-    const href = `/users/${post.username}/${post.id}`;
+    const href = postPath(post.username, post);
     const title = post.title || `Post #${post.id}`;
     editor.update(() => {
       const linkNode = $createLinkNode(href);
@@ -1159,7 +1160,67 @@ function FeatureTogglePlugin({ postid, features, onFeaturesChange }) {
   );
 }
 
-function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublishedChange, titleRef, onSaved, username, folder, onFolderChange, features }) {
+
+/**
+ * Lets the author choose the readable part of their post's URL.
+ *
+ * The address is /{username}/{id}-{slug}. The id makes it unique, so the slug
+ * is free-form and needs no collision handling — leaving it blank simply
+ * derives one from the title.
+ *
+ * Input is tidied as you type rather than rejected: someone typing "My Post!"
+ * gets "my-post", which is what they meant.
+ */
+function PostSlugPlugin({ slug, onSlugChange, username, titleRef }) {
+  const [draft, setDraft] = useState(slug || '');
+
+  // Follow the saved value when the post loads or is reloaded.
+  useEffect(() => { setDraft(slug || ''); }, [slug]);
+
+  const tidy = (value) => value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+/, '')
+    .slice(0, 80);
+
+  const commit = () => {
+    const cleaned = tidy(draft).replace(/-+$/, '');
+    setDraft(cleaned);
+    onSlugChange?.(cleaned || null);
+  };
+
+  const derived = slugify((titleRef?.current || '').replace(/<[^>]*>/g, ''));
+  const preview = tidy(draft).replace(/-+$/, '') || derived;
+
+  return (
+    <span className="toolbar-slug">
+      <label className="toolbar-slug-label" htmlFor="post-slug-input">Post URL</label>
+      <input
+        id="post-slug-input"
+        type="text"
+        className="toolbar-slug-input"
+        value={draft}
+        placeholder={derived || 'my-post-name'}
+        onChange={e => setDraft(tidy(e.target.value))}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); commit(); e.currentTarget.blur(); } }}
+        maxLength={80}
+      />
+      <span className="toolbar-slug-preview" title="How the address will look">
+        /{username || 'you'}/<span className="toolbar-slug-preview-id">123</span>-{preview || '…'}
+      </span>
+      {draft && (
+        <button type="button" className="toolbar-slug-reset"
+                onClick={() => { setDraft(''); onSlugChange?.(null); }}
+                title="Go back to using the title">
+          Use title
+        </button>
+      )}
+    </span>
+  );
+}
+
+function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublishedChange, titleRef, onSaved, username, folder, onFolderChange, features, slug }) {
   const { confirm } = useDialog();
   const [editor] = useLexicalComposerContext();
   const [saveStatus, setSaveStatus] = useState('');
@@ -1178,9 +1239,9 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
     if (saving) return;
     const postTitle = (titleRef?.current || localStorage.getItem("currentPostTitle") || '').replace(/<[^>]*>/g, '').trim();
     if (published) {
-      if (!postTitle) { showStatus('Add a title before publishing.', true); return; }
+      if (!postTitle) { showStatus('Add a title before uploading.', true); return; }
       const bodyText = editor.getEditorState().read(() => $getRoot().getTextContent()).trim();
-      if (!bodyText) { showStatus('Add some content before publishing.', true); return; }
+      if (!bodyText) { showStatus('Add some content before uploading.', true); return; }
     }
     if (!published && postPublished) {
       if (!(await confirm('Unpublish this post? It will no longer be visible to other users.'))) return;
@@ -1188,9 +1249,9 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
     const editorState = JSON.stringify(editor.getEditorState().toJSON());
     setSaving(true);
     if (hasSaved) {
-      UPDATE_POST(effectiveId, postTitle, editorState, published, backgroundPattern, folder)
+      UPDATE_POST(effectiveId, postTitle, editorState, published, backgroundPattern, folder, slug)
         .then(() => {
-          showStatus(published ? 'Saved!' : postPublished ? 'Unpublished.' : 'Draft saved.');
+          showStatus(published ? 'Uploaded.' : postPublished ? 'Unpublished — saved as a draft.' : 'Draft saved.');
           onPublishedChange(published);
           setSavedId(effectiveId);
           onSaved?.();
@@ -1202,9 +1263,9 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
         })
         .finally(() => setSaving(false));
     } else {
-      CREATE_POST(1, postTitle, editorState, published, backgroundPattern, folder)
+      CREATE_POST(1, postTitle, editorState, published, backgroundPattern, folder, slug)
         .then((newId) => {
-          showStatus(published ? 'Published!' : 'Draft created.');
+          showStatus(published ? 'Uploaded — your post is live.' : 'Draft saved.');
           setSavedId(newId);
           // Apply any non-default feature settings chosen before saving
           if (features && !features.reactionsEnabled) SET_REACTIONS_ENABLED(newId, false).catch(() => {});
@@ -1218,28 +1279,32 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
     }
   };
 
-  const viewUrl = savedId && username ? `/users/${username}/${savedId}` : null;
+  const currentTitle = (titleRef?.current || '').replace(/<[^>]*>/g, '').trim();
+  const viewUrl = savedId && username
+    ? postPath(username, { id: savedId, title: currentTitle, slug })
+    : null;
 
   return (
     <>
       {saveStatus && (
-        <span style={{
-          fontSize: '0.78rem',
-          color: saveStatus.error ? '#ef4444' : '#15803d',
-          fontWeight: 600,
-          padding: '2px 6px',
-        }}>
+        <span className={`toolbar-save-status${saveStatus.error ? ' toolbar-save-status--error' : ''}`}>
           {saveStatus.msg}
         </span>
       )}
-      <button className="toolbar-btn-draft" onClick={() => save(false)} disabled={saving}>
-        {postPublished ? 'Unpublish' : 'Save Draft'}
+      {/* Two actions, named for what they do: keep it private, or put it up.
+          The old pair read "Save Draft" and "Save", which did not say that the
+          second one made the post public. */}
+      <button className="toolbar-btn-draft" onClick={() => save(false)} disabled={saving}
+              title={postPublished ? 'Take this post down and keep it as a draft'
+                                   : 'Save without making it visible to anyone else'}>
+        {postPublished ? 'Unpublish' : 'Save draft'}
       </button>
-      <button className="toolbar-btn-save" onClick={() => save(true)} disabled={saving}>
-        {saving ? '…' : hasSaved ? 'Save' : 'Publish'}
+      <button className="toolbar-btn-save" onClick={() => save(true)} disabled={saving}
+              title={postPublished ? 'Save and keep it published' : 'Make this post public'}>
+        {saving ? '…' : 'Upload'}
       </button>
       {viewUrl && (
-        <Link to={viewUrl} style={{ textDecoration: 'none' }}>
+        <Link to={viewUrl} className="toolbar-view-link">
           <button className="toolbar-btn-view">View post →</button>
         </Link>
       )}
@@ -1264,16 +1329,60 @@ function UndoRedoPlugin() {
   );
 }
 
-function CollapsibleSection({ label, defaultOpen = true, children }) {
-  const [open, setOpen] = useState(defaultOpen);
+/**
+ * A toolbar group that opens in a popover rather than expanding inline.
+ *
+ * The previous version expanded in place, so opening a section pushed every
+ * other control sideways and the bar's layout changed as you worked. A popover
+ * floats above the page, so the row of controls never moves.
+ *
+ * Only one is open at a time — the parent owns `openId`, since two open panels
+ * would overlap and there is never a reason to want both.
+ */
+function ToolbarMenu({ id, label, hint, openId, setOpenId, children }) {
+  const open = openId === id;
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpenId(null); };
+    const onKey = (e) => { if (e.key === 'Escape') setOpenId(null); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open, setOpenId]);
+
   return (
-    <span className="toolbar-collapsible">
+    <span className="toolbar-menu" ref={ref}>
       <button
-        className="toolbar-collapse-toggle"
-        title={open ? `Collapse ${label}` : `Expand ${label}`}
-        onClick={() => setOpen(o => !o)}
-      >{label} {open ? '▾' : '▸'}</button>
-      {open && <span className="toolbar-collapsible-body">{children}</span>}
+        type="button"
+        className={`toolbar-menu-trigger${open ? ' toolbar-menu-trigger--open' : ''}`}
+        aria-expanded={open}
+        title={hint}
+        onClick={() => setOpenId(open ? null : id)}
+      >
+        {label}
+        <span className="toolbar-menu-caret" aria-hidden="true">▾</span>
+      </button>
+      {open && (
+        <span className="toolbar-menu-panel" role="group" aria-label={label}>
+          <span className="toolbar-menu-panel-label">{label}</span>
+          <span className="toolbar-menu-panel-body">{children}</span>
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** Kept for the mobile panel, which shows every group expanded at once. */
+function ToolbarGroup({ label, children }) {
+  return (
+    <span className="toolbar-group">
+      <span className="toolbar-group-label">{label}</span>
+      <span className="toolbar-group-body">{children}</span>
     </span>
   );
 }
@@ -1314,7 +1423,9 @@ function FormatToolbarPlugin() {
   );
 }
 
-function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, postPublished, onPublishedChange, features, onFeaturesChange, titleRef, onSaved, folder, onFolderChange }) {
+function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, postPublished, onPublishedChange, features, onFeaturesChange, titleRef, onSaved, folder, onFolderChange, slug, onSlugChange }) {
+  // Only one popover open at a time; two would overlap.
+  const [openMenu, setOpenMenu] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const panelRef = useRef(null);
 
@@ -1327,46 +1438,81 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
     return () => document.removeEventListener('mousedown', handler);
   }, [mobileOpen]);
 
-  const buildSections = (allOpen) => (
+  /**
+   * Desktop toolbar.
+   *
+   * The controls people reach for constantly — undo, block type, bold/italic,
+   * lists, link — are always visible. Everything else lives in a popover menu.
+   * Previously all five groups were expanded by default, which produced a wall
+   * of around thirty buttons above every post and pushed the writing area down
+   * the page.
+   */
+  const desktopToolbar = (
     <>
       <UndoRedoPlugin />
       <span className='toolbar-divider' />
-      <CollapsibleSection label="Block" defaultOpen={allOpen}>
-        <BlockTypePlugin />
-        <ListToolbarPlugin />
-      </CollapsibleSection>
+
+      {/* Structure: what this block of text is. */}
+      <BlockTypePlugin />
+      <ListToolbarPlugin />
       <span className='toolbar-divider' />
-      <CollapsibleSection label="Format" defaultOpen={allOpen}>
-        <FormatToolbarPlugin />
-      </CollapsibleSection>
+
+      {/* The four everyone uses. */}
+      <FormatToolbarPlugin />
       <span className='toolbar-divider' />
-      <CollapsibleSection label="Style" defaultOpen={allOpen}>
+
+      <ToolbarMenu id="style" label="Style" hint="Colour, highlight and alignment"
+                   openId={openMenu} setOpenId={setOpenMenu}>
         <InlineStylePlugin />
-      </CollapsibleSection>
-      <span className='toolbar-divider' />
-      <CollapsibleSection label="Insert" defaultOpen={false}>
+      </ToolbarMenu>
+
+      <ToolbarMenu id="insert" label="Insert" hint="Links, images, code and maths"
+                   openId={openMenu} setOpenId={setOpenMenu}>
         <LinkToolbarPlugin />
         <PostLinkToolbarPlugin />
+        <ImageToolbarPlugin />
         <CodeToolbarPlugin />
         <MathToolbarPlugin />
-        <ImageToolbarPlugin />
-      </CollapsibleSection>
-      <span className='toolbar-divider' />
-      <CollapsibleSection label="Preferences" defaultOpen={allOpen}>
+      </ToolbarMenu>
+
+      <ToolbarMenu id="page" label="Page" hint="Wallpaper, URL, comments and reactions"
+                   openId={openMenu} setOpenId={setOpenMenu}>
         <BackgroundToolbarPlugin pattern={backgroundPattern} onPatternChange={onPatternChange} username={username} />
+        <PostSlugPlugin slug={slug} onSlugChange={onSlugChange} username={username} titleRef={titleRef} />
         <FeatureTogglePlugin postid={postid} features={features} onFeaturesChange={onFeaturesChange} />
-      </CollapsibleSection>
+      </ToolbarMenu>
     </>
   );
-  const formattingSections = buildSections(true);
+
+  /** Mobile shows everything at once inside its own panel, so nothing is hidden. */
+  const mobileToolbar = (
+    <>
+      <ToolbarGroup label="History"><UndoRedoPlugin /></ToolbarGroup>
+      <ToolbarGroup label="Block"><BlockTypePlugin /><ListToolbarPlugin /></ToolbarGroup>
+      <ToolbarGroup label="Format"><FormatToolbarPlugin /></ToolbarGroup>
+      <ToolbarGroup label="Style"><InlineStylePlugin /></ToolbarGroup>
+      <ToolbarGroup label="Insert">
+        <LinkToolbarPlugin />
+        <PostLinkToolbarPlugin />
+        <ImageToolbarPlugin />
+        <CodeToolbarPlugin />
+        <MathToolbarPlugin />
+      </ToolbarGroup>
+      <ToolbarGroup label="Page">
+        <BackgroundToolbarPlugin pattern={backgroundPattern} onPatternChange={onPatternChange} username={username} />
+        <PostSlugPlugin slug={slug} onSlugChange={onSlugChange} username={username} titleRef={titleRef} />
+        <FeatureTogglePlugin postid={postid} features={features} onFeaturesChange={onFeaturesChange} />
+      </ToolbarGroup>
+    </>
+  );
 
   return (
     <>
       {/* Desktop toolbar */}
       <div className='toolbar-sticky toolbar-desktop'>
-        {formattingSections}
-        <span className='toolbar-divider' />
-        <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} titleRef={titleRef} onSaved={onSaved} username={username} folder={folder} onFolderChange={onFolderChange} features={features} />
+        {desktopToolbar}
+        <span className='toolbar-spacer' />
+        <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} titleRef={titleRef} onSaved={onSaved} username={username} folder={folder} onFolderChange={onFolderChange} features={features} slug={slug} />
       </div>
 
       {/* Mobile toolbar: slim bar with hamburger + save */}
@@ -1379,7 +1525,7 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
           <span className='toolbar-mobile-hamburger-icon'><span /><span /><span /></span>
           <span className='toolbar-mobile-hamburger-label'>Format</span>
         </button>
-        <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} titleRef={titleRef} onSaved={onSaved} username={username} folder={folder} onFolderChange={onFolderChange} features={features} />
+        <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} titleRef={titleRef} onSaved={onSaved} username={username} folder={folder} onFolderChange={onFolderChange} features={features} slug={slug} />
       </div>
 
       {/* Mobile formatting panel (glass popup) */}
@@ -1454,6 +1600,8 @@ export default function RichTextEditor() {
   const [postAuthor, setPostAuthor] = useState("");
   const [backgroundPattern, setBackgroundPattern] = useState('');
   const [postFolder, setPostFolder] = useState('');
+  // Author-chosen URL slug; null means "derive it from the title".
+  const [postSlug, setPostSlug] = useState(null);
   const [dataReady, setDataReady] = useState(0);
   const [postLoaded, setPostLoaded] = useState(false);
   const [features, setFeatures] = useState({ reactionsEnabled: true, discussionEnabled: true });
@@ -1516,6 +1664,7 @@ export default function RichTextEditor() {
       setPostPublished(data.published);
       setBackgroundPattern(data.backgroundPattern || '');
       setPostFolder(data.folder || '');
+      setPostSlug(data.slug || null);
       localStorage.setItem("currentPostData", data.description);
       setDataReady(v => v + 1);
       GET_USER_FROM_POST(id).then((author) => {
@@ -1529,7 +1678,7 @@ export default function RichTextEditor() {
   // Redirect non-owners away from the editor
   useEffect(() => {
     if (!id || !postLoaded) return;
-    if (postAuthor && me !== postAuthor) navigate(`/users/${postAuthor}/${id}`);
+    if (postAuthor && me !== postAuthor) navigate(`/${postAuthor}/${id}`);
   }, [id, postLoaded, postAuthor, me, navigate]);
 
   useEffect(() => {
@@ -1597,7 +1746,7 @@ export default function RichTextEditor() {
               }}
               editMode={true}
             />
-            <ToolbarPlugin postid={id} backgroundPattern={backgroundPattern} onPatternChange={setBackgroundPattern} username={postAuthor || me} postPublished={postPublished} onPublishedChange={setPostPublished} features={features} onFeaturesChange={setFeatures} titleRef={titlehtml} onSaved={handleSaved} folder={postFolder} onFolderChange={setPostFolder} />
+            <ToolbarPlugin postid={id} backgroundPattern={backgroundPattern} onPatternChange={setBackgroundPattern} username={postAuthor || me} postPublished={postPublished} onPublishedChange={setPostPublished} features={features} onFeaturesChange={setFeatures} titleRef={titlehtml} onSaved={handleSaved} folder={postFolder} onFolderChange={setPostFolder} slug={postSlug} onSlugChange={setPostSlug} />
             <div style={{ position: 'relative' }}>
               <RichTextPlugin
                 contentEditable={<ContentEditable className='editor-contenteditable' />}

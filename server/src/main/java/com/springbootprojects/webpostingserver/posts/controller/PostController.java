@@ -26,6 +26,26 @@ import com.springbootprojects.webpostingserver.posts.repository.SocialRepository
 @RestController
 @RequestMapping("/api")
 public class PostController {
+    /**
+     * Normalises an author-chosen slug, or returns null to fall back to the
+     * title.
+     *
+     * The slug appears in a URL, so it is reduced to lowercase letters, digits
+     * and single hyphens rather than rejected — a near-miss should be tidied,
+     * not refused. It is not checked for uniqueness: the post id precedes it in
+     * the URL, so duplicates are harmless.
+     */
+    static String normaliseSlug(String raw) {
+        if (raw == null) return null;
+        String slug = java.text.Normalizer.normalize(raw.trim(), java.text.Normalizer.Form.NFKD)
+                .replaceAll("\\p{M}+", "")
+                .toLowerCase()
+                .replaceAll("[^a-z0-9]+", "-")
+                .replaceAll("(^-+)|(-+$)", "");
+        if (slug.length() > 80) slug = slug.substring(0, 80).replaceAll("-+$", "");
+        return slug.isEmpty() ? null : slug;
+    }
+
 
     @Autowired private com.springbootprojects.webpostingserver.posts.service.EmailNotificationService emailNotifications;
     @Autowired PostRepository postRepository;
@@ -185,6 +205,7 @@ public class PostController {
             try {
                 int userId = loginResult.userId;
                 System.out.println("User ID: " + userId);
+                post.setSlug(normaliseSlug(post.getSlug()));
                 int postId = postRepository.save(post, userId);
                 syncPostUploads(postId, post.getDescription());
                 social.parseAndSaveHashtags(postId, post.getDescription());
@@ -234,6 +255,7 @@ public class PostController {
             _post.setDate(post.getDate());
             _post.setBackgroundPattern(post.getBackgroundPattern());
             _post.setFolder(post.getFolder() != null && !post.getFolder().isBlank() ? post.getFolder().trim() : null);
+            _post.setSlug(normaliseSlug(post.getSlug()));
             postRepository.update(_post);
             syncPostUploads(id, post.getDescription());
             social.parseAndSaveHashtags((int) id, post.getDescription());

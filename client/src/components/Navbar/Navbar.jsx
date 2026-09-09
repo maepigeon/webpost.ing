@@ -75,7 +75,7 @@ function Navbar() {
         {/* Login handled in left group */}
         {loggedIn && (
           <>
-            <Navbutton label="My Profile" route={`/users/${username}`} variant="purple" />
+            <Navbutton label="My Profile" route={`/${username}`} variant="purple" />
             <Navbutton label="Activity" route={`/activity/${username}`} variant="purple" />
             <Navbutton label="Settings" route="/settings" variant="purple" />
             <MessagesBell />
@@ -113,7 +113,7 @@ function Navbar() {
               <button className="nav-mobile-popup-close" onClick={() => setMenuOpen(false)} aria-label="Close menu">✕</button>
               <div className="nav-mobile-popup-welcome">Welcome, {username}!</div>
               <div className="nav-mobile-popup-items">
-                <Navbutton label="My Profile" route={`/users/${username}`} variant="purple" />
+                <Navbutton label="My Profile" route={`/${username}`} variant="purple" />
                 <Navbutton label="Activity" route={`/activity/${username}`} variant="purple" />
                 <Navbutton label="Messages" route="/messages" variant="purple" />
                 <Navbutton label="Notifications" route="/inbox" variant="purple" />

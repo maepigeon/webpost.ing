@@ -9,7 +9,7 @@ import { postPath } from '../../utils/postUrl.js';
 function ActorLink({ username }) {
   return (
     <Link
-      to={`/users/${username}`}
+      to={`/${username}`}
       className="inbox-actor-link"
       onClick={e => e.stopPropagation()}
     >
@@ -132,7 +132,7 @@ export default function InboxPage() {
     } else if (n.type === 'new_post' && n.postId) {
       navigate(postPath(n.actorUsername, { id: n.postId, title: n.postTitle }));
     } else if (n.type === 'follow') {
-      navigate(`/users/${n.actorUsername}`);
+      navigate(`/${n.actorUsername}`);
     }
   };
 

@@ -1,16 +1,20 @@
 /**
  * Post URLs.
  *
- * A post lives at `/users/{author}/{id}-{slug}` — the numeric id first, then a
- * readable slug derived from the title:
+ * A post lives at `/{author}/{id}-{slug}` — the numeric id first, then a
+ * readable slug, which is the author's own if they set one and derived from the
+ * title otherwise:
  *
- *     /users/mae/42-how-i-built-the-wallpaper-maker
+ *     /mae/42-how-i-built-the-wallpaper-maker
+ *
+ * The older `/users/{author}/...` form still routes, so links already shared
+ * keep working.
  *
  * Leading with the id means lookups stay by primary key. A pure slug would need
  * a unique column, collision handling, a backfill for every existing post, and
  * a decision about what happens when a title is edited. This form gets the
- * readable URL with none of that, and old `/users/{author}/{id}` links keep
- * working unchanged — `parsePostId` just takes the digits off the front.
+ * readable URL with none of that, and bare-id links keep working unchanged —
+ * `parsePostId` just takes the digits off the front.
  *
  * It also means the slug is cosmetic: a stale or hand-edited slug still resolves
  * to the right post, the way it does on Stack Overflow or Medium.
@@ -48,10 +52,10 @@ export function slugify(title) {
  * @param {string} [suffix] e.g. '/discussion'
  */
 export function postPath(username, post, suffix = '') {
-  if (!post || post.id == null) return `/users/${username}`;
-  const slug = slugify(post.title);
+  if (!post || post.id == null) return `/${username}`;
+  const slug = post.slug || slugify(post.title);
   const segment = slug ? `${post.id}-${slug}` : String(post.id);
-  return `/users/${username}/${segment}${suffix}`;
+  return `/${username}/${segment}${suffix}`;
 }
 
 /**

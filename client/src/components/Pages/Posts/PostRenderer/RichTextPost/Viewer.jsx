@@ -456,7 +456,7 @@ export default function RichTextViewer() {
               </div>
               {features.discussionEnabled && (
                 <Link
-                  to={`/users/${authorUsername}/${id}/discussion`}
+                  to={`/${authorUsername}/${idParam}/discussion`}
                   style={{ fontSize: '14px', color: '#1a73e8', textDecoration: 'none', fontWeight: 500 }}
                 >
                   Discussion

@@ -127,7 +127,7 @@ export default function CommentItem({ comment, postId, depth = 0, onRefresh }) {
       <div className="comment-body">
         <div className="comment-meta">
           <UserAvatar username={comment.authorUsername} />
-          <Link to={`/users/${comment.authorUsername}`} className="comment-author" style={{ textDecoration: 'none' }}>{comment.authorUsername}</Link>
+          <Link to={`/${comment.authorUsername}`} className="comment-author" style={{ textDecoration: 'none' }}>{comment.authorUsername}</Link>
           <span className="comment-time">{timeAgo(comment.createdAt)}</span>
           {comment.editedAt && <span className="comment-edited">(edited)</span>}
           {comment.replies?.length > 0 && (

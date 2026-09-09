@@ -70,7 +70,7 @@ export function GET_USER_FROM_POST(id) {
 
 
 //create
-export function CREATE_POST(id, titleField, descriptionField, publishedField, backgroundPattern, folder) {
+export function CREATE_POST(id, titleField, descriptionField, publishedField, backgroundPattern, folder, slug) {
   if (titleField == "undefined") {titleField = "Undefined title";}
   const promise = axios.post(baseUrl + "/api/posts",
   {
@@ -80,12 +80,13 @@ export function CREATE_POST(id, titleField, descriptionField, publishedField, ba
     published: publishedField,
     backgroundPattern: backgroundPattern || null,
     folder: folder || null,
+    slug: slug || null,
   }, { withCredentials: true });
   const dataPromise = promise.then((response) => response.data);
   return dataPromise;
 }
 //update
-export function UPDATE_POST(id, titleField, descriptionField, publishedField, backgroundPattern, folder) {
+export function UPDATE_POST(id, titleField, descriptionField, publishedField, backgroundPattern, folder, slug) {
   const promise = axios.put(baseUrl + "/api/posts/" + id,
   {
       id: id,
@@ -94,6 +95,7 @@ export function UPDATE_POST(id, titleField, descriptionField, publishedField, ba
       published: publishedField,
       backgroundPattern: backgroundPattern || null,
       folder: folder || null,
+      slug: slug || null,
   }, { withCredentials: true });
   const dataPromise = promise.then((response) => response.data);
   return dataPromise;

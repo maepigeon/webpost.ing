@@ -16,7 +16,7 @@ function UserCard({ username }) {
   }, [username]);
 
   return (
-    <Link className="home-user-card" to={`/users/${username}`}>
+    <Link className="home-user-card" to={`/${username}`}>
       <div className="home-user-avatar">
         {avatarSrc
           ? <img src={avatarSrc} alt={username} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />

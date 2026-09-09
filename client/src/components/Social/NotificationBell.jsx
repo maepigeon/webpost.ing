@@ -7,7 +7,7 @@ import { postPath } from '../../utils/postUrl.js';
 function ActorLink({ username, onClick }) {
   return (
     <Link
-      to={`/users/${username}`}
+      to={`/${username}`}
       className="notif-actor-link"
       onClick={e => { e.stopPropagation(); if (onClick) onClick(); }}
     >

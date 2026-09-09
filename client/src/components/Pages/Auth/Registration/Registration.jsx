@@ -82,7 +82,7 @@ function Registration() {
       } catch {
         localStorage.setItem('isAdmin', '0');
       }
-      window.location.href = `/users/${username.trim()}`;
+      window.location.href = `/${username.trim()}`;
     } catch (e) {
       const raw = e.response?.data;
       setError(typeof raw === 'string' ? raw : (raw?.message || raw?.error || 'Registration failed. Please try again.'));

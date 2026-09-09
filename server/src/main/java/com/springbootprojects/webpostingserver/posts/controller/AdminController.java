@@ -93,6 +93,12 @@ public class AdminController {
             return ResponseEntity.badRequest().body("Username and password required.");
         if (newUsername.length() > 32 || newPassword.length() > 32)
             return ResponseEntity.badRequest().body("Username and password must be 32 chars or less.");
+        // Admin-created accounts go through the same URL-shadowing check as
+        // self-registration; profiles live at /{username}.
+        if (!newUsername.trim().matches("[A-Za-z0-9_\\-]+"))
+            return ResponseEntity.badRequest().body("Username may only contain letters, numbers, underscores, and hyphens.");
+        if (com.springbootprojects.webpostingserver.posts.validator.ReservedUsernames.isReserved(newUsername))
+            return ResponseEntity.badRequest().body("That username is reserved.");
 
         try {
             jdbc.update("INSERT INTO users(username, password) VALUES(?,?)", newUsername.trim(), bcrypt.encode(newPassword));

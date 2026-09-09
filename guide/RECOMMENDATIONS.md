@@ -87,19 +87,28 @@ built these yet, deliberately — as specified they make **one stolen session
 token equal total, unrecoverable data loss**, and restoring an uploaded dump is
 arbitrary SQL execution by definition.
 
-What I would build instead:
-- **Backup download**: safe and genuinely useful. Streams `pg_dump`, never
-  accepts a path or database name from the request. Do this one first.
-- **Restore**: into a scratch database, show a diff, require a second explicit
-  confirmation to promote. Never straight over the live database.
-- **Merge**: needs semantics from you before any code — what wins on a username
-  collision? On a post id collision?
-- **Delete**: I would leave this out. `dropdb` from a shell is one command for
-  someone who already has server access, and a button makes it reachable by
-  anyone who steals a cookie. If you want it, it should require a fresh backup
-  to exist, a typed database name, and a re-entered password.
+**Decided 2026-09-08:** no general merge. The three cases that actually come up
+are each simpler on their own, and two are already solved:
 
-All of them want an audit log and a re-authentication step.
+- **Restoring a backup** — wipe and restore. `tools/backup.sh` covers it.
+- **Pulling prod into a dev copy** — the same operation, one direction.
+- **Importing one user's content** — already works, via
+  `GET /api/users/{u}/export` and the admin restore. It avoids the whole
+  collision problem because a single user's export gets fresh post ids.
+
+A general database merge would need id remapping across the 10 tables that
+reference `posts.id` and the 26 that reference `users.id`, plus a judgement call
+no tool can make — whether two accounts sharing a username are the same person.
+Getting that wrong hands one user another's private messages. Not worth building
+for a case that does not arise.
+
+Still worth doing: **backup download from the admin panel**. Streams `pg_dump`,
+never accepts a path or database name from the request, behind an audit log and
+re-authentication.
+
+Still not recommending a **delete-database button**: `dropdb` is one command for
+someone who already has server access, and a button makes it reachable by anyone
+who steals a cookie.
 
 ## 9. Upgrade and rollback from GitHub **[yours]**
 

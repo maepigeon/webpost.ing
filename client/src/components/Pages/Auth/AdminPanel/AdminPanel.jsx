@@ -201,7 +201,7 @@ export default function AdminPanel() {
                 <li key={r.id} className={`admin-report admin-report--${r.status}`}>
                   <div className="admin-report-main">
                     <span className="admin-report-reason">{r.reason}</span>
-                    <a className="admin-report-post" href={`/users/${r.post_author}/${r.post_id}`}
+                    <a className="admin-report-post" href={`/${r.post_author}/${r.post_id}`}
                        target="_blank" rel="noopener noreferrer">
                       {r.post_title || `Post #${r.post_id}`}
                     </a>
@@ -274,7 +274,7 @@ export default function AdminPanel() {
                   u.role === 'frozen' ? 'admin-row--frozen' : '',
                 ].filter(Boolean).join(' ')}>
                   <td>
-                    <Link to={`/users/${u.username}`} className="admin-user-link">{u.username}</Link>
+                    <Link to={`/${u.username}`} className="admin-user-link">{u.username}</Link>
                   </td>
                   <td>
                     <select value={u.role || 'user'} onChange={e => setRole(u.username, e.target.value)}

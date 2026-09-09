@@ -34,21 +34,25 @@ describe('slugify', () => {
 
 describe('postPath', () => {
   it('builds an id-and-slug path', () => {
-    expect(postPath('mae', { id: 42, title: 'My Post' })).toBe('/users/mae/42-my-post');
+    expect(postPath("mae", { id: 42, title: "My Post" })).toBe("/mae/42-my-post");
   });
   it('falls back to the bare id when the title has no slug', () => {
-    expect(postPath('mae', { id: 42, title: '🎉' })).toBe('/users/mae/42');
+    expect(postPath('mae', { id: 42, title: '🎉' })).toBe('/mae/42');
   });
   it('handles a missing title', () => {
-    expect(postPath('mae', { id: 7 })).toBe('/users/mae/7');
+    expect(postPath('mae', { id: 7 })).toBe('/mae/7');
+  });
+  it('prefers an author-chosen slug over the title', () => {
+    expect(postPath('mae', { id: 42, title: 'My Post', slug: 'custom-name' }))
+      .toBe('/mae/42-custom-name');
   });
   it('appends a suffix', () => {
     expect(postPath('mae', { id: 42, title: 'My Post' }, '/discussion'))
-      .toBe('/users/mae/42-my-post/discussion');
+      .toBe('/mae/42-my-post/discussion');
   });
   it('falls back to the profile when there is no post', () => {
-    expect(postPath('mae', null)).toBe('/users/mae');
-    expect(postPath('mae', { title: 'no id' })).toBe('/users/mae');
+    expect(postPath('mae', null)).toBe('/mae');
+    expect(postPath('mae', { title: 'no id' })).toBe('/mae');
   });
 });
 

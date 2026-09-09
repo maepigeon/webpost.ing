@@ -67,6 +67,8 @@ function App() {
       <Routes>
         <Route index element={ <Home />} />
         <Route path="/routes" element={<Home />} />
+        {/* Legacy /users/... paths. Kept working forever: they are in shared
+            links, in emails already sent, and in every post written so far. */}
         <Route path="/users/:username" element={<PostsViewer />} />
         <Route path="/users/:username/:id" element={<RichTextViewer />} />
         <Route path="/users/:username/:id/discussion" element={<DiscussionPage />} />
@@ -91,6 +93,15 @@ function App() {
         <Route path="/unsubscribe" element={<EmailActionPage mode="unsubscribe" />} />
         <Route path="/reset-password" element={<EmailActionPage mode="reset" />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        {/* Canonical profile and post URLs, at the top level.
+            These come last so every static route above wins: React Router ranks
+            by specificity, and a literal segment always beats a dynamic one, so
+            /settings can never be read as a profile called "settings".
+            ReservedUsernames additionally stops such a name being registered. */}
+        <Route path="/:username" element={<PostsViewer />} />
+        <Route path="/:username/:id" element={<RichTextViewer />} />
+        <Route path="/:username/:id/discussion" element={<DiscussionPage />} />
+
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
         </AppErrorBoundary>
