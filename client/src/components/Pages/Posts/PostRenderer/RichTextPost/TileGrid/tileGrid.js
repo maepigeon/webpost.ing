@@ -49,6 +49,7 @@ export function solidPaint(cols, rows, colour = '#000000') {
   c.width = cols * TILE;
   c.height = rows * TILE;
   const ctx = c.getContext('2d');
+  if (!ctx) return null;
   ctx.fillStyle = colour;
   ctx.fillRect(0, 0, c.width, c.height);
   return c.toDataURL('image/png');

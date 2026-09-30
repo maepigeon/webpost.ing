@@ -159,7 +159,7 @@ public class PostController {
                       FROM posts p
                       JOIN users_posts_junctions j ON j.post_id = p.id
                       JOIN users u ON u.id = j.user_id
-                     WHERE u.username = ? AND lower(p.slug) = lower(?) AND (? IS NULL OR p.id <> ?)
+                     WHERE u.username = ? AND lower(p.slug) = lower(?) AND (CAST(? AS INTEGER) IS NULL OR p.id <> CAST(? AS INTEGER))
                      LIMIT 1
                     """, Integer.class, username, candidate, excludePostId, excludePostId);
             if (clash.isEmpty()) return candidate;

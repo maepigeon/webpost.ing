@@ -107,3 +107,6 @@ body {
     margin-bottom: 6px;
     vertical-align: middle;
 }
+/* A grid post draws its grid on the card. */
+.basicTextPost .post-card-grid { margin-top: 8px; }
+.basicTextPost .post-card-grid .tilegrid { margin: 0; }

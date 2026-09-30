@@ -1,10 +1,12 @@
 import {UPDATE_POST, DELETE_POST, CREATE_POST} from '../../BasicTextPostServerApi.js'
-import {useState, useRef, React} from 'react';
+import {useState, useRef, useMemo} from 'react';
 import { Link } from 'react-router-dom';
 import './BasicTextPost.css'
 import ContentEditable from 'react-contenteditable';
 import { useDialog } from '../../../../Dialog/Dialog.jsx';
 import { postPath } from '../../../../../utils/postUrl.js';
+import { gridOfPost } from '../../../../../utils/gridPost.js';
+import TileGrid from '../RichTextPost/TileGrid/TileGrid.jsx';
 
 
 function BasicTextPost(props) {
@@ -21,6 +23,8 @@ function BasicTextPost(props) {
     });
 
     const [currentPostMode, setCurrentPostMode] = useState(editMode ? Modes.EDIT : Modes.VIEW);
+    // A post that is just a grid shows the grid itself on the card.
+    const grid = useMemo(() => gridOfPost(postdata.description), [postdata.description]);
 
     const viewPath = ownerUsername
         ? postPath(ownerUsername, postdata)
@@ -139,6 +143,11 @@ function BasicTextPost(props) {
                         <span className="draft-badge">DRAFT</span>
                     )}
                     {renderPostDataFields(currentPostMode)}
+                    {grid && currentPostMode === Modes.VIEW && (
+                        <div className="post-card-grid">
+                            <TileGrid data={grid} editable={false} onChange={() => {}} />
+                        </div>
+                    )}
                 </div>
             </div>
             {hasModifyPermissions && (

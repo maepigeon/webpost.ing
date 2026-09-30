@@ -1381,8 +1381,14 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
     const postTitle = (titleRef?.current || localStorage.getItem("currentPostTitle") || '').replace(/<[^>]*>/g, '').trim();
     if (published) {
       if (!postTitle) { showStatus('Add a title before uploading.', true); return; }
-      const bodyText = editor.getEditorState().read(() => $getRoot().getTextContent()).trim();
-      if (!bodyText) { showStatus('Add some content before uploading.', true); return; }
+      // Text, or any block that is content by itself — an image, a grid, a
+      // math block. A post that is only a picture is still a post.
+      const hasContent = editor.getEditorState().read(() => {
+        const root = $getRoot();
+        return root.getTextContent().trim().length > 0
+          || root.getChildren().some(n => ['image', 'tilegrid', 'math'].includes(n.getType()));
+      });
+      if (!hasContent) { showStatus('Add some content before uploading.', true); return; }
     }
     if (!published && postPublished) {
       if (!(await confirm('Unpublish this post? It will no longer be visible to other users.'))) return;

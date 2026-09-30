@@ -48,27 +48,7 @@ export function READ_POSTS() {
   return dataPromise;
 };
 
-// ── Grids posted onto a profile ──────────────────────────────────────────────
-
-const gridsUrl = (username) => baseUrl + `/api/users/${encodeURIComponent(username)}/grids`;
 const asJson = { headers: { 'Content-Type': 'application/json' }, withCredentials: true };
-
-/** [{id, grid}] in the owner's order. */
-export function GET_PROFILE_GRIDS(username) {
-  return axios.get(gridsUrl(username)).then(r => r.data);
-}
-export function CREATE_PROFILE_GRID(username, grid) {
-  return axios.post(gridsUrl(username), JSON.stringify(grid), asJson).then(r => r.data);
-}
-export function UPDATE_PROFILE_GRID(username, id, grid) {
-  return axios.put(`${gridsUrl(username)}/${id}`, JSON.stringify(grid), asJson).then(r => r.data);
-}
-export function DELETE_PROFILE_GRID(username, id) {
-  return axios.delete(`${gridsUrl(username)}/${id}`, { withCredentials: true });
-}
-export function ORDER_PROFILE_GRIDS(username, ids) {
-  return axios.put(`${gridsUrl(username)}/order`, ids, { withCredentials: true });
-}
 
 // ── Pixel font libraries ─────────────────────────────────────────────────────
 
