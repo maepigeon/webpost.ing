@@ -92,9 +92,10 @@ class AuthControllerTest {
     @Test
     void updateBackground_validPattern_returns200() throws Exception {
         when(loginRepository.authorize("whiskers", "tok")).thenReturn(whiskersSession);
-        ResponseEntity<String> resp = authController.updateUserBackground("whiskers", "dots", "whiskers", "tok");
+        String grid = "{\"v\":2,\"pattern\":\"grid\",\"scale\":1,\"bgColor\":\"#ece9e2\",\"colors\":[]}";
+        ResponseEntity<String> resp = authController.updateUserBackground("whiskers", grid, "whiskers", "tok");
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
-        verify(loginRepository).updateUserBackground("whiskers", "dots");
+        verify(loginRepository).updateUserBackground("whiskers", grid);
     }
 
     @Test

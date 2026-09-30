@@ -18,10 +18,8 @@ CREATE DATABASE webpostingdb OWNER yourname;
 EOF
 ```
 
-**2. Run the schema file** — creates all tables, seeds role_limits, and creates indexes
-```bash
-psql -U yourname -d webpostingdb -f config/database.sql
-```
+**2. Start the server** — it creates every table, index and seed row on first
+start, from `server/src/main/resources/db/migrations/V001__schema.sql`.
 
 **3. Update credentials** in `server/src/main/resources/application.properties`:
 ```properties

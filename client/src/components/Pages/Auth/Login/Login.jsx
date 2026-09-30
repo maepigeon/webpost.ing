@@ -38,7 +38,7 @@ function Login() {
       } catch {
         localStorage.setItem('isAdmin', '0');
       }
-      window.location.href = `/users/${username.trim()}`;
+      window.location.href = `/${username.trim()}`;
     } catch (err) {
       setError(err?.response?.data || 'Invalid username or password.');
     } finally {

@@ -7,15 +7,13 @@
  *     /mae/how-i-built-the-wallpaper-maker
  *     /mae/42                                (no title yet, or an unsluggable one)
  *
- * Three forms all resolve, so no link ever breaks:
+ * Two forms resolve:
  *
  *   /mae/42            the id
- *   /mae/my-post       the slug alone
- *   /mae/42-my-post    the older combined form
+ *   /mae/my-post       the slug, stored or derived from the title
  *
- * The id wins when both are present, so a stale slug still finds the right
- * post. Slugs are made unique per author on save, because a slug now has to
- * identify one post rather than merely decorate an id.
+ * Slugs are made unique per author on save, because a slug has to identify
+ * one post.
  */
 
 /** Longest slug we will generate. Long enough to be useful, short enough to read. */
@@ -78,11 +76,6 @@ export function postPath(username, post, suffix = '') {
  */
 export function parsePostId(segment) {
   if (segment == null) return null;
-  const match = String(segment).match(/^(\d+)(?:-|$)/);
+  const match = String(segment).match(/^(\d+)$/);
   return match ? match[1] : null;
-}
-
-/** True when a segment is a slug rather than an id, and so needs resolving. */
-export function needsResolution(segment) {
-  return segment != null && String(segment).length > 0 && parsePostId(segment) === null;
 }

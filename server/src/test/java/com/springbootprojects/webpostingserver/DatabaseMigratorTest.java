@@ -128,17 +128,6 @@ class DatabaseMigratorTest {
         assertThat(tableExists(TRACKING)).isTrue();
     }
 
-    @Test
-    void ensureTrackingTable_addsChecksumColumnToLegacyTable() {
-        // Simulate a tracking table created by the old bash migrate.sh (no checksum column)
-        jdbc.execute("CREATE TABLE " + TRACKING + " (version VARCHAR(100) PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
-        assertThat(columnExists(TRACKING, "checksum")).isFalse();
-
-        new DatabaseMigrator(jdbc, TRACKING).ensureTrackingTable();
-
-        assertThat(columnExists(TRACKING, "checksum")).isTrue();
-    }
-
     // ── Core migration behavior ───────────────────────────────────────────────
 
     @Test

@@ -57,16 +57,26 @@ password is missing or still the development default, if the database is still
 relative. Previously it would have started against an empty local database and
 looked like a successful deploy.
 
-### c. Take a backup first
+### c. Move the database onto the single-file schema
+
+The migration history was squashed into one file (`V001__schema.sql`, see
+[MIGRATIONS.md](MIGRATIONS.md)). The live database recorded the old V001–V023,
+so the new server would try to build the schema on top of it and refuse to
+start. Move it across once, keeping every row, **with the service stopped**:
 
 ```bash
-./tools/backup.sh
+sudo systemctl stop start-servers.service
+ADMIN_PSQL="sudo -u postgres psql" ./tools/reset-schema.sh --dry-run
+ADMIN_PSQL="sudo -u postgres psql" ./tools/reset-schema.sh
 ```
 
-Five migrations (V014–V018) will apply on first start: image variants, email,
-post reports, custom fonts, post slugs. All are additive — new tables and
-nullable columns — and all have been verified against a database built from
-scratch. There is nothing to run by hand.
+It backs up first (`tools/backup.sh`), builds a fresh database from the schema,
+copies the rows, and swaps the two by renaming; the old one is kept as
+`webpostingdb_before_reset_<timestamp>`. Then deploy as normal (§2) and check
+the site before dropping the old database.
+
+Rehearsed on a copy of the development database: every row, the ID sequences
+and the schema record came across, and the server started against it.
 
 ### d. Expect everyone to be signed out
 

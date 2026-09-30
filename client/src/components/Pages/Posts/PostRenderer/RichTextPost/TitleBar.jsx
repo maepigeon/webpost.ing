@@ -25,7 +25,7 @@ function TitleBar(props) {
             return(
                 <>
                     <h1>{stripHtml(postdata.title)}</h1>
-                    <Link to={"/users/"+postdata.author}>
+                    <Link to={"/"+postdata.author}>
                         <h3> Author: {postdata.author}</h3>
                     </Link>
                 </>);
@@ -44,7 +44,7 @@ function TitleBar(props) {
                         onKeyDown={e => { if (e.key === 'Enter') e.preventDefault(); }}
                         onChange={handleEditTitleCallback}
                     />
-                    <Link to={"/users/"+postdata.author}>
+                    <Link to={"/"+postdata.author}>
                         <h3> Author: {postdata.author}</h3>
                     </Link>
                 </>);

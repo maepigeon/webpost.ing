@@ -31,20 +31,18 @@ public class PostController {
     /**
      * Finds a post from whatever appears in the URL after the author's name.
      *
-     * Three forms all resolve, so no link ever breaks:
+     * Two forms resolve:
      *   /mae/42            — the id
-     *   /mae/my-post       — the slug alone
-     *   /mae/42-my-post    — the older combined form
+     *   /mae/my-post       — the slug, stored or derived from the title
      *
-     * The id is authoritative when present: a stale or edited slug alongside a
-     * valid id still finds the right post. A slug-only lookup is scoped to the
+     * A slug lookup is scoped to the
      * named author and ordered by id, so a duplicate — which the save path tries
      * to prevent but cannot guarantee under a race — always resolves to the same
      * post rather than alternating.
      */
     @GetMapping("/users/{username}/resolve/{segment}")
     public ResponseEntity<?> resolvePost(@PathVariable String username, @PathVariable String segment) {
-        java.util.regex.Matcher leadingId = java.util.regex.Pattern.compile("^(\\d+)(?:-.*)?$").matcher(segment);
+        java.util.regex.Matcher leadingId = java.util.regex.Pattern.compile("^(\\d+)$").matcher(segment);
 
         Integer postId = null;
         if (leadingId.matches()) {

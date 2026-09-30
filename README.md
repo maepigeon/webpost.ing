@@ -34,22 +34,16 @@ sudo -u postgres psql -d testdb -c "GRANT ALL ON SCHEMA public TO mae;"
 The last line is not optional on PostgreSQL 15+, where `public` is no longer
 world-writable — without it every table creation fails with a permissions error.
 
-**2. Load the schema**
-
-```bash
-PGPASSWORD=password psql -h localhost -U mae -d testdb -f config/database.sql
-```
-
-**3. Start the backend**
+**2. Start the backend**
 
 ```bash
 cd server && ./mvnw spring-boot:run
 ```
 
-Serves `http://localhost:8080`. Pending migrations apply automatically at
-startup — look for `Database migration complete` in the log.
+Serves `http://localhost:8080`. It builds the whole schema on first start —
+look for `Database migration complete` in the log.
 
-**4. Start the frontend**
+**3. Start the frontend**
 
 ```bash
 cd client && npm install && npm run dev
@@ -114,11 +108,8 @@ Email (verification, notifications, password reset) is off until
 **1. Install** Java 21 JDK, Node 18+, PostgreSQL, nginx and git.
 
 **2. Create the production database** — same four commands as local step 1, with
-your real database name, user and password. Then load the schema:
-
-```bash
-PGPASSWORD='<password>' psql -h localhost -U <user> -d <dbname> -f config/database.sql
-```
+your real database name, user and password. The server builds the schema the
+first time it starts.
 
 **3. Clone and configure**
 

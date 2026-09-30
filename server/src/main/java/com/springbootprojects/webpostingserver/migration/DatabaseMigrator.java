@@ -62,10 +62,7 @@ public class DatabaseMigrator {
 
     // ── Setup ─────────────────────────────────────────────────────────────────
 
-    /**
-     * Creates the tracking table if it doesn't exist, and adds the checksum
-     * column if it was created by an older version of the tool (migrate.sh).
-     */
+    /** Creates the tracking table if it doesn't exist. */
     public void ensureTrackingTable() {
         jdbc.execute("""
             CREATE TABLE IF NOT EXISTS %s (
@@ -73,17 +70,6 @@ public class DatabaseMigrator {
                 applied_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
                 checksum   VARCHAR(64)  DEFAULT NULL
             )""".formatted(trackingTable));
-
-        // Backfill checksum column for tracking tables created by the legacy bash script
-        jdbc.execute("""
-            DO $$ BEGIN
-              IF NOT EXISTS (
-                SELECT 1 FROM information_schema.columns
-                 WHERE table_name = '%s' AND column_name = 'checksum'
-              ) THEN
-                ALTER TABLE %s ADD COLUMN checksum VARCHAR(64) DEFAULT NULL;
-              END IF;
-            END $$""".formatted(trackingTable, trackingTable));
     }
 
     // ── Querying ──────────────────────────────────────────────────────────────

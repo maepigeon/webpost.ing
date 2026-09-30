@@ -121,9 +121,6 @@ See [MIGRATIONS.md](MIGRATIONS.md) for how to add one. Back up first regardless:
 pg_dump -Fc testdb > backup_before_migrate.dump
 ```
 
-> The shell scripts `tools/migrate.sh` and `config/migrate.sh` are earlier
-> generations of the same idea and are **not** what production uses — see
-> item 1 in [code-smells.txt](code-smells.txt).
 
 #### Creating the first admin user
 
@@ -339,8 +336,6 @@ used to crash the profile page here).
 runner. Tracks which migration versions have been applied, when, and a checksum
 of each so a file edited after the fact is reported at startup.
 
-(A `_migrations` table may also exist on older databases; it belongs to the
-superseded `tools/migrate.sh` and is unused.)
 
 ### Entity-relationship summary
 

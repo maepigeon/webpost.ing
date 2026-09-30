@@ -11,33 +11,43 @@ checksum. There is nothing to run by hand — deploying the JAR migrates the
 database. Watch the log for:
 
 ```
-Found 13 migration script(s) on classpath
-Applying migration: V013__group_reactions_ownership
-Database migration complete — applied: 1, skipped (already applied): 12
+Found 1 migration script(s) on classpath
+Database migration complete — applied: 0, skipped (already applied): 1
 ```
 
 A file edited after it was applied is reported as a checksum mismatch at
 startup, and not re-run.
 
+### One file, from 2026-09-29
+
+The history was squashed into `V001__schema.sql`: the complete schema plus
+its seed rows (`role_limits`, `system_settings`). It replaced the old V001–V024,
+`config/database.sql`, the v1 import script and the shell migration tools,
+all of which are gone. The file is a `pg_dump --schema-only` of a database
+built from the old chain, and was checked column for column, index for
+index and constraint for constraint against it.
+
+A database built from the old chain has recorded V001–V024 and would try to
+apply the new V001 on top of itself. Move it across with:
+
+```bash
+./tools/reset-schema.sh --dry-run   # see the plan
+./tools/reset-schema.sh             # stop the app first
+```
+
+It backs up, builds a fresh database from the schema, copies every row
+across (columns both sides share), resets the ID sequences, records
+`V001__schema`, and swaps the two by renaming. The old database is kept as
+`<name>_before_reset_<timestamp>` until you drop it. On a server, run it
+with `ADMIN_PSQL="sudo -u postgres psql"`: creating and renaming databases
+and loading rows past foreign keys need a superuser.
+
 ### Dollar-quoted blocks
 
-`DO $$ … $$` and `CREATE FUNCTION … $body$ … $body$` are supported. They need a
-special path: Spring's `ScriptUtils` splits a script on `;` with a scanner that
-does not understand dollar quoting, so it chops a PL/pgSQL body into fragments
-that individually fail to parse. Scripts containing a dollar-quoted block are
-therefore handed to the pgJDBC driver whole, since the driver's own statement
-splitter *does* understand dollar quoting.
-
-This previously failed in production and had to be worked around by hand-seeding
-`schema_migrations` with V001–V007 so the runner would skip them. If you inherit
-a database in that state, the versions are already recorded and will be skipped
-normally.
-
-> **Superseded scripts.** `config/migrate.sh` + `config/migrations/` and
-> `tools/migrate.sh` + `tools/migrations/` are earlier generations of this idea.
-> Production uses neither, and `config/migrations/` is *behind* the shipping
-> files (V010 vs V013), so running it against a fresh database produces a schema
-> the app rejects. See item 1 in [code-smells.txt](code-smells.txt).
+`DO $$ … $$` and `CREATE FUNCTION … $body$ … $body$` are supported. Spring's
+`ScriptUtils` splits a script on `;` with a scanner that does not understand
+dollar quoting, so scripts containing a dollar-quoted block are handed to the
+pgJDBC driver whole; the driver's own splitter does understand it.
 
 ---
 
@@ -73,7 +83,7 @@ Connection settings come from `deploy.env` — see
 
 **Example — adding a new column:**
 ```sql
--- V006__add_display_name.sql
+-- V002__add_display_name.sql
 BEGIN;
 
 ALTER TABLE users
@@ -84,7 +94,7 @@ COMMIT;
 
 **Example — seeding new reference data:**
 ```sql
--- V007__new_role.sql
+-- V003__new_role.sql
 BEGIN;
 
 INSERT INTO role_limits (role, max_storage_bytes, max_posts_per_day)
@@ -100,36 +110,15 @@ COMMIT;
 
 | Version | Description |
 |---------|-------------|
-| V001 | Baseline migration from original v1 schema (adds all tables and columns up to 2024) |
-| V002 | Add `frozen` and `audited` roles to `role_limits` |
-| V003 | Add `pinned_post_id` column to `users` |
-| V004 | Add `folder` column to `posts` |
-| V005 | Scalability indexes (all `CREATE INDEX IF NOT EXISTS`) |
-| V006 | Admin storage limit raised to 500 MB |
-| V007 | Remove `audited` role |
-| V008 | Direct messages, post views, invite codes, avatars, online heartbeat |
-| V009 | Post upvote/downvote (`post_votes` table) |
-| V010 | System settings table |
-| V011 | DM reactions (`dm_reactions`), group conversations (`group_conversations`, `group_conversation_members`, `group_messages`, `group_message_read`), post sort order |
-| V012 | Security and scalability indexes |
-| V013 | Group message reactions (`group_message_reactions`), group ownership transfer support |
+| V001 | The complete schema and seed data (squashed 2026-09-29) |
 
 ---
 
-## Fresh install vs migration
+## A fresh database
 
-| Scenario | What to do |
-|---|---|
-| Brand new database | Create an empty database, grant the app user rights on `public`, then start the server — it applies V001 onward and builds the whole schema. |
-| Existing database, any version | Start the server. Applied versions are skipped. |
-| Database whose `schema_migrations` was hand-seeded | Nothing special; those versions are recorded and skipped. |
-
-`config/database.sql` is a snapshot of the schema for reference and for seeding
-`role_limits`. It is **not** required — the migrations build the same schema — and
-it lags behind them, so prefer letting the runner do it.
-
-On PostgreSQL 15+ a fresh database needs the schema grant, or every migration
-fails on permissions:
+Create it, grant the app user rights on `public`, and start the server — it
+applies V001 and builds everything. On PostgreSQL 15+ the grant is not
+optional, or every table creation fails on permissions:
 
 ```bash
 sudo -u postgres psql -c "CREATE DATABASE webpostingdb OWNER mae;"
@@ -148,7 +137,7 @@ It checks:
 - All 15 tables exist
 - Critical columns on `users`, `posts`, `discussions`, `notifications`, `uploads`, `activity_deletions`
 - The seeded roles in `role_limits` (`user`, `trusted`, `restricted`, `admin`,
-  `frozen`) — note `audited` was added by V002 and removed again by V007
+  `frozen`)
 - `frozen` has zero limits, `admin` has unlimited (-1)
 
 ---

@@ -7,104 +7,69 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class PatternValidatorTest {
 
-    // ── Valid inputs ──────────────────────────────────────────────────────────
-
-    @Test void null_is_valid()    { assertThat(PatternValidator.isValid(null)).isTrue(); }
-    @Test void blank_is_valid()   { assertThat(PatternValidator.isValid("   ")).isTrue(); }
-    @Test void empty_is_valid()   { assertThat(PatternValidator.isValid("")).isTrue(); }
-
-    @Test void preset_none()      { assertThat(PatternValidator.isValid("none")).isTrue(); }
-    @Test void preset_dots()      { assertThat(PatternValidator.isValid("dots")).isTrue(); }
-    @Test void preset_grid()      { assertThat(PatternValidator.isValid("grid")).isTrue(); }
-    @Test void preset_diagonal()  { assertThat(PatternValidator.isValid("diagonal-stripes")).isTrue(); }
-    @Test void preset_zigzag()    { assertThat(PatternValidator.isValid("zigzag")).isTrue(); }
-    @Test void preset_crosshatch(){ assertThat(PatternValidator.isValid("cross-hatch")).isTrue(); }
-    @Test void preset_mixed_case(){ assertThat(PatternValidator.isValid("DOTS")).isTrue(); }
-
-    @Test void linear_gradient_simple() {
-        assertThat(PatternValidator.isValid("linear-gradient(45deg, red, blue)")).isTrue();
+    private static String preset(String name) {
+        return "{\"v\":2,\"pattern\":\"" + name + "\",\"scale\":1,\"bgColor\":\"#ece9e2\",\"colors\":[\"#000000\"]}";
     }
-    @Test void radial_gradient() {
-        assertThat(PatternValidator.isValid("radial-gradient(circle, #fff 1px, transparent 1px)")).isTrue();
+
+    private static String custom(String css) {
+        return "{\"v\":2,\"pattern\":\"custom\",\"scale\":1,\"bgColor\":\"#ece9e2\",\"colors\":[],\"css\":"
+                + com.fasterxml.jackson.databind.node.TextNode.valueOf(css) + "}";
     }
+
+    // ── Empty ──
+    @Test void null_is_valid()  { assertThat(PatternValidator.isValid(null)).isTrue(); }
+    @Test void blank_is_valid() { assertThat(PatternValidator.isValid("   ")).isTrue(); }
+    @Test void empty_is_valid() { assertThat(PatternValidator.isValid("")).isTrue(); }
+
+    // ── Presets ──
+    @Test void every_preset_is_valid() {
+        for (String p : new String[] { "none", "grid", "checkerboard", "paw-print", "stars", "hexagons", "chevron", "topographic" })
+            assertThat(PatternValidator.isValid(preset(p))).as(p).isTrue();
+    }
+    @Test void unknown_preset_is_rejected() { assertThat(PatternValidator.isValid(preset("dots"))).isFalse(); }
+    @Test void wrong_version_is_rejected() {
+        assertThat(PatternValidator.isValid("{\"v\":1,\"pattern\":\"grid\"}")).isFalse();
+    }
+
+    // ── Only JSON is accepted ──
+    @Test void rejects_bare_preset_name() { assertThat(PatternValidator.isValid("grid")).isFalse(); }
+    @Test void rejects_old_pipe_format()  { assertThat(PatternValidator.isValid("grid|#f0e6d3|scale:2")).isFalse(); }
+    @Test void rejects_bare_gradient()    { assertThat(PatternValidator.isValid("linear-gradient(red, blue)")).isFalse(); }
+    @Test void rejects_malformed_json()   { assertThat(PatternValidator.isValid("{\"v\":2,")).isFalse(); }
+
+    // ── Custom gradients ──
+    @Test void linear_gradient() { assertThat(PatternValidator.isValid(custom("linear-gradient(45deg, red, blue)"))).isTrue(); }
+    @Test void radial_gradient() { assertThat(PatternValidator.isValid(custom("radial-gradient(circle, #fff 1px, transparent 1px)"))).isTrue(); }
     @Test void repeating_linear() {
-        assertThat(PatternValidator.isValid(
-            "repeating-linear-gradient(45deg, rgba(0,0,0,0.1), rgba(0,0,0,0.1) 2px, transparent 2px, transparent 12px)"
-        )).isTrue();
+        assertThat(PatternValidator.isValid(custom("repeating-linear-gradient(45deg, #000 0 2px, transparent 2px 8px)"))).isTrue();
     }
-    @Test void conic_gradient() {
-        assertThat(PatternValidator.isValid("conic-gradient(red, blue)")).isTrue();
-    }
-    @Test void multiple_gradients_comma_separated() {
-        assertThat(PatternValidator.isValid(
-            "linear-gradient(red, blue), linear-gradient(90deg, green, yellow)"
-        )).isTrue();
-    }
+    @Test void conic_gradient() { assertThat(PatternValidator.isValid(custom("conic-gradient(red, blue)"))).isTrue(); }
+    @Test void custom_must_be_a_gradient() { assertThat(PatternValidator.isValid(custom("red"))).isFalse(); }
 
-    // ── Blocked: dangerous substrings ─────────────────────────────────────────
+    // ── Injection ──
+    @Test void blocks_url()           { assertThat(PatternValidator.isValid(custom("linear-gradient(red, url(x))"))).isFalse(); }
+    @Test void blocks_expression()    { assertThat(PatternValidator.isValid(custom("expression(alert(1))"))).isFalse(); }
+    @Test void blocks_javascript_uri(){ assertThat(PatternValidator.isValid(custom("javascript:alert(1)"))).isFalse(); }
+    @Test void blocks_data_uri()      { assertThat(PatternValidator.isValid(custom("linear-gradient(red, data:x)"))).isFalse(); }
+    @Test void blocks_import()        { assertThat(PatternValidator.isValid(custom("@import url(evil.css)"))).isFalse(); }
+    @Test void blocks_html()          { assertThat(PatternValidator.isValid(custom("linear-gradient(<script>)"))).isFalse(); }
+    @Test void blocks_backslash()     { assertThat(PatternValidator.isValid(custom("linear-gradient(\\0061 lert(1))"))).isFalse(); }
+    @Test void blocks_semicolon()     { assertThat(PatternValidator.isValid(custom("linear-gradient(red, blue); background: red"))).isFalse(); }
+    @Test void blocks_css_var()       { assertThat(PatternValidator.isValid(custom("linear-gradient(var(--secret))"))).isFalse(); }
+    @Test void blocks_env()           { assertThat(PatternValidator.isValid(custom("linear-gradient(env(HOSTNAME))"))).isFalse(); }
+    @Test void blocks_attr()          { assertThat(PatternValidator.isValid(custom("linear-gradient(attr(data-color))"))).isFalse(); }
 
-    @Test void blocks_url() {
-        assertThat(PatternValidator.isValid("url(https://evil.com/track.png)")).isFalse();
+    // ── Fields ──
+    @Test void rejects_bad_bg_color() {
+        assertThat(PatternValidator.isValid("{\"v\":2,\"pattern\":\"grid\",\"bgColor\":\"red;x\"}")).isFalse();
     }
-    @Test void blocks_url_in_gradient() {
-        assertThat(PatternValidator.isValid("linear-gradient(red, url(x))")).isFalse();
+    @Test void rejects_bad_pattern_color() {
+        assertThat(PatternValidator.isValid("{\"v\":2,\"pattern\":\"grid\",\"colors\":[\"url(x)\"]}")).isFalse();
     }
-    @Test void blocks_expression() {
-        assertThat(PatternValidator.isValid("expression(alert(1))")).isFalse();
+    @Test void rejects_scale_out_of_range() {
+        assertThat(PatternValidator.isValid("{\"v\":2,\"pattern\":\"grid\",\"scale\":50}")).isFalse();
     }
-    @Test void blocks_javascript_uri() {
-        assertThat(PatternValidator.isValid("javascript:alert(1)")).isFalse();
-    }
-    @Test void blocks_data_uri() {
-        assertThat(PatternValidator.isValid("data:image/png;base64,abc")).isFalse();
-    }
-    @Test void blocks_import() {
-        assertThat(PatternValidator.isValid("@import url(evil.css)")).isFalse();
-    }
-    @Test void blocks_html_open_tag() {
-        assertThat(PatternValidator.isValid("<script>")).isFalse();
-    }
-    @Test void blocks_html_close_tag() {
-        assertThat(PatternValidator.isValid(">alert")).isFalse();
-    }
-    @Test void blocks_backslash() {
-        assertThat(PatternValidator.isValid("linear-gradient(\\0061 lert(1))")).isFalse();
-    }
-    @Test void blocks_semicolon() {
-        assertThat(PatternValidator.isValid("linear-gradient(red, blue); background: red")).isFalse();
-    }
-    @Test void blocks_css_var() {
-        assertThat(PatternValidator.isValid("linear-gradient(var(--secret))")).isFalse();
-    }
-    @Test void blocks_env() {
-        assertThat(PatternValidator.isValid("linear-gradient(env(HOSTNAME))")).isFalse();
-    }
-    @Test void blocks_attr() {
-        assertThat(PatternValidator.isValid("linear-gradient(attr(data-color))")).isFalse();
-    }
-
-    // ── Blocked: unknown / arbitrary strings ─────────────────────────────────
-
-    @Test void rejects_arbitrary_string() {
-        assertThat(PatternValidator.isValid("red")).isFalse();
-    }
-    @Test void rejects_hex_color() {
-        assertThat(PatternValidator.isValid("#ff0000")).isFalse();
-    }
-    @Test void rejects_rgb() {
-        assertThat(PatternValidator.isValid("rgb(255,0,0)")).isFalse();
-    }
-
-    // ── Length limit ──────────────────────────────────────────────────────────
-
     @Test void rejects_too_long() {
-        // MAX_LENGTH = 2000; "linear-gradient(" = 16 chars, ")" = 1 → need >1983 filler chars
-        assertThat(PatternValidator.isValid("linear-gradient(" + "a".repeat(1990) + ")")).isFalse();
-    }
-    @Test void accepts_exactly_2000_chars() {
-        // "linear-gradient(" = 16, ")" = 1 → 2000 - 17 = 1983 filler chars
-        String value = "linear-gradient(" + "a".repeat(1983) + ")";
-        assertThat(value.length()).isEqualTo(2000);
-        assertThat(PatternValidator.isValid(value)).isTrue();
+        assertThat(PatternValidator.isValid(custom("linear-gradient(" + "a".repeat(2600) + ")"))).isFalse();
     }
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { slugify, postPath, parsePostId, effectiveSlug, needsResolution } from '../utils/postUrl.js';
+import { slugify, postPath, parsePostId, effectiveSlug } from '../utils/postUrl.js';
 
 describe('slugify', () => {
   it('lowercases and hyphenates', () => {
@@ -75,23 +75,13 @@ describe('postPath', () => {
 });
 
 describe('parsePostId', () => {
-  it('reads the id from a slugged segment', () => {
-    expect(parsePostId('42-my-post')).toBe('42');
-  });
-  it('reads a bare id, so old links keep working', () => {
+  it('reads a bare id', () => {
     expect(parsePostId('42')).toBe('42');
   });
-  it('ignores a wrong or stale slug', () => {
-    // The slug is cosmetic; the id decides which post is shown.
-    expect(parsePostId('42-completely-different-title')).toBe('42');
+  it('treats anything else as a slug for the server to resolve', () => {
+    for (const slug of ['my-post', '42-my-post', 'abc', '-42']) expect(parsePostId(slug)).toBeNull();
   });
-  it('returns null when there is no leading number', () => {
-    for (const bad of ['abc', '-42', '', null, undefined]) expect(parsePostId(bad)).toBeNull();
-  });
-  it('returns null for a slug-only segment, which the server must resolve', () => {
-    expect(parsePostId('my-post')).toBeNull();
-    expect(needsResolution('my-post')).toBe(true);
-    expect(needsResolution('42')).toBe(false);
-    expect(needsResolution('42-my-post')).toBe(false);
+  it('returns null for nothing', () => {
+    for (const bad of ['', null, undefined]) expect(parsePostId(bad)).toBeNull();
   });
 });

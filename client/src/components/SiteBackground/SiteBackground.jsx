@@ -9,14 +9,13 @@ import './SiteBackground.css';
 /**
  * True for routes that display somebody's own wallpaper.
  *
- * Profiles and posts live at the top level (`/mae`, `/mae/42-slug`), so "not one
+ * Profiles and posts live at the top level (`/mae`, `/mae/my-post`), so "not one
  * of the application's own routes" is what identifies them — the same reserved
  * list the router and registration use.
  */
 export function ownsItsOwnBackground(pathname) {
   const segments = pathname.split('/').filter(Boolean);
   if (segments.length === 0) return false;                 // home
-  if (segments[0] === 'users') return true;                // legacy profile/post
   return !RESERVED_USERNAMES.has(segments[0].toLowerCase());
 }
 

@@ -75,7 +75,7 @@ public class DatabaseMigrationService {
 
         log.info("Found {} migration script(s) on classpath", scripts.size());
         DatabaseMigrator migrator = new DatabaseMigrator(jdbc);
-        migrator.ensureTrackingTable(); // upgrade legacy table (adds checksum column) before querying
+        migrator.ensureTrackingTable();
 
         List<String> mismatches = migrator.detectChecksumMismatches(scripts);
         if (!mismatches.isEmpty()) {

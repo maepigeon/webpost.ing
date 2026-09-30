@@ -71,19 +71,8 @@ function App() {
 
       <Routes>
         <Route index element={ <Home />} />
-        <Route path="/routes" element={<Home />} />
-        {/* Legacy /users/... paths. Kept working forever: they are in shared
-            links, in emails already sent, and in every post written so far. */}
-        <Route path="/users/:username" element={<PostsViewer />} />
-        <Route path="/users/:username/:id" element={<RichTextViewer />} />
-        <Route path="/users/:username/:id/discussion" element={<DiscussionPage />} />
         <Route path="/editor" element={<RichTextEditor />} />
         <Route path="/editor/:id" element={<RichTextEditor />} />
-        {/* Legacy redirects — keep old URLs working */}
-        <Route path="/routes/PostsViewer/:username" element={<PostsViewer />} />
-        <Route path="/routes/RichTextViewer/:id" element={<RichTextViewer />} />
-        <Route path="/routes/RichTextEditor/:id" element={<RichTextEditor />} />
-        <Route path="/routes/RichTextEditor" element={<RichTextEditor />} />
         <Route path="/routes/Login" element={<Login />} />
         <Route path="/routes/Logout" element={<Logout />} />
         <Route path="/routes/AdminPanel" element={<AdminPanel />} />

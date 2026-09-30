@@ -258,17 +258,8 @@ public class JdbcLoginRepository implements LoginRepository {
         String stored = user.getPassword();
         if (stored == null) return -1;
 
-        if (stored.startsWith("$2a$") || stored.startsWith("$2b$") || stored.startsWith("$2y$")) {
-            // Already hashed — verify with BCrypt
-            return bcrypt.matches(password, stored) ? user.getID() : -1;
-        } else {
-            // Plain-text legacy password — verify then migrate to BCrypt
-            if (!stored.equals(password)) return -1;
-            String hashed = bcrypt.encode(password);
-            jdbcTemplate.update("UPDATE users SET password = ? WHERE username = ?", hashed, username);
-            log.info("Migrated password to BCrypt for user: {}", username);
-            return user.getID();
-        }
+        // Every password is stored as a BCrypt hash.
+        return bcrypt.matches(password, stored) ? user.getID() : -1;
     }
 
     /**

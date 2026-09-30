@@ -222,6 +222,6 @@ Worth recording so the next review can skip them:
 - [x] Move every environment-specific value into `deploy.env` (gitignored) and
       confirm the committed `application*.properties` hold no secrets.
 - [ ] Confirm `deploy.env` is absent from `git ls-files` after the rewrite.
-- [ ] Add a LICENSE file, and decide whether `config/database.sql` should ship
+- [ ] Add a LICENSE file, and decide whether the schema (`db/migrations/V001__schema.sql`) should ship
       with the `role_limits` seed only (it currently creates no users, which is
       correct).

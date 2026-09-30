@@ -13,9 +13,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Integration tests that validate the live database schema.
  *
  * These tests connect to the database configured in application.properties
- * and verify that all expected tables, columns, and seed data exist —
- * regardless of whether the database was created via a fresh install
- * (database.sql) or via migrations (migrate.sh).
+ * and verify that all expected tables, columns, and seed data exist, as
+ * created by the migration runner from db/migrations.
  *
  * Run with: ./mvnw test -pl server -Dtest=DatabaseSchemaTest
  */
