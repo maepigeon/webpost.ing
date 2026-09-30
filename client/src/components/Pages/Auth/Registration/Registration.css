@@ -49,21 +49,21 @@
 }
 
 .registration-container .form-group input:focus {
-  border-color: #4b44cc;
-  box-shadow: 0 0 0 3px rgba(75,68,204,0.15);
+  border-color: #565656;
+  box-shadow: 0 0 0 3px rgba(86, 86, 86, 0.15);
   background: #fff;
 }
 
 .registration-container .invite-code-group {
-  background: rgba(75,68,204,0.06);
-  border: 1.5px solid rgba(75,68,204,0.2);
+  background: rgba(86, 86, 86, 0.06);
+  border: 1.5px solid rgba(86, 86, 86, 0.2);
   border-radius: 10px;
   padding: 12px 14px;
   margin-bottom: 20px;
 }
 
 .registration-container .invite-code-group label {
-  color: #4b44cc;
+  color: #565656;
   font-size: 0.85rem;
   font-weight: 700;
 }
@@ -81,18 +81,18 @@
   padding: 13px 16px;
   font-size: 1rem;
   font-weight: 700;
-  background: #3cc85c;
-  color: #001a08 !important;
+  background: #929292;
+  color: #101010 !important;
   border: none !important;
   border-radius: 13px !important;
   box-shadow:
-    inset 0 2px 0 rgba(180,255,200,0.7),
-    inset 0 -2.5px 0 rgba(0,80,20,0.3),
-    inset 1.5px 0 0 rgba(160,240,180,0.4),
-    inset -1.5px 0 0 rgba(160,240,180,0.4),
-    0 4px 16px rgba(0,160,40,0.38),
+    inset 0 2px 0 rgba(226, 226, 226, 0.7),
+    inset 0 -2.5px 0 rgba(49, 49, 49, 0.3),
+    inset 1.5px 0 0 rgba(209, 209, 209, 0.4),
+    inset -1.5px 0 0 rgba(209, 209, 209, 0.4),
+    0 4px 16px rgba(98, 98, 98, 0.38),
     0 2px 6px rgba(0,0,0,0.14) !important;
-  text-shadow: 0 1px 0 rgba(180,255,200,0.7);
+  text-shadow: 0 1px 0 rgba(226, 226, 226, 0.7);
   cursor: pointer;
   transition: filter 0.13s ease, transform 0.13s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.15s ease !important;
   letter-spacing: 0.02em;
@@ -102,11 +102,11 @@
   filter: brightness(1.07) !important;
   transform: translateY(-2px) scale(1.02);
   box-shadow:
-    inset 0 2px 0 rgba(180,255,200,0.7),
-    inset 0 -2.5px 0 rgba(0,80,20,0.3),
-    inset 1.5px 0 0 rgba(160,240,180,0.4),
-    inset -1.5px 0 0 rgba(160,240,180,0.4),
-    0 8px 24px rgba(0,160,40,0.45),
+    inset 0 2px 0 rgba(226, 226, 226, 0.7),
+    inset 0 -2.5px 0 rgba(49, 49, 49, 0.3),
+    inset 1.5px 0 0 rgba(209, 209, 209, 0.4),
+    inset -1.5px 0 0 rgba(209, 209, 209, 0.4),
+    0 8px 24px rgba(98, 98, 98, 0.45),
     0 3px 8px rgba(0,0,0,0.16) !important;
 }
 
@@ -115,8 +115,8 @@
   filter: brightness(0.96);
   transition: transform 0.07s ease !important;
   box-shadow:
-    inset 0 3px 6px rgba(0,80,20,0.2),
-    0 2px 6px rgba(0,160,40,0.3) !important;
+    inset 0 3px 6px rgba(49, 49, 49, 0.2),
+    0 2px 6px rgba(98, 98, 98, 0.3) !important;
 }
 
 .registration-container .reg-submit-btn:disabled {

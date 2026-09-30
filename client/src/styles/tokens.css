@@ -22,24 +22,26 @@
 
 :root {
   /* ── Palette ─────────────────────────────────────────────────────────── */
-  --page-bg:        #ece9e2;   /* warm cream */
-  --ink:            #1a1060;   /* headings, body */
-  --ink-soft:       #524c63;   /* meta, hints — 5.4:1 on cream */
-  --ink-faint:      #837e94;   /* placeholders only, never body text */
+  /* Grayscale UI (2026-09-29, owner's request). Colour is reserved for user
+     content and for meaning: red for danger/unread, green for online/success. */
+  --page-bg:        #e9e9e9;   /* light gray */
+  --ink:            #1c1c1c;   /* headings, body */
+  --ink-soft:       #505050;   /* meta, hints */
+  --ink-faint:      #828282;   /* placeholders only, never body text */
 
-  --accent:         #4b44cc;   /* purple, as TEXT on light surfaces (5.2:1) */
-  --accent-strong:  #2f2a8f;   /* hover for accent text */
-  --accent-fill:    #5b52e8;   /* purple, as a FILL under white text (5.5:1) */
-  --accent-fill-dk: #443dbb;   /* pressed / bottom edge */
+  --accent:         #565656;   /* accent as TEXT on light surfaces */
+  --accent-strong:  #373737;   /* hover for accent text */
+  --accent-fill:    #666666;   /* accent as a FILL under white text */
+  --accent-fill-dk: #4d4d4d;   /* pressed / bottom edge */
 
   --danger:         #b71c1c;
   --danger-fill:    #c62828;
-  --warn-ink:       #6b4300;
-  --warn-bg:        #fdebc3;
-  --ok-ink:         #14532d;
+  --warn-ink:       #474747;
+  --warn-bg:        #ececec;
+  --ok-ink:         #3c3c3c;
 
   /* ── Hairlines and edges ─────────────────────────────────────────────── */
-  --hairline:       rgba(26, 16, 96, 0.13);
+  --hairline:       rgba(28, 28, 28, 0.13);
   --edge-light:     rgba(255, 255, 255, 0.95);
   --edge-dark:      rgba(0, 0, 0, 0.10);
 
@@ -56,27 +58,27 @@
   /* ── Raised surface: a flat fill plus edges ──────────────────────────── */
   --raise-1:
     0 0 0 1px var(--hairline),
-    0 2px 6px rgba(26, 16, 96, 0.10),
+    0 2px 6px rgba(28, 28, 28, 0.10),
     inset 0 1.5px 0 var(--edge-light),
     inset 0 -1.5px 0 var(--edge-dark);
 
   --raise-2:
     0 0 0 1px var(--hairline),
-    0 6px 18px rgba(26, 16, 96, 0.14),
+    0 6px 18px rgba(28, 28, 28, 0.14),
     inset 0 1.5px 0 var(--edge-light),
     inset 0 -1.5px 0 var(--edge-dark);
 
   --raise-3:
-    0 12px 40px rgba(26, 16, 96, 0.18),
+    0 12px 40px rgba(28, 28, 28, 0.18),
     0 2px 8px rgba(0, 0, 0, 0.07),
     inset 0 2px 0 var(--edge-light),
     inset 0 -2px 0 rgba(0, 0, 0, 0.05);
 
   --pressed:
-    inset 0 2px 5px rgba(26, 16, 96, 0.18),
+    inset 0 2px 5px rgba(28, 28, 28, 0.18),
     inset 0 1px 0 rgba(0, 0, 0, 0.05);
 
-  --focus-ring:     0 0 0 3px rgba(91, 82, 232, 0.32);
+  --focus-ring:     0 0 0 3px rgba(102, 102, 102, 0.32);
 
   /* ── Shape and motion ────────────────────────────────────────────────── */
   --radius-sm: 8px;

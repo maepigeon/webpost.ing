@@ -14,9 +14,9 @@
 }
 
 .admin-flash {
-  background: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
+  background: #e3e3e3;
+  color: #3d3d3d;
+  border: 1px solid #d8d8d8;
   border-radius: 6px;
   padding: 10px 16px;
   margin-bottom: 14px;
@@ -87,7 +87,7 @@
 
 .admin-create-row button {
   padding: 7px 18px;
-  background: #2e7d32;
+  background: #5d5d5d;
   color: #fff;
   border: none;
   border-radius: 5px;
@@ -150,7 +150,7 @@
 
 .admin-row--admin td:first-child {
   font-weight: 700;
-  color: #1a3a7a;
+  color: #383838;
 }
 
 .admin-row--frozen td { background: rgba(239, 68, 68, 0.06); }
@@ -163,7 +163,7 @@
 .admin-th-sort:hover { background: rgba(0,0,0,0.06); }
 
 .admin-user-link {
-  color: #1a3a7a;
+  color: #383838;
   text-decoration: none;
   font-weight: 500;
 }
@@ -199,13 +199,13 @@
 }
 
 .admin-btn--danger {
-  background: #fee;
+  background: #f3f3f3;
   border-color: #e00;
   color: #b00;
 }
 
 .admin-btn--danger:hover {
-  background: #fdd;
+  background: #e7e7e7;
 }
 
 /* Stats grid */
@@ -217,8 +217,8 @@
 }
 
 .admin-stat-card {
-  background: #f5f8ff;
-  border: 1px solid #d0d8ee;
+  background: #f8f8f8;
+  border: 1px solid #d8d8d8;
   border-radius: 8px;
   padding: 18px 16px 14px;
   text-align: center;
@@ -227,7 +227,7 @@
 .admin-stat-value {
   font-size: 1.6rem;
   font-weight: 700;
-  color: #1a3a7a;
+  color: #383838;
 }
 
 .admin-stat-label {
@@ -281,7 +281,7 @@
 
 /* Flagged cells */
 .admin-cell--warn {
-  color: #b84200;
+  color: #5e5e5e;
   font-weight: 700;
 }
 
@@ -398,22 +398,22 @@
   padding: 5px 12px;
   font-size: 11.5px;
   font-weight: 600;
-  color: #4b44cc;
+  color: #565656;
   border-radius: 999px;
   cursor: pointer;
   background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(108, 99, 255, 0.3);
+  border: 1px solid rgba(119, 119, 119, 0.3);
   box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.95);
   transition: color 0.15s, transform 0.1s;
 }
 
-.admin-report-filter:hover { color: #2f2a8f; transform: translateY(-1px); }
+.admin-report-filter:hover { color: #373737; transform: translateY(-1px); }
 
 .admin-report-filter--active {
   color: #ffffff;
   border-color: transparent;
-  background: #5b52e8;
-  box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.35), 0 2px 7px rgba(68, 61, 187, 0.3);
+  background: #666666;
+  box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.35), 0 2px 7px rgba(77, 77, 77, 0.3);
 }
 
 .admin-report-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
@@ -427,8 +427,8 @@
   padding: 13px 15px;
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.62);
-  border: 1px solid rgba(26, 16, 96, 0.12);
-  box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.9), 0 2px 7px rgba(26, 16, 96, 0.07);
+  border: 1px solid rgba(28, 28, 28, 0.12);
+  box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.9), 0 2px 7px rgba(28, 28, 28, 0.07);
 }
 
 /* Handled reports stay visible but recede, so the open ones read first. */
@@ -453,30 +453,30 @@
 .admin-report-post {
   font-size: 13.5px;
   font-weight: 700;
-  color: #4b44cc;
+  color: #565656;
   text-decoration: none;
   word-break: break-word;
 }
 
-.admin-report-post:hover { color: #2f2a8f; text-decoration: underline; }
+.admin-report-post:hover { color: #373737; text-decoration: underline; }
 
-.admin-report-meta { font-size: 11.5px; color: #524c63; }
+.admin-report-meta { font-size: 11.5px; color: #505050; }
 
 .admin-report-details {
   margin: 5px 0 0;
   padding: 7px 11px;
   font-size: 12.5px;
   line-height: 1.5;
-  color: #1a1060;
+  color: #1c1c1c;
   background: rgba(255, 255, 255, 0.7);
-  border-left: 3px solid rgba(108, 99, 255, 0.4);
+  border-left: 3px solid rgba(119, 119, 119, 0.4);
   border-radius: 0 8px 8px 0;
   word-break: break-word;
 }
 
 .admin-report-actions { display: flex; gap: 6px; flex-wrap: wrap; flex-shrink: 0; }
 
-.admin-empty { font-size: 13px; color: #524c63; font-style: italic; }
+.admin-empty { font-size: 13px; color: #505050; font-style: italic; }
 
 
 /* ── Table scrolling ──────────────────────────────────────────────────────
@@ -490,8 +490,8 @@
   /* A visible edge on each side, so it is obvious the table scrolls. A gradient
      fade would read better but the flat-fill rule applies here too, and a
      hairline does the job. */
-  border-left: 1px solid var(--hairline, rgba(26, 16, 96, 0.13));
-  border-right: 1px solid var(--hairline, rgba(26, 16, 96, 0.13));
+  border-left: 1px solid var(--hairline, rgba(28, 28, 28, 0.13));
+  border-right: 1px solid var(--hairline, rgba(28, 28, 28, 0.13));
 }
 
 .admin-table-scroll .admin-table { min-width: 100%; }

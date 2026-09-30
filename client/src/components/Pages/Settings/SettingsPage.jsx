@@ -14,6 +14,7 @@ import {
 } from '../../../utils/codeDisplay.js';
 import { patternToStyle, parseWallpaper } from '../../PatternPicker/patterns.js';
 import { usePageTitle } from '../../../utils/usePageTitle.js';
+import ThemeEditor from '../../PageTheme/ThemeEditor.jsx';
 import './SettingsPage.css';
 
 /**
@@ -376,6 +377,17 @@ export default function SettingsPage() {
               username={username}
             />
           </div>
+        </section>
+
+        {/* ── Page theme ─────────────────────────────────────────────────── */}
+        <section className="settings-section">
+          <h2 className="settings-section-title">Page theme</h2>
+          <p className="settings-section-hint">
+            How your profile and posts look to everyone who visits. Start from a
+            theme, change anything about it, and save it as your own. Newspaper
+            Life is the site default, and you can always go back to it.
+          </p>
+          <ThemeEditor username={username} />
         </section>
 
         {/* ── Site background ─────────────────────────────────────────────── */}

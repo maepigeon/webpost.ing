@@ -69,7 +69,7 @@
   transition: background 0.1s;
 }
 
-.follow-modal-item:hover { background: rgba(75,68,204,0.08); }
+.follow-modal-item:hover { background: rgba(86, 86, 86, 0.08); }
 
 .follow-modal-link {
   display: block;
@@ -84,6 +84,6 @@
 .follow-modal-empty {
   padding: 20px;
   text-align: center;
-  color: #5f5a70;
+  color: #5e5e5e;
   font-size: 14px;
 }

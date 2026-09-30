@@ -8,6 +8,7 @@ import {
 import { BASE_URL } from '../../config.js';
 import { useDialog } from '../Dialog/Dialog.jsx';
 import './PatternPicker.css';
+import Icon from '../Icon/Icon.jsx';
 
 // ── Color helpers ─────────────────────────────────────────────────────────────
 
@@ -583,7 +584,7 @@ export default function PatternPicker({ value, onChange, onPreview, username }) 
                     <span className="pattern-swatch-label">{name}</span>
                   </button>
                   <button type="button" className="pattern-user-preset-delete"
-                    onClick={() => deleteUserPreset(name)} title="Remove">×</button>
+                    onClick={() => deleteUserPreset(name)} title="Remove" aria-label="Remove"><Icon name="close" size={10} /></button>
                 </div>
               );
             })}

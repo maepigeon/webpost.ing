@@ -3,15 +3,15 @@
 
    Follows the neoskeuomorphic glass language in guide/style-guide.md: warm
    cream surfaces, purple accent, raised edges with symmetric inset highlights.
-   Accent colours come from the palette (#6c63ff), never from a generic blue.
+   Accent colours come from the palette (#777777), never from a generic blue.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .pattern-picker {
-  --pp-accent: #6c63ff;
-  --pp-accent-dark: #4b44cc;
-  --pp-ink: #1a1060;
-  --pp-ink-soft: #6b6580;
-  --pp-hairline: rgba(26, 16, 96, 0.13);
+  --pp-accent: #777777;
+  --pp-accent-dark: #565656;
+  --pp-ink: #1c1c1c;
+  --pp-ink-soft: #6a6a6a;
+  --pp-hairline: rgba(28, 28, 28, 0.13);
   --pp-radius: 12px;
 
   display: flex;
@@ -58,7 +58,7 @@
   height: 30px;
   border-radius: 50%;
   flex-shrink: 0;
-  background: #5b52e8;
+  background: #666666;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
@@ -73,13 +73,13 @@
   height: 5px;
   width: 76px;
   border-radius: 3px;
-  background: rgba(26, 16, 96, 0.22);
+  background: rgba(28, 28, 28, 0.22);
 }
 
 .pattern-preview-line--name {
   width: 52px;
   height: 7px;
-  background: rgba(26, 16, 96, 0.42);
+  background: rgba(28, 28, 28, 0.42);
 }
 
 .pattern-preview-line--short { width: 44px; }
@@ -95,7 +95,7 @@
   color: #fff;
   padding: 2px 7px;
   border-radius: 999px;
-  background: rgba(26, 16, 96, 0.72);
+  background: rgba(28, 28, 28, 0.72);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   pointer-events: none;
@@ -112,9 +112,9 @@
   gap: 9px;
   padding: 8px 11px;
   font-size: 12px;
-  color: #7a4a00;
-  background: rgba(255, 246, 224, 0.95);
-  border: 1px solid rgba(200, 150, 40, 0.4);
+  color: #505050;
+  background: rgba(246, 246, 246, 0.95);
+  border: 1px solid rgba(152, 152, 152, 0.4);
   border-radius: 10px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85), 0 1px 3px rgba(0, 0, 0, 0.07);
 }
@@ -132,15 +132,15 @@
   padding: 4px 11px;
   font-size: 11px;
   font-weight: 700;
-  color: #1a1060;
+  color: #1c1c1c;
   border: none;
   border-radius: 7px;
   cursor: pointer;
-  background: #f5891c;
+  background: #9d9d9d;
   box-shadow:
     inset 0 1.5px 0 rgba(255, 255, 255, 0.55),
     inset 0 -1.5px 0 rgba(0, 0, 0, 0.2),
-    0 1.5px 4px rgba(208, 96, 16, 0.35);
+    0 1.5px 4px rgba(120, 120, 120, 0.35);
   transition: filter 0.15s, transform 0.1s;
 }
 
@@ -177,11 +177,11 @@
   border-radius: 999px;
   cursor: pointer;
   background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(108, 99, 255, 0.34);
+  border: 1px solid rgba(119, 119, 119, 0.34);
   box-shadow:
     inset 0 1.5px 0 rgba(255, 255, 255, 0.95),
-    inset 0 -1.5px 0 rgba(108, 99, 255, 0.12),
-    0 1.5px 4px rgba(26, 16, 96, 0.1);
+    inset 0 -1.5px 0 rgba(119, 119, 119, 0.12),
+    0 1.5px 4px rgba(28, 28, 28, 0.1);
   transition: transform 0.1s, box-shadow 0.15s, color 0.15s;
 }
 
@@ -189,8 +189,8 @@
   color: var(--pp-accent);
   box-shadow:
     inset 0 1.5px 0 rgba(255, 255, 255, 1),
-    inset 0 -1.5px 0 rgba(108, 99, 255, 0.16),
-    0 3px 9px rgba(26, 16, 96, 0.14);
+    inset 0 -1.5px 0 rgba(119, 119, 119, 0.16),
+    0 3px 9px rgba(28, 28, 28, 0.14);
   transform: translateY(-1px);
 }
 
@@ -239,7 +239,7 @@
   border-color: rgba(255, 255, 255, 0.95);
   box-shadow:
     0 0 0 2.5px var(--pp-accent),
-    0 4px 14px rgba(108, 99, 255, 0.32),
+    0 4px 14px rgba(119, 119, 119, 0.32),
     inset 0 1.5px 0 rgba(255, 255, 255, 0.8),
     inset 0 -1.5px 0 rgba(0, 0, 0, 0.09);
 }
@@ -401,7 +401,7 @@
   font-weight: 600;
   color: var(--pp-accent-dark);
   background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(108, 99, 255, 0.3);
+  border: 1px solid rgba(119, 119, 119, 0.3);
   border-radius: 8px;
   cursor: pointer;
   box-shadow: 0 0 0 1px var(--pp-hairline), inset 0 1.5px 0 rgba(255, 255, 255, 0.95);
@@ -438,9 +438,9 @@
 .pattern-picker-warning {
   font-size: 10.5px;
   font-weight: 600;
-  color: #7a4a00;
-  background: rgba(253, 235, 195, 0.95);
-  border: 1px solid rgba(200, 150, 40, 0.35);
+  color: #505050;
+  background: rgba(236, 236, 236, 0.95);
+  border: 1px solid rgba(152, 152, 152, 0.35);
   padding: 1.5px 7px;
   border-radius: 999px;
 }
@@ -463,11 +463,11 @@
 }
 
 .pattern-picker-custom-input:focus {
-  border-color: rgba(108, 99, 255, 0.55);
-  box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.16), inset 0 1.5px 4px rgba(0, 0, 0, 0.05);
+  border-color: rgba(119, 119, 119, 0.55);
+  box-shadow: 0 0 0 3px rgba(119, 119, 119, 0.16), inset 0 1.5px 4px rgba(0, 0, 0, 0.05);
 }
 
-.pattern-picker-custom-input::placeholder { color: #a8a4b8; font-style: italic; }
+.pattern-picker-custom-input::placeholder { color: #a7a7a7; font-style: italic; }
 
 .pattern-picker-btn-row { display: flex; gap: 6px; flex-wrap: wrap; }
 
@@ -483,7 +483,7 @@
 .pattern-save-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(26, 16, 96, 0.26);
+  background: rgba(28, 28, 28, 0.26);
   backdrop-filter: blur(5px);
   -webkit-backdrop-filter: blur(5px);
   z-index: 9999;
@@ -504,7 +504,7 @@
   padding: 26px 28px 22px;
   width: min(340px, 90vw);
   box-shadow:
-    0 12px 40px rgba(26, 16, 96, 0.18),
+    0 12px 40px rgba(28, 28, 28, 0.18),
     0 2px 8px rgba(0, 0, 0, 0.08),
     inset 0 2px 0 rgba(255, 255, 255, 0.95),
     inset 0 -2px 0 rgba(0, 0, 0, 0.05);
@@ -519,7 +519,7 @@
 .pattern-save-dialog-title {
   font-size: 1rem;
   font-weight: 700;
-  color: var(--pp-ink, #1a1060);
+  color: var(--pp-ink, #1c1c1c);
   margin: 0 0 14px;
   text-align: center;
 }
@@ -532,19 +532,19 @@
   padding: 9px 13px;
   font-size: 0.95rem;
   background: rgba(255, 255, 255, 0.8);
-  color: #1a1060;
+  color: #1c1c1c;
   outline: none;
   margin-bottom: 16px;
-  box-shadow: 0 0 0 1px rgba(26, 16, 96, 0.12), inset 0 1.5px 4px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 0 0 1px rgba(28, 28, 28, 0.12), inset 0 1.5px 4px rgba(0, 0, 0, 0.06);
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .pattern-save-dialog-input:focus {
-  border-color: rgba(108, 99, 255, 0.6);
-  box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.16);
+  border-color: rgba(119, 119, 119, 0.6);
+  box-shadow: 0 0 0 3px rgba(119, 119, 119, 0.16);
 }
 
-.pattern-save-dialog-input::placeholder { color: #a8a4b8; font-style: italic; }
+.pattern-save-dialog-input::placeholder { color: #a7a7a7; font-style: italic; }
 
 .pattern-save-dialog-btns { display: flex; gap: 10px; justify-content: flex-end; }
 
@@ -555,17 +555,17 @@
   padding: 8px 16px;
   font-size: 0.88rem;
   font-weight: 600;
-  color: #524c63;
+  color: #505050;
   cursor: pointer;
-  box-shadow: 0 0 0 1px rgba(26, 16, 96, 0.1), inset 0 1.5px 0 rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 1px rgba(28, 28, 28, 0.1), inset 0 1.5px 0 rgba(255, 255, 255, 0.9);
   transition: color 0.15s, transform 0.1s;
 }
 
-.pattern-save-dialog-cancel:hover { color: #1a1060; transform: translateY(-1px); }
+.pattern-save-dialog-cancel:hover { color: #1c1c1c; transform: translateY(-1px); }
 .pattern-save-dialog-cancel:active { transform: translateY(1px); }
 
 .pattern-save-dialog-save {
-  background: #5b52e8;
+  background: #666666;
   border: none;
   border-radius: 9px;
   padding: 8px 18px;
@@ -574,7 +574,7 @@
   color: #fff;
   cursor: pointer;
   box-shadow:
-    0 3px 10px rgba(75, 68, 204, 0.34),
+    0 3px 10px rgba(86, 86, 86, 0.34),
     inset 0 2px 0 rgba(255, 255, 255, 0.42),
     inset 0 -2.5px 0 rgba(0, 0, 0, 0.22),
     inset 1.5px 0 0 rgba(255, 255, 255, 0.28),

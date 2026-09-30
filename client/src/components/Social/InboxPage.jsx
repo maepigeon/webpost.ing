@@ -5,6 +5,7 @@ import { GET_NOTIFICATIONS, MARK_NOTIFICATION_READ, MARK_ALL_READ,
 import { useDialog } from '../Dialog/Dialog.jsx';
 import './Social.css';
 import { postPath } from '../../utils/postUrl.js';
+import Icon from '../Icon/Icon.jsx';
 
 function ActorLink({ username }) {
   return (
@@ -182,13 +183,15 @@ export default function InboxPage() {
                 className="inbox-mark-read-btn"
                 onClick={e => markOne(e, n)}
                 title="Mark as read"
-              >✓</button>
+                aria-label="Mark as read"
+              ><Icon name="check" size={14} /></button>
             )}
             <button
               className="inbox-delete-btn"
               onClick={e => deleteOne(e, n)}
               title="Delete notification"
-            >✕</button>
+              aria-label="Delete notification"
+            ><Icon name="close" size={13} /></button>
           </div>
         </div>
       ))}

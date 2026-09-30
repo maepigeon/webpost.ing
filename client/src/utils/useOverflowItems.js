@@ -15,9 +15,11 @@ import { useEffect, useRef, useState } from 'react';
  * @param {object} [options]
  * @param {number} [options.reserve] pixels to keep free for the overflow trigger
  * @param {number} [options.gap]     pixels between items
+ * @param {boolean} [options.centered] items sit centred between equal side
+ *                                  columns, so fixed width is lost on both sides
  * @returns {{containerRef, measureRef, visibleCount}}
  */
-export function useOverflowItems(itemCount, { reserve = 44, gap = 4 } = {}) {
+export function useOverflowItems(itemCount, { reserve = 44, gap = 4, centered = false } = {}) {
   const containerRef = useRef(null);
   const measureRef = useRef(null);
   const [visibleCount, setVisibleCount] = useState(itemCount);
@@ -34,7 +36,7 @@ export function useOverflowItems(itemCount, { reserve = 44, gap = 4 } = {}) {
       const fixed = Array.from(container.querySelectorAll('[data-overflow-fixed]'))
         .reduce((sum, el) => sum + el.getBoundingClientRect().width, 0);
 
-      const available = container.getBoundingClientRect().width - fixed - reserve;
+      const available = container.getBoundingClientRect().width - fixed * (centered ? 2 : 1) - reserve;
 
       let used = 0;
       let fit = 0;
@@ -55,7 +57,7 @@ export function useOverflowItems(itemCount, { reserve = 44, gap = 4 } = {}) {
     // Fonts land after first paint and change every measurement.
     document.fonts?.ready?.then(recompute).catch(() => {});
     return () => observer.disconnect();
-  }, [itemCount, reserve, gap]);
+  }, [itemCount, reserve, gap, centered]);
 
   return { containerRef, measureRef, visibleCount };
 }

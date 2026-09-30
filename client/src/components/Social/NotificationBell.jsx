@@ -95,7 +95,7 @@ export default function NotificationBell() {
 
   return (
     <div className="notif-bell-wrap" ref={ref}>
-      <button className="notif-bell-btn" onClick={() => setOpen(o => !o)} title="Notifications">
+      <button className="navButton navButton--purple" onClick={() => setOpen(o => !o)} title="Notifications">
         Notifications
         {count > 0 && <span className="notif-badge">{count > 99 ? '99+' : count}</span>}
       </button>

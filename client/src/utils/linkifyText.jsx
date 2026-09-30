@@ -26,7 +26,7 @@ export function linkifyText(text) {
           key={key++}
           to={`/search?tag=${encodeURIComponent(tag)}`}
           className="hashtag-link"
-          style={{ color: '#6c63ff', fontWeight: 600, textDecoration: 'none' }}
+          style={{ color: '#333333', fontWeight: 600, textDecoration: 'none' }}
           onClick={e => e.stopPropagation()}
         >
           #{tag}
@@ -39,7 +39,7 @@ export function linkifyText(text) {
           href={match[0]}
           target="_blank"
           rel="noopener noreferrer"
-          style={{ color: '#1a73e8', wordBreak: 'break-all' }}
+          style={{ color: '#333333', textDecoration: 'underline', wordBreak: 'break-all' }}
           onClick={e => e.stopPropagation()}
         >
           {match[0]}

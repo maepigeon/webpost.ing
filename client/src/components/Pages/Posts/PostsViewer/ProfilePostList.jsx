@@ -1,5 +1,4 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import {
   DndContext, PointerSensor, TouchSensor, useSensor, useSensors,
   closestCenter,
@@ -11,43 +10,7 @@ import { CSS } from '@dnd-kit/utilities';
 import BasicTextPost from '../PostRenderer/BasicTextPost/BasicTextPost.jsx';
 import { UPDATE_POST_ORDER } from '../BasicTextPostServerApi.js';
 import './ProfilePostList.css';
-
-// ── Folder popup (horizontal scroll of posts in a folder) ────────────────────
-
-function FolderPopup({ name, posts, canEdit, onClose, onRemoveFromFolder, username, onRefresh }) {
-  return createPortal(
-    <div className="folder-popup-overlay" onClick={onClose}>
-      <div className="folder-popup" onClick={e => e.stopPropagation()}>
-        <div className="folder-popup-header">
-          <span className="folder-popup-title">📁 {name}</span>
-          <span className="folder-popup-count">{posts.length} posts</span>
-          <button className="folder-popup-close" onClick={onClose}>✕</button>
-        </div>
-        <div className="folder-popup-scroll">
-          {posts.map(p => (
-            <div key={p.id} className="folder-popup-card">
-              <BasicTextPost
-                postdata={p}
-                updatePostsFlagCallback={onRefresh}
-                uploaded={true}
-                hasModifyPermissions={canEdit}
-                ownerUsername={username}
-              />
-              {canEdit && (
-                <button className="folder-popup-remove" onClick={() => onRemoveFromFolder(p.id)}
-                  title="Remove from folder">
-                  ✕ Remove from folder
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>,
-    document.body
-  );
-}
-
+import Icon from '../../../Icon/Icon.jsx';
 
 /**
  * Where a post should land when dropped on a folder header rather than on a
@@ -68,7 +31,7 @@ const PREVIEW_DELAY_MS = 700;
 // ── Sortable folder section (glass panel + drag handle in header) ─────────────
 
 function SortableFolderSection({
-  id, name, posts, canEdit, collapsed, onToggle, onOpenPopup, isDragOver, children,
+  id, name, posts, canEdit, collapsed, onToggle, isDragOver, children,
 }) {
   const {
     attributes, listeners, setNodeRef, transform, transition, isDragging,
@@ -114,14 +77,10 @@ function SortableFolderSection({
           )}
         </div>
         <div className="profile-folder-header-actions">
-          <button type="button" className="profile-folder-open-btn" onClick={onOpenPopup}
-            title="View all posts in this folder">
-            View all ↗
-          </button>
           <button type="button" className="profile-folder-toggle-btn" onClick={onToggle}
             title={collapsed ? 'Expand folder' : 'Collapse folder'}>
             <span className="profile-folder-chevron"
-              style={{ transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}>▼</span>
+              style={{ transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}><Icon name="chevronDown" size={16} /></span>
           </button>
         </div>
       </div>
@@ -223,7 +182,8 @@ function SortablePost({ post, canEdit, username, onRefresh, isOver, folderNames,
                       className="profile-post-folder-new-btn"
                       disabled={!newFolderName.trim()}
                       onClick={() => { if (newFolderName.trim()) { onMoveToFolder(post.id, newFolderName.trim()); setNewFolderName(''); setShowFolderMenu(false); } }}
-                    >+</button>
+                      aria-label="Create folder"
+                    ><Icon name="plus" size={14} /></button>
                   </div>
                   {post.folder && (
                     <button className="profile-post-folder-menu-item profile-post-folder-menu-item--remove"
@@ -246,7 +206,6 @@ function SortablePost({ post, canEdit, username, onRefresh, isOver, folderNames,
 export default function ProfilePostList({ posts, canEdit, username, onRefresh }) {
   const [localPosts, setLocalPosts] = useState(posts);
   const [collapsedFolders, setCollapsedFolders] = useState(new Set());
-  const [openFolder, setOpenFolder] = useState(null);
   const [activeId, setActiveId] = useState(null);
   const [overId, setOverId] = useState(null);
 
@@ -541,7 +500,6 @@ export default function ProfilePostList({ posts, canEdit, username, onRefresh })
                   canEdit={canEdit}
                   collapsed={collapsedFolders.has(item.name)}
                   onToggle={() => toggleFolder(item.name)}
-                  onOpenPopup={() => setOpenFolder(item.name)}
                   isDragOver={folderIsDropTarget(item.name)}
                 >
                   {/* Inner context: posts within this folder */}
@@ -582,18 +540,6 @@ export default function ProfilePostList({ posts, canEdit, username, onRefresh })
 
       </DndContext>
 
-      {/* Folder popup */}
-      {openFolder && folderMap[openFolder] && (
-        <FolderPopup
-          name={openFolder}
-          posts={folderMap[openFolder]}
-          canEdit={canEdit}
-          onClose={() => setOpenFolder(null)}
-          onRemoveFromFolder={removeFromFolder}
-          username={username}
-          onRefresh={onRefresh}
-        />
-      )}
     </>
   );
 }

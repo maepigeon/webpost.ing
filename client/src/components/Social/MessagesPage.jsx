@@ -12,6 +12,7 @@ import {
 import { linkifyText } from '../../utils/linkifyText.jsx';
 import { IMAGES_BASE_URL } from '../../config.js';
 import './MessagesPage.css';
+import Icon from '../Icon/Icon.jsx';
 
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🎉'];
 
@@ -362,7 +363,7 @@ export default function MessagesPage() {
         <div className="messages-sidebar-header">
           <span className="messages-title">Messages</span>
           <div style={{ display: 'flex', gap: 4 }}>
-            <button className="messages-new-btn" onClick={() => { setShowNew(s => !s); setShowNewGroup(false); }} title="New DM">+</button>
+            <button className="messages-new-btn" onClick={() => { setShowNew(s => !s); setShowNewGroup(false); }} title="New DM" aria-label="New message"><Icon name="plus" size={16} /></button>
             <button className="messages-new-btn" onClick={() => { setShowNewGroup(s => !s); setShowNew(false); }} title="New group" style={{ fontSize: 13, borderRadius: 6, width: 'auto', padding: '0 7px' }}>Group</button>
           </div>
         </div>
@@ -483,7 +484,7 @@ export default function MessagesPage() {
         ) : (
           <>
             <div className="messages-thread-header">
-              <button className="messages-back-btn" onClick={() => setMobileView('list')}>←</button>
+              <button className="messages-back-btn" onClick={() => setMobileView('list')} aria-label="Back to conversations"><Icon name="back" size={18} /></button>
               {isGroup ? (
                 editingGroupName ? (
                   <div style={{ display: 'flex', gap: 6, flex: 1, alignItems: 'center' }}>
@@ -492,7 +493,7 @@ export default function MessagesPage() {
                       onKeyDown={e => { if (e.key === 'Enter') saveGroupName(); if (e.key === 'Escape') setEditingGroupName(false); }}
                       autoFocus />
                     <button onClick={saveGroupName} style={{ fontSize: 12 }}>Save</button>
-                    <button onClick={() => setEditingGroupName(false)} style={{ fontSize: 12 }}>✕</button>
+                    <button onClick={() => setEditingGroupName(false)} style={{ fontSize: 12 }} aria-label="Cancel"><Icon name="close" size={12} /></button>
                   </div>
                 ) : (
                   <button className="messages-thread-title" onDoubleClick={() => { setGroupNameDraft(activeGroup?.name || ''); setEditingGroupName(true); }}>
@@ -646,7 +647,7 @@ export default function MessagesPage() {
                   <span className="messages-reply-preview-label">↩ Replying to @{replyTo.sender_username}</span>
                   <span className="messages-reply-preview-text">{truncate(replyTo.content, 60)}</span>
                 </div>
-                <button className="messages-reply-preview-dismiss" onClick={() => setReplyTo(null)}>✕</button>
+                <button className="messages-reply-preview-dismiss" onClick={() => setReplyTo(null)} aria-label="Cancel reply"><Icon name="close" size={12} /></button>
               </div>
             )}
 

@@ -6,12 +6,13 @@
     width: 100%;
     min-height: var(--navbar-height);
     z-index: 300;
-    display: flex;
-    flex-wrap: wrap;
+    /* Buttons in the true centre of the bar; the greeting and menu sit in the
+       right-hand column. Equal side columns keep the middle centred however
+       wide the greeting is. */
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     align-items: center;
-    justify-content: center;
     box-sizing: border-box;
-    gap: 2px 0;
 }
 
 /* Left-aligned button cluster (all breakpoints) */
@@ -27,8 +28,8 @@
     display: inline-flex;
     align-items: center;
     gap: 0;
-    background: rgba(180, 140, 230, 0.15);
-    border: 1px solid rgba(180, 140, 230, 0.35);
+    background: rgba(162, 162, 162, 0.15);
+    border: 1px solid rgba(162, 162, 162, 0.35);
     border-radius: 8px;
     padding: 2px 4px;
     margin: 2px;
@@ -41,6 +42,7 @@
    desktop cluster below 860px whether or not it would have fitted. */
 
 .nav-items {
+    grid-column: 2;
     display: inline-flex;
     align-items: center;
     gap: 2px;
@@ -52,10 +54,11 @@
 .nav-item { display: inline-flex; align-items: center; flex-shrink: 0; }
 
 .nav-fixed {
+    grid-column: 3;
+    justify-self: end;
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    margin-left: auto;
     flex-shrink: 0;
     /* Clear of an overlay scrollbar, which sits on top of the content on macOS
        and was clipping the last few characters of the greeting. */
@@ -120,7 +123,7 @@
     right: 0;
     width: min(280px, 85vw);
     height: 100dvh;
-    background: rgba(20, 20, 25, 0.72);
+    background: rgba(21, 21, 21, 0.72);
     backdrop-filter: blur(28px) saturate(160%);
     -webkit-backdrop-filter: blur(28px) saturate(160%);
     border-left: 1px solid rgba(255,255,255,0.14);
@@ -194,13 +197,7 @@
 
 /* ── Responsive breakpoint ─────────────────────────────────────────────────── */
 @media (max-width: 860px) {
-    .navBar {
-        padding: 4px 8px;
-        justify-content: flex-start;
-        flex-wrap: nowrap;
-        gap: 0;
-        align-items: center;
-    }
+    .navBar { padding: 4px 8px; }
 
     /* Compact buttons so more of them fit before overflowing. */
     .nav-items .navButton,

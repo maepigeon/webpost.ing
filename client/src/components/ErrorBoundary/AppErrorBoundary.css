@@ -19,7 +19,7 @@
   -webkit-backdrop-filter: blur(20px) saturate(160%);
   border: 1.5px solid rgba(255, 255, 255, 0.9);
   box-shadow:
-    0 12px 40px rgba(26, 16, 96, 0.16),
+    0 12px 40px rgba(28, 28, 28, 0.16),
     inset 0 2px 0 rgba(255, 255, 255, 0.95);
 }
 
@@ -27,14 +27,14 @@
   margin: 0 0 10px;
   font-size: 1.3rem;
   font-weight: 800;
-  color: #1a1060;
+  color: #1c1c1c;
 }
 
 .app-error-text {
   margin: 0 0 22px;
   font-size: 14px;
   line-height: 1.6;
-  color: #524c63;
+  color: #505050;
 }
 
 .app-error-actions { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -55,9 +55,9 @@
 .app-error-btn--primary {
   color: #ffffff;
   border: none;
-  background: #5b52e8;
+  background: #666666;
   box-shadow:
-    0 3px 11px rgba(68, 61, 187, 0.34),
+    0 3px 11px rgba(77, 77, 77, 0.34),
     inset 0 2px 0 rgba(255, 255, 255, 0.4),
     inset 0 -2.5px 0 rgba(0, 0, 0, 0.22);
 }
@@ -65,18 +65,18 @@
 .app-error-btn--primary:hover { filter: brightness(1.08); transform: translateY(-1px); }
 
 .app-error-btn--ghost {
-  color: #524c63;
+  color: #505050;
   background: rgba(255, 255, 255, 0.88);
   border: 1px solid rgba(255, 255, 255, 0.85);
-  box-shadow: 0 0 0 1px rgba(26, 16, 96, 0.1), inset 0 1.5px 0 rgba(255, 255, 255, 0.92);
+  box-shadow: 0 0 0 1px rgba(28, 28, 28, 0.1), inset 0 1.5px 0 rgba(255, 255, 255, 0.92);
 }
 
-.app-error-btn--ghost:hover { color: #1a1060; transform: translateY(-1px); }
+.app-error-btn--ghost:hover { color: #1c1c1c; transform: translateY(-1px); }
 
 .app-error-details {
   margin-top: 22px;
   font-size: 12.5px;
-  color: #524c63;
+  color: #505050;
 }
 
 .app-error-details summary { cursor: pointer; font-weight: 600; }
@@ -89,9 +89,9 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11.5px;
   line-height: 1.5;
-  color: #3a3548;
+  color: #393939;
   background: rgba(255, 255, 255, 0.75);
-  border: 1px solid rgba(26, 16, 96, 0.12);
+  border: 1px solid rgba(28, 28, 28, 0.12);
   border-radius: 9px;
   white-space: pre-wrap;
   word-break: break-word;

@@ -55,95 +55,95 @@
    edges plus the drop shadow, which is what was doing the work anyway.
    Every pairing here clears 6.7:1 against its text colour. */
 .navButton--yellow {
-    background: #f5c800;
-    color: #1a1200;
+    background: #bfbfbf;
+    color: #121212;
     box-shadow:
-        inset 0 2px 0 rgba(255,255,160,0.65),
-        inset 0 -2px 0 rgba(120,80,0,0.22),
-        inset 1px 0 0 rgba(255,240,100,0.35),
-        inset -1px 0 0 rgba(255,240,100,0.35),
-        0 2px 6px rgba(180,130,0,0.35),
+        inset 0 2px 0 rgba(244, 244, 244, 0.65),
+        inset 0 -2px 0 rgba(83, 83, 83, 0.22),
+        inset 1px 0 0 rgba(229, 229, 229, 0.35),
+        inset -1px 0 0 rgba(229, 229, 229, 0.35),
+        0 2px 6px rgba(130, 130, 130, 0.35),
         0 1px 2px rgba(0,0,0,0.14);
-    text-shadow: 0 1px 0 rgba(255,255,180,0.7);
+    text-shadow: 0 1px 0 rgba(246, 246, 246, 0.7);
 }
 
 .navButton--orange {
-    background: #f59040;
-    color: #1a0800;
+    background: #a5a5a5;
+    color: #0c0c0c;
     box-shadow:
-        inset 0 2px 0 rgba(255,210,160,0.65),
-        inset 0 -2px 0 rgba(140,50,0,0.25),
-        inset 1px 0 0 rgba(255,180,100,0.35),
-        inset -1px 0 0 rgba(255,180,100,0.35),
-        0 2px 6px rgba(200,100,0,0.35),
+        inset 0 2px 0 rgba(218, 218, 218, 0.65),
+        inset 0 -2px 0 rgba(71, 71, 71, 0.25),
+        inset 1px 0 0 rgba(193, 193, 193, 0.35),
+        inset -1px 0 0 rgba(193, 193, 193, 0.35),
+        0 2px 6px rgba(118, 118, 118, 0.35),
         0 1px 2px rgba(0,0,0,0.14);
-    text-shadow: 0 1px 0 rgba(255,200,140,0.6);
+    text-shadow: 0 1px 0 rgba(210, 210, 210, 0.6);
 }
 
 .navButton--blue {
-    background: #7ab8f0;
-    color: #000f28;
+    background: #acacac;
+    color: #0d0d0d;
     box-shadow:
-        inset 0 2px 0 rgba(200,230,255,0.65),
-        inset 0 -2px 0 rgba(0,40,120,0.22),
-        inset 1px 0 0 rgba(180,220,255,0.35),
-        inset -1px 0 0 rgba(180,220,255,0.35),
-        0 2px 6px rgba(30,100,200,0.3),
+        inset 0 2px 0 rgba(224, 224, 224, 0.65),
+        inset 0 -2px 0 rgba(37, 37, 37, 0.22),
+        inset 1px 0 0 rgba(212, 212, 212, 0.35),
+        inset -1px 0 0 rgba(212, 212, 212, 0.35),
+        0 2px 6px rgba(90, 90, 90, 0.3),
         0 1px 2px rgba(0,0,0,0.12);
-    text-shadow: 0 1px 0 rgba(200,230,255,0.7);
+    text-shadow: 0 1px 0 rgba(224, 224, 224, 0.7);
 }
 
 .navButton--pink {
-    background: #f06888;
-    color: #1a0010;
+    background: #949494;
+    color: #0a0a0a;
     box-shadow:
-        inset 0 2px 0 rgba(255,200,220,0.65),
-        inset 0 -2px 0 rgba(140,0,60,0.25),
-        inset 1px 0 0 rgba(255,180,210,0.35),
-        inset -1px 0 0 rgba(255,180,210,0.35),
-        0 2px 6px rgba(200,40,100,0.35),
+        inset 0 2px 0 rgba(219, 219, 219, 0.65),
+        inset 0 -2px 0 rgba(49, 49, 49, 0.25),
+        inset 1px 0 0 rgba(206, 206, 206, 0.35),
+        inset -1px 0 0 rgba(206, 206, 206, 0.35),
+        0 2px 6px rgba(95, 95, 95, 0.35),
         0 1px 2px rgba(0,0,0,0.14);
-    text-shadow: 0 1px 0 rgba(255,200,220,0.6);
+    text-shadow: 0 1px 0 rgba(219, 219, 219, 0.6);
 }
 
 .navButton--purple {
-    background: #b898e0;
-    color: #10001a;
+    background: #aaaaaa;
+    color: #080808;
     box-shadow:
-        inset 0 2px 0 rgba(240,230,255,0.65),
-        inset 0 -2px 0 rgba(60,0,120,0.22),
-        inset 1px 0 0 rgba(230,210,255,0.35),
-        inset -1px 0 0 rgba(230,210,255,0.35),
-        0 2px 6px rgba(100,60,200,0.3),
+        inset 0 2px 0 rgba(236, 236, 236, 0.65),
+        inset 0 -2px 0 rgba(32, 32, 32, 0.22),
+        inset 1px 0 0 rgba(221, 221, 221, 0.35),
+        inset -1px 0 0 rgba(221, 221, 221, 0.35),
+        0 2px 6px rgba(88, 88, 88, 0.3),
         0 1px 2px rgba(0,0,0,0.12);
-    text-shadow: 0 1px 0 rgba(240,230,255,0.7);
+    text-shadow: 0 1px 0 rgba(236, 236, 236, 0.7);
 }
 
 .navButton--green {
-    background: #3cc85c;
-    color: #001a08;
+    background: #929292;
+    color: #101010;
     box-shadow:
-        inset 0 2px 0 rgba(180,255,200,0.65),
-        inset 0 -2px 0 rgba(0,80,20,0.25),
-        inset 1px 0 0 rgba(160,240,180,0.35),
-        inset -1px 0 0 rgba(160,240,180,0.35),
-        0 2px 6px rgba(0,160,40,0.35),
+        inset 0 2px 0 rgba(226, 226, 226, 0.65),
+        inset 0 -2px 0 rgba(49, 49, 49, 0.25),
+        inset 1px 0 0 rgba(209, 209, 209, 0.35),
+        inset -1px 0 0 rgba(209, 209, 209, 0.35),
+        0 2px 6px rgba(98, 98, 98, 0.35),
         0 1px 2px rgba(0,0,0,0.14);
-    text-shadow: 0 1px 0 rgba(180,255,200,0.6);
+    text-shadow: 0 1px 0 rgba(226, 226, 226, 0.6);
 }
-.navButton--green.navButton--active { box-shadow: inset 0 2px 0 rgba(180,255,200,0.6), inset 0 -2px 0 rgba(0,80,20,0.2), 0 0 0 2px #3cc85c, 0 0 12px rgba(60,200,90,0.5), 0 3px 8px rgba(0,160,40,0.3); }
+.navButton--green.navButton--active { box-shadow: inset 0 2px 0 rgba(226, 226, 226, 0.6), inset 0 -2px 0 rgba(49, 49, 49, 0.2), 0 0 0 2px #929292, 0 0 12px rgba(146, 146, 146, 0.5), 0 3px 8px rgba(98, 98, 98, 0.3); }
 
 .navButton--teal {
-    background: #28b8b8;
-    color: #001a1a;
+    background: #8d8d8d;
+    color: #121212;
     box-shadow:
-        inset 0 2px 0 rgba(180,240,240,0.65),
-        inset 0 -2px 0 rgba(0,80,80,0.25),
-        inset 1px 0 0 rgba(160,230,230,0.35),
-        inset -1px 0 0 rgba(160,230,230,0.35),
-        0 2px 6px rgba(0,140,140,0.35),
+        inset 0 2px 0 rgba(222, 222, 222, 0.65),
+        inset 0 -2px 0 rgba(56, 56, 56, 0.25),
+        inset 1px 0 0 rgba(209, 209, 209, 0.35),
+        inset -1px 0 0 rgba(209, 209, 209, 0.35),
+        0 2px 6px rgba(98, 98, 98, 0.35),
         0 1px 2px rgba(0,0,0,0.14);
-    text-shadow: 0 1px 0 rgba(180,240,240,0.6);
+    text-shadow: 0 1px 0 rgba(222, 222, 222, 0.6);
 }
 
 /* ── Active / current page glow ─────────────────────────────────────────── */
@@ -152,9 +152,23 @@
     transform: translateY(-1px);
 }
 
-.navButton--yellow.navButton--active  { box-shadow: inset 0 2px 0 rgba(255,255,160,0.6), inset 0 -2px 0 rgba(120,80,0,0.2), 0 0 0 2px #FFD700, 0 0 12px rgba(255,215,0,0.5), 0 3px 8px rgba(180,130,0,0.3); }
-.navButton--orange.navButton--active  { box-shadow: inset 0 2px 0 rgba(255,210,160,0.6), inset 0 -2px 0 rgba(140,50,0,0.2),  0 0 0 2px #f59040, 0 0 12px rgba(255,165,90,0.5),  0 3px 8px rgba(200,100,0,0.3); }
-.navButton--blue.navButton--active    { box-shadow: inset 0 2px 0 rgba(200,230,255,0.6), inset 0 -2px 0 rgba(0,40,120,0.2),   0 0 0 2px #7ab8f0, 0 0 12px rgba(144,194,245,0.5), 0 3px 8px rgba(30,100,200,0.25); }
-.navButton--pink.navButton--active    { box-shadow: inset 0 2px 0 rgba(255,200,220,0.6), inset 0 -2px 0 rgba(140,0,60,0.2),   0 0 0 2px #f06888, 0 0 12px rgba(255,133,162,0.5), 0 3px 8px rgba(200,40,100,0.3); }
-.navButton--purple.navButton--active  { box-shadow: inset 0 2px 0 rgba(240,230,255,0.6), inset 0 -2px 0 rgba(60,0,120,0.2),   0 0 0 2px #b898e0, 0 0 12px rgba(201,179,232,0.5), 0 3px 8px rgba(100,60,200,0.25); }
-.navButton--teal.navButton--active    { box-shadow: inset 0 2px 0 rgba(180,240,240,0.6), inset 0 -2px 0 rgba(0,80,80,0.2),    0 0 0 2px #28b8b8, 0 0 12px rgba(61,191,191,0.5),  0 3px 8px rgba(0,140,140,0.3); }
+.navButton--yellow.navButton--active  { box-shadow: inset 0 2px 0 rgba(244, 244, 244, 0.6), inset 0 -2px 0 rgba(83, 83, 83, 0.2), 0 0 0 2px #cacaca, 0 0 12px rgba(202, 202, 202, 0.5), 0 3px 8px rgba(130, 130, 130, 0.3); }
+.navButton--orange.navButton--active  { box-shadow: inset 0 2px 0 rgba(218, 218, 218, 0.6), inset 0 -2px 0 rgba(71, 71, 71, 0.2),  0 0 0 2px #a5a5a5, 0 0 12px rgba(183, 183, 183, 0.5),  0 3px 8px rgba(118, 118, 118, 0.3); }
+.navButton--blue.navButton--active    { box-shadow: inset 0 2px 0 rgba(224, 224, 224, 0.6), inset 0 -2px 0 rgba(37, 37, 37, 0.2),   0 0 0 2px #acacac, 0 0 12px rgba(185, 185, 185, 0.5), 0 3px 8px rgba(90, 90, 90, 0.25); }
+.navButton--pink.navButton--active    { box-shadow: inset 0 2px 0 rgba(219, 219, 219, 0.6), inset 0 -2px 0 rgba(49, 49, 49, 0.2),   0 0 0 2px #949494, 0 0 12px rgba(173, 173, 173, 0.5), 0 3px 8px rgba(95, 95, 95, 0.3); }
+.navButton--purple.navButton--active  { box-shadow: inset 0 2px 0 rgba(236, 236, 236, 0.6), inset 0 -2px 0 rgba(32, 32, 32, 0.2),   0 0 0 2px #aaaaaa, 0 0 12px rgba(192, 192, 192, 0.5), 0 3px 8px rgba(88, 88, 88, 0.25); }
+.navButton--teal.navButton--active    { box-shadow: inset 0 2px 0 rgba(222, 222, 222, 0.6), inset 0 -2px 0 rgba(56, 56, 56, 0.2),    0 0 0 2px #8d8d8d, 0 0 12px rgba(152, 152, 152, 0.5),  0 3px 8px rgba(98, 98, 98, 0.3); }
+
+/* ── In the top bar: white, whatever the variant ─────────────────────────────
+   The bar is black; white buttons read as the masthead's own controls. The
+   variants still set their per-button shadows elsewhere in the app. */
+.navBar .navButton {
+    background: #ffffff;
+    color: #111111;
+    text-shadow: none;
+    box-shadow:
+        inset 0 2px 0 rgba(255, 255, 255, 1),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.16),
+        0 2px 6px rgba(0, 0, 0, 0.45),
+        0 1px 2px rgba(0, 0, 0, 0.3);
+}

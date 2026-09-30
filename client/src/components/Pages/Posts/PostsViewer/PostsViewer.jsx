@@ -14,6 +14,8 @@ import {useParams, Link, useNavigate} from "react-router-dom";
 import { usePageTitle } from '../../../../utils/usePageTitle.js';
 import { describeUploadError } from '../../../../utils/responsiveImage.js';
 import { GET_PROFILE_HEADER } from '../BasicTextPostServerApi.js';
+import { useAuthorTheme } from '../../../PageTheme/PageTheme.jsx';
+import Icon from '../../../Icon/Icon.jsx';
 
 function Heading(props) {
  if (props.username != null && props.username != "") {
@@ -47,7 +49,7 @@ function StorageBar({ storage }) {
       </div>
       {pct !== null && (
         <div style={{ height: '4px', borderRadius: '2px', background: '#e0e0e0', overflow: 'hidden', maxWidth: '320px', margin: '0 auto' }}>
-          <div style={{ height: '100%', width: `${pct}%`, background: pct > 85 ? '#d32f2f' : '#1a73e8', borderRadius: '2px', transition: 'width 0.3s' }} />
+          <div style={{ height: '100%', width: `${pct}%`, background: pct > 85 ? '#d32f2f' : '#333333', borderRadius: '2px', transition: 'width 0.3s' }} />
         </div>
       )}
     </div>
@@ -77,7 +79,7 @@ function BioText({ text, onConfirmExternal }) {
     const url = match[0];
     parts.push(
       <a key={match.index} href={url} target="_blank" rel="noopener noreferrer"
-        style={{ color: '#1a73e8' }}
+        style={{ color: '#333333' }}
         onClick={e => confirmExternal(e, url, onConfirmExternal)}>{url}</a>
     );
     last = match.index + url.length;
@@ -129,6 +131,7 @@ function PostsViewer() {
     const avatarInputRef = useRef(null);
     const sentinelRef = useRef(null);
     const { username } = useParams();
+    useAuthorTheme(username);
     usePageTitle(username ? `${username}'s profile` : null);
     const navigate = useNavigate();
     const canEdit = hasModifyPermissions(username);
@@ -287,7 +290,7 @@ function PostsViewer() {
                     <div
                       onClick={() => setShowAvatarPopup(true)}
                       style={{ width: 96, height: 96, borderRadius: '50%',
-                                background: '#9c7ed8',
+                                background: '#919191',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 fontSize: 36, fontWeight: 800, color: '#fff',
                                 border: '3px solid rgba(255,255,255,0.9)',
@@ -414,7 +417,7 @@ function PostsViewer() {
                         // Never leave zero rows: an empty editor gives the user
                         // nothing to type into and no obvious way forward.
                         prev.length === 1 ? [{ label: '', url: '' }] : prev.filter((_, j) => j !== i))}
-                    >×</button>
+                    ><Icon name="close" size={12} /></button>
                   </div>
                 ))}
 

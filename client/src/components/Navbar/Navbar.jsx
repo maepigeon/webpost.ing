@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import Navbutton from './Navbutton/Navbutton';
+import '../Social/Social.css';
 import { useOverflowItems } from '../../utils/useOverflowItems.js';
 import Userdata from '../Pages/Auth/Userdata/Userdata';
 import NotificationBell from '../Social/NotificationBell.jsx';
 import './Navbar.css'
 import { AUTHORIZE_SESSION, GET_UNREAD_MESSAGE_COUNT } from "../Pages/Posts/BasicTextPostServerApi"
+import Icon from '../Icon/Icon.jsx';
 
 function authorize() {
   const username = localStorage.getItem("userName");
@@ -24,17 +26,11 @@ function MessagesBell({ className }) {
   }, []);
   if (!authorize()) return null;
   return (
-    <Link to="/messages" style={{ position: 'relative', display: 'inline-flex', textDecoration: 'none' }} className={className}>
-      <button className="navButton navButton--purple" style={{ position: 'relative' }}>
+    <Link to="/messages" style={{ display: 'inline-flex', textDecoration: 'none' }} className={className}>
+      <button className="navButton navButton--purple">
         Messages
-        {unread > 0 && (
-          <span style={{
-            position: 'absolute', top: -6, right: -6,
-            background: '#d32f2f', color: '#fff',
-            borderRadius: 10, fontSize: 10, padding: '1px 5px', fontWeight: 700,
-            pointerEvents: 'none',
-          }}>{unread}</span>
-        )}
+        {/* Inline after the label, the same badge the Notifications button uses. */}
+        {unread > 0 && <span className="notif-badge">{unread > 99 ? '99+' : unread}</span>}
       </button>
     </Link>
   );
@@ -84,7 +80,7 @@ function Navbar() {
         { key: 'search', node: <Navbutton label="Search" route="/search" variant="teal" /> },
       ];
 
-  const { containerRef, measureRef, visibleCount } = useOverflowItems(overflowItems.length);
+  const { containerRef, measureRef, visibleCount } = useOverflowItems(overflowItems.length, { centered: true });
   const hiddenItems = overflowItems.slice(visibleCount);
 
   return (
@@ -125,7 +121,7 @@ function Navbar() {
 
             {menuOpen && (
               <div className="nav-mobile-popup" role="dialog" aria-modal="true">
-                <button className="nav-mobile-popup-close" onClick={() => setMenuOpen(false)} aria-label="Close menu">✕</button>
+                <button className="nav-mobile-popup-close" onClick={() => setMenuOpen(false)} aria-label="Close menu"><Icon name="close" size={16} /></button>
                 {loggedIn && <div className="nav-mobile-popup-welcome">Welcome, {username}!</div>}
                 <div className="nav-mobile-popup-items">
                   {hiddenItems.map(item => (

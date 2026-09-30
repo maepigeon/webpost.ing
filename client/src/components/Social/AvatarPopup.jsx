@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import QRCode from 'qrcode';
 import './AvatarPopup.css';
+import Icon from '../Icon/Icon.jsx';
 
 export default function AvatarPopup({ src, username, profileUrl, onClose }) {
   const qrRef = useRef(null);
@@ -34,7 +35,7 @@ export default function AvatarPopup({ src, username, profileUrl, onClose }) {
   return createPortal(
     <div className="avatar-popup-overlay" onMouseDown={onClose}>
       <div className="avatar-popup-card" onMouseDown={e => e.stopPropagation()}>
-        <button className="avatar-popup-close" onClick={onClose} aria-label="Close">✕</button>
+        <button className="avatar-popup-close" onClick={onClose} aria-label="Close"><Icon name="close" size={14} /></button>
         {hasAvatar
           ? <img src={src} alt={username} className="avatar-popup-img" />
           : (

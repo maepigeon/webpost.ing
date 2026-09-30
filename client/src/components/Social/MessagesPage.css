@@ -42,26 +42,27 @@
   font-weight: 700;
   font-size: 15px;
   letter-spacing: 0.01em;
-  color: #2d2060;
+  color: #2b2b2b;
 }
 
 .messages-new-btn {
-  background: rgba(108,99,255,0.12);
-  border: 1px solid rgba(108,99,255,0.3);
+  background: rgba(119, 119, 119, 0.12);
+  border: 1px solid rgba(119, 119, 119, 0.3);
   border-radius: 50%;
   width: 28px;
   height: 28px;
+  padding: 0;
   font-size: 18px;
   line-height: 1;
   cursor: pointer;
-  color: #4b44cc;
+  color: #565656;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: background 0.15s, transform 0.12s;
 }
 .messages-new-btn:hover {
-  background: rgba(108,99,255,0.22);
+  background: rgba(119, 119, 119, 0.22);
   transform: scale(1.08);
 }
 
@@ -79,7 +80,7 @@
 .messages-new-form input {
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid rgba(108,99,255,0.3);
+  border: 1px solid rgba(119, 119, 119, 0.3);
   border-radius: 8px;
   padding: 6px 10px;
   font-size: 13px;
@@ -89,11 +90,11 @@
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .messages-new-form input:focus {
-  border-color: #4b44cc;
-  box-shadow: 0 0 0 2px rgba(108,99,255,0.15);
+  border-color: #565656;
+  box-shadow: 0 0 0 2px rgba(119, 119, 119, 0.15);
 }
 .messages-new-form button {
-  background: #5b52e8;
+  background: #666666;
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -103,11 +104,11 @@
   cursor: pointer;
   white-space: nowrap;
   box-shadow:
-    inset 0 1.5px 0 rgba(220,210,255,0.6),
-    inset 0 -2px 0 rgba(30,20,120,0.3),
-    inset 1px 0 0 rgba(200,185,255,0.3),
-    inset -1px 0 0 rgba(200,185,255,0.3),
-    0 2px 8px rgba(108,99,255,0.35);
+    inset 0 1.5px 0 rgba(218, 218, 218, 0.6),
+    inset 0 -2px 0 rgba(34, 34, 34, 0.3),
+    inset 1px 0 0 rgba(197, 197, 197, 0.3),
+    inset -1px 0 0 rgba(197, 197, 197, 0.3),
+    0 2px 8px rgba(119, 119, 119, 0.35);
   transition: filter 0.13s, transform 0.13s cubic-bezier(0.34,1.56,0.64,1);
 }
 .messages-new-form button:hover { filter: brightness(1.08); transform: translateY(-1px); }
@@ -119,7 +120,7 @@
   right: 0;
   background: rgba(255,255,255,0.96);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(108,99,255,0.2);
+  border: 1px solid rgba(119, 119, 119, 0.2);
   border-top: none;
   border-radius: 0 0 8px 8px;
   box-shadow: 0 6px 18px rgba(0,0,0,0.12);
@@ -141,7 +142,7 @@
   color: #333;
   transition: background 0.1s;
 }
-.messages-suggestion-item:hover { background: rgba(108,99,255,0.07); }
+.messages-suggestion-item:hover { background: rgba(119, 119, 119, 0.07); }
 .messages-suggestion-item:last-child { border-bottom: none; }
 
 .messages-conv-item {
@@ -167,7 +168,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #c8c0f0;
+  background: #c8c8c8;
   border: 2px solid rgba(255,255,255,0.85);
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
@@ -189,10 +190,10 @@
   flex: 1;
   min-width: 0;
 }
-.messages-conv-item:hover { background: rgba(108,99,255,0.07); }
+.messages-conv-item:hover { background: rgba(119, 119, 119, 0.07); }
 .messages-conv-item--active {
-  background: rgba(108,99,255,0.12);
-  box-shadow: inset 3px 0 0 #6c63ff;
+  background: rgba(119, 119, 119, 0.12);
+  box-shadow: inset 3px 0 0 #777777;
 }
 
 .messages-conv-name {
@@ -202,7 +203,7 @@
   align-items: center;
   gap: 6px;
   margin-bottom: 3px;
-  color: #1a1060;
+  color: #1c1c1c;
 }
 .messages-conv-preview {
   font-size: 12px;
@@ -219,13 +220,13 @@
 }
 
 .messages-badge {
-  background: #4b44cc;
+  background: #565656;
   color: #fff;
   border-radius: 10px;
   font-size: 10px;
   padding: 1px 6px;
   font-weight: 700;
-  box-shadow: 0 1px 4px rgba(108,99,255,0.4);
+  box-shadow: 0 1px 4px rgba(119, 119, 119, 0.4);
 }
 
 .messages-empty {
@@ -259,7 +260,7 @@
   background: none;
   border: none;
   cursor: pointer;
-  color: #4b44cc;
+  color: #565656;
   padding: 0;
   letter-spacing: 0.01em;
 }
@@ -294,7 +295,7 @@
   gap: 10px;
   background:
     linear-gradient(rgba(255,255,255,0.06), rgba(255,255,255,0.06)),
-    repeating-linear-gradient(-45deg, rgba(108,99,255,0.025), rgba(108,99,255,0.025) 1px, transparent 1px, transparent 14px);
+    repeating-linear-gradient(-45deg, rgba(119, 119, 119, 0.025), rgba(119, 119, 119, 0.025) 1px, transparent 1px, transparent 14px);
 }
 
 /* ── Message Bubbles ─────────────────────────────────────────── */
@@ -319,7 +320,7 @@
   font-size: 14px;
   line-height: 1;
   cursor: pointer;
-  color: #4b44cc;
+  color: #565656;
   opacity: 0.75;
   flex-shrink: 0;
   align-self: center;
@@ -327,10 +328,10 @@
 }
 .messages-reply-btn:hover {
   opacity: 1;
-  background: rgba(108,99,255,0.12);
+  background: rgba(119, 119, 119, 0.12);
   transform: scale(1.1);
 }
-.messages-reply-btn--mine { color: #5246e8; }
+.messages-reply-btn--mine { color: #5c5c5c; }
 
 .messages-bubble {
   display: flex;
@@ -340,8 +341,8 @@
 }
 
 .messages-bubble-quote {
-  background: rgba(108,99,255,0.07);
-  border-left: 3px solid rgba(108,99,255,0.40);
+  background: rgba(119, 119, 119, 0.07);
+  border-left: 3px solid rgba(119, 119, 119, 0.40);
   border-radius: 14px 14px 0 0;
   padding: 6px 11px 5px;
   font-size: 12px;
@@ -352,8 +353,8 @@
   max-width: 100%;
 }
 .messages-bubble--mine .messages-bubble-quote {
-  background: rgba(60,46,200,0.82);
-  border-left-color: rgba(200,190,255,0.60);
+  background: rgba(68, 68, 68, 0.82);
+  border-left-color: rgba(200, 200, 200, 0.60);
   color: rgba(255,255,255,0.88);
   border-radius: 14px 14px 0 0;
 }
@@ -368,7 +369,7 @@
   font-size: 14px;
   white-space: pre-wrap;
   word-break: break-word;
-  color: #1a1060;
+  color: #1c1c1c;
   line-height: 1.45;
   box-shadow:
     0 2px 8px rgba(0,0,0,0.07),
@@ -382,14 +383,14 @@
   /* Flat. A bubble is a surface, not a raised control — per the gradient rule
      in guide/style-guide.md, gradients here would be decoration. Depth comes
      from the border and shadow instead. */
-  background: #4b44cc;
+  background: #565656;
   border: 1px solid rgba(255,255,255,0.22);
   color: #fff;
   border-radius: 18px 18px 4px 18px;
   box-shadow:
-    inset 0 1.5px 0 rgba(220,210,255,0.5),
-    inset 0 -1.5px 0 rgba(30,20,120,0.25),
-    0 3px 12px rgba(108,99,255,0.35);
+    inset 0 1.5px 0 rgba(218, 218, 218, 0.5),
+    inset 0 -1.5px 0 rgba(34, 34, 34, 0.25),
+    0 3px 12px rgba(119, 119, 119, 0.35);
 }
 .messages-bubble--mine .messages-bubble-text--has-quote {
   border-radius: 0 0 4px 18px;
@@ -398,13 +399,13 @@
 
 .messages-bubble-time {
   font-size: 10px;
-  color: rgba(100,90,180,0.6);
+  color: rgba(103, 103, 103, 0.6);
   margin-top: 4px;
   padding: 0 4px;
 }
 .messages-bubble--mine .messages-bubble-time {
   text-align: right;
-  color: rgba(108,99,255,0.65);
+  color: rgba(119, 119, 119, 0.65);
 }
 
 /* ── Reply preview strip ─────────────────────────────────────── */
@@ -412,8 +413,8 @@
   display: flex;
   align-items: center;
   padding: 7px 14px;
-  background: rgba(108,99,255,0.07);
-  border-top: 1px solid rgba(108,99,255,0.14);
+  background: rgba(119, 119, 119, 0.07);
+  border-top: 1px solid rgba(119, 119, 119, 0.14);
   gap: 8px;
 }
 .messages-reply-preview-inner {
@@ -426,7 +427,7 @@
 .messages-reply-preview-label {
   font-size: 11px;
   font-weight: 700;
-  color: #4b44cc;
+  color: #565656;
   letter-spacing: 0.03em;
 }
 .messages-reply-preview-text {
@@ -444,7 +445,7 @@
   height: 22px;
   cursor: pointer;
   font-size: 10px;
-  color: #5f5a70;
+  color: #5e5e5e;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -465,7 +466,7 @@
 }
 .messages-input {
   flex: 1;
-  border: 1px solid rgba(108,99,255,0.25);
+  border: 1px solid rgba(119, 119, 119, 0.25);
   border-radius: 12px;
   padding: 10px 14px;
   font-size: 14px;
@@ -473,18 +474,18 @@
   font-family: inherit;
   line-height: 1.4;
   background: rgba(255,255,255,0.75);
-  color: #1a1060;
+  color: #1c1c1c;
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
   box-shadow: 0 1px 4px rgba(0,0,0,0.05) inset;
 }
 .messages-input:focus {
-  border-color: #4b44cc;
-  box-shadow: 0 0 0 3px rgba(108,99,255,0.13);
+  border-color: #565656;
+  box-shadow: 0 0 0 3px rgba(119, 119, 119, 0.13);
 }
 
 .messages-send-btn {
-  background: #5b52e8;
+  background: #666666;
   color: #fff;
   border: none;
   border-radius: 12px;
@@ -495,11 +496,11 @@
   white-space: nowrap;
   letter-spacing: 0.02em;
   box-shadow:
-    inset 0 2px 0 rgba(220,210,255,0.6),
-    inset 0 -2px 0 rgba(30,20,120,0.3),
-    inset 1.5px 0 0 rgba(200,185,255,0.3),
-    inset -1.5px 0 0 rgba(200,185,255,0.3),
-    0 3px 12px rgba(108,99,255,0.4);
+    inset 0 2px 0 rgba(218, 218, 218, 0.6),
+    inset 0 -2px 0 rgba(34, 34, 34, 0.3),
+    inset 1.5px 0 0 rgba(197, 197, 197, 0.3),
+    inset -1.5px 0 0 rgba(197, 197, 197, 0.3),
+    0 3px 12px rgba(119, 119, 119, 0.4);
   transition: filter 0.13s ease, transform 0.13s cubic-bezier(0.34,1.56,0.64,1);
 }
 .messages-send-btn:not(:disabled):hover {
@@ -532,35 +533,35 @@
 
 /* ── Group actions in header ──────────────────────────────────────── */
 .messages-members-btn {
-  background: rgba(108,99,255,0.10);
-  border: 1px solid rgba(108,99,255,0.22);
+  background: rgba(119, 119, 119, 0.10);
+  border: 1px solid rgba(119, 119, 119, 0.22);
   border-radius: 8px;
   padding: 4px 10px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  color: #5246e8;
+  color: #5c5c5c;
   margin-left: auto;
   transition: background 0.13s;
 }
-.messages-members-btn:hover { background: rgba(108,99,255,0.18); }
+.messages-members-btn:hover { background: rgba(119, 119, 119, 0.18); }
 
 .messages-group-name-edit {
   flex: 1;
-  border: 1px solid rgba(108,99,255,0.3);
+  border: 1px solid rgba(119, 119, 119, 0.3);
   border-radius: 8px;
   padding: 5px 10px;
   font-size: 14px;
   font-weight: 700;
-  color: #4b44cc;
+  color: #565656;
   outline: none;
   background: rgba(255,255,255,0.75);
 }
 
 /* ── Members panel ───────────────────────────────────────────────── */
 .messages-members-panel {
-  background: rgba(108,99,255,0.05);
-  border-bottom: 1px solid rgba(108,99,255,0.12);
+  background: rgba(119, 119, 119, 0.05);
+  border-bottom: 1px solid rgba(119, 119, 119, 0.12);
   padding: 10px 16px;
   font-size: 13px;
 }
@@ -587,9 +588,9 @@
 .messages-owner-badge {
   font-size: 10px;
   font-weight: 700;
-  color: #4b44cc;
-  background: rgba(108,99,255,0.12);
-  border: 1px solid rgba(108,99,255,0.22);
+  color: #565656;
+  background: rgba(119, 119, 119, 0.12);
+  border: 1px solid rgba(119, 119, 119, 0.22);
   border-radius: 5px;
   padding: 1px 5px;
   letter-spacing: 0.04em;
@@ -606,19 +607,19 @@
 }
 .messages-member-remove:hover { background: rgba(220,50,50,0.18); }
 .messages-member-transfer {
-  background: rgba(108,99,255,0.10);
-  border: 1px solid rgba(108,99,255,0.22);
+  background: rgba(119, 119, 119, 0.10);
+  border: 1px solid rgba(119, 119, 119, 0.22);
   border-radius: 6px;
   padding: 2px 8px;
   font-size: 12px;
-  color: #4b44cc;
+  color: #565656;
   cursor: pointer;
   transition: background 0.12s;
 }
-.messages-member-transfer:hover { background: rgba(108,99,255,0.20); }
+.messages-member-transfer:hover { background: rgba(119, 119, 119, 0.20); }
 .messages-member-add-input {
   flex: 1;
-  border: 1px solid rgba(108,99,255,0.3);
+  border: 1px solid rgba(119, 119, 119, 0.3);
   border-radius: 7px;
   padding: 4px 8px;
   font-size: 12px;
@@ -637,7 +638,7 @@
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: #7e63c8;
+  background: #777777;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -678,7 +679,7 @@
   gap: 2px;
   background: rgba(255,255,255,0.95);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(108,99,255,0.18);
+  border: 1px solid rgba(119, 119, 119, 0.18);
   border-radius: 22px;
   padding: 5px 8px;
   box-shadow: 0 6px 20px rgba(0,0,0,0.12), inset 0 1.5px 0 rgba(255,255,255,0.9);
@@ -699,7 +700,7 @@
   border-radius: 8px;
   transition: transform 0.1s cubic-bezier(0.34,1.56,0.64,1), background 0.1s;
 }
-.messages-emoji-btn:hover { transform: scale(1.3); background: rgba(108,99,255,0.09); }
+.messages-emoji-btn:hover { transform: scale(1.3); background: rgba(119, 119, 119, 0.09); }
 
 /* ── Reaction chips under bubble ─────────────────────────────────── */
 .messages-reaction-chips {
@@ -722,12 +723,12 @@
   transition: background 0.12s, transform 0.12s;
 }
 .messages-reaction-chip span { font-size: 11px; color: #666; }
-.messages-reaction-chip:hover { background: rgba(108,99,255,0.10); transform: scale(1.06); }
+.messages-reaction-chip:hover { background: rgba(119, 119, 119, 0.10); transform: scale(1.06); }
 .messages-reaction-chip--active {
-  background: rgba(108,99,255,0.14);
-  border-color: rgba(108,99,255,0.35);
+  background: rgba(119, 119, 119, 0.14);
+  border-color: rgba(119, 119, 119, 0.35);
 }
-.messages-reaction-chip--active span { color: #5246e8; }
+.messages-reaction-chip--active span { color: #5c5c5c; }
 
 /* ── Mobile ─────────────────────────────────────────────────────── */
 @media (max-width: 600px) {
@@ -750,7 +751,7 @@
 .messages-dialog-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(20,10,50,0.38);
+  background: rgba(18, 18, 18, 0.38);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   display: flex;
@@ -774,7 +775,7 @@
   width: 90%;
   box-shadow:
     inset 0 2px 0 rgba(255,255,255,1),
-    0 8px 40px rgba(50,30,110,0.22),
+    0 8px 40px rgba(45, 45, 45, 0.22),
     0 2px 8px rgba(0,0,0,0.10);
   animation: dialog-spring-in 0.22s cubic-bezier(0.34,1.56,0.64,1);
 }
@@ -785,7 +786,7 @@
 .messages-dialog-title {
   font-size: 17px;
   font-weight: 700;
-  color: #2a1a6e;
+  color: #282828;
   margin-bottom: 10px;
 }
 .messages-dialog-body {
@@ -812,7 +813,7 @@
 }
 .messages-dialog-cancel:hover { background: rgba(0,0,0,0.10); }
 .messages-dialog-confirm {
-  background: #5b52e8;
+  background: #666666;
   border: none;
   border-radius: 9px;
   padding: 7px 18px;
@@ -820,7 +821,7 @@
   font-weight: 700;
   color: #fff;
   cursor: pointer;
-  box-shadow: 0 3px 10px rgba(108,99,255,0.35);
+  box-shadow: 0 3px 10px rgba(119, 119, 119, 0.35);
   transition: filter 0.12s, transform 0.12s;
 }
 .messages-dialog-confirm:hover { filter: brightness(1.08); transform: translateY(-1px); }

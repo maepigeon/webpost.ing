@@ -2,7 +2,13 @@
 
 ## Design System: Neoskeuomorphic Glass
 
-The app uses a "neoskeuomorphic glass" / frosted glass aesthetic — raised, tactile, dimensional surfaces with soft shadows, translucency, and physical depth. The palette is warm cream/beige with purple accents.
+The app uses a "neoskeuomorphic glass" / frosted glass aesthetic — raised, tactile, dimensional surfaces with soft shadows, translucency, and physical depth.
+
+**The UI is grayscale** (owner's request, 2026-09-29). Every UI colour was converted to the gray of equal luminance, so contrast and depth are unchanged. Colour is kept only for:
+- user content — photos, wallpapers, text colours chosen in posts, code syntax highlighting, the homepage water title and favicon;
+- meaning — red for danger, errors and unread badges; green for online and success.
+
+Do not add purple, orange or other hues back to chrome. Links stay identifiable by weight or underline rather than colour.
 
 ---
 
@@ -10,16 +16,12 @@ The app uses a "neoskeuomorphic glass" / frosted glass aesthetic — raised, tac
 
 | Role | Value | Usage |
 |------|-------|-------|
-| Page background | `#ece9e2` | HTML `background-color` (warm cream) |
+| Page background | `#e9e9e9` | `--page-bg` |
+| Ink | `#1c1c1c` / `#505050` / `#828282` | `--ink`, `--ink-soft`, `--ink-faint` |
+| Accent | `#565656` text, `#666666` fill | `--accent`, `--accent-fill` |
 | Glass card bg | `rgba(255,255,255,0.54)` | Profile card, post cards |
-| Glass card bg (lighter) | `rgba(255,255,255,0.28)` | Editor post card |
-| Purple accent | `#6c63ff` | Links, active states, logo text |
-| Purple dark | `#4b44cc` | Button base, hover states |
-| Orange accent | `#f5891c` | Primary action button (Log In in navbar) |
-| Green accent | `#3cc85c` | Create account / register actions |
-| Red / danger | `#d32f2f` | Error messages, delete actions |
-| Text primary | `#1a1060` / `#222` | Headings, body |
-| Text secondary | `#555` / `#888` | Meta text, timestamps, labels |
+| Red / danger | `#d32f2f` | Error messages, delete actions, unread badges |
+| Green / ok | `#2ecc71` | Online status, success messages |
 
 ---
 

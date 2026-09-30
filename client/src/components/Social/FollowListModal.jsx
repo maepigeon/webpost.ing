@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import './FollowListModal.css';
+import Icon from '../Icon/Icon.jsx';
 
 export default function FollowListModal({ title, users, onClose }) {
   const overlayRef = useRef(null);
@@ -23,7 +24,7 @@ export default function FollowListModal({ title, users, onClose }) {
       <div className="follow-modal" role="dialog" aria-modal="true" aria-label={title}>
         <div className="follow-modal-header">
           <h3 className="follow-modal-title">{title}</h3>
-          <button className="follow-modal-close" onClick={onClose} aria-label="Close">×</button>
+          <button className="follow-modal-close" onClick={onClose} aria-label="Close"><Icon name="close" size={14} /></button>
         </div>
         <ul className="follow-modal-list">
           {users.length === 0 && <li className="follow-modal-empty">Nobody yet.</li>}

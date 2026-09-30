@@ -30,6 +30,9 @@ export default function KeyRepeatPlugin() {
     };
 
     const onKeyDown = (e) => {
+      // Keys typed into a block's own field — the tile grid, a math block's
+      // LaTeX box — belong to that field, not to the post's text.
+      if (e.target instanceof Element && e.target.closest('input, textarea, select')) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.isComposing || e.keyCode === 229) return;
       if (e.key.length !== 1) return;

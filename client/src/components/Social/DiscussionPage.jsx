@@ -7,7 +7,9 @@ import {
 import CommentItem from './CommentItem.jsx';
 import { patternToStyle } from '../PatternPicker/patterns.js';
 import './Social.css';
-import { parsePostId, postPath } from '../../utils/postUrl.js';
+import { postPath } from '../../utils/postUrl.js';
+import { useResolvedPostId } from '../../utils/useResolvedPostId.js';
+import { useAuthorTheme } from '../PageTheme/PageTheme.jsx';
 
 function flattenTree(comments) {
   const result = [];
@@ -16,11 +18,11 @@ function flattenTree(comments) {
   return result;
 }
 
-export default function DiscussionPage() {
+function DiscussionPageBody({ id }) {
   // The route segment is "{id}-{slug}"; the slug is cosmetic and a stale or
   // hand-edited one still resolves to the right post.
-  const { id: idParam, username } = useParams();
-  const id = parsePostId(idParam);
+  const { username } = useParams();
+  useAuthorTheme(username);
   const navigate = useNavigate();
 
   const [postTitle, setPostTitle] = useState('');
@@ -166,4 +168,17 @@ export default function DiscussionPage() {
       </div>
     </div>
   );
+}
+
+/**
+ * Profile links name a post by its slug, so the id may have to be looked up
+ * before anything can load. Keyed on the id so moving between posts starts
+ * from a clean slate.
+ */
+export default function DiscussionPage() {
+  const { id: segment, username } = useParams();
+  const { id, missing } = useResolvedPostId(username, segment);
+  if (missing) return <p className="post-not-found">This post doesn&apos;t exist, or its address has changed.</p>;
+  if (id == null) return null;
+  return <DiscussionPageBody key={id} id={id} />;
 }

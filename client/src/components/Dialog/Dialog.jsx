@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useRef } from 'react';
 import './Dialog.css';
+import Icon from '../Icon/Icon.jsx';
 
 const DialogContext = createContext(null);
 
@@ -40,7 +41,7 @@ export function DialogProvider({ children }) {
       {dialog && (
         <div className="dialog-overlay" onMouseDown={() => dismiss(false)}>
           <div className="dialog-box" onMouseDown={e => e.stopPropagation()} role="dialog" aria-modal="true">
-            <button className="dialog-close" onClick={() => dismiss(false)} aria-label="Close">✕</button>
+            <button className="dialog-close" onClick={() => dismiss(false)} aria-label="Close"><Icon name="close" size={14} /></button>
             {dialog.type === 'link' ? (
               <>
                 <div className="dialog-title">Leaving webpost.ing</div>

@@ -34,6 +34,7 @@ import { useDialog } from '../../../../Dialog/Dialog.jsx';
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ImageNode, $createImageNode } from './ImageNode.jsx';
 import { MathNode, $createMathNode } from './MathNode.jsx';
+import { TileGridNode, $createTileGridNode } from './TileGrid/TileGridNode.jsx';
 import axios from 'axios';
 import { BASE_URL } from '../../../../../config.js';
 import PatternPicker from '../../../../PatternPicker/PatternPicker.jsx';
@@ -43,7 +44,7 @@ import ImageCropDialog from '../../../../ImageCrop/ImageCropDialog.jsx';
 import ImagePicker from '../../../../ImagePicker/ImagePicker.jsx';
 import { postPath, slugify } from '../../../../../utils/postUrl.js';
 
-const EDITOR_NODES = [HeadingNode, ListNode, ListItemNode, CustomCodeNode, CodeHighlightNode, ImageNode, MathNode, LinkNode];
+const EDITOR_NODES = [HeadingNode, ListNode, ListItemNode, CustomCodeNode, CodeHighlightNode, ImageNode, MathNode, TileGridNode, LinkNode];
 
 const FONT_SIZES   = ['12px', '14px', '16px', '18px', '24px', '32px', '48px'];
 const LINE_HEIGHTS = ['1', '1.25', '1.5', '1.75', '2', '2.5'];
@@ -1174,6 +1175,14 @@ function MathToolbarPlugin() {
   return <button onClick={onClick} title="Insert LaTeX math block">∑ Math</button>;
 }
 
+function TileGridToolbarPlugin() {
+  const [editor] = useLexicalComposerContext();
+  return (
+    <button onClick={() => insertBlock(editor, () => $createTileGridNode())}
+      title="Insert a tile grid: text on tiles, pixel painting and photos">▦ Grid</button>
+  );
+}
+
 function PostLinkToolbarPlugin() {
   const [editor] = useLexicalComposerContext();
   const [showSearch, setShowSearch] = useState(false);
@@ -1715,6 +1724,7 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
     { key: 'image',  node: <ImageToolbarPlugin /> },
     { key: 'code',   node: <CodeToolbarPlugin /> },
     { key: 'math',   node: <MathToolbarPlugin /> },
+    { key: 'grid',   node: <TileGridToolbarPlugin /> },
     { key: 'postlink', node: <PostLinkToolbarPlugin /> },
     {
       key: 'style',
@@ -1750,6 +1760,7 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
         <ImageToolbarPlugin />
         <CodeToolbarPlugin />
         <MathToolbarPlugin />
+        <TileGridToolbarPlugin />
       </ToolbarGroup>
       <ToolbarGroup label="Page">
         <BackgroundToolbarPlugin pattern={backgroundPattern} onPatternChange={onPatternChange} username={username} />

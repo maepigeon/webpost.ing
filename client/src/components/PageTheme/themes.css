@@ -1,0 +1,254 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   Page themes
+
+   One set of rules for every theme. A theme is only the values of the --th-*
+   variables (built in theme.js from sanitised data); Newspaper Life, the
+   default, is simply what they are set to on <html> at start-up. So a preset
+   can do nothing a custom theme cannot, and the default spaces and a themed
+   profile are drawn by the same code.
+
+   Everything is a variable rather than an attribute because variables take
+   the nearest value: the preview box in Settings sets its own and wins over
+   the page around it.
+
+   Gradients here are textures and effects — ruled lines, scanlines, rainbow —
+   not fills; this file is on the documented exceptions list.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --th-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --th-cork: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='a'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.28' numOctaves='2' seed='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .23 0 0 0 0 .13 0 0 0 0 .05 0 0 0 -1.6 1.05'/%3E%3C/filter%3E%3Cfilter id='b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' seed='9' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .16 0 0 0 0 .09 0 0 0 0 .03 0 0 0 -3 1.9'/%3E%3C/filter%3E%3Cfilter id='c'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='1' seed='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 .86 0 0 0 0 .62 0 0 0 -3.4 2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23a)'/%3E%3Crect width='100%25' height='100%25' filter='url(%23b)'/%3E%3Crect width='100%25' height='100%25' filter='url(%23c)' opacity='.55'/%3E%3C/svg%3E");
+  --th-rainbow: linear-gradient(115deg, #ff5e8a, #ffa45c, #ffe45c, #6ef29c, #5ec8ff, #a98bff, #ff5e8a);
+}
+
+/* ── Page ──────────────────────────────────────────────────────────────────── */
+
+html { background-color: var(--th-page-bg, #eeede9); }
+html[data-th-hide-wallpaper] body { background-image: none !important; }
+
+.th-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background-color: var(--th-page-bg);
+}
+.theme-preview .th-backdrop { position: absolute; z-index: 0; }
+.th-backdrop[data-texture="wallpaper"] { display: none; }
+
+.th-backdrop[data-texture="newsprint"]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--th-noise);
+  opacity: calc(var(--th-texture-opacity) * 0.24);
+  mix-blend-mode: multiply;
+}
+
+.th-backdrop[data-texture="cork"] {
+  background-image: var(--th-cork);
+  background-size: 300px 300px;
+}
+.th-backdrop[data-texture="cork"]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-color: rgba(var(--th-texture-rgb), calc(var(--th-texture-opacity) * 0.14));
+  mix-blend-mode: multiply;
+}
+
+.th-backdrop[data-texture="graph"] {
+  background-image:
+    linear-gradient(rgba(var(--th-texture-rgb), var(--th-texture-opacity)) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--th-texture-rgb), var(--th-texture-opacity)) 1px, transparent 1px),
+    linear-gradient(rgba(var(--th-texture-rgb), calc(var(--th-texture-opacity) * 0.45)) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--th-texture-rgb), calc(var(--th-texture-opacity) * 0.45)) 1px, transparent 1px);
+  background-size: 120px 120px, 120px 120px, 24px 24px, 24px 24px;
+}
+
+.th-backdrop[data-texture="dots"] {
+  background-image: radial-gradient(rgba(var(--th-texture-rgb), var(--th-texture-opacity)) 1.6px, transparent 2px);
+  background-size: 22px 22px;
+}
+
+.th-backdrop[data-texture="scanlines"] {
+  background-image: radial-gradient(ellipse at 50% 35%, rgba(var(--th-texture-rgb), calc(var(--th-texture-opacity) * 0.55)), transparent 70%);
+}
+
+/* Rainbow seen through paw-shaped holes. The mask is the paw pattern from
+   patterns.js, set inline, so it is the same paw the wallpaper picker offers. */
+.th-paws {
+  position: absolute;
+  inset: 0;
+  background-image: var(--th-rainbow);
+  background-size: 400% 400%;
+  opacity: var(--th-texture-opacity);
+  animation: th-rainbow-drift 18s linear infinite;
+}
+
+/* Over-the-page effects. */
+.th-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 250;
+  pointer-events: none;
+}
+.theme-preview .th-overlay { position: absolute; z-index: 3; }
+.th-overlay[data-scanlines] {
+  background-image: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.28) 0 1px, transparent 1px 3px);
+}
+.th-overlay[data-flicker] { animation: th-flicker 5s steps(1) infinite; }
+
+/* ── Type ──────────────────────────────────────────────────────────────────── */
+
+#appBody,
+.theme-preview {
+  font-family: var(--th-font-body);
+  color: var(--th-ink);
+}
+
+/* The navbar is chrome, not part of anyone's page. */
+.navBar, .navBar * { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+
+:is(#appBody, .theme-preview) :is(h1, h2, h3):not(.navBar *) {
+  font-family: var(--th-font-heading);
+  color: var(--th-heading-ink);
+  text-transform: var(--th-heading-case);
+  letter-spacing: 0;
+  background-image: var(--th-heading-bg);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: var(--th-heading-anim) 9s linear infinite;
+}
+
+#appBody :is(.profile-header-card, .editor-post-card) h1 {
+  font-size: calc(2rem * var(--th-heading-scale));
+  line-height: 1.1;
+}
+#appBody .basicTextPost h1 {
+  font-size: calc(1.5rem * var(--th-heading-scale));
+  line-height: 1.15;
+}
+
+:is(#appBody, .theme-preview) :is(h1, h2, h3, p, span, a, li, .editor-contenteditable):not(.navBar *) {
+  text-shadow: var(--th-text-glow);
+}
+
+:is(#appBody, .theme-preview) :is(.profile-header-card, .basicTextPost, .editor-post-card, .theme-card) a:not(.post-card-overlay):not(.post-title-link) {
+  color: var(--th-accent);
+}
+
+/* ── Cards ─────────────────────────────────────────────────────────────────── */
+/* Document cards and preview cards are listed separately so the page's cards
+   never pick up a preview's look or the other way round. */
+
+#appBody :is(
+  .profile-header-card, .basicTextPost, .editor-post-card, .profile-folder-section,
+  .search-card, .search-user-card, .settings-card, .login-card, .logout-card,
+  .registration-container, .activity-card, .app-error-card
+),
+.theme-preview .theme-card {
+  position: relative;
+  background: var(--th-card-background);
+  color: var(--th-ink);
+  border: none;
+  border-top: var(--th-card-border-top);
+  border-left: var(--th-card-border-side);
+  border-right: var(--th-card-border-side);
+  border-bottom: var(--th-card-border-bottom);
+  border-radius: var(--th-card-radius);
+  border-bottom-right-radius: var(--th-card-radius-curl);
+  box-shadow: var(--th-card-shadow);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  animation: var(--th-card-anim) 12s linear infinite;
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+}
+
+/* A post inside the viewer's own card is not a second card. */
+#appBody .editor-post-card .basicTextPost {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  transform: none;
+  animation: none;
+}
+
+/* Tilt: alternate cards lean opposite ways, and straighten under the pointer. */
+#appBody :is(.basicTextPost, .profile-folder-section):not(.editor-post-card .basicTextPost),
+.theme-preview .theme-card {
+  transform: rotate(var(--th-tilt));
+}
+#appBody .profile-post-item:nth-child(even) .basicTextPost,
+#appBody .profile-folder-section:nth-child(even),
+.theme-preview .theme-card:nth-child(even) {
+  transform: rotate(calc(var(--th-tilt) * -1));
+}
+#appBody .basicTextPost:not(.editor-post-card .basicTextPost):hover,
+.theme-preview .theme-card:hover {
+  transform: rotate(0deg) translateY(-2px);
+}
+
+/* Tape and pins. */
+#appBody :is(.profile-header-card, .basicTextPost):not(.editor-post-card .basicTextPost)::before,
+.theme-preview .theme-card::before {
+  content: '';
+  display: var(--th-pin-display);
+  position: absolute;
+  top: var(--th-pin-top);
+  left: 50%;
+  width: var(--th-pin-w);
+  height: var(--th-pin-h);
+  margin-left: var(--th-pin-ml);
+  border-radius: var(--th-pin-radius);
+  transform: rotate(var(--th-pin-rotate));
+  background: var(--th-pin-bg);
+  box-shadow: var(--th-pin-shadow);
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Paper grain on the cards themselves. */
+#appBody :is(.profile-header-card, .basicTextPost, .editor-post-card, .settings-card, .search-card, .login-card):not(.editor-post-card .basicTextPost)::after,
+.theme-preview .theme-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: var(--th-noise);
+  opacity: var(--th-grain-opacity);
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+
+/* Buttons on a profile or post pick up the accent. */
+#appBody :is(.profile-header-card, .editor-post-card) :is(.edit-bio-btn, .follow-count-btn, .viewer-share-btn, .viewer-edit-btn, .post-discussion-btn),
+.theme-preview .theme-button {
+  font-family: var(--th-font-body);
+  background: transparent;
+  color: var(--th-accent);
+  border: 1.5px solid var(--th-accent);
+  box-shadow: none;
+  text-shadow: none;
+}
+
+@keyframes th-rainbow-drift {
+  from { background-position: 0% 50%; }
+  to   { background-position: 300% 50%; }
+}
+
+@keyframes th-flicker {
+  0%, 100% { opacity: 1; }
+  47%      { opacity: 0.86; }
+  48%      { opacity: 1; }
+  82%      { opacity: 0.93; }
+  83%      { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .th-overlay, .th-paws { animation: none !important; }
+  :is(#appBody, .theme-preview) :is(h1, h2, h3) { animation: none !important; }
+  #appBody :is(.profile-header-card, .basicTextPost, .editor-post-card), .theme-preview .theme-card { animation: none !important; }
+}

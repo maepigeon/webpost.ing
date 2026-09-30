@@ -18,7 +18,7 @@
 
 .newPostButton {
     margin-bottom: 20px;
-    background-color: rgb(78, 145, 226);
+    background-color: rgb(134, 134, 134);
     color: black;
 }
 
@@ -64,7 +64,7 @@
 .edit-bio-btn:hover {
     box-shadow: var(--neo-shadow-hover);
     transform: translateY(-1px);
-    color: #4b44cc;
+    color: #565656;
 }
 .edit-bio-btn:active {
     transform: translateY(0);
@@ -79,7 +79,7 @@
     /* Dimensional skeuomorphic button: central top highlight fades to deeper base */
     /* Flat. The raised read comes from the inset edges in --neo-shadow, not
        from a fill gradient — see src/styles/tokens.css. */
-    --neo-bg: rgba(240, 238, 235, 0.78);
+    --neo-bg: rgba(238, 238, 238, 0.78);
     --neo-border: 1.5px solid rgba(255,255,255,0.88);
     /* Multi-layer shadow: outer glow ring + lift shadow + bright top edge + dark bottom edge */
     --neo-shadow:
@@ -125,7 +125,7 @@
 }
 
 .follow-count-btn:hover {
-    color: #4b44cc;
+    color: #565656;
     box-shadow: var(--neo-shadow-hover);
     transform: translateY(-1px);
 }
@@ -141,8 +141,8 @@
 }
 
 /* ── DM block button ─────────────────────────────────────────────────────── */
-.btn-block-dm   { color: #b45309; }
-.btn-unblock-dm { color: #166534; }
+.btn-block-dm   { color: #686868; }
+.btn-unblock-dm { color: #484848; }
 
 /* ── Neoskeuomorphic profile action buttons ──────────────────────────────── */
 .profile-header-card button:not(.pattern-swatch):not(.pattern-picker-test-btn):not(.pattern-picker-apply-btn):not(.pattern-picker-save-btn):not(.pattern-user-preset-delete):not(.follow-count-btn):not(.reaction-btn):not(.comment-reaction-btn):not(.follow-btn) {
@@ -166,6 +166,6 @@
 }
 
 @keyframes online-pulse {
-  0%, 100% { box-shadow: 0 0 0 3px rgba(46,204,113,0.35), 0 0 8px rgba(46,204,113,0.5); }
-  50%       { box-shadow: 0 0 0 5px rgba(46,204,113,0.15), 0 0 16px rgba(46,204,113,0.7); }
+  0%, 100% { box-shadow: 0 0 0 3px rgba(146, 146, 146, 0.35), 0 0 8px rgba(146, 146, 146, 0.5); }
+  50%       { box-shadow: 0 0 0 5px rgba(146, 146, 146, 0.15), 0 0 16px rgba(146, 146, 146, 0.7); }
 }

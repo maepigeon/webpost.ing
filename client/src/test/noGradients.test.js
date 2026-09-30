@@ -31,6 +31,10 @@ const ALLOWED = {
     'repeating-linear-gradient: a texture on the message thread, not a fill.',
   'components/ImageCrop/ImageCropDialog.css':
     'repeating-conic-gradient: the standard transparency checkerboard, and the crop scrim.',
+  'components/PageTheme/themes.css':
+    'Page themes: textures and effects (ruled paper, scanlines, the rainbow of Pawprint Phenomenon, push pins), not fills.',
+  'components/PageTheme/theme.js':
+    'Builds the same theme textures as CSS values from sanitised theme data.',
   'components/Pages/Posts/PostsViewer/ProfileEditor.css':
     'The banner scrim — a legibility device that guarantees contrast over an arbitrary photo.',
 };

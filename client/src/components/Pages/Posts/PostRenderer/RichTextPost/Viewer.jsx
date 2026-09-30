@@ -26,13 +26,17 @@ import {
 } from '../../BasicTextPostServerApi.js';
 import { ImageNode } from './ImageNode.jsx';
 import { MathNode } from './MathNode.jsx';
+import { TileGridNode } from './TileGrid/TileGridNode.jsx';
 import { LinkNode } from '@lexical/link';
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
 import { ClickableLinkPlugin } from '@lexical/react/LexicalClickableLinkPlugin';
-import { parsePostId, postPath } from '../../../../../utils/postUrl.js';
+import { postPath } from '../../../../../utils/postUrl.js';
+import { useResolvedPostId } from '../../../../../utils/useResolvedPostId.js';
 import ReportDialog from '../../../../Social/ReportDialog.jsx';
+import { useAuthorTheme } from '../../../../PageTheme/PageTheme.jsx';
+import Icon from '../../../../Icon/Icon.jsx';
 
-const VIEWER_NODES = [HeadingNode, ListNode, ListItemNode, CustomCodeNode, CodeHighlightNode, ImageNode, MathNode, LinkNode];
+const VIEWER_NODES = [HeadingNode, ListNode, ListItemNode, CustomCodeNode, CodeHighlightNode, ImageNode, MathNode, TileGridNode, LinkNode];
 
 const initialConfig = {
   namespace: 'MyViewer',
@@ -113,11 +117,10 @@ function HashtagLinkerPlugin({ contentRef, navigate }) {
   return null;
 }
 
-export default function RichTextViewer() {
+function RichTextViewerBody({ id }) {
   // The route segment is "{id}-{slug}"; the slug is cosmetic and a stale or
   // hand-edited one still resolves to the right post.
   const { id: idParam, username } = useParams();
-  const id = parsePostId(idParam);
 
   const navigate = useNavigate();
   const { linkWarning } = useDialog();
@@ -127,6 +130,7 @@ export default function RichTextViewer() {
   const [postDate, setPostDate] = useState('');
   const [postPublished, setPostPublished] = useState(false);
   const [postAuthor, setPostAuthor] = useState('');
+  useAuthorTheme(postAuthor || username);
   const [backgroundPattern, setBackgroundPattern] = useState('');
   const [dataReady, setDataReady] = useState(false);
   const [postLoaded, setPostLoaded] = useState(false);
@@ -371,7 +375,8 @@ export default function RichTextViewer() {
                     try { const d = await VOTE_POST(id, next); setPostScore(d.score); setUserPostVote(d.userVote); }
                     catch { setPostScore(s => s - delta); setUserPostVote(userPostVote); }
                   }}
-                >▲</button>
+                  aria-label="Upvote"
+                ><Icon name="voteUp" size={14} /></button>
                 <span className="post-vote-score">{postScore}</span>
                 <button
                   className={`post-vote-btn${userPostVote === -1 ? ' post-vote-btn--down' : ''}`}
@@ -385,7 +390,8 @@ export default function RichTextViewer() {
                     try { const d = await VOTE_POST(id, next); setPostScore(d.score); setUserPostVote(d.userVote); }
                     catch { setPostScore(s => s - delta); setUserPostVote(userPostVote); }
                   }}
-                >▼</button>
+                  aria-label="Downvote"
+                ><Icon name="voteDown" size={14} /></button>
               </div>
               ) : (
                 <div className="post-vote-bar post-vote-bar--readonly" title="Sign in to vote">
@@ -469,7 +475,7 @@ export default function RichTextViewer() {
               {features.discussionEnabled && (
                 <Link
                   to={`/${authorUsername}/${idParam}/discussion`}
-                  style={{ fontSize: '14px', color: '#1a73e8', textDecoration: 'none', fontWeight: 500 }}
+                  style={{ fontSize: '14px', color: '#333333', textDecoration: 'none', fontWeight: 500 }}
                 >
                   Discussion
                 </Link>
@@ -502,7 +508,7 @@ export default function RichTextViewer() {
             animation: 'dialog-pop-in 0.2s cubic-bezier(0.34,1.56,0.64,1)',
           }} onMouseDown={e => e.stopPropagation()}>
             <button onClick={() => { setShowDmShare(false); setDmRecipient(''); setDmFeedback(null); }}
-              style={{ position: 'absolute', top: 12, right: 14, background: 'rgba(0,0,0,0.07)', border: '1px solid rgba(0,0,0,0.12)', borderRadius: '50%', width: 28, height: 28, cursor: 'pointer', fontSize: 13, color: '#555' }}>✕</button>
+              style={{ position: 'absolute', top: 12, right: 14, background: 'rgba(0,0,0,0.07)', border: '1px solid rgba(0,0,0,0.12)', borderRadius: '50%', width: 28, height: 28, cursor: 'pointer', fontSize: 13, color: '#555', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }} aria-label="Close"><Icon name="close" size={13} /></button>
             <div style={{ fontWeight: 700, fontSize: '1rem', marginBottom: 6 }}>💬 Send via DM</div>
             <div style={{ fontSize: '0.82rem', color: '#666', marginBottom: 14 }}>
               "{postTitle}"
@@ -527,7 +533,7 @@ export default function RichTextViewer() {
                 Cancel
               </button>
               <button onClick={sendViaDm} disabled={dmSending || !dmRecipient.trim()}
-                style={{ padding: '7px 18px', borderRadius: 9, border: 'none', background: '#5b52e8', color: '#fff', cursor: dmSending ? 'default' : 'pointer', fontSize: '0.875rem', fontWeight: 700, opacity: (!dmRecipient.trim() || dmSending) ? 0.6 : 1 }}>
+                style={{ padding: '7px 18px', borderRadius: 9, border: 'none', background: '#666666', color: '#fff', cursor: dmSending ? 'default' : 'pointer', fontSize: '0.875rem', fontWeight: 700, opacity: (!dmRecipient.trim() || dmSending) ? 0.6 : 1 }}>
                 {dmSending ? 'Sending…' : 'Send'}
               </button>
             </div>
@@ -539,4 +545,17 @@ export default function RichTextViewer() {
       )}
     </div>
   );
+}
+
+/**
+ * Profile links name a post by its slug, so the id may have to be looked up
+ * before anything can load. Keyed on the id so moving between posts starts
+ * from a clean slate.
+ */
+export default function RichTextViewer() {
+  const { id: segment, username } = useParams();
+  const { id, missing } = useResolvedPostId(username, segment);
+  if (missing) return <p className="post-not-found">This post doesn&apos;t exist, or its address has changed.</p>;
+  if (id == null) return null;
+  return <RichTextViewerBody key={id} id={id} />;
 }

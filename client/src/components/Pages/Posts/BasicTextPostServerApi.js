@@ -56,6 +56,23 @@ export function READ_POSTS() {
   return dataPromise;
 };
 
+/** A user's page theme: {theme: {...}} or {theme: null} for Newspaper Life. */
+export function GET_PAGE_THEME(username) {
+  return axios.get(baseUrl + `/api/users/${encodeURIComponent(username)}/theme`).then(r => r.data);
+}
+
+/** Saves the signed-in user's page theme; pass null to go back to Newspaper Life. */
+export function SET_PAGE_THEME(username, theme) {
+  return axios.put(baseUrl + `/api/users/${encodeURIComponent(username)}/theme`, { theme }, { withCredentials: true })
+    .then(r => r.data);
+}
+
+/** Finds a post from the segment after its author's name: an id or a slug. */
+export function RESOLVE_POST(username, segment) {
+  return axios.get(baseUrl + `/api/users/${encodeURIComponent(username)}/resolve/${encodeURIComponent(segment)}`)
+    .then(r => r.data);
+}
+
 //get a post by its id in the database
 export function READ_POST(id) {
   const promise = axios.get(baseUrl + "/api/posts/" + id + "");

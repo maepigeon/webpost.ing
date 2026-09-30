@@ -7,6 +7,7 @@ import { useDialog } from '../Dialog/Dialog.jsx';
 import AvatarPopup from './AvatarPopup.jsx';
 import { linkifyText } from '../../utils/linkifyText.jsx';
 import './Social.css';
+import Icon from '../Icon/Icon.jsx';
 
 // Module-level cache so avatars aren't re-fetched per render
 const _avatarCache = {};
@@ -120,9 +121,9 @@ export default function CommentItem({ comment, postId, depth = 0, onRefresh }) {
   return (
     <div id={`comment-${comment.id}`} className={`comment-item depth-${Math.min(depth, 4)}`}>
       <div className="comment-votes">
-        <button className={`vote-btn${userVote === 1 ? ' vote-up--active' : ''}`} onClick={() => vote(1)} disabled={!loggedIn} title="Upvote">▲</button>
+        <button className={`vote-btn${userVote === 1 ? ' vote-up--active' : ''}`} onClick={() => vote(1)} disabled={!loggedIn} title="Upvote" aria-label="Upvote"><Icon name="voteUp" size={12} /></button>
         <span className="comment-score">{score}</span>
-        <button className={`vote-btn${userVote === -1 ? ' vote-down--active' : ''}`} onClick={() => vote(-1)} disabled={!loggedIn} title="Downvote">▼</button>
+        <button className={`vote-btn${userVote === -1 ? ' vote-down--active' : ''}`} onClick={() => vote(-1)} disabled={!loggedIn} title="Downvote" aria-label="Downvote"><Icon name="voteDown" size={12} /></button>
       </div>
       <div className="comment-body">
         <div className="comment-meta">
