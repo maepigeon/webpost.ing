@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.Connection;
+import java.sql.Statement;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -32,6 +33,8 @@ public class DatabaseMigrator {
 
     private static final Logger log = LoggerFactory.getLogger(DatabaseMigrator.class);
     private static final Pattern VERSION_RE = Pattern.compile("^V(\\d+)__.*$");
+    /** Opening delimiter of a dollar-quoted string: $$ or $tag$. */
+    private static final Pattern DOLLAR_QUOTE_RE = Pattern.compile("\\$[A-Za-z_][A-Za-z_0-9]*\\$|\\$\\$");
 
     private final JdbcTemplate jdbc;
     private final String trackingTable;
@@ -154,25 +157,51 @@ public class DatabaseMigrator {
 
     /**
      * Executes the SQL in {@code script} and records the version + checksum.
-     * Uses ScriptUtils so multi-statement scripts (BEGIN/COMMIT, DO $$...$$) work.
      * The tracking INSERT only runs after the SQL succeeds — a failed SQL leaves
      * no trace in the tracking table.
+     *
+     * Scripts containing a dollar-quoted block (DO $$ ... $$, CREATE FUNCTION)
+     * are sent to the driver whole. ScriptUtils splits a script on ';' with a
+     * scanner that does not understand dollar quoting, so it chops PL/pgSQL
+     * bodies into fragments and every one of them fails to parse. The pgJDBC
+     * driver's own statement splitter *does* understand dollar quoting, so
+     * handing it the whole script is both correct and simpler. Everything else
+     * keeps going through ScriptUtils, which additionally strips comments.
      */
     void applyScript(MigrationScript script) {
         log.info("Applying migration: {}", script.version());
-        byte[] sqlBytes = script.sql().getBytes(StandardCharsets.UTF_8);
-        org.springframework.core.io.Resource resource = new ByteArrayResource(sqlBytes);
+        String sql = script.sql();
 
-        jdbc.execute((Connection conn) -> {
-            ScriptUtils.executeSqlScript(conn, resource);
-            return null;
-        });
+        if (hasDollarQuotedBlock(sql)) {
+            jdbc.execute((Connection conn) -> {
+                try (Statement stmt = conn.createStatement()) {
+                    stmt.execute(sql);
+                }
+                return null;
+            });
+        } else {
+            byte[] sqlBytes = sql.getBytes(StandardCharsets.UTF_8);
+            org.springframework.core.io.Resource resource = new ByteArrayResource(sqlBytes);
+            jdbc.execute((Connection conn) -> {
+                ScriptUtils.executeSqlScript(conn, resource);
+                return null;
+            });
+        }
 
         jdbc.update(
             "INSERT INTO " + trackingTable + " (version, checksum) VALUES (?, ?) ON CONFLICT DO NOTHING",
             script.version(), script.checksum()
         );
         log.info("Migration {} applied successfully", script.version());
+    }
+
+    /**
+     * True when the script contains a dollar-quoted string — {@code $$ ... $$} or
+     * a tagged {@code $tag$ ... $tag$}. Matching the opening delimiter is enough;
+     * an unterminated one would be a syntax error either way.
+     */
+    public static boolean hasDollarQuotedBlock(String sql) {
+        return DOLLAR_QUOTE_RE.matcher(sql).find();
     }
 
     // ── Static helpers ────────────────────────────────────────────────────────

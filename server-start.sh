@@ -1,17 +1,28 @@
-#!/bin/bash
-# server-start.sh — Start the Spring Boot JAR in production mode.
+#!/usr/bin/env bash
+# server-start.sh — start the Spring Boot JAR. Invoked by the systemd unit.
 #
-# -Dspring.profiles.active=prod activates HTTPS cookies and the absolute
-# upload path from application-prod.properties.  application.properties
-# can stay on 'dev' for local development — never edit it before deploying.
-#
-# Run from the repo root or any directory; adjust the path to the JAR if
-# you've moved it outside the default target/ location.
+# Reads every setting from deploy.env (see config/deploy.env.example). The JVM
+# needs no -D flags: application.properties resolves ${VAR:default} straight
+# from the environment, so APP_PROFILE alone selects dev or prod.
 
-echo "Starting up webpost.ing backend server!"
+set -euo pipefail
 
-JAR="/home/webpost.ing/server/target/server-0.0.1-SNAPSHOT.jar"
+APP_HOME_DEFAULT="$(cd "$(dirname "$0")" && pwd)"
+ENV_FILE="${DEPLOY_ENV:-$APP_HOME_DEFAULT/deploy.env}"
 
-java -Dspring.profiles.active=prod -jar "$JAR" &
+if [ -f "$ENV_FILE" ]; then
+  set -a; . "$ENV_FILE"; set +a
+else
+  echo "WARNING: $ENV_FILE not found — starting with built-in development defaults."
+fi
 
-wait
+APP_HOME="${APP_HOME:-$APP_HOME_DEFAULT}"
+JAR="${JAR_PATH:-$APP_HOME/server/target/server-0.0.1-SNAPSHOT.jar}"
+
+if [ ! -f "$JAR" ]; then
+  echo "ERROR: JAR not found at $JAR"
+  exit 1
+fi
+
+echo "Starting webpost.ing backend — profile=${APP_PROFILE:-dev}, jar=$JAR"
+exec java -jar "$JAR"

@@ -19,6 +19,14 @@ public class Post {
     private String backgroundPattern;
     private String folder;
 
+    /**
+     * Author-chosen URL slug. Null means "derive one from the title".
+     *
+     * Not unique: the post id precedes it in the URL, so the slug is decoration
+     * on an already-unique address and two posts may share one harmlessly.
+     */
+    private String slug;
+
 
     public Post() {
 
@@ -93,6 +101,10 @@ public class Post {
     public void setFolder(String folder) {
         this.folder = folder;
     }
+
+    public String getSlug() { return slug; }
+
+    public void setSlug(String slug) { this.slug = slug; }
 
 
     @Override

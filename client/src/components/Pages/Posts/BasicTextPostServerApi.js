@@ -1,6 +1,18 @@
 import axios from 'axios';
 import { BASE_URL as baseUrl } from '../../../config.js';
 
+/**
+ * Request config for endpoints that return a raw string body (text/plain).
+ *
+ * Several endpoints (background pattern, bio) return text/plain whose *content*
+ * can itself look like JSON — the v2 wallpaper format is a JSON object, and a
+ * bio can begin with "{". Axios sniffs the body and silently JSON.parses
+ * anything that looks like JSON, handing callers an object where they expect a
+ * string. The identity `transformResponse` disables that sniffing so
+ * `response.data` is always the exact bytes the server sent.
+ */
+const TEXT_GET = { withCredentials: true, transformResponse: [(d) => d] };
+
 
 //delete
 export function DELETE_POST(id) {
@@ -9,16 +21,17 @@ export function DELETE_POST(id) {
   return dataPromise;
 }
 
+/**
+ * Confirms the session is still alive.
+ *
+ * Resolves to the username, or rejects with a 401 that the interceptor in
+ * utils/session.js turns into a sign-out. This used to inspect the response
+ * body for emptiness and call window.location.reload() — a reload rather than a
+ * redirect, so a user whose session had died was bounced back to the same page
+ * still looking signed out.
+ */
 export function AUTHORIZE_SESSION() {
-  const promise = axios.post(baseUrl + "/api/authorizeSession");
-  const dataPromise = promise.then((response) => response.data);
-  promise.then((response) => {
-    if (response.data == null || response.data == "") {
-      localStorage.removeItem("userName");
-      window.location.reload();
-    }
-  });
-  return dataPromise;
+  return axios.post(baseUrl + "/api/authorizeSession").then((response) => response.data);
 };
 
 // Gets a list of all users, including user name, user id, and account creation date
@@ -57,7 +70,7 @@ export function GET_USER_FROM_POST(id) {
 
 
 //create
-export function CREATE_POST(id, titleField, descriptionField, publishedField, backgroundPattern, folder) {
+export function CREATE_POST(id, titleField, descriptionField, publishedField, backgroundPattern, folder, slug) {
   if (titleField == "undefined") {titleField = "Undefined title";}
   const promise = axios.post(baseUrl + "/api/posts",
   {
@@ -67,12 +80,13 @@ export function CREATE_POST(id, titleField, descriptionField, publishedField, ba
     published: publishedField,
     backgroundPattern: backgroundPattern || null,
     folder: folder || null,
+    slug: slug || null,
   }, { withCredentials: true });
   const dataPromise = promise.then((response) => response.data);
   return dataPromise;
 }
 //update
-export function UPDATE_POST(id, titleField, descriptionField, publishedField, backgroundPattern, folder) {
+export function UPDATE_POST(id, titleField, descriptionField, publishedField, backgroundPattern, folder, slug) {
   const promise = axios.put(baseUrl + "/api/posts/" + id,
   {
       id: id,
@@ -81,13 +95,14 @@ export function UPDATE_POST(id, titleField, descriptionField, publishedField, ba
       published: publishedField,
       backgroundPattern: backgroundPattern || null,
       folder: folder || null,
+      slug: slug || null,
   }, { withCredentials: true });
   const dataPromise = promise.then((response) => response.data);
   return dataPromise;
 }
 
 export function GET_USER_BACKGROUND(username) {
-  return axios.get(baseUrl + "/api/users/" + username + "/background", { withCredentials: true })
+  return axios.get(baseUrl + "/api/users/" + username + "/background", TEXT_GET)
     .then((response) => response.data);
 }
 
@@ -99,7 +114,7 @@ export function UPDATE_USER_BACKGROUND(username, pattern) {
 }
 
 export function GET_USER_BIO(username) {
-  return axios.get(baseUrl + "/api/users/" + username + "/bio", { withCredentials: true })
+  return axios.get(baseUrl + "/api/users/" + username + "/bio", TEXT_GET)
     .then((response) => response.data);
 }
 
@@ -627,4 +642,118 @@ export function TRANSFER_GROUP_OWNERSHIP(groupId, username) {
 export function UPDATE_POST_ORDER(username, updates) {
   return axios.put(baseUrl + `/api/users/${username}/posts/order`,
     { updates }, { withCredentials: true }).then(r => r.data);
+}
+
+// ── Settings, email verification, and password reset ──────────────────────────
+// The whole email feature is optional: GET_SETTINGS reports mailEnabled so the
+// UI can say so plainly rather than offering a verification that cannot happen.
+
+export function GET_SETTINGS(username) {
+  return axios.get(baseUrl + "/api/users/" + username + "/settings", { withCredentials: true })
+    .then(r => r.data);
+}
+
+export function UPDATE_EMAIL_PREFERENCES(username, prefs) {
+  return axios.put(baseUrl + "/api/users/" + username + "/settings/preferences", prefs, {
+    headers: { 'Content-Type': 'application/json' },
+    withCredentials: true,
+  }).then(r => r.data);
+}
+
+export function UPDATE_EMAIL_ADDRESS(username, email) {
+  return axios.put(baseUrl + "/api/users/" + username + "/settings/email", { email }, {
+    headers: { 'Content-Type': 'application/json' },
+    withCredentials: true,
+  }).then(r => r.data);
+}
+
+export function RESEND_VERIFICATION(username) {
+  return axios.post(baseUrl + "/api/users/" + username + "/settings/email/resend", {}, {
+    withCredentials: true,
+  }).then(r => r.data);
+}
+
+// Public — opened from a link in an email, where there may be no session.
+export function VERIFY_EMAIL(token) {
+  return axios.post(baseUrl + "/api/email/verify", { token },
+    { headers: { 'Content-Type': 'application/json' } }).then(r => r.data);
+}
+
+export function UNSUBSCRIBE_EMAIL(token, category) {
+  return axios.post(baseUrl + "/api/email/unsubscribe", { token, category },
+    { headers: { 'Content-Type': 'application/json' } }).then(r => r.data);
+}
+
+export function FORGOT_PASSWORD(email) {
+  return axios.post(baseUrl + "/api/password/forgot", { email },
+    { headers: { 'Content-Type': 'application/json' } }).then(r => r.data);
+}
+
+export function RESET_PASSWORD(token, password) {
+  return axios.post(baseUrl + "/api/password/reset", { token, password },
+    { headers: { 'Content-Type': 'application/json' } }).then(r => r.data);
+}
+
+// ── Post reports ──────────────────────────────────────────────────────────────
+
+export function REPORT_POST(postId, reason, details) {
+  return axios.post(baseUrl + "/api/posts/" + postId + "/report", { reason, details }, {
+    headers: { 'Content-Type': 'application/json' },
+    withCredentials: true,
+  }).then(r => r.data);
+}
+
+export function ADMIN_GET_REPORTS(status = 'open') {
+  return axios.get(baseUrl + "/api/admin/reports?status=" + encodeURIComponent(status), {
+    withCredentials: true,
+  }).then(r => r.data);
+}
+
+export function ADMIN_UPDATE_REPORT(reportId, status) {
+  return axios.put(baseUrl + "/api/admin/reports/" + reportId, { status }, {
+    headers: { 'Content-Type': 'application/json' },
+    withCredentials: true,
+  }).then(r => r.data);
+}
+
+export function UPDATE_SITE_BACKGROUND(username, background) {
+  return axios.put(baseUrl + "/api/users/" + username + "/settings/site-background",
+    { background: background || '' },
+    { headers: { 'Content-Type': 'application/json' }, withCredentials: true },
+  ).then(r => r.data);
+}
+
+// ── Profile header image ──────────────────────────────────────────────────────
+
+export function GET_PROFILE_HEADER(username) {
+  return axios.get(baseUrl + "/api/users/" + username + "/header", { withCredentials: true })
+    .then(r => r.data);
+}
+
+export function UPLOAD_PROFILE_HEADER(username, file) {
+  const form = new FormData();
+  form.append('file', file);
+  // Content-Type is left unset so the browser adds the multipart boundary.
+  return axios.post(baseUrl + "/api/users/" + username + "/header", form, { withCredentials: true })
+    .then(r => r.data);
+}
+
+export function UPDATE_PROFILE_HEADER(username, body) {
+  return axios.put(baseUrl + "/api/users/" + username + "/header", body, {
+    headers: { 'Content-Type': 'application/json' },
+    withCredentials: true,
+  }).then(r => r.data);
+}
+
+export function UPDATE_CODE_DISPLAY(username, prefs) {
+  return axios.put(baseUrl + "/api/users/" + username + "/settings/code-display", prefs, {
+    headers: { 'Content-Type': 'application/json' },
+    withCredentials: true,
+  }).then(r => r.data);
+}
+
+/** The signed-in user's own uploaded images, for the "choose an existing one" picker. */
+export function LIST_MY_UPLOADS(limit = 60) {
+  return axios.get(baseUrl + "/api/uploads/mine?limit=" + limit, { withCredentials: true })
+    .then(r => r.data);
 }

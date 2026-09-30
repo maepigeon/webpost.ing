@@ -4,11 +4,12 @@ import { GET_NOTIFICATIONS, MARK_NOTIFICATION_READ, MARK_ALL_READ,
          DELETE_NOTIFICATION, CLEAR_NOTIFICATIONS } from '../Pages/Posts/BasicTextPostServerApi.js';
 import { useDialog } from '../Dialog/Dialog.jsx';
 import './Social.css';
+import { postPath } from '../../utils/postUrl.js';
 
 function ActorLink({ username }) {
   return (
     <Link
-      to={`/users/${username}`}
+      to={`/${username}`}
       className="inbox-actor-link"
       onClick={e => e.stopPropagation()}
     >
@@ -22,7 +23,7 @@ function PostLink({ n }) {
   const anchor = n.commentId ? `#comment-${n.commentId}` : '';
   return (
     <Link
-      to={`/users/${n.postOwner}/${n.postId}/discussion${anchor}`}
+      to={`${postPath(n.postOwner, { id: n.postId, title: n.postTitle })}/discussion${anchor}`}
       className="inbox-post-link"
       onClick={e => e.stopPropagation()}
     >
@@ -38,7 +39,7 @@ function notifLabel(n) {
     case 'reply':    return <span>{a} replied to your comment on <PostLink n={n} /></span>;
     case 'follow':   return <span>{a} followed you</span>;
     case 'reaction': return <span>{a} reacted to your post <PostLink n={n} /></span>;
-    case 'new_post': return <span>{a} published {n.postOwner && n.postId ? <Link to={`/users/${n.postOwner}/${n.postId}`} className="inbox-post-link" onClick={e => e.stopPropagation()}>{n.postTitle || 'a new post'}</Link> : 'a new post'}</span>;
+    case 'new_post': return <span>{a} published {n.postOwner && n.postId ? <Link to={postPath(n.postOwner, { id: n.postId, title: n.postTitle })} className="inbox-post-link" onClick={e => e.stopPropagation()}>{n.postTitle || 'a new post'}</Link> : 'a new post'}</span>;
     case 'message':  return <span style={{ display: 'flex', flexDirection: 'column', gap: '2px', textAlign: 'left' }}><span style={{ fontWeight: 500 }}>{a} sent you a message:</span><span style={{ color: '#333', whiteSpace: 'pre-wrap' }}>{n.message || ''}</span></span>;
     default:         return <span>Notification from {a}</span>;
   }
@@ -125,13 +126,13 @@ export default function InboxPage() {
     }
     if ((n.type === 'comment' || n.type === 'reply') && n.postOwner && n.postId) {
       const anchor = n.commentId ? `#comment-${n.commentId}` : '';
-      navigate(`/users/${n.postOwner}/${n.postId}/discussion${anchor}`);
+      navigate(`${postPath(n.postOwner, { id: n.postId, title: n.postTitle })}/discussion${anchor}`);
     } else if (n.type === 'reaction' && n.postOwner && n.postId) {
-      navigate(`/users/${n.postOwner}/${n.postId}`);
+      navigate(postPath(n.postOwner, { id: n.postId, title: n.postTitle }));
     } else if (n.type === 'new_post' && n.postId) {
-      navigate(`/users/${n.actorUsername}/${n.postId}`);
+      navigate(postPath(n.actorUsername, { id: n.postId, title: n.postTitle }));
     } else if (n.type === 'follow') {
-      navigate(`/users/${n.actorUsername}`);
+      navigate(`/${n.actorUsername}`);
     }
   };
 

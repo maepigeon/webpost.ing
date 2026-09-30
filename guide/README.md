@@ -49,20 +49,35 @@ In local development, Vite's dev server runs on port 5173 and calls the Spring B
 ### Authentication
 
 Authentication uses two HTTP-only cookies set by the server on login:
-- `username` — the account username
-- `authToken` — a randomly generated session token (stored in-memory on the server; all sessions are lost on server restart)
+- `username` — the account username the client believes it is
+- `authToken` — a 192-bit `SecureRandom` session token; **the actual credential**
 
-Every mutating API call reads these cookies server-side. Spring Security is configured to allow all requests (authentication is enforced per-endpoint in the controllers, not at the framework layer). CSRF is disabled because the app relies on cookie-based auth over CORS with `withCredentials`.
+Sessions are held in memory keyed by token, so one account can be signed in on
+several devices at once and a restart ends all of them. Each login mints a new
+token. A session has an absolute lifetime (`SESSION_LIFETIME_MINUTES`, 24h) and
+an idle timeout (`SESSION_IDLE_MINUTES`, 12h) refreshed on each authorized call.
 
-**CORS allowed origins** are configured in `SecurityConfig.java`:
-- `https://webpost.ing` (production)
-- `http://localhost:5173` (local dev)
+Every mutating API call reads these cookies server-side. Spring Security permits
+all requests at the filter layer; authorization is enforced per-endpoint in the
+controllers via `loginRepository.authorize(username, token)`, which also checks
+that the token's session really belongs to the username presented.
 
-If you deploy to a different domain, add it to the `setAllowedOrigins` list in `server/src/main/java/.../config/SecurityConfig.java`.
+Cookies are issued `HttpOnly; SameSite=Lax; Secure` (the `Secure` flag only in
+the `prod` profile, since plain HTTP would otherwise drop them). CSRF tokens are
+not used — `SameSite=Lax` is what prevents a third-party page from making a
+credentialed state-changing request. **If cookies ever need to go cross-site
+again, real CSRF tokens must come back with them**; see the comment in
+`SecurityConfig.java` and finding 4 in [SECURITY.md](SECURITY.md).
+
+**CORS allowed origins** come from the `ALLOWED_ORIGINS` environment variable
+(comma-separated), not from source — add your domain to `deploy.env`. A `*`
+entry is filtered out rather than honoured: the API authenticates with cookies,
+and a wildcard origin on a credentialed endpoint would let any site read a
+logged-in user's data.
 
 ### Image uploads
 
-Uploaded images are stored on disk (not in the database). The upload directory is configured by `app.upload-dir` in `application-*.properties`. Spring Boot serves them at `/uploads/<uuid>.<ext>`. In production, this can alternatively be handled by Nginx for better performance by pointing the Nginx location block at the same directory.
+Uploaded images are stored on disk (not in the database). The upload directory is set by the `UPLOAD_DIR` environment variable (see [CONFIGURATION.md](CONFIGURATION.md)). Spring Boot serves them at `/uploads/<uuid>.<ext>`. In production, this can alternatively be handled by Nginx for better performance by pointing the Nginx location block at the same directory.
 
 ---
 
@@ -92,22 +107,23 @@ The init script creates all tables and seeds the `role_limits` table. It does **
 
 #### Migrating an existing database
 
-If you have an existing database, use the migration tool at `tools/migrate.sh`:
+**Nothing to run.** The server applies every pending migration from
+`server/src/main/resources/db/migrations/V*.sql` at startup and records it in
+the `schema_migrations` table. Start the app and watch for:
 
-```bash
-# Preview what would run without changing anything
-PGPASSWORD=password ./tools/migrate.sh --dry-run
-
-# Apply any pending migrations (backs up first)
-PGPASSWORD=password ./tools/migrate.sh
+```
+Database migration complete — applied: N, skipped (already applied): M
 ```
 
-Alternatively, run `config/db-migrate-from-v1.sql` directly for a one-shot upgrade:
+See [MIGRATIONS.md](MIGRATIONS.md) for how to add one. Back up first regardless:
 
 ```bash
-pg_dump -Fc testdb > backup_before_migrate.dump   # always back up first
-psql -U mae -d testdb -f config/db-migrate-from-v1.sql
+pg_dump -Fc testdb > backup_before_migrate.dump
 ```
+
+> The shell scripts `tools/migrate.sh` and `config/migrate.sh` are earlier
+> generations of the same idea and are **not** what production uses — see
+> item 1 in [code-smells.txt](code-smells.txt).
 
 #### Creating the first admin user
 
@@ -127,20 +143,23 @@ After that, log in via the UI and use the admin panel to create additional users
 
 ### Step 2 — Configure the backend
 
-`server/src/main/resources/application.properties` is **not in the repo** — you must create it. Use these development defaults:
+**Nothing to create.** `application.properties` is committed and contains no
+secrets — every value reads from an environment variable with a
+local-development default, so a fresh clone runs against `localhost:5432/testdb`
+as user `mae` with no configuration at all.
 
-```properties
-spring.profiles.active=dev
+To point it somewhere else, copy the template and edit that instead:
 
-spring.datasource.url=jdbc:postgresql://localhost:5432/testdb
-spring.datasource.username=mae
-spring.datasource.password=password
-spring.datasource.driver-class-name=org.postgresql.Driver
-
-spring.jpa.hibernate.ddl-auto=none
+```bash
+cp config/deploy.env.example deploy.env
+chmod 600 deploy.env
+$EDITOR deploy.env
 ```
 
-Leave `spring.profiles.active=dev` for local development. The dev profile sets cookies without the `Secure` flag (required for HTTP) and stores uploads in a relative `uploads/` directory next to the JAR.
+`deploy.env` is gitignored and is the only file that ever holds a password. The
+dev profile (the default) sets cookies without the `Secure` flag, as plain HTTP
+requires, and stores uploads in `server/uploads/`. Full variable reference:
+[CONFIGURATION.md](CONFIGURATION.md).
 
 ### Step 3 — Build the backend
 
@@ -238,139 +257,28 @@ curl http://localhost:8080/api/posts/22/discussion
 
 ## 5. Production Deployment
 
-### How the profile switch works
+**See [DEPLOYMENT.md](DEPLOYMENT.md) and [CONFIGURATION.md](CONFIGURATION.md).**
 
-The app has two Spring profiles: `dev` (local development) and `prod` (production).
+This section previously described paths, a database name and a restart procedure
+that did not match the live server, which cost real time during a deploy. Rather
+than keep two accounts of the same thing, the details now live in one place:
 
-| Setting           | `dev`                          | `prod`                                |
-|-------------------|--------------------------------|---------------------------------------|
-| Session cookies   | No `Secure` flag (HTTP OK)     | `Secure=true; SameSite=None` (HTTPS required) |
-| Upload directory  | `uploads/` (relative to JAR)   | `/var/www/webposting/uploads` (absolute) |
+- **[DEPLOYMENT.md](DEPLOYMENT.md)** — the production host layout, the deploy
+  sequence, and the mistakes that have actually bitten (systemd owns the JVM,
+  building is not publishing, usernames are case-sensitive).
+- **[CONFIGURATION.md](CONFIGURATION.md)** — every environment variable, and why
+  `deploy.env` is the only file that holds a secret.
+- **[MIGRATIONS.md](MIGRATIONS.md)** — schema changes.
+- **[SECURITY.md](SECURITY.md)** — the security posture and what must happen
+  before this repository is made public.
 
-**You never need to edit `application.properties` before deploying.** Both `deploy.sh` and `server-start.sh` pass `-Dspring.profiles.active=prod` as a JVM argument, which overrides whatever the file says. Keep it as `dev` locally so development keeps working without changes.
-
-If you ever start the JAR manually, always include the flag:
-```bash
-java -Dspring.profiles.active=prod -jar server-0.0.1-SNAPSHOT.jar
-```
-
-### One-time server setup
-
-Do these once when setting up the server for the first time:
-
-**1. Create the uploads directory**
+The short version:
 
 ```bash
-mkdir -p /var/www/webposting/uploads
-chown <app-user> /var/www/webposting/uploads
+cp config/deploy.env.example deploy.env && chmod 600 deploy.env && $EDITOR deploy.env
+./deploy.sh --dry-run     # check what it will do
+./deploy.sh               # build, publish, restart, verify
 ```
-
-The path comes from `application-prod.properties`. If you want a different path, edit that file (not `application.properties`).
-
-**2. Set production database credentials**
-
-Edit `server/src/main/resources/application.properties` with the production database host, name, username, and password:
-
-```properties
-spring.datasource.url=jdbc:postgresql://<host>:5432/<dbname>
-spring.datasource.username=<user>
-spring.datasource.password=<password>
-```
-
-Leave `spring.profiles.active=dev` — the deploy script handles the profile switch.
-
-**3. Configure Nginx**
-
-A minimal config serving the Vite build and proxying the API:
-
-```nginx
-server {
-    listen 443 ssl;
-    server_name webpost.ing;
-
-    # SSL config (cert, key, etc.) here
-
-    root /var/www/webposting/client;
-    index index.html;
-
-    # SPA — all unknown paths serve index.html
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    # Proxy API to Spring Boot
-    location /api/ {
-        proxy_pass http://127.0.0.1:8080/api/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-
-    # Serve uploaded images directly (faster than proxying through Spring Boot)
-    location /uploads/ {
-        alias /var/www/webposting/uploads/;
-    }
-}
-```
-
-**4. CORS — add your domain if different**
-
-If your production domain is not `webpost.ing`, add it to `SecurityConfig.java` before building:
-
-```java
-// server/src/main/java/.../config/SecurityConfig.java
-config.setAllowedOrigins(List.of("https://your-domain.com", "http://localhost:5173"));
-```
-
-### Deploying (every release)
-
-The included `deploy.sh` handles the full release cycle from the repo root:
-
-```bash
-chmod +x deploy.sh   # first time only
-./deploy.sh
-```
-
-It does in order:
-1. Kills any process on port 8080
-2. Builds the frontend (`npm run build` → `client/dist/`)
-3. Builds the backend (`./mvnw package -DskipTests` → `server/target/*.jar`)
-4. Starts the new JAR with `-Dspring.profiles.active=prod`
-
-Server logs go to `/tmp/webposting.log`. The script waits 5 seconds and verifies the process is still alive before declaring success.
-
-After `./deploy.sh` completes, copy `client/dist/` to wherever Nginx serves static files from:
-```bash
-cp -r client/dist/. /var/www/webposting/client/
-```
-
-Or point Nginx's `root` directly at `client/dist/` inside the repo so you don't need to copy.
-
-**`server-start.sh`** is a simpler alternative that just starts the JAR (no build step). Use it for process manager integration (systemd, supervisor) where building is done separately.
-
-### Database migrations
-
-The project includes a migration tool at `tools/migrate.sh`. It tracks which migrations have been applied, backs up the database before making changes, and restores on failure.
-
-**Run migrations before starting the new server after any release:**
-
-```bash
-# Preview what would run — always do this first
-PGPASSWORD=<password> ./tools/migrate.sh --dry-run
-
-# Apply pending migrations (backs up automatically before any change)
-PGPASSWORD=<password> ./tools/migrate.sh
-
-# Custom connection if your db isn't on localhost
-./tools/migrate.sh -d mydb -U myuser -W mypass -h dbhost
-```
-
-Migration SQL files live in `tools/migrations/` as numbered `.sql` files (e.g. `016_add_email_avatar_active.sql`). Each is idempotent (`IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS`) so re-running is safe. Applied migrations are tracked in a `_migrations` table.
-
-`config/database.sql` is the authoritative fresh-install schema. Use it when setting up a brand-new database instead of running all migrations from scratch.
-
-Backups created by the migration tool are saved to `tools/backups/`.
-
----
 
 ## 6. Database Architecture
 
@@ -382,7 +290,23 @@ The schema has two conceptual halves: the original blogging core, and the social
 
 Passwords are stored as BCrypt hashes. New users created via the admin panel are hashed immediately. Any legacy plain-text password in the database is automatically migrated to BCrypt the first time that user logs in.
 
-The `background_pattern` column stores either a preset key (e.g. `"dots"`), a validated CSS gradient string, or either with an optional `|#RRGGBB` suffix for the page background color (e.g. `"dots|#1a1a2e"`). Both frontend and backend strip the suffix before validating the pattern key.
+The `background_pattern` column stores a **JSON v2 wallpaper**:
+
+```json
+{"v":2,"pattern":"paw-print","scale":1.2,"bgColor":"#ece9e2","colors":["#6c63ff"]}
+```
+
+`pattern` is a preset key (`none`, `hexagons`, `grid`, `chevron`, `checkerboard`,
+`topographic`, `paw-print`, `stars`) or `custom`, in which case a `css` field
+holds a validated CSS gradient. `bgColor` is applied to the page background and
+`colors` tints the pattern.
+
+The **legacy pipe format** — a preset key or gradient with an optional
+`|#RRGGBB` suffix, e.g. `"dots|#1a1a2e"` — is still parsed for rows written
+before the change, and is migrated to JSON on the next save. `parseWallpaper()`
+in `client/src/components/PatternPicker/patterns.js` handles both, and tolerates
+an already-decoded object (an HTTP client that JSON-parses a `text/plain` body
+used to crash the profile page here).
 
 
 **`posts`** — Blog posts. The `description` column holds the full Lexical editor JSON state as a text blob. The `background_pattern` column works the same way as on users. Posts have a `published` flag — unpublished posts are hidden from all views except the author's editor.
@@ -411,7 +335,12 @@ The `background_pattern` column stores either a preset key (e.g. `"dots"`), a va
 
 **`dm_blocks`** — Per-user DM blocking. `blocker_id` has blocked incoming direct messages from `blocked_id`. Cascade-deletes when either user is removed.
 
-**`_migrations`** — Created automatically by `tools/migrate.sh`. Tracks which migration files have been applied (by filename) and when.
+**`schema_migrations`** — Created automatically by the in-server migration
+runner. Tracks which migration versions have been applied, when, and a checksum
+of each so a file edited after the fact is reported at startup.
+
+(A `_migrations` table may also exist on older databases; it belongs to the
+superseded `tools/migrate.sh` and is unused.)
 
 ### Entity-relationship summary
 

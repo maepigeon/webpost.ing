@@ -1,6 +1,7 @@
 package com.springbootprojects.webpostingserver.posts.controller;
 
 import com.springbootprojects.webpostingserver.posts.model.AuthSession;
+import com.springbootprojects.webpostingserver.posts.validator.ReservedUsernames;
 import com.springbootprojects.webpostingserver.posts.model.LoginInfo;
 import com.springbootprojects.webpostingserver.posts.model.User;
 import com.springbootprojects.webpostingserver.posts.repository.JdbcLoginRepository;
@@ -159,7 +160,9 @@ public class AuthController {
             java.util.List<java.util.Map<String, String>> links = mapper.readValue(body,
                     mapper.getTypeFactory().constructCollectionType(java.util.List.class,
                             mapper.getTypeFactory().constructMapType(java.util.Map.class, String.class, String.class)));
-            if (links.size() > 3) return ResponseEntity.badRequest().body("Maximum 3 links allowed.");
+            // Ten is generous for a profile and still bounded, so the header
+            // cannot be turned into a link farm.
+            if (links.size() > 10) return ResponseEntity.badRequest().body("Maximum 10 links allowed.");
             for (java.util.Map<String, String> link : links) {
                 String url = link.get("url");
                 String label = link.getOrDefault("label", "");
@@ -403,22 +406,35 @@ public class AuthController {
     }
 
 
+    /**
+     * Reports whether the caller's session is still valid.
+     *
+     * Returns 200 with the username when it is, and **401** when it is not —
+     * this used to answer 200 with an empty body, which meant the only way to
+     * detect a dead session was to inspect the body, every client had to know
+     * that convention, and a stale session looked like a success to anything
+     * that did not. A 401 lets one interceptor handle it everywhere.
+     *
+     * The session cookies are cleared on the way out either way, so the browser
+     * stops presenting a token that is known to be dead.
+     */
     @PostMapping("/authorizeSession")
-    public ResponseEntity<String> authorizeSession(@CookieValue(name = "username") String username, @CookieValue(name = "authToken") String token, HttpServletResponse response) {
+    public ResponseEntity<String> authorizeSession(
+            @CookieValue(name = "username", required = false) String username,
+            @CookieValue(name = "authToken", required = false) String token,
+            HttpServletResponse response) {
+
         AuthSession loginResult = null;
         try {
             loginResult = loginRepository.authorize(username, token);
         } catch (JdbcLoginRepository.TokenExpiredException e) {
-            System.out.println(e.getMessage());
-            // Delete the cookie by setting maxAge to 0
-            return loginRepository.deleteCookie();
+            return loginRepository.expireCookies(HttpStatus.UNAUTHORIZED, "Session expired");
         }
         if (loginResult != null) {
             loginRepository.touchLastVisited(username);
             return ResponseEntity.ok().body(username);
-        } else {
-            return loginRepository.deleteCookie();
         }
+        return loginRepository.expireCookies(HttpStatus.UNAUTHORIZED, "Not signed in");
     }
 
 
@@ -480,6 +496,10 @@ public class AuthController {
             return ResponseEntity.badRequest().body("Username must be 3–32 characters.");
         if (!username.matches("[A-Za-z0-9_\\-]+"))
             return ResponseEntity.badRequest().body("Username may only contain letters, numbers, underscores, and hyphens.");
+        // Profiles live at /{username}, so a name matching an application route
+        // would make both that route and the profile unreachable.
+        if (ReservedUsernames.isReserved(username))
+            return ResponseEntity.badRequest().body("That username is reserved. Please choose another.");
         if (email.length() > 255 || !email.contains("@"))
             return ResponseEntity.badRequest().body("Invalid email address.");
 
@@ -688,14 +708,14 @@ public class AuthController {
                     LoginRateLimiter.recordSuccess(clientIp);
                     HttpCookie tokenCookie = ResponseCookie.from("authToken", loginResult.token)
                             .httpOnly(true)
-                            .sameSite(devMode ? "Lax" : "None")
+                            .sameSite("Lax")
                             .secure(!devMode)
                             .path("/")
                             .maxAge(60 * 60 * 24)
                             .build();
                     HttpCookie usernameCookie = ResponseCookie.from("username", loginResult.username)
                             .httpOnly(true)
-                            .sameSite(devMode ? "Lax" : "None")
+                            .sameSite("Lax")
                             .secure(!devMode)
                             .path("/")
                             .maxAge(60 * 60 * 24)

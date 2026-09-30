@@ -10,6 +10,9 @@ function Login() {
   usePageTitle('Sign in');
   const location = useLocation();
   const justRegistered = location.state?.registered === true;
+  // Set by handleExpiredSession when a 401 bounced the user here, so the
+  // redirect explains itself instead of looking like a random sign-out.
+  const sessionExpired = new URLSearchParams(location.search).get('expired') === '1';
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -55,6 +58,12 @@ function Login() {
           <div className="login-success">Account created! Sign in below.</div>
         )}
 
+        {sessionExpired && (
+          <div className="login-expired">
+            Your session ended, so you were signed out. Sign in again to continue.
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} noValidate>
           <div className="login-field">
             <label className="login-label" htmlFor="username">Username</label>
@@ -94,6 +103,13 @@ function Login() {
         <div className="login-have-code">
           Have an invite code?{' '}
           <Link to="/routes/NewAccount" className="login-register-link">Create an account</Link>
+        </div>
+
+        {/* Only useful once an address has been confirmed, which the endpoint
+            enforces — it reports the same thing either way so an unregistered
+            address cannot be told apart from a registered one. */}
+        <div className="login-have-code">
+          <Link to="/forgot-password" className="login-register-link">Forgot your password?</Link>
         </div>
       </div>
     </div>

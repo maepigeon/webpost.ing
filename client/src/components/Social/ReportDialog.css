@@ -1,0 +1,178 @@
+/* Report dialog — glass language, palette colours, WCAG-checked. */
+
+.report-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(26, 16, 96, 0.32);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  animation: report-fade 0.18s ease-out;
+}
+
+@keyframes report-fade { from { opacity: 0; } to { opacity: 1; } }
+
+.report-dialog {
+  width: min(420px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  padding: 24px 26px 20px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(22px) saturate(165%);
+  -webkit-backdrop-filter: blur(22px) saturate(165%);
+  border: 1.5px solid rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 14px 44px rgba(26, 16, 96, 0.2),
+    inset 0 2px 0 rgba(255, 255, 255, 0.95);
+  animation: report-pop 0.26s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes report-pop {
+  from { opacity: 0; transform: scale(0.94) translateY(10px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.report-title {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a1060;
+}
+
+.report-subtitle {
+  margin: 0 0 16px;
+  font-size: 12.5px;
+  color: #524c63;
+  font-style: italic;
+}
+
+.report-reasons { margin: 0 0 14px; padding: 0; border: none; }
+
+.report-legend {
+  padding: 0;
+  margin-bottom: 8px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: #524c63;
+}
+
+.report-reason {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  font-size: 13.5px;
+  color: #1a1060;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.report-reason:hover { background: rgba(255, 255, 255, 0.7); }
+.report-reason input { accent-color: #4b44cc; cursor: pointer; }
+
+.report-details-label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #1a1060;
+}
+
+.report-optional {
+  font-weight: 400;
+  color: #524c63;
+}
+
+.report-details {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 6px;
+  padding: 9px 12px;
+  font: inherit;
+  font-size: 13px;
+  color: #1a1060;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1.5px solid rgba(255, 255, 255, 0.9);
+  border-radius: 10px;
+  outline: none;
+  resize: vertical;
+  box-shadow: 0 0 0 1px rgba(26, 16, 96, 0.12), inset 0 1.5px 4px rgba(0, 0, 0, 0.06);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.report-details:focus {
+  border-color: rgba(108, 99, 255, 0.6);
+  box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.16);
+}
+
+.report-status { margin: 12px 0 0; font-size: 13px; font-weight: 500; color: #14532d; }
+.report-error  { margin: 12px 0 0; font-size: 13px; font-weight: 500; color: #b71c1c; }
+
+.report-actions {
+  display: flex;
+  gap: 9px;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.report-btn {
+  padding: 9px 18px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.1s, filter 0.15s, color 0.15s;
+}
+
+.report-btn:disabled { opacity: 0.45; cursor: default; }
+.report-btn:not(:disabled):active { transform: translateY(1px); }
+
+.report-btn--ghost {
+  color: #524c63;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 1px rgba(26, 16, 96, 0.1), inset 0 1.5px 0 rgba(255, 255, 255, 0.92);
+}
+
+.report-btn--ghost:not(:disabled):hover { color: #1a1060; transform: translateY(-1px); }
+
+.report-btn--primary {
+  color: #ffffff;
+  border: none;
+  background: #b71c1c;
+  box-shadow:
+    0 3px 11px rgba(143, 20, 20, 0.32),
+    inset 0 2px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -2.5px 0 rgba(0, 0, 0, 0.22);
+}
+
+.report-btn--primary:not(:disabled):hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+/* Small, quiet trigger — reporting should be findable but not prominent. */
+.report-trigger {
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b6580;
+  cursor: pointer;
+  border-radius: 7px;
+  transition: color 0.13s, background 0.13s;
+}
+
+.report-trigger:hover { color: #b71c1c; background: rgba(183, 28, 28, 0.08); }
+
+@media (prefers-reduced-motion: reduce) {
+  .report-overlay, .report-dialog { animation: none; }
+  .report-btn, .report-reason, .report-trigger { transition: none; }
+  .report-btn:hover { transform: none; }
+}

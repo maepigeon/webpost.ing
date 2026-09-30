@@ -35,6 +35,14 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
+        <!-- Email notifications and address verification. Optional at runtime:
+             when app.mail.enabled is false nothing is sent and no SMTP
+             connection is attempted. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
 	<dependency>
 	    <groupId>org.springframework.boot</groupId> 
 	    <artifactId>spring-boot-starter-security</artifactId> 

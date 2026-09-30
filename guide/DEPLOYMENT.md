@@ -1,0 +1,228 @@
+# Deployment Runbook — webpost.ing
+
+Written from what actually happened on the production host, not from what the
+scripts assume. `guide/README.md` §5 describes an idealized setup that does not
+match the live server; where they disagree, **this file is correct**.
+
+Last verified: 2026-09-08 (against the deploy session of 2026-07-09).
+
+---
+
+## 0. Before the next deploy — one-time steps
+
+This release changes how the app is configured and how profile URLs work. Work
+through these once; afterwards §2 is the whole procedure.
+
+### a. nginx must fall back to index.html for every path
+
+Profiles now live at `/{username}`, so nginx sees requests for paths that are
+not files. Without a catch-all fallback it answers 404 and the request never
+reaches the SPA — **every profile link breaks**, while `/users/{username}` keeps
+working, which makes it look like a frontend bug.
+
+```nginx
+location / {
+    try_files $uri $uri/ /index.html;
+}
+```
+
+Check the live config before deploying:
+
+```bash
+sudo nginx -T | grep -A 3 'location / '
+```
+
+If `try_files … /index.html` is absent, add it and `sudo nginx -s reload`.
+Afterwards, confirm from outside the server:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' https://webpost.ing/Mae   # expect 200
+```
+
+### b. Move production settings into deploy.env
+
+`application.properties` is now committed and secret-free, so the untracked copy
+on the server will block `git pull`:
+
+```bash
+grep -E 'datasource|profiles' server/src/main/resources/application.properties  # note the values
+mv server/src/main/resources/application.properties /root/application.properties.bak
+git pull
+cp config/deploy.env.example deploy.env && chmod 600 deploy.env && $EDITOR deploy.env
+```
+
+The server now **refuses to start** under the `prod` profile if the database
+password is missing or still the development default, if the database is still
+`testdb`, if `ALLOWED_ORIGINS` points at localhost, or if `UPLOAD_DIR` is
+relative. Previously it would have started against an empty local database and
+looked like a successful deploy.
+
+### c. Take a backup first
+
+```bash
+./tools/backup.sh
+```
+
+Five migrations (V014–V018) will apply on first start: image variants, email,
+post reports, custom fonts, post slugs. All are additive — new tables and
+nullable columns — and all have been verified against a database built from
+scratch. There is nothing to run by hand.
+
+### d. Expect everyone to be signed out
+
+Sessions live in memory, so the restart ends all of them. Normal, but worth
+knowing before the messages arrive.
+
+---
+
+## 1. Production facts
+
+| Thing | Value |
+|---|---|
+| Repo checkout (build here) | `/home/mae/webpost.ing` |
+| Frontend served from | `/var/www/webpost.ing/html/` |
+| JAR the service runs | `/home/webpost.ing/server/target/server-0.0.1-SNAPSHOT.jar` |
+| Process owner | **root**, via systemd |
+| systemd unit | `start-servers.service` → `/home/webpost.ing/server-start.sh` |
+| Server log | `/tmp/webposting.log` |
+| Database | `webpostingdb` (**not** `webposting`, **not** `testdb`) |
+| DB user | `mae` |
+| Uploads | `/var/www/webposting/uploads` (from `application-prod.properties`) |
+| API port | `8080`, reverse-proxied by nginx at `/api/` |
+
+Two directory trees are easy to confuse: the **build** tree is under
+`/home/mae/`, the **runtime** tree is under `/home/webpost.ing/`. Building does
+not deploy — artifacts must be copied across.
+
+---
+
+## 2. Standard deploy
+
+```bash
+cd /home/mae/webpost.ing
+git pull
+
+# frontend
+cd client && npm ci && npm run build
+
+# backend
+cd ../server && ./mvnw package -DskipTests
+
+# publish frontend (needs sudo — the assets dir is root-owned in places)
+sudo cp -r /home/mae/webpost.ing/client/dist/. /var/www/webpost.ing/html/
+
+# publish backend
+sudo cp /home/mae/webpost.ing/server/target/server-0.0.1-SNAPSHOT.jar \
+        /home/webpost.ing/server/target/
+
+# restart (this is the only correct way — see §3)
+sudo systemctl restart start-servers.service
+
+# verify
+curl -s -o /dev/null -w '%{http_code}\n' https://webpost.ing/api/posts
+tail -40 /tmp/webposting.log
+```
+
+Database migrations need no separate step: `DatabaseMigrationService` applies
+every pending `classpath:db/migrations/V*.sql` at startup and records it in
+`schema_migrations`. Watch the log line
+`Database migration complete — applied: N, skipped: M`.
+
+---
+
+## 3. Gotchas that have actually cost time
+
+**Do not `kill` the Java process.** It is owned by root under
+`start-servers.service`, which restarts it immediately — you get a confusing
+"port 8080 already in use" on your own start attempt. Also, `lsof -ti :8080`
+run as `mae` cannot see a root-owned listener, so the port looks free when it
+is not. Always use `sudo systemctl restart start-servers.service`.
+
+`deploy.sh` now does the whole of §2 — it reads `deploy.env`, builds both
+halves, copies `client/dist/` to `WEB_ROOT` and the JAR to `APP_HOME`, restarts
+`SERVICE_NAME` via systemctl, and waits for the API before reporting success.
+`--dry-run` prints the steps without touching anything. (Before the config
+consolidation it killed by port and started the JAR with `nohup`, which
+produced an unmanaged second server; that version is gone.)
+
+**`deploy.env` lives only on the server.** It is gitignored, so a `git pull`
+never updates it and a fresh clone has none — start the JAR without it and the
+`prod` profile refuses to boot, naming the missing variable. Keep a copy
+outside the repo. Unlike the old `application.properties`, it is read at
+startup, so changing it needs a **restart**, not a rebuild.
+
+**Usernames are case-sensitive.** The account is `Mae`, not `mae`. Any
+hand-written `WHERE username = '...'` must match exactly; a wrong case reports
+`UPDATE 0` and silently does nothing. Always confirm the write:
+
+```bash
+psql -U mae -d webpostingdb -c "SELECT username FROM users;"
+```
+
+`psql -U mae -d webpostingdb` works without `sudo` — reach for
+`sudo -u postgres` only for cluster-level operations (CREATE/DROP DATABASE,
+role management).
+
+**Hard-refresh after a frontend deploy.** Vite content-hashes filenames, but a
+cached `index.html` keeps pointing at the old bundle. If a fix "isn't live",
+check which hash the browser actually loaded before re-debugging the code.
+
+**Verify the copy landed.** Compare timestamps rather than trusting `cp`:
+
+```bash
+ls -la /var/www/webpost.ing/html/assets/*.js | tail -3
+grep -o 'index-[^.]*\.js' /var/www/webpost.ing/html/index.html
+```
+
+A silently failed `sudo cp` was mistaken for a broken fix for several rounds.
+
+---
+
+## 4. Postgres cluster operations
+
+`DROP DATABASE` cannot run inside a transaction block, so each statement needs
+its own `-c` invocation — several `-c` clauses in one command are wrapped in a
+transaction and fail.
+
+```bash
+sudo -u postgres psql -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='webpostingdb';"
+sudo -u postgres psql -c "DROP DATABASE webpostingdb;"
+sudo -u postgres psql -c "CREATE DATABASE webpostingdb OWNER mae;"
+sudo -u postgres psql -d webpostingdb -c "GRANT ALL ON SCHEMA public TO mae;"
+```
+
+The last line is not optional on PostgreSQL 15+: `public` is no longer
+world-writable, so a non-owner role cannot create tables and every migration
+fails with a permissions error. This is what made a freshly recreated
+`webposting` database unusable and forced the move to `webpostingdb`.
+
+---
+
+## 5. Back up before anything destructive
+
+```bash
+./tools/backup.sh              # into ./backups
+./tools/backup.sh /mnt/backups # or wherever
+```
+
+Takes both halves and verifies them. **`pg_dump` alone is not a backup of this
+application**: images, avatars and fonts live on disk, so a database-only
+restore brings back every post with every image broken. The script archives
+`UPLOAD_DIR` alongside the dump with a matching timestamp, and reads both back
+before reporting success — an unreadable backup is worse than none, because you
+believe you have one.
+
+To restore, the script prints the exact two commands for the pair it just made.
+
+---
+
+## 6. Post-deploy smoke check
+
+```bash
+curl -s -o /dev/null -w 'posts %{http_code}\n'  https://webpost.ing/api/posts
+curl -s https://webpost.ing/api/users/Mae/background; echo
+grep -iE 'error|exception|migration' /tmp/webposting.log | tail -20
+```
+
+Then in a browser, hard-refreshed: log in, open a profile (wallpaper renders),
+open a post, post a comment, send a DM.

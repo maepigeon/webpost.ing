@@ -10,6 +10,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -29,6 +30,8 @@ class UploadControllerTest {
 
     @Mock LoginRepository loginRepository;
     @Mock JdbcTemplate jdbc;
+    @Spy  com.springbootprojects.webpostingserver.posts.service.ImageProcessingService imageService =
+            new com.springbootprojects.webpostingserver.posts.service.ImageProcessingService();
 
     @InjectMocks UploadController uploadController;
 
@@ -44,23 +47,36 @@ class UploadControllerTest {
         ReflectionTestUtils.setField(uploadController, "maxFileSizeBytes", 5 * 1024 * 1024L);
     }
 
+    /** Produces a real, decodable JPEG of the given size. */
+    private static byte[] realJpeg(int width, int height) throws java.io.IOException {
+        java.awt.image.BufferedImage img =
+                new java.awt.image.BufferedImage(width, height, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D g = img.createGraphics();
+        g.setColor(java.awt.Color.decode("#4b44cc"));
+        g.fillRect(0, 0, width, height);
+        g.dispose();
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(img, "jpg", out);
+        return out.toByteArray();
+    }
+
     @Test
     void upload_validImage_returns200WithPath() throws Exception {
         when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
         when(jdbc.queryForList(anyString(), eq(Integer.class), any())).thenReturn(List.of(1));
-        // Valid JPEG: starts with FF D8 FF magic bytes
-        byte[] jpegBytes = new byte[100];
-        jpegBytes[0] = (byte) 0xFF;
-        jpegBytes[1] = (byte) 0xD8;
-        jpegBytes[2] = (byte) 0xFF;
+        // A genuinely encoded JPEG. This used to be three magic bytes followed by
+        // zeros, which the endpoint now rejects on purpose: uploads are verified
+        // by decoding them, so a file that only *starts* like an image no longer
+        // gets through. See ImageProcessingServiceTest.rejectsAPolyglot.
         MockMultipartFile file = new MockMultipartFile(
-                "file", "photo.jpg", "image/jpeg", jpegBytes);
+                "file", "photo.jpg", "image/jpeg", realJpeg(64, 48));
 
-        ResponseEntity<String> resp = uploadController.uploadFile(file, "kittycat", "tok");
+        ResponseEntity<?> resp = uploadController.uploadFile(file, "kittycat", "tok");
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(resp.getBody()).startsWith("/uploads/");
-        assertThat(resp.getBody()).endsWith(".jpg");
+        assertThat(resp.getBody()).isInstanceOf(java.util.Map.class);
+        String url = (String) ((java.util.Map<?, ?>) resp.getBody()).get("url");
+        assertThat(url).startsWith("/uploads/").endsWith(".jpg");
     }
 
     @Test
@@ -69,7 +85,7 @@ class UploadControllerTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "photo.jpg", "image/jpeg", new byte[100]);
 
-        ResponseEntity<String> resp = uploadController.uploadFile(file, "kittycat", "bad");
+        ResponseEntity<?> resp = uploadController.uploadFile(file, "kittycat", "bad");
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
@@ -82,7 +98,7 @@ class UploadControllerTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "photo.jpg", "image/jpeg", new byte[100]);
 
-        ResponseEntity<String> resp = uploadController.uploadFile(file, "kittycat", "expired");
+        ResponseEntity<?> resp = uploadController.uploadFile(file, "kittycat", "expired");
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
@@ -93,10 +109,10 @@ class UploadControllerTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "script.js", "text/javascript", new byte[100]);
 
-        ResponseEntity<String> resp = uploadController.uploadFile(file, "kittycat", "tok");
+        ResponseEntity<?> resp = uploadController.uploadFile(file, "kittycat", "tok");
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(resp.getBody()).contains(".jpg");
+        assertThat((String) resp.getBody()).contains(".jpg");
     }
 
     @Test
@@ -105,7 +121,7 @@ class UploadControllerTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "empty.jpg", "image/jpeg", new byte[0]);
 
-        ResponseEntity<String> resp = uploadController.uploadFile(file, "kittycat", "tok");
+        ResponseEntity<?> resp = uploadController.uploadFile(file, "kittycat", "tok");
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
@@ -117,7 +133,7 @@ class UploadControllerTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "big.jpg", "image/jpeg", new byte[6 * 1024 * 1024]);
 
-        ResponseEntity<String> resp = uploadController.uploadFile(file, "kittycat", "tok");
+        ResponseEntity<?> resp = uploadController.uploadFile(file, "kittycat", "tok");
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE);
     }

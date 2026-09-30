@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import Navbutton from './Navbutton/Navbutton';
+import { useOverflowItems } from '../../utils/useOverflowItems.js';
 import Userdata from '../Pages/Auth/Userdata/Userdata';
 import NotificationBell from '../Social/NotificationBell.jsx';
 import './Navbar.css'
@@ -60,69 +61,82 @@ function Navbar() {
   // Close popup on route change
   useEffect(() => { setMenuOpen(false); }, []);
 
-  return (
-    <nav className="navBar">
-      {/* ── Left: always-visible items ── */}
-      <div className="nav-left-group">
-        {!loggedIn && <Navbutton label="Log In" route="/routes/Login" variant="orange" />}
-        <Navbutton label="Home" route="/" variant="yellow" />
-        {loggedIn && <Navbutton label="New Post" route="/editor" variant="green" />}
-        <Navbutton label="Search" route="/search" variant="teal" />
-      </div>
+  /**
+   * Ordered most-used first, because that is the order they survive in as the
+   * window narrows. Log In leads when signed out; New Post when signed in.
+   */
+  const overflowItems = loggedIn
+    ? [
+        { key: 'home',     node: <Navbutton label="Home" route="/" variant="yellow" /> },
+        { key: 'new',      node: <Navbutton label="New Post" route="/editor" variant="green" /> },
+        { key: 'search',   node: <Navbutton label="Search" route="/search" variant="teal" /> },
+        { key: 'messages', node: <MessagesBell /> },
+        { key: 'notifs',   node: <NotificationBell /> },
+        { key: 'profile',  node: <Navbutton label="My Profile" route={`/${username}`} variant="purple" /> },
+        { key: 'activity', node: <Navbutton label="Activity" route={`/activity/${username}`} variant="purple" /> },
+        { key: 'settings', node: <Navbutton label="Settings" route="/settings" variant="purple" /> },
+        ...(isAdmin ? [{ key: 'admin', node: <Navbutton label="Admin" route="/routes/AdminPanel" variant="blue" /> }] : []),
+        { key: 'logout',   node: <Navbutton label="Log Out" route="/routes/Logout" variant="orange" /> },
+      ]
+    : [
+        { key: 'login',  node: <Navbutton label="Log In" route="/routes/Login" variant="orange" /> },
+        { key: 'home',   node: <Navbutton label="Home" route="/" variant="yellow" /> },
+        { key: 'search', node: <Navbutton label="Search" route="/search" variant="teal" /> },
+      ];
 
-      {/* ── Center: desktop items + mobile welcome ── */}
-      <span className="nav-desktop-group">
-        {/* Login handled in left group */}
-        {loggedIn && (
-          <>
-            <Navbutton label="My Profile" route={`/users/${username}`} variant="purple" />
-            <Navbutton label="Activity" route={`/activity/${username}`} variant="purple" />
-            <MessagesBell />
-            <NotificationBell />
-            <Navbutton label="Log Out" route="/routes/Logout" variant="orange" />
-            {isAdmin && <Navbutton label="Admin" route="/routes/AdminPanel" variant="blue" />}
-          </>
-        )}
-        <Userdata />
+  const { containerRef, measureRef, visibleCount } = useOverflowItems(overflowItems.length);
+  const hiddenItems = overflowItems.slice(visibleCount);
+
+  return (
+    <nav className="navBar" ref={containerRef}>
+
+      {/* ── Everything that fits, then the rest in a menu ── */}
+      {/* Measured off-screen once so the split is based on real widths rather
+          than a breakpoint that cannot know how wide these labels are. */}
+      <span className="nav-measure" ref={measureRef} aria-hidden="true">
+        {overflowItems.map(item => <span key={`m-${item.key}`}>{item.node}</span>)}
       </span>
 
-      {/* ── Right: login on mobile (logged-out) or hamburger (logged-in) ── */}
-      {!loggedIn && (
-        <span className="nav-mobile-login">
-          <Navbutton label="Log In" route="/routes/Login" />
-        </span>
-      )}
+      <span className="nav-items">
+        {overflowItems.slice(0, visibleCount).map(item => (
+          <span className="nav-item" key={item.key}>{item.node}</span>
+        ))}
+      </span>
 
-      {loggedIn && (
-        <div className="nav-hamburger-wrap" ref={menuRef}>
-          <button
-            className="nav-hamburger-btn"
-            onClick={() => setMenuOpen(o => !o)}
-            aria-label="Menu"
-          >
-            <span className="nav-hamburger-icon">
-              <span />
-              <span />
-              <span />
-            </span>
-          </button>
+      <span className="nav-fixed" data-overflow-fixed="true">
+        <Userdata />
 
-          {menuOpen && (
-            <div className="nav-mobile-popup" role="dialog" aria-modal="true">
-              <button className="nav-mobile-popup-close" onClick={() => setMenuOpen(false)} aria-label="Close menu">✕</button>
-              <div className="nav-mobile-popup-welcome">Welcome, {username}!</div>
-              <div className="nav-mobile-popup-items">
-                <Navbutton label="My Profile" route={`/users/${username}`} variant="purple" />
-                <Navbutton label="Activity" route={`/activity/${username}`} variant="purple" />
-                <Navbutton label="Messages" route="/messages" variant="purple" />
-                <Navbutton label="Notifications" route="/inbox" variant="purple" />
-                <Navbutton label="Log Out" route="/routes/Logout" variant="orange" />
-                {isAdmin && <Navbutton label="Admin" route="/routes/AdminPanel" variant="blue" />}
+        {!loggedIn && (
+          <span className="nav-mobile-login">
+            <Navbutton label="Log In" route="/routes/Login" />
+          </span>
+        )}
+
+        {hiddenItems.length > 0 && (
+          <div className="nav-hamburger-wrap" ref={menuRef}>
+            <button
+              className="nav-hamburger-btn"
+              onClick={() => setMenuOpen(o => !o)}
+              aria-label={`${hiddenItems.length} more`}
+              aria-expanded={menuOpen}
+            >
+              <span className="nav-hamburger-icon"><span /><span /><span /></span>
+            </button>
+
+            {menuOpen && (
+              <div className="nav-mobile-popup" role="dialog" aria-modal="true">
+                <button className="nav-mobile-popup-close" onClick={() => setMenuOpen(false)} aria-label="Close menu">✕</button>
+                {loggedIn && <div className="nav-mobile-popup-welcome">Welcome, {username}!</div>}
+                <div className="nav-mobile-popup-items">
+                  {hiddenItems.map(item => (
+                    <span className="nav-popup-item" key={`o-${item.key}`}>{item.node}</span>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )}
+      </span>
     </nav>
   );
 }

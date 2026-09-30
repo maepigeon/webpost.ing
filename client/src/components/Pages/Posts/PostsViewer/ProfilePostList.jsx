@@ -48,6 +48,23 @@ function FolderPopup({ name, posts, canEdit, onClose, onRemoveFromFolder, userna
   );
 }
 
+
+/**
+ * Where a post should land when dropped on a folder header rather than on a
+ * specific post: at the end of that folder's contents, or at the end of the
+ * ungrouped posts.
+ */
+function lastIndexOfFolder(posts, folder) {
+  let index = -1;
+  posts.forEach((p, i) => {
+    if ((p.folder || null) === folder) index = i;
+  });
+  return index === -1 ? posts.length : index + 1;
+}
+
+/** How long the pointer must rest over a target before the order previews. */
+const PREVIEW_DELAY_MS = 700;
+
 // ── Sortable folder section (glass panel + drag handle in header) ─────────────
 
 function SortableFolderSection({
@@ -146,12 +163,15 @@ function SortablePost({ post, canEdit, username, onRefresh, isOver, folderNames,
     <div ref={setNodeRef} style={style}
       className={`profile-post-item${isDragging ? ' profile-post-item--dragging' : ''}${isOver && !isDragging ? ' profile-post-item--drop-target' : ''}`}>
       <div className={`profile-post-row${canEdit ? ' profile-post-row--editable' : ''}`}>
-        {canEdit && (
-          <div className="profile-post-drag-handle" {...attributes} {...listeners} title="Hold and drag to reorder">
-            <span>⠿</span>
-          </div>
-        )}
         <div className={canEdit ? 'profile-post-card-wrap' : 'profile-post-card-wrap--view'}>
+          {/* The handle lives inside the card so it reads as part of the glass
+              panel rather than as a control floating beside it. */}
+          {canEdit && (
+            <div className="profile-post-drag-handle" {...attributes} {...listeners}
+              title="Hold and drag to reorder" aria-label="Reorder post">
+              <span aria-hidden="true">⠿</span>
+            </div>
+          )}
           <BasicTextPost
             postdata={post}
             updatePostsFlagCallback={onRefresh}
@@ -230,6 +250,19 @@ export default function ProfilePostList({ posts, canEdit, username, onRefresh })
   const [activeId, setActiveId] = useState(null);
   const [overId, setOverId] = useState(null);
 
+  /**
+   * Drop preview.
+   *
+   * While dragging, dnd-kit reports what the pointer is over, but the list
+   * itself does not change until the drop — so you commit to a position without
+   * seeing it. Dwelling over a target for PREVIEW_DELAY_MS applies the reorder
+   * visually, letting you check the result before releasing. Nothing is saved
+   * until drag end; this is purely what is drawn.
+   */
+  const [previewOverId, setPreviewOverId] = useState(null);
+  const dwellTimerRef = useRef(null);
+  const dwellTargetRef = useRef(null);
+
   // Sync only when the parent's set of post IDs actually changes (post added/deleted),
   // not on every re-render — avoids reverting locally-reordered posts.
   const parentIdsKey = posts.map(p => p.id).join(',');
@@ -276,6 +309,41 @@ export default function ProfilePostList({ posts, canEdit, username, onRefresh })
 
   const outerIds = displayItems.map(d => d.id);
 
+  /**
+   * What actually gets rendered. Once the dwell timer has fired, the dragged
+   * item is shown in the position it would land in, so the new order is visible
+   * before the drop. Falls back to the real order at every other moment.
+   */
+  const previewItems = (() => {
+    if (!activeId || !previewOverId || activeId === previewOverId) return displayItems;
+    const from = displayItems.findIndex(d => d.id === String(activeId));
+    const to   = displayItems.findIndex(d => d.id === String(previewOverId));
+    if (from === -1 || to === -1) return displayItems;
+    return arrayMove(displayItems, from, to);
+  })();
+
+  const isPreviewing = previewItems !== displayItems;
+
+  /**
+   * True when releasing now would file the dragged post into this folder.
+   *
+   * Covers hovering the folder's header and hovering any post inside it, and is
+   * false when the post is already in that folder — highlighting a no-op move
+   * suggests something will happen when nothing will. The header's highlight
+   * was previously hardcoded to false, so filing a post by dragging gave no
+   * feedback at all.
+   */
+  function folderIsDropTarget(folderName) {
+    if (!activeId || !overId) return false;
+    const dragged = localPosts.find(p => String(p.id) === String(activeId));
+    if (!dragged || (dragged.folder || null) === folderName) return false;
+
+    const overStr = String(overId);
+    if (overStr === 'folder:' + folderName) return true;
+    const overPost = localPosts.find(p => String(p.id) === overStr);
+    return !!overPost && overPost.folder === folderName;
+  }
+
   // ── Persist ─────────────────────────────────────────────────────────────────
 
   // persistOrder: when reorderOnly=true, preserve existing sort_order values (folder change only).
@@ -290,29 +358,89 @@ export default function ProfilePostList({ posts, canEdit, username, onRefresh })
 
   // ── Drag handlers ───────────────────────────────────────────────────────────
 
-  const handleDragStart = ({ active }) => setActiveId(active.id);
+  const clearDwell = useCallback(() => {
+    if (dwellTimerRef.current) clearTimeout(dwellTimerRef.current);
+    dwellTimerRef.current = null;
+    dwellTargetRef.current = null;
+  }, []);
+
+  // Never leave a timer running behind an unmounted component.
+  useEffect(() => clearDwell, [clearDwell]);
+
+  const handleDragStart = ({ active }) => {
+    setActiveId(active.id);
+    setPreviewOverId(null);
+    clearDwell();
+  };
 
   const handleDragOver = ({ over }) => {
-    setOverId(over?.id ?? null);
+    const id = over?.id ?? null;
+    setOverId(id);
+
+    // Restart the clock whenever the target changes, so the preview only fires
+    // once the pointer has settled rather than flickering through everything
+    // it passes over.
+    if (dwellTargetRef.current === id) return;
+    clearDwell();
+    dwellTargetRef.current = id;
+    if (id == null) { setPreviewOverId(null); return; }
+    dwellTimerRef.current = setTimeout(() => setPreviewOverId(id), PREVIEW_DELAY_MS);
+  };
+
+  const handleDragCancel = () => {
+    setActiveId(null);
+    setOverId(null);
+    setPreviewOverId(null);
+    clearDwell();
   };
 
   const handleDragEnd = ({ active, over }) => {
     setActiveId(null);
     setOverId(null);
+    setPreviewOverId(null);
+    clearDwell();
     if (!over || active.id === over.id) return;
 
     const activeStr = String(active.id);
     const overStr = String(over.id);
 
     const activeDispIdx = displayItems.findIndex(d => d.id === activeStr);
-    let overDispIdx = displayItems.findIndex(d => d.id === overStr);
+    const overDispIdx = displayItems.findIndex(d => d.id === overStr);
 
-    // If the active item is from the outer list but over landed on a post inside a folder
-    // (inner SortableContext captured it), redirect over to the folder container instead.
-    if (activeDispIdx >= 0 && overDispIdx < 0) {
-      const overPost = localPosts.find(p => String(p.id) === overStr);
-      if (overPost?.folder) {
-        overDispIdx = displayItems.findIndex(d => d.type === 'folder' && d.name === overPost.folder);
+    const draggedPost = localPosts.find(p => String(p.id) === activeStr);
+    const droppedOnPost = localPosts.find(p => String(p.id) === overStr);
+
+    /**
+     * Which folder, if any, the drop lands in.
+     *
+     * Dropping on a folder's header, or on any post inside it, means "put this
+     * in that folder". Dropping on an ungrouped post means "put it beside that
+     * post, outside any folder". Previously a post dragged onto a folder was
+     * reordered *next to* the folder instead of going into it, so there was no
+     * way to file a post by dragging at all.
+     */
+    const dropTargetFolder =
+      overStr.startsWith('folder:') ? overStr.slice('folder:'.length)
+      : droppedOnPost ? (droppedOnPost.folder || null)
+      : undefined;
+
+    if (draggedPost && dropTargetFolder !== undefined) {
+      const from = draggedPost.folder || null;
+      const to = dropTargetFolder || null;
+
+      if (from !== to) {
+        // Moving between folders, or in or out of one. The post is placed just
+        // after whatever it was dropped on, so the drop position is respected
+        // rather than always appending to the end.
+        const without = localPosts.filter(p => String(p.id) !== activeStr);
+        const moved = { ...draggedPost, folder: to };
+        const anchor = droppedOnPost
+          ? without.findIndex(p => String(p.id) === overStr) + 1
+          : lastIndexOfFolder(without, to);
+        const updated = [...without.slice(0, anchor), moved, ...without.slice(anchor)];
+        setLocalPosts(updated);
+        persistOrder(updated);
+        return;
       }
     }
 
@@ -392,10 +520,16 @@ export default function ProfilePostList({ posts, canEdit, username, onRefresh })
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
       >
         {/* Outer context: folder sections + ungrouped posts */}
         <SortableContext items={outerIds} strategy={verticalListSortingStrategy}>
-          {displayItems.map(item => {
+          {isPreviewing && (
+            <p className="profile-drop-preview-note" role="status">
+              Preview of the new order — release to save, or press Escape to cancel
+            </p>
+          )}
+          {previewItems.map(item => {
             if (item.type === 'folder') {
               const innerIds = item.posts.map(p => String(p.id));
               return (
@@ -408,7 +542,7 @@ export default function ProfilePostList({ posts, canEdit, username, onRefresh })
                   collapsed={collapsedFolders.has(item.name)}
                   onToggle={() => toggleFolder(item.name)}
                   onOpenPopup={() => setOpenFolder(item.name)}
-                  isDragOver={false}
+                  isDragOver={folderIsDropTarget(item.name)}
                 >
                   {/* Inner context: posts within this folder */}
                   <SortableContext items={innerIds} strategy={verticalListSortingStrategy}>

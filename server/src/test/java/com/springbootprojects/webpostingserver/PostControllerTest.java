@@ -24,6 +24,12 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class PostControllerTest {
 
+    // Email notifications are a fire-and-forget side effect; mocked so these
+
+    // tests stay about the endpoint behaviour.
+
+    @Mock com.springbootprojects.webpostingserver.posts.service.EmailNotificationService emailNotifications;
+
     @Mock PostRepository postRepository;
     @Mock LoginRepository loginRepository;
     @Mock SocialRepository social;

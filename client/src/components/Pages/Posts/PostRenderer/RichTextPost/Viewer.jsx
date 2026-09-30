@@ -29,6 +29,8 @@ import { MathNode } from './MathNode.jsx';
 import { LinkNode } from '@lexical/link';
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
 import { ClickableLinkPlugin } from '@lexical/react/LexicalClickableLinkPlugin';
+import { parsePostId, postPath } from '../../../../../utils/postUrl.js';
+import ReportDialog from '../../../../Social/ReportDialog.jsx';
 
 const VIEWER_NODES = [HeadingNode, ListNode, ListItemNode, CustomCodeNode, CodeHighlightNode, ImageNode, MathNode, LinkNode];
 
@@ -112,7 +114,11 @@ function HashtagLinkerPlugin({ contentRef, navigate }) {
 }
 
 export default function RichTextViewer() {
-  const { id, username } = useParams();
+  // The route segment is "{id}-{slug}"; the slug is cosmetic and a stale or
+  // hand-edited one still resolves to the right post.
+  const { id: idParam, username } = useParams();
+  const id = parsePostId(idParam);
+
   const navigate = useNavigate();
   const { linkWarning } = useDialog();
 
@@ -125,9 +131,22 @@ export default function RichTextViewer() {
   const [dataReady, setDataReady] = useState(false);
   const [postLoaded, setPostLoaded] = useState(false);
   const [features, setFeatures] = useState({ reactionsEnabled: false, discussionEnabled: false });
+  // The author's chosen URL slug, if they set one.
+  const [postSlug, setPostSlug] = useState(null);
+  // Rewrite the address bar to the canonical slugged URL once the title is
+  // known. replace, not push, so Back still goes where the reader came from,
+  // and only when it actually differs so this cannot loop.
+  useEffect(() => {
+    if (!postTitle || !id || !username) return;
+    const canonical = postPath(username, { id, title: postTitle, slug: postSlug });
+    if (window.location.pathname !== canonical) {
+      window.history.replaceState(null, '', canonical + window.location.search + window.location.hash);
+    }
+  }, [postTitle, postSlug, id, username]);
 
   const me = localStorage.getItem('userName');
   const isAuthor = me && me === postAuthor;
+  const [showReport, setShowReport] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const shareRef = useRef(null);
@@ -184,6 +203,7 @@ export default function RichTextViewer() {
   useEffect(() => {
     READ_POST(id).then(data => {
       setPostTitle(data.title);
+      setPostSlug(data.slug || null);
       setPostDate(data.date);
       setPostPublished(data.published);
       setBackgroundPattern(data.backgroundPattern || '');
@@ -334,7 +354,10 @@ export default function RichTextViewer() {
 
             {/* Post footer: author controls + reactions + share + discussion — all one row */}
             <div className="post-footer">
-              {/* Post vote */}
+              {/* Vote controls only for signed-in readers. They were rendered
+                  disabled for everyone else, which offers an action that can
+                  never be taken; the score itself is still shown. */}
+              {loggedIn ? (
               <div className="post-vote-bar">
                 <button
                   className={`post-vote-btn${userPostVote === 1 ? ' post-vote-btn--up' : ''}`}
@@ -364,6 +387,12 @@ export default function RichTextViewer() {
                   }}
                 >▼</button>
               </div>
+              ) : (
+                <div className="post-vote-bar post-vote-bar--readonly" title="Sign in to vote">
+                  <span className="post-vote-score">{postScore}</span>
+                  <span className="post-vote-caption">{Math.abs(postScore) === 1 ? 'point' : 'points'}</span>
+                </div>
+              )}
               {isAuthor && (
                 <div className="post-author-controls">
                   <Link to={`/editor/${id}`}>
@@ -372,6 +401,15 @@ export default function RichTextViewer() {
                 </div>
               )}
               {features.reactionsEnabled && <ReactionBar postId={parseInt(id)} isOwner={isAuthor} />}
+              {/* Reporting your own post would be noise, and signing in is
+                  required, so the trigger only appears when it can be used. */}
+              {me && !isAuthor && (
+                <button type="button" className="report-trigger"
+                        onClick={() => setShowReport(true)}
+                        title="Report this post to the moderators">
+                  Report
+                </button>
+              )}
               <div className="share-menu-wrapper" ref={shareRef}>
                 <button
                   className="viewer-share-btn"
@@ -430,7 +468,7 @@ export default function RichTextViewer() {
               </div>
               {features.discussionEnabled && (
                 <Link
-                  to={`/users/${authorUsername}/${id}/discussion`}
+                  to={`/${authorUsername}/${idParam}/discussion`}
                   style={{ fontSize: '14px', color: '#1a73e8', textDecoration: 'none', fontWeight: 500 }}
                 >
                   Discussion
@@ -455,7 +493,7 @@ export default function RichTextViewer() {
         }} onMouseDown={() => { setShowDmShare(false); setDmRecipient(''); setDmFeedback(null); }}>
           <div style={{
             position: 'relative',
-            background: 'radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.92) 0%, rgba(255,255,255,0) 70%), linear-gradient(to bottom, rgba(255,255,255,0.82) 0%, rgba(235,231,226,0.86) 100%)',
+            background: 'rgba(243, 241, 238, 0.86)',
             backdropFilter: 'blur(28px) saturate(180%)',
             border: '1px solid rgba(255,255,255,0.8)',
             borderRadius: 20, padding: '28px 24px 22px',
@@ -489,12 +527,15 @@ export default function RichTextViewer() {
                 Cancel
               </button>
               <button onClick={sendViaDm} disabled={dmSending || !dmRecipient.trim()}
-                style={{ padding: '7px 18px', borderRadius: 9, border: 'none', background: 'linear-gradient(to bottom, #8880ff 0%, #6c63ff 50%, #5246e8 100%)', color: '#fff', cursor: dmSending ? 'default' : 'pointer', fontSize: '0.875rem', fontWeight: 700, opacity: (!dmRecipient.trim() || dmSending) ? 0.6 : 1 }}>
+                style={{ padding: '7px 18px', borderRadius: 9, border: 'none', background: '#5b52e8', color: '#fff', cursor: dmSending ? 'default' : 'pointer', fontSize: '0.875rem', fontWeight: 700, opacity: (!dmRecipient.trim() || dmSending) ? 0.6 : 1 }}>
                 {dmSending ? 'Sending…' : 'Send'}
               </button>
             </div>
           </div>
         </div>
+      )}
+      {showReport && (
+        <ReportDialog postId={parseInt(id)} postTitle={postTitle} onClose={() => setShowReport(false)} />
       )}
     </div>
   );

@@ -21,15 +21,29 @@ import MessagesPage from './components/Social/MessagesPage.jsx';
 import DiscussionPage from './components/Social/DiscussionPage.jsx';
 import SearchPage from './components/Pages/Search/SearchPage.jsx';
 import ActivityPage from './components/Pages/Activity/ActivityPage.jsx';
+import SettingsPage from './components/Pages/Settings/SettingsPage.jsx';
+import EmailActionPage from './components/Pages/Settings/EmailActionPage.jsx';
+import ForgotPasswordPage from './components/Pages/Settings/ForgotPasswordPage.jsx';
 
-import axios from 'axios'
+import { installSessionInterceptor } from './utils/session.js'
+import AppErrorBoundary from './components/ErrorBoundary/AppErrorBoundary.jsx'
+import SiteBackground from './components/SiteBackground/SiteBackground.jsx'
 
+
+// Installed once at module load, before any component can issue a request.
+installSessionInterceptor();
 
 function App() {
-  axios.defaults.withCredentials = true;
-  if (localStorage.getItem("userName") != null) {
-    AUTHORIZE_SESSION();
-  }
+  // Confirm the stored session is still good. Sessions live in memory on the
+  // server, so a restart invalidates every one of them while the browser still
+  // believes it is signed in; a 401 here is turned into a sign-out by the
+  // interceptor above.
+  //
+  // In an effect, not the render body: this is a side effect, and running it
+  // inline fired on every re-render (and twice under StrictMode).
+  useEffect(() => {
+    if (localStorage.getItem("userName")) AUTHORIZE_SESSION().catch(() => {});
+  }, []);
 
   // Heartbeat: keep online status fresh every 2 minutes
   useEffect(() => {
@@ -49,9 +63,15 @@ function App() {
       <Navbar />
       <ScrollToTop />
 
+      <SiteBackground />
+
+      <AppErrorBoundary>
+
       <Routes>
         <Route index element={ <Home />} />
         <Route path="/routes" element={<Home />} />
+        {/* Legacy /users/... paths. Kept working forever: they are in shared
+            links, in emails already sent, and in every post written so far. */}
         <Route path="/users/:username" element={<PostsViewer />} />
         <Route path="/users/:username/:id" element={<RichTextViewer />} />
         <Route path="/users/:username/:id/discussion" element={<DiscussionPage />} />
@@ -70,8 +90,24 @@ function App() {
         <Route path="/messages" element={<MessagesPage />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/activity/:username" element={<ActivityPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        {/* Opened from links in emails, so these must work while signed out. */}
+        <Route path="/verify-email" element={<EmailActionPage mode="verify" />} />
+        <Route path="/unsubscribe" element={<EmailActionPage mode="unsubscribe" />} />
+        <Route path="/reset-password" element={<EmailActionPage mode="reset" />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        {/* Canonical profile and post URLs, at the top level.
+            These come last so every static route above wins: React Router ranks
+            by specificity, and a literal segment always beats a dynamic one, so
+            /settings can never be read as a profile called "settings".
+            ReservedUsernames additionally stops such a name being registered. */}
+        <Route path="/:username" element={<PostsViewer />} />
+        <Route path="/:username/:id" element={<RichTextViewer />} />
+        <Route path="/:username/:id/discussion" element={<DiscussionPage />} />
+
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
+        </AppErrorBoundary>
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { GET_USER_ACTIVITY } from '../Posts/BasicTextPostServerApi.js';
 import './ActivityPage.css';
+import { postPath } from '../../../utils/postUrl.js';
 
 function timeAgo(date) {
   if (!date) return '';
@@ -74,7 +75,7 @@ export default function ActivityPage() {
       <div className="activity-card">
         <div className="activity-header">
           <h2 className="activity-title">{me === username ? 'My Activity' : `${username}'s Activity`}</h2>
-          <Link to={`/users/${username}`} className="activity-back-link">← Profile</Link>
+          <Link to={`/${username}`} className="activity-back-link">← Profile</Link>
         </div>
 
         <div className="activity-tabs">
@@ -96,7 +97,7 @@ export default function ActivityPage() {
                   <span className="activity-time">{timeAgo(p.date)}</span>
                   {p.edited_at && <span className="activity-badge">edited {timeAgo(p.edited_at)}</span>}
                   {!p.published && <span className="activity-badge activity-badge--draft">draft</span>}
-                  <Link to={`/users/${username}/${p.id}`} className="activity-post-link">
+                  <Link to={postPath(username, p)} className="activity-post-link">
                     {p.title || 'Untitled post'}
                   </Link>
                 </div>

@@ -2,11 +2,12 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { GET_UNREAD_COUNT, GET_NOTIFICATIONS, MARK_NOTIFICATION_READ, MARK_ALL_READ } from '../Pages/Posts/BasicTextPostServerApi.js';
 import './Social.css';
+import { postPath } from '../../utils/postUrl.js';
 
 function ActorLink({ username, onClick }) {
   return (
     <Link
-      to={`/users/${username}`}
+      to={`/${username}`}
       className="notif-actor-link"
       onClick={e => { e.stopPropagation(); if (onClick) onClick(); }}
     >
@@ -20,7 +21,7 @@ function PostLink({ n, onClose }) {
   const anchor = n.commentId ? `#comment-${n.commentId}` : '';
   return (
     <Link
-      to={`/users/${n.postOwner}/${n.postId}/discussion${anchor}`}
+      to={`${postPath(n.postOwner, { id: n.postId, title: n.postTitle })}/discussion${anchor}`}
       className="notif-post-link"
       onClick={e => { e.stopPropagation(); if (onClose) onClose(); }}
     >
@@ -36,7 +37,7 @@ function notifLabel(n, closeDropdown) {
     case 'reply':    return <span>{a} replied to your comment on <PostLink n={n} onClose={closeDropdown} /></span>;
     case 'follow':   return <span>{a} followed you</span>;
     case 'reaction': return <span>{a} reacted to your post <PostLink n={n} onClose={closeDropdown} /></span>;
-    case 'new_post': return <span>{a} published {n.postOwner && n.postId ? <Link to={`/users/${n.postOwner}/${n.postId}`} className="notif-post-link" onClick={e => { e.stopPropagation(); if (closeDropdown) closeDropdown(); }}>{n.postTitle || 'a new post'}</Link> : 'a new post'}</span>;
+    case 'new_post': return <span>{a} published {n.postOwner && n.postId ? <Link to={postPath(n.postOwner, { id: n.postId, title: n.postTitle })} className="notif-post-link" onClick={e => { e.stopPropagation(); if (closeDropdown) closeDropdown(); }}>{n.postTitle || 'a new post'}</Link> : 'a new post'}</span>;
     case 'message':  return <span>{a} sent you a message: {n.message || ''}</span>;
     default:         return <span>New notification from {a}</span>;
   }

@@ -45,93 +45,80 @@ Defined in `PostWindow.css :root`. Use for all neoskeuomorphic buttons and surfa
 
 ## Gradient Rules
 
-**RULE: Gradients are ONLY used for 2.5D skeuomorphism — never for decoration.**
+**RULE: fills are flat. Gradients are not used for surfaces at all.**
 
-### Button depth gradients
-Always `linear-gradient(to bottom, ...)` — horizontally symmetric, never diagonal degrees.
+Updated 2026-09-08. The previous rule allowed gradients "for 2.5D
+skeuomorphism", which in practice meant every button, card, badge and avatar
+carried one — 82 gradient declarations across 40 stylesheets, no two adjacent
+surfaces matching. They now number four.
 
-```css
-/* Purple button */
-background: linear-gradient(to bottom, #8880ff 0%, #6c63ff 50%, #4b44cc 100%);
-
-/* Orange button */
-background: linear-gradient(to bottom, #ffb347 0%, #f5891c 55%, #d06010 100%);
-
-/* Green button */
-background: linear-gradient(to bottom, #72e08a 0%, #3cc85c 55%, #1aa83a 100%);
-```
-
-All button inset shadows must also be horizontally symmetric:
-```css
-inset 0 2px 0 rgba(255,255,255,0.7),   /* top highlight */
-inset 0 -2.5px 0 rgba(0,0,0,0.25),     /* bottom shadow */
-inset 1.5px 0 0 rgba(255,255,255,0.4), /* left edge — same value as right */
-inset -1.5px 0 0 rgba(255,255,255,0.4) /* right edge — same value as left */
-```
-
-### Glass edge / refractive ring (::before pseudo-elements)
-Use `conic-gradient` to simulate light bending around the curved edges:
+A gradient in a `background` is almost always decoration pretending to be depth.
+The raised look survives without it, because the inset light-top / dark-bottom
+edges were doing the work all along:
 
 ```css
-background: conic-gradient(
-  from 0deg at 50% 50%,
-  rgba(255,255,255,0.92)    0deg,
-  rgba(220,215,255,0.55)   45deg,
-  rgba(160,140,255,0.32)   90deg,
-  rgba(80, 60, 200,0.28)  135deg,
-  rgba(30, 20, 100,0.38)  180deg,
-  rgba(80, 60, 200,0.22)  225deg,
-  rgba(160,140,255,0.32)  270deg,
-  rgba(220,215,255,0.55)  315deg,
-  rgba(255,255,255,0.92)  360deg
-);
+/* Raised control */
+background: var(--accent-fill);        /* flat */
+box-shadow:
+  inset 0 1.5px 0 rgba(255,255,255,0.4),    /* light catches the top edge */
+  inset 0 -1.5px 0 rgba(0,0,0,0.2),         /* shadow under the bottom edge */
+  0 2px 6px rgba(26,16,96,0.1);             /* the object sits above the page */
 ```
 
-This creates prismatic color dispersion around the glass edges — top is bright white, sides show violet-blue, bottom deepens to indigo.
+Glass surfaces are a translucent flat fill plus `backdrop-filter`. The blur is
+what makes them read as glass; a sheen gradient on top added nothing.
 
-### Radial gradients (glass card highlight)
-For glass card backgrounds, use a centered top radial for the light source:
 ```css
-background:
-  radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 55%),
-  rgba(255,255,255,0.46);
+background: var(--surface-1);
+backdrop-filter: var(--blur-glass);
+box-shadow: var(--raise-2);
 ```
 
-Note: The ellipse must be at `50%` (centered), not `40%` or any off-center value.
+### The four gradients that remain, and why
 
-### NEVER use gradients for:
-- Logo text (use flat color)
-- Decorative coloring or section backgrounds
-- Avatar fallback circles (use `linear-gradient(to bottom, ...)` with symmetric values only)
+| Where | Why it stays |
+|---|---|
+| `PatternPicker/patterns.js` | The wallpaper engine. Gradients *are* the product here. |
+| `PatternPicker.jsx` placeholder | Example text showing a user what to type. |
+| `MessagesPage.css` thread backdrop | `repeating-linear-gradient` — a texture, not a fill. |
+| `ImageCropDialog.css` crop frame | `repeating-conic-gradient` — the standard transparency checkerboard. |
+
+Anything else is a regression. To check:
+
+```bash
+grep -rn "gradient(" client/src --include=*.css --include=*.jsx | grep -v patterns.js
+```
 
 ---
 
-## Glass Card Pattern
+## Tokens
 
-Used for all content cards (posts, profile, modals):
+`client/src/styles/tokens.css` holds the palette, the surface recipes and the
+motion values, and is imported first in `main.jsx`. **Use the variables, not
+literals.** Every off-palette colour in this app arrived as a hard-coded hex in
+one component.
 
-```css
-.glass-card {
-  position: relative;
-  background:
-    radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 55%),
-    rgba(255,255,255,0.46);
-  backdrop-filter: blur(24px) saturate(200%) brightness(1.04);
-  -webkit-backdrop-filter: blur(24px) saturate(200%) brightness(1.04);
-  border-radius: 18px;
-  border: 1.5px solid transparent;
-  background-clip: padding-box;
-  box-shadow:
-    0 16px 48px rgba(0,0,0,0.12),
-    inset 0 2.5px 0 rgba(255,255,255,0.98),
-    inset 0 -1.5px 0 rgba(80,60,120,0.10),
-    inset 2px 0 0 rgba(255,255,255,0.60),
-    inset -2px 0 0 rgba(80,60,120,0.07);
-  isolation: isolate;
-}
-```
+| Token | Use |
+|---|---|
+| `--ink` / `--ink-soft` / `--ink-faint` | body / meta / placeholders. Never `--ink-faint` for real text. |
+| `--accent` | purple **as text** on a light surface (5.2:1) |
+| `--accent-fill` | purple **as a fill** under white text (5.5:1) |
+| `--surface-1/2/3` | glass: cards / dialogs / inputs |
+| `--raise-1/2/3` | raised: control / panel / dialog |
+| `--pressed`, `--focus-ring` | interaction states |
+| `--radius-sm/md/lg/pill` | corners |
 
-The `::before` provides the refractive edge ring (see Gradient Rules above).
+Two purples exist because one colour cannot do both jobs: `#5b52e8` is too light
+to read as text on cream, and `#4b44cc` is too dark to sit under white and still
+look like the accent.
+
+
+## No glass card panels
+
+The `.glass-card` panel (frosted plate with a conic-gradient refractive rim) was
+removed on 2026-09-29 at the owner's request: it looked bad, and several attempts
+to fix it did not help. Do not reintroduce it — on the home page or anywhere else.
+
 
 ### backdrop-filter stacking context warning
 Any element with `backdrop-filter` creates a new containing block for `position: fixed` descendants. **Never render `position: fixed` modals or overlays inside an element with `backdrop-filter`.** Always use React `createPortal(content, document.body)` for modals.

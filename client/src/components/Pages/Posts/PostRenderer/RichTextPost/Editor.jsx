@@ -6,6 +6,7 @@ import {
   FORMAT_TEXT_COMMAND, $getNodeByKey, $getRoot, $isParagraphNode, $isTextNode,
 } from 'lexical';
 import { $isHeadingNode } from '@lexical/rich-text';
+import { $insertNodeToNearestRoot } from '@lexical/utils';
 import { $isListNode } from '@lexical/list';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
@@ -37,6 +38,10 @@ import axios from 'axios';
 import { BASE_URL } from '../../../../../config.js';
 import PatternPicker from '../../../../PatternPicker/PatternPicker.jsx';
 import { patternToStyle } from '../../../../PatternPicker/patterns.js';
+import { normaliseUploadResponse, describeUploadError } from '../../../../../utils/responsiveImage.js';
+import ImageCropDialog from '../../../../ImageCrop/ImageCropDialog.jsx';
+import ImagePicker from '../../../../ImagePicker/ImagePicker.jsx';
+import { postPath, slugify } from '../../../../../utils/postUrl.js';
 
 const EDITOR_NODES = [HeadingNode, ListNode, ListItemNode, CustomCodeNode, CodeHighlightNode, ImageNode, MathNode, LinkNode];
 
@@ -428,20 +433,29 @@ function CodeHoverControlsPlugin() {
         }
       });
 
+      // A single-line control bar pinned to the top-right of the block.
+      //
+      // It lives in document.body, NOT inside the editor. Lexical reconciles the
+      // contenteditable against its own model, so a foreign element inserted
+      // there is removed on the next update — which is what happened when this
+      // was briefly made a sibling of the code element: the whole bar vanished.
+      //
+      // Position is refreshed on scroll and resize rather than by a
+      // requestAnimationFrame loop. The old version ran one such loop per code
+      // block for as long as the block existed, purely to keep a fixed element
+      // following one that does not move on its own.
       const overlay = document.createElement('div');
-      overlay.className = 'code-hover-controls';
-      overlay.style.position = 'fixed';
-      overlay.style.zIndex = '9999';
+      overlay.className = 'code-header-bar';
+      overlay.addEventListener('mousedown', ev => {
+        // Clicks in the chrome must not move the caret into the code.
+        if (ev.target === overlay) ev.preventDefault();
+      });
 
-      // Continuously track the code block's position so the controls follow on scroll/resize
-      let trackRaf = null;
-      function trackPosition() {
+      const place = () => {
         const r = el.getBoundingClientRect();
-        overlay.style.top  = (r.top  + 4) + 'px';
-        overlay.style.right = (window.innerWidth - r.right + 4) + 'px';
-        trackRaf = requestAnimationFrame(trackPosition);
-      }
-      trackRaf = requestAnimationFrame(trackPosition);
+        overlay.style.top = (r.top + 6) + 'px';
+        overlay.style.right = (window.innerWidth - r.right + 8) + 'px';
+      };
 
       const mkBtn = (label, title, active_, onClick) => {
         const btn = document.createElement('button');
@@ -459,30 +473,84 @@ function CodeHoverControlsPlugin() {
         return s;
       };
 
-      // Language select
+      // ── Language ──────────────────────────────────────────────────────────
+      // The name is the control: click it to change it, the way an editor tab
+      // works. A select sitting there permanently made the bar look like a form.
+      const CUSTOM = '__custom__';
+
+      const langLabel = document.createElement('button');
+      langLabel.className = 'code-lang-label';
+      langLabel.title = 'Click to change the language';
+      langLabel.textContent = language ? getLanguageFriendlyName(language) : 'Plain text';
+      langLabel.addEventListener('mousedown', ev => ev.preventDefault());
+
       const select = document.createElement('select');
       select.className = 'code-ctrl-select';
       select.title = 'Code language';
-      const plainOpt = document.createElement('option');
-      plainOpt.value = '';
-      plainOpt.textContent = 'Plain text';
-      select.appendChild(plainOpt);
-      LANGS.forEach(lang => {
+      select.hidden = true;
+
+      const addOption = (value, text) => {
         const opt = document.createElement('option');
-        opt.value = lang;
-        opt.textContent = getLanguageFriendlyName(lang);
+        opt.value = value;
+        opt.textContent = text;
         select.appendChild(opt);
-      });
-      select.value = language;
-      select.addEventListener('mousedown', ev => ev.stopPropagation());
-      select.addEventListener('change', () => {
+      };
+      addOption('', 'Plain text');
+      LANGS.forEach(lang => addOption(lang, getLanguageFriendlyName(lang)));
+      addOption(CUSTOM, 'Custom…');
+
+      // A language the highlighter does not know is still a valid label — the
+      // block just is not syntax-highlighted. Show it rather than falling back
+      // to "Plain text", which would silently discard what the author typed.
+      if (language && !LANGS.includes(language)) addOption(language, language);
+      select.value = language || '';
+
+      const showSelect = () => {
+        select.hidden = false;
+        langLabel.hidden = true;
+        select.focus();
+      };
+      const hideSelect = () => {
+        select.hidden = true;
+        langLabel.hidden = false;
+      };
+
+      const applyLanguage = (value) => {
+        langLabel.textContent = value
+          ? (LANGS.includes(value) ? getLanguageFriendlyName(value) : value)
+          : 'Plain text';
         editor.update(() => {
           const node = $getNodeByKey(nodeKey);
-          if ($isCodeNode(node)) node.setLanguage(select.value);
+          if ($isCodeNode(node)) node.setLanguage(value);
         });
+      };
+
+      langLabel.addEventListener('click', ev => { ev.stopPropagation(); showSelect(); });
+      select.addEventListener('mousedown', ev => ev.stopPropagation());
+      select.addEventListener('blur', hideSelect);
+      select.addEventListener('change', () => {
+        if (select.value === CUSTOM) {
+          const typed = window.prompt('Label this code block:', langLabel.textContent);
+          hideSelect();
+          if (typed === null) { select.value = language || ''; return; }
+          // Free text, but it becomes an attribute and a label, so keep it to
+          // something that cannot carry markup.
+          const clean = typed.trim().replace(/[^A-Za-z0-9+#.\- ]/g, '').slice(0, 24);
+          if (!clean) { select.value = language || ''; return; }
+          if (!Array.from(select.options).some(o => o.value === clean)) addOption(clean, clean);
+          select.value = clean;
+          language = clean;
+          applyLanguage(clean);
+          return;
+        }
+        language = select.value;
+        applyLanguage(select.value);
+        hideSelect();
       });
+
+      overlay.appendChild(langLabel);
       overlay.appendChild(select);
-      overlay.appendChild(sep());
+      overlay.appendChild(document.createElement('span')).className = 'code-header-spacer';
 
       if (nodeKey) {
         const lightBtn = mkBtn(lightMode ? 'Light' : 'Dark', 'Toggle light/dark', lightMode, (btn) => {
@@ -549,6 +617,10 @@ function CodeHoverControlsPlugin() {
       }));
 
       document.body.appendChild(overlay);
+      place();
+      // Passive: these only read layout, never block the scroll.
+      window.addEventListener('scroll', place, { passive: true, capture: true });
+      window.addEventListener('resize', place, { passive: true });
 
       const state = { overlay, leaveTimer: null, cleanupFns: [] };
       active.set(el, state);
@@ -570,7 +642,8 @@ function CodeHoverControlsPlugin() {
         () => el.removeEventListener('mouseenter', cancelRemove),
         () => overlay.removeEventListener('mouseleave', scheduleRemove),
         () => overlay.removeEventListener('mouseenter', cancelRemove),
-        () => { if (trackRaf !== null) cancelAnimationFrame(trackRaf); },
+        () => window.removeEventListener('scroll', place, { capture: true }),
+        () => window.removeEventListener('resize', place),
       );
     }
 
@@ -680,15 +753,15 @@ function ImageDragPastePlugin() {
     formData.append('file', file);
     try {
       const response = await axios.post(BASE_URL + '/api/upload', formData, { withCredentials: true });
-      const src = response.data;
+      const { url, srcset } = normaliseUploadResponse(response.data);
       editor.update(() => {
-        $insertNodes([$createImageNode(src, file.name)]);
+        insertBlockInner(() => $createImageNode(url, file.name, srcset));
       });
     } catch (err) {
       console.error('Image upload failed:', err);
-      if (err.response?.status === 413) alert('Image is too large (max 5 MB).');
-      else if (err.response?.status === 401) alert('Please log in to upload images.');
-      else alert('Image upload failed.');
+      // The server explains the specific reason — a size cap, an unreadable
+      // file, a full quota — so show that rather than replacing it.
+      alert(describeUploadError(err));
     }
   }, [editor]);
 
@@ -736,9 +809,10 @@ function ImageDragPastePlugin() {
 
 function ImageToolbarPlugin() {
   const [editor] = useLexicalComposerContext();
-  const fileInputRef = useRef(null);
   const [infoOpen, setInfoOpen] = useState(false);
   const infoRef = useRef(null);
+  const [pendingFile, setPendingFile] = useState(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
     if (!infoOpen) return;
@@ -749,9 +823,10 @@ function ImageToolbarPlugin() {
     return () => document.removeEventListener('mousedown', close);
   }, [infoOpen]);
 
-  const handleFileChange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  // Picking a file opens the crop dialog rather than uploading immediately;
+  // uploadFile runs once the user confirms, with either the cropped image or
+  // the untouched original.
+  const uploadFile = async (file) => {
     const formData = new FormData();
     formData.append('file', file);
     try {
@@ -759,35 +834,42 @@ function ImageToolbarPlugin() {
       const response = await axios.post(BASE_URL + '/api/upload', formData, {
         withCredentials: true,
       });
-      const src = response.data;
+      const { url, srcset } = normaliseUploadResponse(response.data);
       editor.update(() => {
-        const imageNode = $createImageNode(src, file.name);
-        $insertNodes([imageNode]);
+        insertBlockInner(() => $createImageNode(url, file.name, srcset));
       });
     } catch (err) {
       console.error('Image upload failed:', err);
-      if (err.response?.status === 413) {
-        alert('Image is too large. Maximum file size is 5 MB.');
-      } else if (err.response?.status === 401) {
-        alert('Please log in before uploading an image.');
-      } else {
-        alert('Image upload failed (status ' + (err.response?.status ?? 'unknown') + ').');
-      }
+      alert(describeUploadError(err));
     }
-    e.target.value = '';
+  };
+
+  /** Inserts an image the user already has, without re-uploading it. */
+  const insertExisting = (image) => {
+    setPickerOpen(false);
+    editor.update(() => {
+      insertBlockInner(() => $createImageNode(image.url, image.name || '', image.srcset || null));
+    });
   };
 
   return (
     <>
-      <input
-        type="file"
-        ref={fileInputRef}
-        style={{ display: 'none' }}
-        accept="image/*"
-        onChange={handleFileChange}
-      />
+      {pickerOpen && (
+        <ImagePicker
+          onClose={() => setPickerOpen(false)}
+          onSelect={insertExisting}
+          onUpload={(file) => { setPickerOpen(false); setPendingFile(file); }}
+        />
+      )}
+      {pendingFile && (
+        <ImageCropDialog
+          file={pendingFile}
+          onCancel={() => setPendingFile(null)}
+          onConfirm={(result) => { setPendingFile(null); uploadFile(result); }}
+        />
+      )}
       <span className="image-btn-group" ref={infoRef}>
-        <button className="toolbar-btn-image" onClick={() => fileInputRef.current.click()}>Image</button>
+        <button className="toolbar-btn-image" onClick={() => setPickerOpen(true)}>Image</button>
         <button
           className="toolbar-btn-image-info"
           title="Image upload info"
@@ -1018,14 +1100,65 @@ function LinkToolbarPlugin() {
   );
 }
 
+
+/**
+ * Inserts a block-level node at a sensible place, whatever the selection is.
+ *
+ * The insert buttons used to fail silently in two common situations: an empty
+ * document, where there is no selection at all, and a caret sitting inside an
+ * existing block node such as an image or an equation, where the selection is a
+ * NodeSelection rather than a RangeSelection. The code button in particular was
+ * guarded by `if ($isRangeSelection(selection))` and simply did nothing
+ * otherwise.
+ *
+ * $insertNodeToNearestRoot handles the block placement — it walks up to the
+ * nearest root-level ancestor and inserts after it, rather than trying to nest
+ * a block inside whatever the caret happens to be in. When there is no
+ * selection we place one at the end of the document first, so there is always
+ * somewhere for the new block to go.
+ *
+ * A paragraph is added after the new node and focused, so the writer can keep
+ * typing instead of hunting for a cursor below a freshly inserted image.
+ */
+/** The body of insertBlock, for callers already inside an editor.update(). */
+function insertBlockInner(createNode) {
+  const selection = $getSelection();
+  if (!$isRangeSelection(selection) && !$isNodeSelection(selection)) {
+    $getRoot().selectEnd();
+  }
+  const node = createNode();
+  $insertNodeToNearestRoot(node);
+  const paragraph = $createParagraphNode();
+  node.insertAfter(paragraph);
+  paragraph.selectEnd();
+}
+
+function insertBlock(editor, createNode) {
+  editor.update(() => {
+    insertBlockInner(createNode);
+  });
+}
+
 function CodeToolbarPlugin() {
   const [editor] = useLexicalComposerContext();
   const onClick = () => {
+    // Converting the current paragraph is the right behaviour when the caret is
+    // in text; anywhere else there is nothing to convert, so insert a fresh
+    // code block instead of doing nothing.
     editor.update(() => {
       const selection = $getSelection();
-      if ($isRangeSelection(selection)) {
-        $setBlocksType(selection, () => $createCustomCodeNode());
+      if ($isRangeSelection(selection) && selection.isCollapsed()) {
+        const block = selection.anchor.getNode().getTopLevelElement();
+        if (block && block.getTextContent().length === 0) {
+          $setBlocksType(selection, () => $createCustomCodeNode());
+          return;
+        }
       }
+      if ($isRangeSelection(selection) && !selection.isCollapsed()) {
+        $setBlocksType(selection, () => $createCustomCodeNode());
+        return;
+      }
+      insertBlockInner(() => $createCustomCodeNode());
     });
   };
   return <button onClick={onClick}>Code</button>;
@@ -1036,9 +1169,7 @@ function MathToolbarPlugin() {
   const onClick = () => {
     const equation = window.prompt('Enter LaTeX equation (e.g. \\frac{a}{b}):');
     if (equation === null) return;
-    editor.update(() => {
-      $insertNodes([$createMathNode(equation.trim())]);
-    });
+    insertBlock(editor, () => $createMathNode(equation.trim()));
   };
   return <button onClick={onClick} title="Insert LaTeX math block">∑ Math</button>;
 }
@@ -1049,7 +1180,7 @@ function PostLinkToolbarPlugin() {
 
   const handleSelect = (post) => {
     setShowSearch(false);
-    const href = `/users/${post.username}/${post.id}`;
+    const href = postPath(post.username, post);
     const title = post.title || `Post #${post.id}`;
     editor.update(() => {
       const linkNode = $createLinkNode(href);
@@ -1139,7 +1270,90 @@ function FeatureTogglePlugin({ postid, features, onFeaturesChange }) {
   );
 }
 
-function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublishedChange, titleRef, onSaved, username, folder, onFolderChange, features }) {
+
+/**
+ * Lets the author choose the readable part of their post's URL.
+ *
+ * The address is /{username}/{id}-{slug}. The id makes it unique, so the slug
+ * is free-form and needs no collision handling — leaving it blank simply
+ * derives one from the title.
+ *
+ * Input is tidied as you type rather than rejected: someone typing "My Post!"
+ * gets "my-post", which is what they meant.
+ */
+function PostSlugPlugin({ slug, onSlugChange, username, titleRef, postId }) {
+  const [draft, setDraft] = useState(slug || '');
+  const [editing, setEditing] = useState(false);
+
+  // Follow the saved value when the post loads or is reloaded.
+  useEffect(() => { setDraft(slug || ''); }, [slug]);
+
+  const tidy = (value) => value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+/, '')
+    .slice(0, 80);
+
+  const commit = () => {
+    const cleaned = tidy(draft).replace(/-+$/, '');
+    setDraft(cleaned);
+    onSlugChange?.(cleaned || null);
+  };
+
+  const derived = slugify((titleRef?.current || '').replace(/<[^>]*>/g, ''));
+  const effective = tidy(draft).replace(/-+$/, '') || derived;
+  const idPart = postId || '123';
+
+  // Collapsed to a single readable line until clicked. The address is worth
+  // seeing on every post; the input only matters when you want to change it.
+  if (!editing) {
+    return (
+      <div className="post-slug-row">
+        <span className="post-slug-static" title="This post's address">
+          <span className="post-slug-dim">/{username || 'you'}/{idPart}-</span>
+          <span className="post-slug-value">{effective || 'untitled'}</span>
+        </span>
+        <button type="button" className="post-slug-edit" onClick={() => setEditing(true)}>
+          {slug ? 'Change URL' : 'Set a custom URL'}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="post-slug-row post-slug-row--editing">
+      <label className="post-slug-label" htmlFor="post-slug-input">
+        <span className="post-slug-dim">/{username || 'you'}/{idPart}-</span>
+      </label>
+      <input
+        id="post-slug-input"
+        type="text"
+        className="post-slug-input"
+        value={draft}
+        placeholder={derived || 'my-post-name'}
+        onChange={e => setDraft(tidy(e.target.value))}
+        onBlur={() => { commit(); setEditing(false); }}
+        onKeyDown={e => {
+          if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); }
+          // Escape abandons the edit rather than committing a half-typed slug.
+          if (e.key === 'Escape') { setDraft(slug || ''); setEditing(false); }
+        }}
+        maxLength={80}
+        autoFocus
+      />
+      {draft && (
+        <button type="button" className="post-slug-reset"
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => { setDraft(''); onSlugChange?.(null); setEditing(false); }}
+                title="Go back to deriving it from the title">
+          Use title
+        </button>
+      )}
+    </div>
+  );
+}
+
+function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublishedChange, titleRef, onSaved, username, folder, onFolderChange, features, slug }) {
   const { confirm } = useDialog();
   const [editor] = useLexicalComposerContext();
   const [saveStatus, setSaveStatus] = useState('');
@@ -1158,9 +1372,9 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
     if (saving) return;
     const postTitle = (titleRef?.current || localStorage.getItem("currentPostTitle") || '').replace(/<[^>]*>/g, '').trim();
     if (published) {
-      if (!postTitle) { showStatus('Add a title before publishing.', true); return; }
+      if (!postTitle) { showStatus('Add a title before uploading.', true); return; }
       const bodyText = editor.getEditorState().read(() => $getRoot().getTextContent()).trim();
-      if (!bodyText) { showStatus('Add some content before publishing.', true); return; }
+      if (!bodyText) { showStatus('Add some content before uploading.', true); return; }
     }
     if (!published && postPublished) {
       if (!(await confirm('Unpublish this post? It will no longer be visible to other users.'))) return;
@@ -1168,9 +1382,9 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
     const editorState = JSON.stringify(editor.getEditorState().toJSON());
     setSaving(true);
     if (hasSaved) {
-      UPDATE_POST(effectiveId, postTitle, editorState, published, backgroundPattern, folder)
+      UPDATE_POST(effectiveId, postTitle, editorState, published, backgroundPattern, folder, slug)
         .then(() => {
-          showStatus(published ? 'Saved!' : postPublished ? 'Unpublished.' : 'Draft saved.');
+          showStatus(published ? 'Uploaded.' : postPublished ? 'Unpublished — saved as a draft.' : 'Draft saved.');
           onPublishedChange(published);
           setSavedId(effectiveId);
           onSaved?.();
@@ -1182,9 +1396,9 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
         })
         .finally(() => setSaving(false));
     } else {
-      CREATE_POST(1, postTitle, editorState, published, backgroundPattern, folder)
+      CREATE_POST(1, postTitle, editorState, published, backgroundPattern, folder, slug)
         .then((newId) => {
-          showStatus(published ? 'Published!' : 'Draft created.');
+          showStatus(published ? 'Uploaded — your post is live.' : 'Draft saved.');
           setSavedId(newId);
           // Apply any non-default feature settings chosen before saving
           if (features && !features.reactionsEnabled) SET_REACTIONS_ENABLED(newId, false).catch(() => {});
@@ -1198,28 +1412,32 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
     }
   };
 
-  const viewUrl = savedId && username ? `/users/${username}/${savedId}` : null;
+  const currentTitle = (titleRef?.current || '').replace(/<[^>]*>/g, '').trim();
+  const viewUrl = savedId && username
+    ? postPath(username, { id: savedId, title: currentTitle, slug })
+    : null;
 
   return (
     <>
       {saveStatus && (
-        <span style={{
-          fontSize: '0.78rem',
-          color: saveStatus.error ? '#ef4444' : '#15803d',
-          fontWeight: 600,
-          padding: '2px 6px',
-        }}>
+        <span className={`toolbar-save-status${saveStatus.error ? ' toolbar-save-status--error' : ''}`}>
           {saveStatus.msg}
         </span>
       )}
-      <button className="toolbar-btn-draft" onClick={() => save(false)} disabled={saving}>
-        {postPublished ? 'Unpublish' : 'Save Draft'}
+      {/* Two actions, named for what they do: keep it private, or put it up.
+          The old pair read "Save Draft" and "Save", which did not say that the
+          second one made the post public. */}
+      <button className="toolbar-btn-draft" onClick={() => save(false)} disabled={saving}
+              title={postPublished ? 'Take this post down and keep it as a draft'
+                                   : 'Save without making it visible to anyone else'}>
+        {postPublished ? 'Unpublish' : 'Save draft'}
       </button>
-      <button className="toolbar-btn-save" onClick={() => save(true)} disabled={saving}>
-        {saving ? '…' : hasSaved ? 'Save' : 'Publish'}
+      <button className="toolbar-btn-save" onClick={() => save(true)} disabled={saving}
+              title={postPublished ? 'Save and keep it published' : 'Make this post public'}>
+        {saving ? '…' : 'Upload'}
       </button>
       {viewUrl && (
-        <Link to={viewUrl} style={{ textDecoration: 'none' }}>
+        <Link to={viewUrl} className="toolbar-view-link">
           <button className="toolbar-btn-view">View post →</button>
         </Link>
       )}
@@ -1244,16 +1462,60 @@ function UndoRedoPlugin() {
   );
 }
 
-function CollapsibleSection({ label, defaultOpen = true, children }) {
-  const [open, setOpen] = useState(defaultOpen);
+/**
+ * A toolbar group that opens in a popover rather than expanding inline.
+ *
+ * The previous version expanded in place, so opening a section pushed every
+ * other control sideways and the bar's layout changed as you worked. A popover
+ * floats above the page, so the row of controls never moves.
+ *
+ * Only one is open at a time — the parent owns `openId`, since two open panels
+ * would overlap and there is never a reason to want both.
+ */
+function ToolbarMenu({ id, label, hint, openId, setOpenId, children }) {
+  const open = openId === id;
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpenId(null); };
+    const onKey = (e) => { if (e.key === 'Escape') setOpenId(null); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open, setOpenId]);
+
   return (
-    <span className="toolbar-collapsible">
+    <span className="toolbar-menu" ref={ref}>
       <button
-        className="toolbar-collapse-toggle"
-        title={open ? `Collapse ${label}` : `Expand ${label}`}
-        onClick={() => setOpen(o => !o)}
-      >{label} {open ? '▾' : '▸'}</button>
-      {open && <span className="toolbar-collapsible-body">{children}</span>}
+        type="button"
+        className={`toolbar-menu-trigger${open ? ' toolbar-menu-trigger--open' : ''}`}
+        aria-expanded={open}
+        title={hint}
+        onClick={() => setOpenId(open ? null : id)}
+      >
+        {label}
+        <span className="toolbar-menu-caret" aria-hidden="true">▾</span>
+      </button>
+      {open && (
+        <span className="toolbar-menu-panel" role="group" aria-label={label}>
+          <span className="toolbar-menu-panel-label">{label}</span>
+          <span className="toolbar-menu-panel-body">{children}</span>
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** Kept for the mobile panel, which shows every group expanded at once. */
+function ToolbarGroup({ label, children }) {
+  return (
+    <span className="toolbar-group">
+      <span className="toolbar-group-label">{label}</span>
+      <span className="toolbar-group-body">{children}</span>
     </span>
   );
 }
@@ -1294,7 +1556,130 @@ function FormatToolbarPlugin() {
   );
 }
 
-function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, postPublished, onPublishedChange, features, onFeaturesChange, titleRef, onSaved, folder, onFolderChange }) {
+
+/**
+ * A toolbar that shows as many controls as fit on one line and moves the rest
+ * into an overflow menu.
+ *
+ * The previous arrangement had a fixed split: a set of controls always inline,
+ * and a hamburger below a breakpoint. That wastes a wide window and crowds a
+ * narrow one, because the breakpoint cannot know how wide the controls actually
+ * are. Measuring instead means the line is always as full as it can be.
+ *
+ * How it works: every item is rendered into a hidden measuring row once, its
+ * width recorded, and then only the ones that fit are rendered for real. A
+ * ResizeObserver re-runs the sum when the window changes. Widths are measured,
+ * never guessed, because a language name or a font list changes them.
+ */
+function ResponsiveToolbar({ items, children }) {
+  const containerRef = useRef(null);
+  const measureRef = useRef(null);
+  const [visibleCount, setVisibleCount] = useState(items.length);
+  const [overflowOpen, setOverflowOpen] = useState(false);
+  const overflowRef = useRef(null);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    const measure = measureRef.current;
+    if (!container || !measure) return;
+
+    const recompute = () => {
+      const widths = Array.from(measure.children).map(c => c.getBoundingClientRect().width);
+      // The save controls are on their own row now, so the tools get the full
+      // width; only the overflow trigger has to be accounted for.
+      const available = container.getBoundingClientRect().width
+        - OVERFLOW_TRIGGER_WIDTH
+        - TOOLBAR_BREATHING_ROOM;
+
+      let used = 0;
+      let fit = 0;
+      for (const width of widths) {
+        if (used + width > available) break;
+        used += width + TOOLBAR_GAP;
+        fit += 1;
+      }
+      // Showing everything but one is worse than showing everything: the
+      // trigger costs about as much as the item it would hide.
+      setVisibleCount(fit >= items.length - 1 ? items.length : fit);
+    };
+
+    recompute();
+    const observer = new ResizeObserver(recompute);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [items.length]);
+
+  useEffect(() => {
+    if (!overflowOpen) return;
+    const onDown = (e) => {
+      if (overflowRef.current && !overflowRef.current.contains(e.target)) setOverflowOpen(false);
+    };
+    const onKey = (e) => { if (e.key === 'Escape') setOverflowOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [overflowOpen]);
+
+  const hidden = items.slice(visibleCount);
+
+  return (
+    <div className="toolbar-sticky toolbar-stack">
+      {/* Row one: the tools, filling the line. */}
+      <div className="toolbar-responsive" ref={containerRef}>
+        {/* Measured once, never shown. aria-hidden so it is invisible to
+            assistive technology and to the tab order. */}
+        <div className="toolbar-measure" ref={measureRef} aria-hidden="true">
+          {items.map(item => <span key={`m-${item.key}`}>{item.node}</span>)}
+        </div>
+
+        {items.slice(0, visibleCount).map(item => (
+          <span className="toolbar-item" key={item.key}>{item.node}</span>
+        ))}
+
+        {hidden.length > 0 && (
+          <span className="toolbar-overflow" ref={overflowRef}>
+            <button
+              type="button"
+              className={`toolbar-overflow-trigger${overflowOpen ? ' toolbar-overflow-trigger--open' : ''}`}
+              onClick={() => setOverflowOpen(o => !o)}
+              aria-expanded={overflowOpen}
+              title={`${hidden.length} more ${hidden.length === 1 ? 'tool' : 'tools'}`}
+            >
+              <span className="toolbar-overflow-icon" aria-hidden="true"><span /><span /><span /></span>
+            </button>
+            {overflowOpen && (
+              <span className="toolbar-overflow-panel">
+                {hidden.map(item => (
+                  <span className="toolbar-overflow-item" key={`o-${item.key}`}>{item.node}</span>
+                ))}
+              </span>
+            )}
+          </span>
+        )}
+      </div>
+
+      {/* Row two: Save draft, Upload, View post.
+          These were on the tools row, where three word-labelled buttons plus a
+          status message ran past the edge of the post area. They are the
+          actions people look for deliberately rather than reach for mid-word,
+          so a line of their own costs nothing. */}
+      <div className="toolbar-actions">{children}</div>
+    </div>
+  );
+}
+
+/** Width reserved for the overflow trigger, in pixels. */
+const OVERFLOW_TRIGGER_WIDTH = 42;
+/** Slack so the last item never sits flush against the edge. */
+const TOOLBAR_BREATHING_ROOM = 12;
+const TOOLBAR_GAP = 4;
+
+function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, postPublished, onPublishedChange, features, onFeaturesChange, titleRef, onSaved, folder, onFolderChange, slug, onSlugChange }) {
+  // Only one popover open at a time; two would overlap.
+  const [openMenu, setOpenMenu] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const panelRef = useRef(null);
 
@@ -1307,79 +1692,79 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
     return () => document.removeEventListener('mousedown', handler);
   }, [mobileOpen]);
 
-  const buildSections = (allOpen) => (
+  /**
+   * Desktop toolbar.
+   *
+   * The controls people reach for constantly — undo, block type, bold/italic,
+   * lists, link — are always visible. Everything else lives in a popover menu.
+   * Previously all five groups were expanded by default, which produced a wall
+   * of around thirty buttons above every post and pushed the writing area down
+   * the page.
+   */
+  /**
+   * Ordered most-used first, because that is the order they survive in when the
+   * window is too narrow to show everything.
+   */
+  const toolbarItems = [
+    { key: 'history', node: <UndoRedoPlugin /> },
+    { key: 'block',   node: <BlockTypePlugin /> },
+    { key: 'format',  node: <FormatToolbarPlugin /> },
+    { key: 'list',    node: <ListToolbarPlugin /> },
+
+    { key: 'link',   node: <LinkToolbarPlugin /> },
+    { key: 'image',  node: <ImageToolbarPlugin /> },
+    { key: 'code',   node: <CodeToolbarPlugin /> },
+    { key: 'math',   node: <MathToolbarPlugin /> },
+    { key: 'postlink', node: <PostLinkToolbarPlugin /> },
+    {
+      key: 'style',
+      node: (
+        <ToolbarMenu id="style" label="Style" hint="Colour, highlight and alignment"
+                     openId={openMenu} setOpenId={setOpenMenu}>
+          <InlineStylePlugin />
+        </ToolbarMenu>
+      ),
+    },
+    {
+      key: 'page',
+      node: (
+        <ToolbarMenu id="page" label="Page" hint="Wallpaper, comments and reactions"
+                     openId={openMenu} setOpenId={setOpenMenu}>
+          <BackgroundToolbarPlugin pattern={backgroundPattern} onPatternChange={onPatternChange} username={username} />
+          <FeatureTogglePlugin postid={postid} features={features} onFeaturesChange={onFeaturesChange} />
+        </ToolbarMenu>
+      ),
+    },
+  ];
+
+  /** Mobile shows everything at once inside its own panel, so nothing is hidden. */
+  const mobileToolbar = (
     <>
-      <UndoRedoPlugin />
-      <span className='toolbar-divider' />
-      <CollapsibleSection label="Block" defaultOpen={allOpen}>
-        <BlockTypePlugin />
-        <ListToolbarPlugin />
-      </CollapsibleSection>
-      <span className='toolbar-divider' />
-      <CollapsibleSection label="Format" defaultOpen={allOpen}>
-        <FormatToolbarPlugin />
-      </CollapsibleSection>
-      <span className='toolbar-divider' />
-      <CollapsibleSection label="Style" defaultOpen={allOpen}>
-        <InlineStylePlugin />
-      </CollapsibleSection>
-      <span className='toolbar-divider' />
-      <CollapsibleSection label="Insert" defaultOpen={false}>
+      <ToolbarGroup label="History"><UndoRedoPlugin /></ToolbarGroup>
+      <ToolbarGroup label="Block"><BlockTypePlugin /><ListToolbarPlugin /></ToolbarGroup>
+      <ToolbarGroup label="Format"><FormatToolbarPlugin /></ToolbarGroup>
+      <ToolbarGroup label="Style"><InlineStylePlugin /></ToolbarGroup>
+      <ToolbarGroup label="Insert">
         <LinkToolbarPlugin />
         <PostLinkToolbarPlugin />
+        <ImageToolbarPlugin />
         <CodeToolbarPlugin />
         <MathToolbarPlugin />
-        <ImageToolbarPlugin />
-      </CollapsibleSection>
-      <span className='toolbar-divider' />
-      <CollapsibleSection label="Preferences" defaultOpen={allOpen}>
+      </ToolbarGroup>
+      <ToolbarGroup label="Page">
         <BackgroundToolbarPlugin pattern={backgroundPattern} onPatternChange={onPatternChange} username={username} />
         <FeatureTogglePlugin postid={postid} features={features} onFeaturesChange={onFeaturesChange} />
-      </CollapsibleSection>
+      </ToolbarGroup>
     </>
   );
-  const formattingSections = buildSections(true);
 
   return (
     <>
-      {/* Desktop toolbar */}
-      <div className='toolbar-sticky toolbar-desktop'>
-        {formattingSections}
-        <span className='toolbar-divider' />
-        <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} titleRef={titleRef} onSaved={onSaved} username={username} folder={folder} onFolderChange={onFolderChange} features={features} />
-      </div>
+      {/* One toolbar at every width: it fills the line and overflows the rest. */}
+      <ResponsiveToolbar items={toolbarItems}>
+        <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} titleRef={titleRef} onSaved={onSaved} username={username} folder={folder} onFolderChange={onFolderChange} features={features} slug={slug} />
+      </ResponsiveToolbar>
 
-      {/* Mobile toolbar: slim bar with hamburger + save */}
-      <div className='toolbar-sticky toolbar-mobile'>
-        <button
-          className='toolbar-mobile-hamburger'
-          onClick={() => setMobileOpen(o => !o)}
-          title="Formatting tools"
-        >
-          <span className='toolbar-mobile-hamburger-icon'><span /><span /><span /></span>
-          <span className='toolbar-mobile-hamburger-label'>Format</span>
-        </button>
-        <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} titleRef={titleRef} onSaved={onSaved} username={username} folder={folder} onFolderChange={onFolderChange} features={features} />
-      </div>
-
-      {/* Mobile formatting panel (glass popup) */}
-      {mobileOpen && (
-        <div className='toolbar-mobile-panel-overlay' onClick={() => setMobileOpen(false)}>
-          <div
-            className='toolbar-mobile-panel'
-            ref={panelRef}
-            onClick={e => e.stopPropagation()}
-          >
-            <div className='toolbar-mobile-panel-header'>
-              <span className='toolbar-mobile-panel-title'>Formatting</span>
-              <button className='toolbar-mobile-panel-close' onClick={() => setMobileOpen(false)}>✕</button>
-            </div>
-            <div className='toolbar-mobile-panel-body'>
-              {buildSections(false)}
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
@@ -1434,6 +1819,8 @@ export default function RichTextEditor() {
   const [postAuthor, setPostAuthor] = useState("");
   const [backgroundPattern, setBackgroundPattern] = useState('');
   const [postFolder, setPostFolder] = useState('');
+  // Author-chosen URL slug; null means "derive it from the title".
+  const [postSlug, setPostSlug] = useState(null);
   const [dataReady, setDataReady] = useState(0);
   const [postLoaded, setPostLoaded] = useState(false);
   const [features, setFeatures] = useState({ reactionsEnabled: true, discussionEnabled: true });
@@ -1496,6 +1883,7 @@ export default function RichTextEditor() {
       setPostPublished(data.published);
       setBackgroundPattern(data.backgroundPattern || '');
       setPostFolder(data.folder || '');
+      setPostSlug(data.slug || null);
       localStorage.setItem("currentPostData", data.description);
       setDataReady(v => v + 1);
       GET_USER_FROM_POST(id).then((author) => {
@@ -1509,7 +1897,7 @@ export default function RichTextEditor() {
   // Redirect non-owners away from the editor
   useEffect(() => {
     if (!id || !postLoaded) return;
-    if (postAuthor && me !== postAuthor) navigate(`/users/${postAuthor}/${id}`);
+    if (postAuthor && me !== postAuthor) navigate(`/${postAuthor}/${id}`);
   }, [id, postLoaded, postAuthor, me, navigate]);
 
   useEffect(() => {
@@ -1577,7 +1965,16 @@ export default function RichTextEditor() {
               }}
               editMode={true}
             />
-            <ToolbarPlugin postid={id} backgroundPattern={backgroundPattern} onPatternChange={setBackgroundPattern} username={postAuthor || me} postPublished={postPublished} onPublishedChange={setPostPublished} features={features} onFeaturesChange={setFeatures} titleRef={titlehtml} onSaved={handleSaved} folder={postFolder} onFolderChange={setPostFolder} />
+            {/* Directly under the title, because that is where someone looks
+                for "what will this post's address be". */}
+            <PostSlugPlugin
+              slug={postSlug}
+              onSlugChange={setPostSlug}
+              username={postAuthor || me}
+              titleRef={titlehtml}
+              postId={id > 0 ? id : null}
+            />
+            <ToolbarPlugin postid={id} backgroundPattern={backgroundPattern} onPatternChange={setBackgroundPattern} username={postAuthor || me} postPublished={postPublished} onPublishedChange={setPostPublished} features={features} onFeaturesChange={setFeatures} titleRef={titlehtml} onSaved={handleSaved} folder={postFolder} onFolderChange={setPostFolder} slug={postSlug} onSlugChange={setPostSlug} />
             <div style={{ position: 'relative' }}>
               <RichTextPlugin
                 contentEditable={<ContentEditable className='editor-contenteditable' />}

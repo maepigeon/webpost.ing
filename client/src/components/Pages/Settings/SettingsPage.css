@@ -1,0 +1,331 @@
+/* Settings — same glass language as the rest of the app.
+   Colours verified against WCAG; see guide/style-guide.md. */
+
+.settings-page {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 28px 20px 60px;
+}
+
+.settings-card {
+  padding: 26px 28px 24px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(22px) saturate(165%);
+  -webkit-backdrop-filter: blur(22px) saturate(165%);
+  border: 1.5px solid rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 10px 34px rgba(26, 16, 96, 0.14),
+    inset 0 2px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.settings-title {
+  margin: 0 0 20px;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #1a1060;
+}
+
+.settings-notice {
+  margin: 0 0 20px;
+  padding: 10px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #6b4300;
+  background: rgba(255, 246, 224, 0.95);
+  border: 1px solid rgba(200, 150, 40, 0.4);
+  border-radius: 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+/* ── Sections ───────────────────────────────────────────────────────────── */
+
+.settings-section {
+  padding-top: 20px;
+  margin-top: 20px;
+  border-top: 1px solid rgba(26, 16, 96, 0.12);
+}
+
+.settings-section:first-of-type { padding-top: 0; margin-top: 0; border-top: none; }
+
+.settings-section-title {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1a1060;
+}
+
+.settings-section-hint {
+  margin: 0 0 14px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #524c63;
+}
+
+/* ── Email form ─────────────────────────────────────────────────────────── */
+
+.settings-email-form {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.settings-input {
+  flex: 1;
+  min-width: 200px;
+  padding: 10px 13px;
+  font-size: 0.92rem;
+  color: #1a1060;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1.5px solid rgba(255, 255, 255, 0.9);
+  border-radius: 10px;
+  outline: none;
+  box-shadow: 0 0 0 1px rgba(26, 16, 96, 0.12), inset 0 1.5px 4px rgba(0, 0, 0, 0.06);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.settings-input:focus {
+  border-color: rgba(108, 99, 255, 0.6);
+  box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.16);
+}
+
+.settings-input::placeholder { color: #8e8a9c; }
+
+.settings-btn {
+  padding: 10px 20px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.1s, filter 0.15s, color 0.15s;
+}
+
+.settings-btn:disabled { opacity: 0.45; cursor: default; }
+.settings-btn:not(:disabled):active { transform: translateY(1px); }
+
+.settings-btn--primary {
+  color: #ffffff;
+  border: none;
+  background: #5b52e8;
+  box-shadow:
+    0 3px 11px rgba(68, 61, 187, 0.34),
+    inset 0 2px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -2.5px 0 rgba(0, 0, 0, 0.22);
+}
+
+.settings-btn--primary:not(:disabled):hover { filter: brightness(1.08); transform: translateY(-1px); }
+
+/* ── Verification state ─────────────────────────────────────────────────── */
+
+.settings-verify-state {
+  margin: 12px 0 0;
+  padding: 9px 13px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  border-radius: 9px;
+}
+
+.settings-verify-state--ok {
+  color: #14532d;
+  background: rgba(190, 235, 205, 0.6);
+  border: 1px solid rgba(60, 150, 90, 0.36);
+}
+
+.settings-verify-state--pending {
+  color: #6b4300;
+  background: rgba(253, 235, 195, 0.7);
+  border: 1px solid rgba(200, 150, 40, 0.36);
+}
+
+.settings-link-btn {
+  margin-left: 6px;
+  padding: 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #4b44cc;
+  background: none;
+  border: none;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.settings-link-btn:hover { color: #2f2a8f; }
+
+/* ── Toggles ────────────────────────────────────────────────────────────── */
+
+.settings-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 11px 13px;
+  border-radius: 11px;
+  cursor: pointer;
+  transition: background 0.13s;
+}
+
+.settings-toggle:hover { background: rgba(255, 255, 255, 0.55); }
+
+.settings-toggle input[type="checkbox"] {
+  margin-top: 2px;
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+  accent-color: #4b44cc;
+  cursor: pointer;
+}
+
+.settings-toggle input[type="checkbox"]:disabled { cursor: default; }
+
+.settings-toggle-body { display: flex; flex-direction: column; gap: 2px; }
+
+.settings-toggle-label {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1a1060;
+}
+
+.settings-toggle-hint {
+  font-size: 12px;
+  line-height: 1.45;
+  color: #524c63;
+}
+
+.settings-toggle--master {
+  margin-bottom: 6px;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(26, 16, 96, 0.1);
+}
+
+.settings-toggle-group { padding-left: 14px; border-left: 2px solid rgba(26, 16, 96, 0.1); }
+
+/* Dimmed, not hidden — the settings stay readable while the master switch is
+   off, so it is obvious what will resume when it is turned back on. */
+.settings-toggle-group--muted { opacity: 0.5; }
+
+/* ── Feedback ───────────────────────────────────────────────────────────── */
+
+.settings-status,
+.settings-error,
+.settings-loading {
+  margin: 16px 0 0;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.settings-status  { color: #14532d; }
+.settings-error   { color: #b71c1c; }
+.settings-loading { color: #524c63; }
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-btn, .settings-toggle { transition: none; }
+  .settings-btn:hover { transform: none; }
+}
+
+/* ── Site background picker ─────────────────────────────────────────────── */
+
+.settings-bg-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.settings-bg-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 7px;
+  border-radius: var(--radius-md, 12px);
+  background: var(--surface-3, rgba(255, 255, 255, 0.86));
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  box-shadow: var(--raise-1);
+  transition: transform var(--dur-fast, 0.13s) var(--ease-spring), box-shadow 0.15s;
+}
+
+.settings-bg-choice:hover { transform: translateY(-2px); box-shadow: var(--raise-2); }
+.settings-bg-choice:active { transform: translateY(0); }
+
+.settings-bg-choice--selected {
+  border-color: var(--accent-fill, #5b52e8);
+  box-shadow: 0 0 0 2px var(--accent-fill, #5b52e8), var(--raise-1);
+}
+
+/* The swatch is the label: a wallpaper is not something words convey. */
+.settings-bg-swatch {
+  display: block;
+  height: 62px;
+  border-radius: var(--radius-sm, 8px);
+  background-color: var(--page-bg, #ece9e2);
+  background-repeat: repeat;
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.settings-bg-name {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink, #1a1060);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Code block preferences ─────────────────────────────────────────────── */
+
+.settings-code-controls {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin-bottom: 14px;
+}
+
+.settings-code-field { display: flex; flex-direction: column; gap: 6px; min-width: 190px; }
+
+.settings-code-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink, #1a1060);
+}
+
+.settings-code-size {
+  font-weight: 400;
+  color: var(--ink-soft, #524c63);
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-select {
+  padding: 8px 11px;
+  font-size: 0.9rem;
+  color: var(--ink, #1a1060);
+  background: var(--surface-3, rgba(255, 255, 255, 0.86));
+  border: 1.5px solid rgba(255, 255, 255, 0.9);
+  border-radius: var(--radius-sm, 10px);
+  outline: none;
+  cursor: pointer;
+  box-shadow: 0 0 0 1px var(--hairline), inset 0 1.5px 3px rgba(0, 0, 0, 0.05);
+}
+
+.settings-select:focus { border-color: rgba(108, 99, 255, 0.6); box-shadow: var(--focus-ring); }
+
+.settings-range { width: 100%; accent-color: var(--accent-fill, #5b52e8); cursor: pointer; }
+
+/* The sample uses the same custom properties as a real code block, so what is
+   shown here is exactly what a post will render. */
+.settings-code-sample {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: var(--radius-md, 10px);
+  background: #1f1f1f;
+  color: #d4d4d4;
+  border: 1px solid #303030;
+  overflow-x: auto;
+  font-family: var(--code-font, ui-monospace, Menlo, Consolas, monospace);
+  font-size: var(--code-font-size, 13px);
+  line-height: 1.55;
+  font-variant-ligatures: contextual;
+}
+
+.settings-code-sample code { font: inherit; color: inherit; }

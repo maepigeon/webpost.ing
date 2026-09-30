@@ -501,7 +501,7 @@ export default function MessagesPage() {
                 )
               ) : (
                 <button className="messages-thread-title"
-                  onClick={() => activeConv && navigate(`/users/${activeConv.other_username}`)}>
+                  onClick={() => activeConv && navigate(`/${activeConv.other_username}`)}>
                   {activeConv?.other_username}
                 </button>
               )}

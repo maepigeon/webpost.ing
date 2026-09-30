@@ -34,19 +34,55 @@
     margin: 2px;
 }
 
-/* Desktop-only cluster */
-.nav-desktop-group {
+/* ── Overflow layout ────────────────────────────────────────────────────────
+   The bar shows as many items as fit and moves the rest into the menu, at every
+   width. Widths are measured in JS (useOverflowItems), because a breakpoint
+   cannot know how wide these labels are — the old fixed split hid the whole
+   desktop cluster below 860px whether or not it would have fitted. */
+
+.nav-items {
     display: inline-flex;
-    flex-wrap: wrap;
     align-items: center;
     gap: 2px;
+    flex-wrap: nowrap;
+    min-width: 0;
+    overflow: hidden;
 }
 
-/* Hamburger wrapper (mobile only — hidden on desktop) */
+.nav-item { display: inline-flex; align-items: center; flex-shrink: 0; }
+
+.nav-fixed {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+    flex-shrink: 0;
+    /* Clear of an overlay scrollbar, which sits on top of the content on macOS
+       and was clipping the last few characters of the greeting. */
+    padding-right: 2px;
+    min-width: 0;
+}
+
+/* Measured, never shown. Off-screen rather than display:none, because a hidden
+   element has no width to measure. */
+.nav-measure {
+    position: absolute;
+    top: -9999px;
+    left: -9999px;
+    visibility: hidden;
+    pointer-events: none;
+    display: flex;
+    gap: 2px;
+    white-space: nowrap;
+}
+
+/* Shown whenever something did not fit, at any width. */
 .nav-hamburger-wrap {
-    display: none;
+    display: block;
     position: relative;
 }
+
+.nav-popup-item { display: block; }
 
 /* ── Hamburger button ──────────────────────────────────────────────────────── */
 .nav-hamburger-btn {
@@ -166,15 +202,8 @@
         align-items: center;
     }
 
-    /* Left buttons: compact */
-    .nav-left-group .navButton,
-    .nav-left-group a .navButton { padding: 5px 10px; font-size: 12px; }
-
-    /* Hide desktop-only items */
-    .nav-desktop-group { display: none; }
-
-    /* Show hamburger (logged-in) and login button (logged-out), both pushed right */
-    .nav-hamburger-wrap { display: block; margin-left: auto; }
-    .nav-mobile-login   { display: inline-flex; margin-left: auto; }
+    /* Compact buttons so more of them fit before overflowing. */
+    .nav-items .navButton,
+    .nav-items a .navButton { padding: 5px 10px; font-size: 12px; }
 }
 

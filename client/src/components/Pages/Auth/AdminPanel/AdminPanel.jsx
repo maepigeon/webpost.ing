@@ -11,6 +11,7 @@ import {
 } from '../../Posts/BasicTextPostServerApi.js';
 import { PasswordRequirements } from '../Registration/Registration.jsx';
 import './AdminPanel.css';
+import { ADMIN_GET_REPORTS, ADMIN_UPDATE_REPORT } from '../../Posts/BasicTextPostServerApi.js';
 
 function fmt(bytes) {
   if (bytes < 0) return 'unlimited';
@@ -28,6 +29,9 @@ export default function AdminPanel() {
   const { confirm } = useDialog();
   const [isAdmin, setIsAdmin] = useState(null);
   const [tab, setTab] = useState('users');
+  const [reports, setReports] = useState([]);
+  const [reportOpenCount, setReportOpenCount] = useState(0);
+  const [reportFilter, setReportFilter] = useState('open');
   const [users, setUsers] = useState([]);
   const [stats, setStats] = useState(null);
   const [roleLimits, setRoleLimits] = useState([]);
@@ -67,6 +71,7 @@ export default function AdminPanel() {
     if (tab === 'flagged') ADMIN_GET_FLAGGED().then(setFlagged).catch(() => {});
     if (tab === 'security') ADMIN_GET_INVITE_CODES().then(setInviteCodes).catch(() => {});
     if (tab === 'settings') ADMIN_GET_SETTINGS().then(d => { setSettings(d); setSettingEdits({}); }).catch(() => {});
+    if (tab === 'reports') loadReports(reportFilter);
   }, [isAdmin, tab]);
 
   const flash = (m) => { setMsg(m); setTimeout(() => setMsg(''), 3000); };
@@ -144,18 +149,90 @@ export default function AdminPanel() {
       return dir * String(a[sortCol] ?? '').localeCompare(String(b[sortCol] ?? ''));
     });
 
+  const loadReports = (status) => {
+    ADMIN_GET_REPORTS(status)
+      .then(d => { setReports(d.reports || []); setReportOpenCount(d.openCount || 0); })
+      .catch(() => setReports([]));
+  };
+
+  const resolveReport = (id, status) => {
+    ADMIN_UPDATE_REPORT(id, status)
+      .then(() => { setMsg('Report updated.'); loadReports(reportFilter); })
+      .catch(() => setMsg('Could not update that report.'));
+  };
+
   return (
     <div className="admin-panel">
       <h1 className="admin-title">Admin Dashboard</h1>
       {msg && <div className="admin-flash">{msg}</div>}
 
       <div className="admin-tabs">
-        {['users', 'stats', 'limits', 'flagged', 'import', 'security', 'settings'].map(t => (
+        {['users', 'reports', 'stats', 'limits', 'flagged', 'import', 'security', 'settings'].map(t => (
           <button key={t} className={`admin-tab${tab === t ? ' admin-tab--active' : ''}`} onClick={() => setTab(t)}>
             {t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
         ))}
       </div>
+
+      {/* ── Reports tab ─────────────────────────────────────────────────── */}
+      {tab === 'reports' && (
+        <div className="admin-section">
+          <div className="admin-reports-header">
+            <h3 className="admin-section-title">
+              Reported posts
+              {reportOpenCount > 0 && <span className="admin-report-count">{reportOpenCount} open</span>}
+            </h3>
+            <div className="admin-report-filters">
+              {['open', 'resolved', 'dismissed', 'all'].map(f => (
+                <button
+                  key={f}
+                  className={`admin-report-filter${reportFilter === f ? ' admin-report-filter--active' : ''}`}
+                  onClick={() => { setReportFilter(f); loadReports(f); }}
+                >{f.charAt(0).toUpperCase() + f.slice(1)}</button>
+              ))}
+            </div>
+          </div>
+
+          {reports.length === 0 ? (
+            <p className="admin-empty">Nothing here.</p>
+          ) : (
+            <ul className="admin-report-list">
+              {reports.map(r => (
+                <li key={r.id} className={`admin-report admin-report--${r.status}`}>
+                  <div className="admin-report-main">
+                    <span className="admin-report-reason">{r.reason}</span>
+                    <a className="admin-report-post" href={`/${r.post_author}/${r.post_id}`}
+                       target="_blank" rel="noopener noreferrer">
+                      {r.post_title || `Post #${r.post_id}`}
+                    </a>
+                    <span className="admin-report-meta">
+                      by {r.post_author} · reported by {r.reporter} ·{' '}
+                      {new Date(r.created_at).toLocaleString()}
+                    </span>
+                    {r.details && <p className="admin-report-details">{r.details}</p>}
+                    {r.resolved_by && (
+                      <span className="admin-report-meta">
+                        {r.status} by {r.resolved_by}
+                      </span>
+                    )}
+                  </div>
+                  <div className="admin-report-actions">
+                    {r.status !== 'resolved' && (
+                      <button className="admin-btn" onClick={() => resolveReport(r.id, 'resolved')}>Resolve</button>
+                    )}
+                    {r.status !== 'dismissed' && (
+                      <button className="admin-btn" onClick={() => resolveReport(r.id, 'dismissed')}>Dismiss</button>
+                    )}
+                    {r.status !== 'open' && (
+                      <button className="admin-btn" onClick={() => resolveReport(r.id, 'open')}>Reopen</button>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {/* ── Users tab ───────────────────────────────────────────────────── */}
       {tab === 'users' && (
@@ -175,7 +252,7 @@ export default function AdminPanel() {
             <span className="admin-count">{filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''}</span>
           </div>
 
-          <table className="admin-table">
+          <div className="admin-table-scroll"><table className="admin-table">
             <thead>
               <tr>
                 <th className="admin-th-sort" onClick={() => sortUser('username')}>Username{sortArrow('username')}</th>
@@ -197,7 +274,7 @@ export default function AdminPanel() {
                   u.role === 'frozen' ? 'admin-row--frozen' : '',
                 ].filter(Boolean).join(' ')}>
                   <td>
-                    <Link to={`/users/${u.username}`} className="admin-user-link">{u.username}</Link>
+                    <Link to={`/${u.username}`} className="admin-user-link">{u.username}</Link>
                   </td>
                   <td>
                     <select value={u.role || 'user'} onChange={e => setRole(u.username, e.target.value)}
@@ -224,7 +301,7 @@ export default function AdminPanel() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </div>
       )}
 
@@ -265,7 +342,7 @@ export default function AdminPanel() {
       {tab === 'limits' && (
         <div>
           <p className="admin-hint">Set default limits for each user role. Use -1 for unlimited.</p>
-          <table className="admin-table">
+          <div className="admin-table-scroll"><table className="admin-table">
             <thead>
               <tr><th>Role</th><th>Max Storage (bytes)</th><th>Max Posts/Day</th><th></th></tr>
             </thead>
@@ -294,7 +371,7 @@ export default function AdminPanel() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </div>
       )}
 
@@ -305,7 +382,7 @@ export default function AdminPanel() {
           {flagged.length === 0
             ? <p className="admin-empty">No flagged users.</p>
             : (
-              <table className="admin-table">
+              <div className="admin-table-scroll"><table className="admin-table">
                 <thead>
                   <tr><th>Username</th><th>Posts Today</th><th>Total Posts</th><th>Storage</th><th>Uploads</th><th>Actions</th></tr>
                 </thead>
@@ -321,7 +398,7 @@ export default function AdminPanel() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table></div>
             )
           }
         </div>
@@ -428,7 +505,7 @@ export default function AdminPanel() {
             {inviteCodes.length === 0
               ? <p className="admin-empty">No active invite codes.</p>
               : (
-                <table className="admin-table">
+                <div className="admin-table-scroll"><table className="admin-table">
                   <thead>
                     <tr><th>Code</th><th>Created</th><th>Expires</th><th>Used by</th><th></th></tr>
                   </thead>
@@ -468,7 +545,7 @@ export default function AdminPanel() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></div>
               )
             }
           </div>
@@ -481,7 +558,7 @@ export default function AdminPanel() {
           <p style={{ fontSize: 13, color: '#666', marginBottom: 16 }}>
             These settings take effect immediately. Use -1 for unlimited.
           </p>
-          <table className="admin-table">
+          <div className="admin-table-scroll"><table className="admin-table">
             <thead><tr><th>Setting</th><th>Value</th><th>Action</th></tr></thead>
             <tbody>
               {Object.entries(settings).map(([key, val]) => (
@@ -509,7 +586,7 @@ export default function AdminPanel() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </div>
       )}
     </div>

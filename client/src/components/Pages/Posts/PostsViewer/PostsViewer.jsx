@@ -1,17 +1,19 @@
-import { useState, useEffect, useRef, useCallback, React} from 'react';
-import {AUTHORIZE_SESSION, READ_POSTS_BY_USER, GET_USER_BACKGROUND, UPDATE_USER_BACKGROUND, GET_USER_BIO, UPDATE_USER_BIO, GET_USER_BIO_LINKS, UPDATE_USER_BIO_LINKS, GET_USER_STORAGE, SEND_MESSAGE, GET_FOLLOWERS, GET_FOLLOWING, GET_BLOCK_MESSAGE_STATUS, BLOCK_MESSAGES, UNBLOCK_MESSAGES, EXPORT_MY_DATA, GET_PINNED_POST, GET_USER_AVATAR, POST_USER_AVATAR, GET_USER_ONLINE} from '../BasicTextPostServerApi.js'
+import { useState, useEffect, useRef, useCallback } from 'react';
+import {AUTHORIZE_SESSION, READ_POSTS_BY_USER, GET_USER_BACKGROUND, GET_USER_BIO, UPDATE_USER_BIO, GET_USER_BIO_LINKS, UPDATE_USER_BIO_LINKS, GET_USER_STORAGE, GET_FOLLOWERS, GET_FOLLOWING, GET_BLOCK_MESSAGE_STATUS, BLOCK_MESSAGES, UNBLOCK_MESSAGES, EXPORT_MY_DATA, GET_PINNED_POST, GET_USER_AVATAR, POST_USER_AVATAR, GET_USER_ONLINE} from '../BasicTextPostServerApi.js'
 import ProfilePostList from './ProfilePostList.jsx';
 import { IMAGES_BASE_URL } from '../../../../config.js';
 import BasicTextPost from '../PostRenderer/BasicTextPost/BasicTextPost.jsx';
-import PatternPicker from '../../../PatternPicker/PatternPicker.jsx';
 import FollowButton from '../../../Social/FollowButton.jsx';
 import FollowListModal from '../../../Social/FollowListModal.jsx';
 import AvatarPopup from '../../../Social/AvatarPopup.jsx';
 import { patternToStyle } from '../../../PatternPicker/patterns.js';
+import './ProfileEditor.css';
 import { useDialog } from '../../../Dialog/Dialog.jsx';
 import '../PostWindow.css';
 import {useParams, Link, useNavigate} from "react-router-dom";
 import { usePageTitle } from '../../../../utils/usePageTitle.js';
+import { describeUploadError } from '../../../../utils/responsiveImage.js';
+import { GET_PROFILE_HEADER } from '../BasicTextPostServerApi.js';
 
 function Heading(props) {
  if (props.username != null && props.username != "") {
@@ -93,27 +95,27 @@ function hasModifyPermissions(viewedUser) {
 
 // Loads a view of title cards for all posts by the user specified in the url
 function PostsViewer() {
-    const { confirm, linkWarning } = useDialog();
+    const { confirm, alert, linkWarning } = useDialog();
     const [postsArray, setPostsArray] = useState([]);
     const [hasMore, setHasMore] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
     const offsetRef = useRef(0);
     const PAGE_SIZE = 20;
     const [bgPattern, setBgPattern] = useState('');
-    const savedBgRef = useRef(''); // tracks what's actually saved to backend
-    const [showBgPicker, setShowBgPicker] = useState(false);
-    const [bgSaveError, setBgSaveError] = useState('');
+    // Banner image behind the header card, and how text over it is coloured.
+    const [header, setHeader] = useState({ headerPath: null, headerInk: 'auto' });
     const [bio, setBio] = useState('');
     const [editingBio, setEditingBio] = useState(false);
     const [bioInput, setBioInput] = useState('');
     const [bioError, setBioError] = useState('');
     const [bioLinks, setBioLinks] = useState([]);
     const [editingLinks, setEditingLinks] = useState(false);
-    const [linksInput, setLinksInput] = useState([{ label: '', url: '' }, { label: '', url: '' }, { label: '', url: '' }]);
+    // A list the user grows and shrinks, rather than three fixed slots. Ten is
+    // the server's cap.
+    const MAX_BIO_LINKS = 10;
+    const [linksInput, setLinksInput] = useState([{ label: '', url: '' }]);
     const [linksError, setLinksError] = useState('');
     const [storage, setStorage] = useState(null);
-    const [showMessageForm, setShowMessageForm] = useState(false);
-    const [messageText, setMessageText] = useState('');
     const [followModal, setFollowModal] = useState(null); // 'followers' | 'following' | null
     const [followList, setFollowList] = useState([]);
     const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 });
@@ -125,7 +127,6 @@ function PostsViewer() {
     const [onlineStatus, setOnlineStatus] = useState(null); // { online, lastSeen }
     const [showAvatarPopup, setShowAvatarPopup] = useState(false);
     const avatarInputRef = useRef(null);
-    const bgPickerRef = useRef(null);
     const sentinelRef = useRef(null);
     const { username } = useParams();
     usePageTitle(username ? `${username}'s profile` : null);
@@ -150,7 +151,10 @@ function PostsViewer() {
       offsetRef.current = 0;
       setHasMore(true);
       loadPosts(true);
-      GET_USER_BACKGROUND(username).then(p => { const v = p || ''; setBgPattern(v); savedBgRef.current = v; }).catch(() => {});
+      GET_USER_BACKGROUND(username).then(p => setBgPattern(p || '')).catch(() => {});
+      GET_PROFILE_HEADER(username)
+        .then(d => setHeader({ headerPath: d.headerPath || null, headerInk: d.headerInk || 'auto' }))
+        .catch(() => {});
       GET_USER_BIO(username).then(b => setBio(b || '')).catch(() => {});
       GET_USER_BIO_LINKS(username).then(d => {
         const links = Array.isArray(d) ? d : (typeof d === 'string' ? JSON.parse(d) : []);
@@ -188,14 +192,7 @@ function PostsViewer() {
     }, [hasMore, loadingMore, loadPosts]);
 
     // Close wallpaper picker when clicking outside
-    useEffect(() => {
-      if (!showBgPicker) return;
-      const handleOutside = (e) => {
-        if (bgPickerRef.current && !bgPickerRef.current.contains(e.target)) closeBgPicker();
-      };
-      document.addEventListener('mousedown', handleOutside);
-      return () => document.removeEventListener('mousedown', handleOutside);
-    }, [showBgPicker]);
+
 
     // Apply profile page background to body
     useEffect(() => {
@@ -212,6 +209,9 @@ function PostsViewer() {
       };
     }, [bgPattern]);
 
+
+
+
     async function openFollowModal(type) {
       try {
         const list = type === 'followers' ? await GET_FOLLOWERS(username) : await GET_FOLLOWING(username);
@@ -220,36 +220,8 @@ function PostsViewer() {
       } catch { setFollowList([]); setFollowModal(type); }
     }
 
-    function handleBgPreview(pattern) {
-      setBgPattern(pattern); // live preview, no save
-    }
 
-    function handleBgChange(pattern) {
-      setBgPattern(pattern);
-      savedBgRef.current = pattern;
-      setBgSaveError('');
-      UPDATE_USER_BACKGROUND(username, pattern).catch(err => {
-        const msg = err?.response?.data || err?.message || 'Unknown error';
-        setBgSaveError(`Wallpaper save failed: ${msg}`);
-        console.error('Failed to save background:', err);
-      });
-    }
 
-    function closeBgPicker() {
-      // Revert to last saved value if the user previewed but didn't Apply
-      setBgPattern(savedBgRef.current);
-      setShowBgPicker(false);
-    }
-
-    async function sendMessage() {
-      const text = messageText.trim();
-      if (!text) return;
-      try {
-        await SEND_MESSAGE(username, text);
-        setMessageText('');
-        setShowMessageForm(false);
-      } catch { alert('Failed to send message.'); }
-    }
 
     function saveLinks() {
       setLinksError('');
@@ -286,7 +258,15 @@ function PostsViewer() {
           />
         )}
         <div className="postsViewerContainer">
-          <div className="profile-header-card">
+          <div
+            className={`profile-header-card${header.headerPath ? ' profile-header-card--image' : ''}${
+              header.headerPath ? ` profile-header-card--ink-${header.headerInk}` : ''}`}
+            style={header.headerPath ? { backgroundImage: `url(${IMAGES_BASE_URL}${header.headerPath})` } : undefined}
+          >
+            {/* A scrim under the text, not over the image as a whole: it keeps
+                the photo legible while guaranteeing the name and bio stay
+                readable whatever the image behind them. */}
+            {header.headerPath && <span className="profile-header-scrim" aria-hidden="true" />}
             {/* Avatar */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 8 }}>
               <div style={{ position: 'relative', display: 'inline-block' }}>
@@ -307,7 +287,7 @@ function PostsViewer() {
                     <div
                       onClick={() => setShowAvatarPopup(true)}
                       style={{ width: 96, height: 96, borderRadius: '50%',
-                                background: 'linear-gradient(145deg, #d8d0f8 0%, #9c7ed8 55%, #7050b8 100%)',
+                                background: '#9c7ed8',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 fontSize: 36, fontWeight: 800, color: '#fff',
                                 border: '3px solid rgba(255,255,255,0.9)',
@@ -357,8 +337,7 @@ function PostsViewer() {
                         const relativePath = typeof path === 'string' ? path : path?.avatarPath || '';
                         setAvatar(relativePath);
                       } catch (err) {
-                        const msg = err?.response?.data;
-                        alert(typeof msg === 'string' ? msg : 'Avatar upload failed.');
+                        alert(describeUploadError(err), 'Upload failed');
                       }
                       e.target.value = '';
                     }}
@@ -407,37 +386,63 @@ function PostsViewer() {
 
             {/* Bio links display / edit form */}
             {editingLinks ? (
-              <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+              <div className="profile-links-editor">
                 {linksInput.map((l, i) => (
-                  <div key={i} style={{ display: 'flex', gap: '6px', width: '100%', maxWidth: '480px' }}>
+                  <div key={i} className="profile-link-row">
                     <input
+                      className="profile-link-input profile-link-input--label"
                       value={l.label}
                       onChange={e => setLinksInput(prev => prev.map((x, j) => j === i ? { ...x, label: e.target.value } : x))}
                       placeholder="Personal website, Instagram…"
                       maxLength={50}
-                      style={{ flex: '0 0 160px', padding: '5px 8px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '13px', boxSizing: 'border-box' }}
+                      aria-label={`Link ${i + 1} label`}
                     />
                     <input
+                      className="profile-link-input"
                       value={l.url}
                       onChange={e => setLinksInput(prev => prev.map((x, j) => j === i ? { ...x, url: e.target.value } : x))}
                       placeholder="https://..."
                       maxLength={500}
-                      style={{ flex: 1, padding: '5px 8px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '13px', boxSizing: 'border-box' }}
+                      aria-label={`Link ${i + 1} address`}
                     />
+                    <button
+                      type="button"
+                      className="profile-link-remove"
+                      title="Remove this link"
+                      aria-label={`Remove link ${i + 1}`}
+                      onClick={() => setLinksInput(prev =>
+                        // Never leave zero rows: an empty editor gives the user
+                        // nothing to type into and no obvious way forward.
+                        prev.length === 1 ? [{ label: '', url: '' }] : prev.filter((_, j) => j !== i))}
+                    >×</button>
                   </div>
                 ))}
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button type="button" onClick={saveLinks}>Save</button>
-                  <button type="button" onClick={() => { setEditingLinks(false); setLinksError(''); }}>Cancel</button>
+
+                <div className="profile-links-actions">
+                  <button
+                    type="button"
+                    className="profile-link-add"
+                    disabled={linksInput.length >= MAX_BIO_LINKS}
+                    onClick={() => setLinksInput(prev => [...prev, { label: '', url: '' }])}
+                  >
+                    + Add link
+                  </button>
+                  <span className="profile-links-count">
+                    {linksInput.length} of {MAX_BIO_LINKS}
+                  </span>
+                  <span className="profile-links-spacer" />
+                  <button type="button" className="edit-bio-btn" onClick={saveLinks}>Save</button>
+                  <button type="button" className="edit-bio-btn"
+                          onClick={() => { setEditingLinks(false); setLinksError(''); }}>Cancel</button>
                 </div>
-                {linksError && <p style={{ margin: '4px 0 0', color: '#d32f2f', fontSize: '12px' }}>{linksError}</p>}
+                {linksError && <p className="profile-inline-error">{linksError}</p>}
               </div>
             ) : (
               bioLinks.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', marginTop: '6px' }}>
+                <div className="profile-bio-links">
                   {bioLinks.map((l, i) => (
                     <a key={i} href={l.url} target="_blank" rel="noopener noreferrer"
-                      style={{ fontSize: '13px', color: '#1a73e8', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', border: '1px solid #93c5fd', borderRadius: '12px', background: 'rgba(219,234,254,0.5)' }}
+                      className="profile-bio-link"
                       onClick={e => confirmExternal(e, l.url, linkWarning)}>
                       {l.label || l.url}
                     </a>
@@ -448,35 +453,34 @@ function PostsViewer() {
 
             {/* Owner action row: two groups separated by a divider */}
             {canEdit && !editingBio && !editingLinks && (
-              <div style={{ marginTop: '10px', display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap', alignItems: 'center' }}>
+              <div className="profile-owner-actions">
                 {/* Group 1: content */}
-                <div style={{ display: 'flex', gap: '4px' }}>
+                <div className="profile-owner-group">
                   <button type="button" className="edit-bio-btn" onClick={() => { setBioInput(bio); setEditingBio(true); }}>
                     {bio ? 'Edit bio' : '+ Bio'}
                   </button>
                   <button type="button" className="edit-bio-btn" onClick={() => {
-                    const padded = [...bioLinks];
-                    while (padded.length < 3) padded.push({ label: '', url: '' });
-                    setLinksInput(padded);
+                    // Open on what they have, plus one empty row to type into.
+                    setLinksInput(bioLinks.length ? [...bioLinks] : [{ label: '', url: '' }]);
                     setEditingLinks(true);
                   }}>
                     {bioLinks.length > 0 ? 'Edit links' : '+ Links'}
                   </button>
                 </div>
-                <div style={{ width: '1px', height: '18px', background: 'rgba(0,0,0,0.12)', borderRadius: '1px', flexShrink: 0 }} />
+                <div className="profile-owner-divider" />
                 {/* Group 2: appearance + export */}
-                <div style={{ display: 'flex', gap: '4px' }}>
-                  <span ref={bgPickerRef} style={{ position: 'relative', display: 'inline-block' }}>
-                    <button type="button" className="edit-bio-btn" onClick={() => showBgPicker ? closeBgPicker() : setShowBgPicker(true)}>
-                      {showBgPicker ? 'Hide wallpaper' : 'Wallpaper'}
-                    </button>
-                  </span>
+                <div className="profile-owner-group">
+                  {/* Appearance is configured in Settings; the profile is
+                      where the result is seen. */}
+                  <Link to="/settings" className="edit-bio-btn profile-appearance-link">
+                    Appearance
+                  </Link>
                   <button
                     type="button"
                     className="edit-bio-btn"
                     onClick={async () => {
                       try { await EXPORT_MY_DATA(username); }
-                      catch { alert('Export failed. Please try again.'); }
+                      catch { alert('Export failed. Please try again.', 'Export failed'); }
                     }}
                   >
                     Export data
@@ -484,15 +488,7 @@ function PostsViewer() {
                 </div>
               </div>
             )}
-            {canEdit && showBgPicker && (
-              <div
-                style={{ background: '#fff', border: '1px solid #ccc', borderRadius: '8px', padding: '12px', marginTop: '6px' }}
-                onMouseDown={e => e.stopPropagation()}
-              >
-                {bgSaveError && <p style={{ margin: '0 0 6px', color: '#d32f2f', fontSize: '12px' }}>{bgSaveError}</p>}
-                <PatternPicker value={bgPattern} onChange={handleBgChange} onPreview={handleBgPreview} username={username} />
-              </div>
-            )}
+
 
             {/* Followers / Following + Message / Block DMs — combined row */}
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '14px', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -514,7 +510,7 @@ function PostsViewer() {
                       try {
                         if (dmBlocked) { await UNBLOCK_MESSAGES(username); setDmBlocked(false); }
                         else { await BLOCK_MESSAGES(username); setDmBlocked(true); }
-                      } catch {}
+                      } catch { /* the button reflects the server state on reload */ }
                     }}
                   >
                     {dmBlocked ? 'Unblock DMs' : 'Block DMs'}

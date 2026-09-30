@@ -29,7 +29,7 @@ export default function FollowListModal({ title, users, onClose }) {
           {users.length === 0 && <li className="follow-modal-empty">Nobody yet.</li>}
           {users.map(username => (
             <li key={username} className="follow-modal-item">
-              <Link to={`/users/${username}`} className="follow-modal-link" onClick={onClose}>
+              <Link to={`/${username}`} className="follow-modal-link" onClick={onClose}>
                 {username}
               </Link>
             </li>

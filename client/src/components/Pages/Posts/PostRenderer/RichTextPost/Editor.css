@@ -264,7 +264,7 @@
 /* View post button — teal outline */
 .toolbar-btn-view {
   background: transparent;
-  color: #0d7c6b;
+  color: #0a6355;
   border: 1px solid #0d7c6b;
   font-weight: 500;
 }
@@ -276,49 +276,193 @@
 /* ── Collapsible toolbar sections ───────────────────────────────────────── */
 
 /* Each group is a pill-shaped card on the toolbar */
-.toolbar-collapsible {
+/* ── Toolbar groups and menus ─────────────────────────────────────────────
+   Groups open in a popover rather than expanding inline, so the row of
+   controls never reflows while you work. No decorative gradients here: the
+   only gradients are the vertical ones that give a button its raised edge. */
+
+.toolbar-menu { position: relative; display: inline-flex; }
+
+.toolbar-menu-trigger {
   display: inline-flex;
-  align-items: stretch;
-  background: rgba(0, 0, 0, 0.04);
-  border: 1px solid rgba(0, 0, 0, 0.13);
-  border-radius: 7px;
-  overflow: visible;
-  gap: 0;
-  position: relative;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #4b44cc;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(108, 99, 255, 0.26);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color 0.13s, background 0.13s, border-color 0.13s;
 }
 
-/* The label acts as a distinct left-panel header for the group */
-.toolbar-collapse-toggle {
+.toolbar-menu-trigger:hover {
+  color: #2f2a8f;
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(108, 99, 255, 0.45);
+}
+
+.toolbar-menu-trigger--open {
+  color: #ffffff;
+  background: #4b44cc;
+  border-color: transparent;
+}
+
+.toolbar-menu-caret { font-size: 9px; opacity: 0.75; }
+
+.toolbar-menu-panel {
+  position: absolute;
+  top: calc(100% + 7px);
+  left: 0;
+  z-index: 400;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 240px;
+  max-width: min(440px, 92vw);
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(20px) saturate(165%);
+  -webkit-backdrop-filter: blur(20px) saturate(165%);
+  border: 1.5px solid rgba(255, 255, 255, 0.92);
+  box-shadow:
+    0 12px 34px rgba(26, 16, 96, 0.2),
+    0 2px 8px rgba(0, 0, 0, 0.07),
+    inset 0 2px 0 rgba(255, 255, 255, 0.95);
+  animation: toolbar-menu-in 0.15s ease-out;
+}
+
+@keyframes toolbar-menu-in {
+  from { opacity: 0; transform: translateY(-5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.toolbar-menu-panel-label {
   font-size: 10px;
   font-weight: 700;
+  letter-spacing: 0.7px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #555;
-  background: rgba(0, 0, 0, 0.07);
-  border: none;
-  border-right: 1px solid rgba(0, 0, 0, 0.13);
-  border-radius: 7px 0 0 7px;
-  padding: 3px 8px;
-  cursor: pointer;
-  white-space: nowrap;
-  line-height: 1.4;
+  color: #6b6580;
+}
+
+.toolbar-menu-panel-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Mobile panel: every group expanded, labelled, stacked. */
+.toolbar-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(26, 16, 96, 0.1);
+}
+
+.toolbar-group:last-child { border-bottom: none; }
+
+.toolbar-group-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: #6b6580;
+}
+
+.toolbar-group-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Pushes the save controls to the right edge. */
+.toolbar-spacer { flex: 1 1 auto; min-width: 8px; }
+
+/* ── Post URL, under the title ────────────────────────────────────────────
+   Shown as plain text until you click to change it: the address is worth
+   seeing on every post, but the input only matters when editing it. */
+
+.post-slug-row {
   display: flex;
   align-items: center;
-  gap: 3px;
-  transition: background 0.12s;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: -2px 0 10px;
+  padding: 0 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
 }
 
-.toolbar-collapse-toggle:hover {
-  background: rgba(0, 0, 0, 0.12);
+.post-slug-static { word-break: break-all; }
+
+.post-slug-dim { color: #837e94; }
+
+.post-slug-value { color: #4b44cc; font-weight: 600; }
+
+.post-slug-edit,
+.post-slug-reset {
+  padding: 3px 9px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  color: #524c63;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(26, 16, 96, 0.16);
+  border-radius: 7px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.13s, background 0.13s, border-color 0.13s;
 }
 
-/* Items sit inside the card, visually separate from the label */
-.toolbar-collapsible-body {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 2px 5px;
+.post-slug-edit:hover,
+.post-slug-reset:hover {
+  color: #2f2a8f;
+  background: #ffffff;
+  border-color: rgba(108, 99, 255, 0.4);
 }
+
+.post-slug-label { color: #837e94; white-space: nowrap; }
+
+.post-slug-input {
+  flex: 1;
+  min-width: 140px;
+  padding: 5px 9px;
+  font-family: inherit;
+  font-size: 12px;
+  color: #1a1060;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1.5px solid rgba(108, 99, 255, 0.45);
+  border-radius: 7px;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.12);
+}
+
+.post-slug-input::placeholder { color: #a8a4b8; }
+
+/* ── Save status ────────────────────────────────────────────────────────── */
+
+.toolbar-save-status {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #14532d;
+  padding: 2px 6px;
+}
+
+.toolbar-save-status--error { color: #b71c1c; }
+
+.toolbar-view-link { text-decoration: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .toolbar-menu-panel { animation: none; }
+  .toolbar-menu-trigger { transition: none; }
+}
+
 
 /* ── Format buttons (bold/italic/underline/etc.) ─────────────────────────── */
 
@@ -335,9 +479,9 @@
 }
 
 .toolbar-fmt-btn.active {
-  background: rgba(26,115,232,0.15);
-  border-color: #1a73e8;
-  color: #1a73e8;
+  background: rgba(75,68,204,0.15);
+  border-color: #4b44cc;
+  color: #4b44cc;
 }
 
 .toolbar-fmt-btn:hover {
@@ -442,20 +586,37 @@
 
 /* ── Code blocks ─────────────────────────────────────────────────────────── */
 
+/* Code block — VS Code's Dark+ as the reference.
+
+   The family and size come from the reader's settings via custom properties
+   (see utils/codeDisplay.js), falling back to a proper monospace stack. The
+   old default was 'Courier New', which is the one monospace font almost nobody
+   chooses on purpose. */
 .editor-code {
   display: block;
-  background: #1e1e1e;
+  background: #1f1f1f;                       /* VS Code Dark+ editor background */
   color: #d4d4d4;
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 13px;
-  line-height: 1.5;
-  padding: 32px 16px 12px;
-  border-radius: 6px;
-  margin: 12px 0;
+  font-family: var(--code-font, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace);
+  font-size: var(--code-font-size, 13px);
+  line-height: 1.55;
+  font-variant-ligatures: contextual;        /* Fira Code and JetBrains Mono */
+  padding: 34px 16px 14px;
+  border-radius: 8px;
+  border: 1px solid #303030;
+  margin: 14px 0;
   overflow-x: auto;
   white-space: pre;
-  tab-size: 2;
+  tab-size: 4;                               /* VS Code's default */
   position: relative;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.22);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The active-line tint VS Code uses, applied on hover so a long block is easier
+   to track across without adding a permanent stripe. */
+.editor-code::selection,
+.editor-code *::selection {
+  background: #264f78;                       /* VS Code selection blue */
 }
 
 /* Line numbers */
@@ -473,7 +634,7 @@
   padding: 0 6px 12px 0;
   font-size: 12px;
   line-height: 1.5;
-  color: rgba(255,255,255,0.35);
+  color: rgba(255,255,255,0.62);
   background: rgba(0,0,0,0.25);
   border-right: 1px solid rgba(255,255,255,0.07);
   user-select: none;
@@ -485,7 +646,7 @@
 .line-nums-gutter span { display: block; }
 
 .editor-code.code-light .line-nums-gutter {
-  color: rgba(0,0,0,0.3);
+  color: rgba(0,0,0,0.55);
   background: rgba(0,0,0,0.05);
   border-right-color: rgba(0,0,0,0.1);
 }
@@ -503,30 +664,11 @@
 .editor-code.code-light .token-property   { color: #005cc5; }
 .editor-code.code-light .token-variable,
 .editor-code.code-light .token-attr       { color: #e36209; }
-.editor-code.code-light[data-highlight-language]::before {
-  background: rgba(0,0,0,0.05);
-  border-bottom-color: rgba(0,0,0,0.08);
-  color: #666;
-}
+
 
 
 /* Language label shown at the top of code blocks */
-.editor-code[data-highlight-language]::before {
-  content: attr(data-highlight-language);
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  padding: 4px 14px;
-  background: rgba(255,255,255,0.07);
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  border-radius: 6px 6px 0 0;
-  font-size: 11px;
-  font-family: system-ui, sans-serif;
-  color: #888;
-  text-transform: lowercase;
-  letter-spacing: 0.5px;
-}
+
 
 /* Code block hover controls panel — positioned fixed over the code block via JS */
 .code-hover-controls {
@@ -544,7 +686,7 @@
 
 .code-ctrl-btn {
   background: rgba(255,255,255,0.08);
-  color: #ccc;
+  color: #e6e6e6;
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 3px;
   padding: 1px 6px;
@@ -568,7 +710,7 @@
 
 .code-ctrl-select {
   background: rgba(255,255,255,0.1);
-  color: #ccc;
+  color: #e6e6e6;
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 3px;
   font-size: 11px;
@@ -596,7 +738,7 @@
   background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.1);
   cursor: pointer;
-  color: rgba(255,255,255,0.35);
+  color: rgba(255,255,255,0.62);
   font-family: system-ui, sans-serif;
   letter-spacing: 0.2px;
   opacity: 0.7;
@@ -618,7 +760,7 @@
 /* ── Links ───────────────────────────────────────────────────────────────── */
 
 .editor-link {
-  color: #1a73e8;
+  color: #4b44cc;
   text-decoration: underline;
   cursor: pointer;
 }
@@ -798,7 +940,7 @@
 
 /* ── Editor hashtag token ──────────────────────────────────────────────────── */
 .editor-hashtag-token {
-  color: #6c63ff;
+  color: #4b44cc;
   font-weight: 600;
   cursor: text;
 }
@@ -1013,13 +1155,13 @@
 
 .editor-modal-result-meta {
   font-size: 11px;
-  color: #888;
+  color: #5f5a70;
   margin-top: 1px;
 }
 
 .editor-modal-status {
   font-size: 13px;
-  color: #888;
+  color: #5f5a70;
   padding: 4px 0;
 }
 
@@ -1047,7 +1189,7 @@
 .editor-modal-btn--confirm:hover { background: #5a4cd0; }
 .editor-modal-btn--remove {
   background: rgba(220,60,60,0.1);
-  color: #c02020;
+  color: #a01515;
   border-color: rgba(200,40,40,0.25);
 }
 .editor-modal-btn--remove:hover { background: rgba(200,40,40,0.18); }
@@ -1057,3 +1199,194 @@
   border-color: rgba(0,0,0,0.1);
 }
 .editor-modal-btn--cancel:hover { background: rgba(0,0,0,0.11); }
+
+
+/* The language, always visible on the block itself.
+   The hover bar carries the controls, but it is only there while the pointer
+   is over the block — without this the language was shown nowhere the rest of
+   the time. */
+.editor-code[data-highlight-language]::before {
+  content: attr(data-highlight-language);
+  position: absolute;
+  top: 8px;
+  left: 14px;
+  font-family: var(--code-font, ui-monospace, Menlo, Consolas, monospace);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  color: #9d9d9d;
+  pointer-events: none;
+  text-transform: lowercase;
+}
+
+.editor-code.code-light[data-highlight-language]::before { color: #6e6e6e; }
+
+/* ── Code block control bar ───────────────────────────────────────────────
+   One line: the language name, then the actions. Positioned over the top-right
+   of the block and rendered into document.body, because anything inserted into
+   the contenteditable itself is removed by Lexical on its next reconcile. */
+
+.code-header-bar {
+  position: fixed;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: nowrap;
+  max-width: min(560px, 90vw);
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 4px 6px;
+  background: #2d2d2d;               /* VS Code tab bar */
+  border: 1px solid #3c3c3c;
+  border-radius: 8px;
+  font-size: 11.5px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+.code-header-bar::-webkit-scrollbar { display: none; }
+
+/* Pushes the actions to the right of the language name. */
+.code-header-spacer { flex: 0 0 6px; }
+
+/* The separators between action groups. */
+.code-ctrl-sep {
+  flex: 0 0 1px;
+  align-self: stretch;
+  margin: 2px 3px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* The language name is the control: click it to change it. */
+.code-lang-label {
+  padding: 3px 9px;
+  font-family: var(--code-font, ui-monospace, Menlo, Consolas, monospace);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #d4d4d4;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.code-lang-label:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.code-lang-label::after {
+  content: ' ▾';
+  opacity: 0.5;
+  font-size: 9px;
+}
+
+/* ── Responsive toolbar ───────────────────────────────────────────────────
+   One toolbar at every width: it fills the line and moves what will not fit
+   into an overflow menu. Replaces a fixed desktop/mobile split, which wasted a
+   wide window and crowded a narrow one because a breakpoint cannot know how
+   wide the controls actually are. */
+
+/* Two rows: the tools, then the save actions. The actions used to share the
+   tools row, where "Save draft", "Upload", "View post" and a status message ran
+   past the edge of the post area. */
+.toolbar-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.toolbar-responsive {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: nowrap;
+  overflow: visible;
+  min-width: 0;
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 6px;
+  border-top: 1px solid var(--hairline, rgba(26, 16, 96, 0.13));
+}
+
+.toolbar-item { display: inline-flex; align-items: center; flex-shrink: 0; }
+
+/* Measured once, never seen. Off-screen rather than display:none, because a
+   hidden element has no width to measure. */
+.toolbar-measure {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  display: flex;
+  gap: 4px;
+  white-space: nowrap;
+  top: -9999px;
+  left: -9999px;
+}
+
+.toolbar-overflow { position: relative; display: inline-flex; flex-shrink: 0; }
+
+.toolbar-overflow-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 28px;
+  border-radius: 8px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(108, 99, 255, 0.26);
+  transition: background var(--dur-fast, 0.13s), border-color var(--dur-fast, 0.13s);
+}
+
+.toolbar-overflow-trigger:hover {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(108, 99, 255, 0.45);
+}
+
+.toolbar-overflow-trigger--open {
+  background: var(--accent, #4b44cc);
+  border-color: transparent;
+}
+
+.toolbar-overflow-icon { display: flex; flex-direction: column; gap: 3px; }
+
+.toolbar-overflow-icon span {
+  display: block;
+  width: 15px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent, #4b44cc);
+}
+
+.toolbar-overflow-trigger--open .toolbar-overflow-icon span { background: #ffffff; }
+
+.toolbar-overflow-panel {
+  position: absolute;
+  top: calc(100% + 7px);
+  right: 0;
+  z-index: 400;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 220px;
+  max-width: min(460px, 92vw);
+  padding: 10px 12px;
+  border-radius: var(--radius-md, 14px);
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: var(--blur-glass, blur(20px) saturate(165%));
+  -webkit-backdrop-filter: var(--blur-glass, blur(20px) saturate(165%));
+  border: 1.5px solid rgba(255, 255, 255, 0.92);
+  box-shadow: var(--raise-3);
+}
+
+.toolbar-overflow-item { display: inline-flex; align-items: center; }

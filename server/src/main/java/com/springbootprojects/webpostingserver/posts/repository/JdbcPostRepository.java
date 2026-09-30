@@ -17,9 +17,14 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public class JdbcPostRepository implements PostRepository {
+
+    private static final Logger log = LoggerFactory.getLogger(JdbcPostRepository.class);
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -34,12 +39,13 @@ public class JdbcPostRepository implements PostRepository {
         p.setDate(rs.getTimestamp("date"));
         p.setBackgroundPattern(rs.getString("background_pattern"));
         p.setFolder(rs.getString("folder"));
+        p.setSlug(rs.getString("slug"));
         return p;
     };
 
     public List<Post> getPostsFromUsername(String username) {
         return jdbcTemplate.query(
-            "SELECT post.id, post.title, post.description, post.published, post.date, post.background_pattern, post.folder " +
+            "SELECT post.id, post.title, post.description, post.published, post.date, post.background_pattern, post.folder, post.slug " +
             "FROM posts post " +
             "INNER JOIN users_posts_junctions junction ON junction.post_id = post.id " +
             "INNER JOIN users selected_user ON selected_user.id = junction.user_id " +
@@ -57,10 +63,20 @@ public class JdbcPostRepository implements PostRepository {
     }
 
     @Override
+    /**
+     * Creates a post and records its author.
+     *
+     * Transactional because these are two statements: the row in `posts` and
+     * the ownership row in `users_posts_junctions`. Without it, a failure
+     * between them leaves a post with no author — invisible on every profile,
+     * failing every ownership check, so nobody can edit or delete it. Half the
+     * posts in one development database were in exactly that state.
+     */
+    @Transactional
     public int save(Post post, int userId) {
-        System.out.println("Saving post: " + post.getTitle() + " published: " + post.isPublished());
+        log.debug("Saving post \"{}\" (published={})", post.getTitle(), post.isPublished());
 
-        final String INSERT_SQL = "INSERT INTO posts (title, description, published, background_pattern, folder) VALUES(?,?,?,?,?) RETURNING \"id\";";
+        final String INSERT_SQL = "INSERT INTO posts (title, description, published, background_pattern, folder, slug) VALUES(?,?,?,?,?,?) RETURNING \"id\";";
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(
                 new PreparedStatementCreator() {
@@ -71,13 +87,13 @@ public class JdbcPostRepository implements PostRepository {
                         ps.setBoolean(3, post.isPublished());
                         ps.setString(4, post.getBackgroundPattern());
                         ps.setString(5, post.getFolder());
+                        ps.setString(6, post.getSlug());
                         return ps;
                     }
                 },
                 keyHolder);
         post.setId((int) keyHolder.getKey());
 
-        System.out.println("Saved post id=" + post.getId() + " for user=" + userId);
         jdbcTemplate.update(
             "INSERT INTO users_posts_junctions (\"post_id\", \"user_id\") VALUES(?,?);",
             post.getId(), userId);
@@ -88,23 +104,28 @@ public class JdbcPostRepository implements PostRepository {
     @Override
     public int update(Post post) {
         return jdbcTemplate.update(
-            "UPDATE posts SET title=?, description=?, published=?, background_pattern=?, folder=? WHERE id=?",
+            "UPDATE posts SET title=?, description=?, published=?, background_pattern=?, folder=?, slug=? WHERE id=?",
             post.getTitle(), post.getDescription(), post.isPublished(),
-            post.getBackgroundPattern(), post.getFolder(), post.getId());
+            post.getBackgroundPattern(), post.getFolder(), post.getSlug(), post.getId());
     }
 
     @Override
     public Post findById(Long id) {
         try {
             return jdbcTemplate.queryForObject(
-                "SELECT id, title, description, published, date, background_pattern, folder FROM posts WHERE id=?",
+                "SELECT id, title, description, published, date, background_pattern, folder, slug FROM posts WHERE id=?",
                 POST_MAPPER, id);
         } catch (IncorrectResultSizeDataAccessException e) {
             return null;
         }
     }
 
+    /**
+     * Transactional for the same reason as save: dropping the ownership row and
+     * then failing to drop the post would leave an authorless orphan.
+     */
     @Override
+    @Transactional
     public int deleteById(Long id) {
         jdbcTemplate.update("DELETE FROM users_posts_junctions WHERE post_id=?", id);
         return jdbcTemplate.update("DELETE FROM posts WHERE id=?", id);
@@ -113,21 +134,21 @@ public class JdbcPostRepository implements PostRepository {
     @Override
     public List<Post> findAll() {
         return jdbcTemplate.query(
-            "SELECT id, title, description, published, date, background_pattern, folder FROM posts",
+            "SELECT id, title, description, published, date, background_pattern, folder, slug FROM posts",
             POST_MAPPER);
     }
 
     @Override
     public List<Post> findByPublished(boolean published) {
         return jdbcTemplate.query(
-            "SELECT id, title, description, published, date, background_pattern, folder FROM posts WHERE published=?",
+            "SELECT id, title, description, published, date, background_pattern, folder, slug FROM posts WHERE published=?",
             POST_MAPPER, published);
     }
 
     @Override
     public List<Post> findByTitleContaining(String title) {
         return jdbcTemplate.query(
-            "SELECT id, title, description, published, date, background_pattern, folder FROM posts WHERE title ILIKE ?",
+            "SELECT id, title, description, published, date, background_pattern, folder, slug FROM posts WHERE title ILIKE ?",
             POST_MAPPER, "%" + title + "%");
     }
 

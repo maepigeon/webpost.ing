@@ -2,8 +2,9 @@ import { DecoratorNode, $getNodeByKey } from 'lexical';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { useState, useRef, useCallback } from 'react';
 import { IMAGES_BASE_URL } from '../../../../../config.js';
+import { prefixSrcset, adaptiveSizes } from '../../../../../utils/responsiveImage.js';
 
-function ImageComponent({ src, altText, nodeKey, alignment = 'center', width = null, editable = true }) {
+function ImageComponent({ src, altText, nodeKey, alignment = 'center', width = null, srcset = null, editable = true }) {
   const [editor] = useLexicalComposerContext();
   const [showControls, setShowControls] = useState(false);
   const imgRef = useRef(null);
@@ -134,10 +135,14 @@ function ImageComponent({ src, altText, nodeKey, alignment = 'center', width = n
         <img
           ref={imgRef}
           src={IMAGES_BASE_URL + src}
+          srcSet={prefixSrcset(srcset, IMAGES_BASE_URL)}
+          sizes={srcset ? adaptiveSizes() : undefined}
           alt={altText}
           className="editor-image"
           style={imgStyle}
           draggable={false}
+          loading="lazy"
+          decoding="async"
         />
         {editable && showControls && (
           <div className="editor-image-resize-handle" onMouseDown={startResize} />
@@ -152,19 +157,29 @@ export class ImageNode extends DecoratorNode {
   __altText;
   __alignment;
   __width;
+  /**
+   * Candidate renditions for an <img srcset>, e.g.
+   * "/uploads/a-480w.jpg 480w, /uploads/a-960w.jpg 960w, /uploads/a.jpg 2400w".
+   *
+   * Optional throughout. Posts written before responsive uploads existed have
+   * no srcset and render from __src alone, so nothing needs backfilling.
+   */
+  __srcset;
 
   static getType() { return 'image'; }
 
   static clone(node) {
-    return new ImageNode(node.__src, node.__altText, node.__alignment, node.__width, node.__key);
+    return new ImageNode(node.__src, node.__altText, node.__alignment, node.__width,
+                         node.__srcset, node.__key);
   }
 
-  constructor(src, altText, alignment = 'center', width = null, key) {
+  constructor(src, altText, alignment = 'center', width = null, srcset = null, key) {
     super(key);
     this.__src = src;
     this.__altText = altText;
     this.__alignment = alignment;
     this.__width = width;
+    this.__srcset = srcset;
   }
 
   static importJSON(serializedNode) {
@@ -173,11 +188,12 @@ export class ImageNode extends DecoratorNode {
       serializedNode.altText,
       serializedNode.alignment ?? 'center',
       serializedNode.width ?? null,
+      serializedNode.srcset ?? null,
     );
   }
 
   exportJSON() {
-    return {
+    const json = {
       type: 'image',
       version: 1,
       src: this.__src,
@@ -185,6 +201,10 @@ export class ImageNode extends DecoratorNode {
       alignment: this.__alignment,
       width: this.__width,
     };
+    // Only serialised when present, so documents from before responsive uploads
+    // round-trip byte-identical.
+    if (this.__srcset) json.srcset = this.__srcset;
+    return json;
   }
 
   createDOM() {
@@ -204,14 +224,15 @@ export class ImageNode extends DecoratorNode {
         nodeKey={this.__key}
         alignment={this.__alignment ?? 'center'}
         width={this.__width}
+        srcset={this.__srcset}
         editable={editable}
       />
     );
   }
 }
 
-export function $createImageNode(src, altText) {
-  return new ImageNode(src, altText);
+export function $createImageNode(src, altText, srcset = null) {
+  return new ImageNode(src, altText, 'center', null, srcset);
 }
 
 export function $isImageNode(node) {

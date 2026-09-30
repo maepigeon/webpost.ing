@@ -34,7 +34,7 @@
 
 .activity-back-link {
   font-size: 13px;
-  color: #1a73e8;
+  color: #4b44cc;
   text-decoration: none;
 }
 
@@ -63,9 +63,9 @@
 .activity-tab:hover { background: rgba(0,0,0,0.05); color: #222; }
 
 .activity-tab--active {
-  background: rgba(26,115,232,0.12);
-  border-color: #1a73e8;
-  color: #1a73e8;
+  background: rgba(75,68,204,0.12);
+  border-color: #4b44cc;
+  color: #4b44cc;
 }
 
 .activity-list {
@@ -100,7 +100,7 @@
 .activity-post-link {
   font-size: 13px;
   font-weight: 600;
-  color: #1a73e8;
+  color: #4b44cc;
   text-decoration: none;
 }
 
@@ -111,7 +111,7 @@
   background: rgba(0,0,0,0.07);
   border-radius: 4px;
   padding: 1px 6px;
-  color: #666;
+  color: #4f4a5c;
 }
 
 .activity-time {
@@ -138,27 +138,27 @@
 }
 
 .activity-score--pos { color: #2e7d32; }
-.activity-score--neg { color: #c62828; }
+.activity-score--neg { color: #a01515; }
 
-.activity-badge--draft { background: rgba(255,160,0,0.15); color: #b45309; }
+.activity-badge--draft { background: rgba(255,160,0,0.15); color: #7c3a02; }
 .activity-badge--orphan { background: rgba(180,0,0,0.1); color: #b71c1c; }
 
 .activity-reaction-emoji { font-size: 20px; }
 
 .activity-by {
   font-size: 12px;
-  color: #888;
+  color: #5f5a70;
 }
 
 .activity-empty {
-  color: #888;
+  color: #5f5a70;
   font-size: 14px;
   text-align: center;
   padding: 20px 0;
 }
 
 .activity-status {
-  color: #666;
+  color: #4f4a5c;
   font-size: 15px;
   text-align: center;
   padding: 40px 0;
@@ -184,7 +184,7 @@
 
 .activity-comment-preview {
   font-size: 12px;
-  color: #888;
+  color: #5f5a70;
   font-style: italic;
   flex-basis: 100%;
   margin-top: 2px;
@@ -195,7 +195,7 @@
 
 .activity-upload-size {
   font-size: 11px;
-  color: #888;
+  color: #5f5a70;
   flex-shrink: 0;
 }
 
@@ -220,10 +220,10 @@
 
 .activity-badge--deleted {
   background: rgba(229,115,115,0.15);
-  color: #c62828;
+  color: #a01515;
 }
 
 .activity-deletion-preview {
-  color: #888;
+  color: #5f5a70;
   font-style: italic;
 }

@@ -7,6 +7,7 @@ import {
 import { IMAGES_BASE_URL } from '../../../config.js';
 import { usePageTitle } from '../../../utils/usePageTitle.js';
 import './SearchPage.css';
+import { postPath } from '../../../utils/postUrl.js';
 
 function UserMiniCard({ username }) {
   const [avatarSrc, setAvatarSrc] = useState(null);
@@ -17,7 +18,7 @@ function UserMiniCard({ username }) {
   }, [username]);
 
   return (
-    <Link to={`/users/${username}`} className="search-user-card">
+    <Link to={`/${username}`} className="search-user-card">
       <div className="search-user-avatar">
         {avatarSrc
           ? <img src={avatarSrc} alt={username} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
@@ -231,7 +232,7 @@ export default function SearchPage() {
           <ul className="search-results">
             {hashtagPosts.map(p => (
               <li key={p.id} className="search-result-item">
-                <Link to={`/users/${p.username}/${p.id}`} className="search-result-link">
+                <Link to={postPath(p.username, p)} className="search-result-link">
                   <span style={{ fontWeight: 600 }}>{p.title}</span>
                   <span style={{ fontSize: 12, color: '#888', marginLeft: 8 }}>by {p.username}</span>
                 </Link>
@@ -249,7 +250,7 @@ export default function SearchPage() {
             <ul className="search-results">
               {results.slice(0, 5).map(username => (
                 <li key={username} className="search-result-item">
-                  <Link to={`/users/${username}`} className="search-result-link">{username}</Link>
+                  <Link to={`/${username}`} className="search-result-link">{username}</Link>
                 </li>
               ))}
             </ul>
@@ -265,7 +266,7 @@ export default function SearchPage() {
             <ul className="search-results">
               {postResults.slice(0, 5).map(p => (
                 <li key={p.id} className="search-result-item">
-                  <Link to={`/users/${p.username}/${p.id}`} className="search-result-link">
+                  <Link to={postPath(p.username, p)} className="search-result-link">
                     <span style={{ fontWeight: 600 }}>{p.title}</span>
                     <span style={{ fontSize: 12, color: '#888', marginLeft: 8 }}>by {p.username}</span>
                   </Link>
