@@ -1,0 +1,28 @@
+/* ── Grids on a profile ─────────────────────────────────────────────────────── */
+
+.profile-grids {
+  /* The same column as the post cards, so a grid never widens the profile. */
+  width: min(628px, calc(100vw - 32px));
+  max-width: 100%;
+  margin: 4px auto 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.profile-grid .tilegrid { margin: 0; }
+
+.profile-grids-bar { display: flex; align-items: center; gap: 10px; }
+.profile-grids .profile-grids-add {
+  height: 30px;
+  padding: 0 14px;
+  border: 1.5px dashed var(--th-accent, #111111);
+  border-radius: 4px;
+  /* A solid backing, so it reads on any wallpaper. */
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--th-accent, #111111);
+  font: 600 13px system-ui, sans-serif;
+  cursor: pointer;
+}
+.profile-grids .profile-grids-add:hover { background: #ffffff; }
+.profile-grids-note { font-size: 12px; color: var(--ink-soft); }
+.profile-grids-error { font-size: 12px; color: var(--danger); }

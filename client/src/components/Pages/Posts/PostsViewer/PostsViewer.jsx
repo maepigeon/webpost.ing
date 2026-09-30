@@ -16,6 +16,7 @@ import { describeUploadError } from '../../../../utils/responsiveImage.js';
 import { GET_PROFILE_HEADER } from '../BasicTextPostServerApi.js';
 import { useAuthorTheme } from '../../../PageTheme/PageTheme.jsx';
 import Icon from '../../../Icon/Icon.jsx';
+import ProfileGrids from '../../../TileArt/ProfileGrids.jsx';
 
 function Heading(props) {
  if (props.username != null && props.username != "") {
@@ -512,6 +513,7 @@ function PostsViewer() {
 
             {storage && <StorageBar storage={storage} />}
           </div>
+          <ProfileGrids username={username} canEdit={canEdit} />
           {pinnedPost && (
             <div className="PostContainer" style={{ position: 'relative' }}>
               <div style={{ position: 'absolute', top: '8px', left: '12px', zIndex: 1, fontSize: '11px', fontWeight: 700, color: '#888', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
