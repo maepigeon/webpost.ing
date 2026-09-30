@@ -7,6 +7,7 @@ import { useDialog } from '../../../../Dialog/Dialog.jsx';
 import { postPath } from '../../../../../utils/postUrl.js';
 import { gridOfPost } from '../../../../../utils/gridPost.js';
 import TileGrid from '../RichTextPost/TileGrid/TileGrid.jsx';
+import { postDateline } from '../../../../../utils/postDate.js';
 
 
 function BasicTextPost(props) {
@@ -123,13 +124,15 @@ function BasicTextPost(props) {
         }
     }
 
+    const dateline = postDateline(postdata.date);
+
     return (
         <div className="post basicTextPost">
             {currentPostMode === Modes.VIEW && (
                 <Link to={viewPath} className="post-card-overlay" aria-label={postdata.title} tabIndex={-1} />
             )}
             <div className="datestring">
-                <p>id: {postdata.id}, Date Uploaded: {postdata.date} (UTC)</p>
+                {dateline.text && <p><time dateTime={dateline.iso} title={dateline.full}>{dateline.text}</time></p>}
             </div>
             <div className="horizontalContentBox">
                 <div className="rightContent">

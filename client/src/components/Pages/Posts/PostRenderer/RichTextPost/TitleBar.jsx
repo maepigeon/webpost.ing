@@ -1,6 +1,7 @@
 
 import { Link } from 'react-router-dom';
 import './Title.css'
+import { postDateline } from '../../../../../utils/postDate.js';
 
 function stripHtml(str) {
     return (str || '').replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"');
@@ -52,11 +53,13 @@ function TitleBar(props) {
     }
 
 
+    const dateline = postDateline(postdata.date);
+
     // Returns the Title component
     return (
         <div className="post basicTextPost">
             <div className="datestring">
-                <p>id: {postdata.id}, Date Uploaded: {postdata.date} (UTC)</p>
+                {dateline.text && <p><time dateTime={dateline.iso} title={dateline.full}>{dateline.text}</time></p>}
              </div>
             <div className="horizontalContentBox">
                 <div className="rightContent">
@@ -65,9 +68,7 @@ function TitleBar(props) {
             </div>
             <div className="bottom-nav">
                 <div className="editor">
-                    <p>
-                        Published: {JSON.stringify(postdata.published)}
-                    </p>
+                    {postdata.id && !postdata.published && <p>Draft — only you can see it.</p>}
                 </div>
             </div>
         </div>
