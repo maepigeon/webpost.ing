@@ -125,8 +125,9 @@ body {
     font-size: 0.8rem;
 }
 
-/* Global button reset for this component */
-button {
+/* Buttons in the post card's own bars. This was a bare `button` rule, which
+   reached every button on every page. */
+.basicTextPost .bottom-nav button {
     margin-right: 5px;
     padding: 6px 14px;
     border-radius: 8px;

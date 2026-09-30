@@ -63,7 +63,8 @@ body {
     text-align: left;
 }
 
-button {
+/* Scoped to the card: as a bare `button` rule it reached every button in the app. */
+.basicTextPost .bottom-nav button {
     margin-right: 5px;
     padding: 10px;
     border-radius: 8px;
