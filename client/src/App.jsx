@@ -1,8 +1,8 @@
 import './App.css';
-import { useEffect } from 'react';
+import { useEffect, Fragment } from 'react';
 import { AUTHORIZE_SESSION, SEND_HEARTBEAT } from "./components/Pages/Posts/BasicTextPostServerApi"
 
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
 
 import Navbar from './components/Navbar/Navbar';
 import Login from './components/Pages/Auth/Login/Login'
@@ -33,7 +33,19 @@ import { DocumentThemeLayers } from './components/PageTheme/PageTheme.jsx';
 // Installed once at module load, before any component can issue a request.
 installSessionInterceptor();
 
+/**
+ * Starts the page afresh when its URL parameters change. Router reuses the
+ * mounted page when only a parameter changes — going from one profile to
+ * another, or from editing a post to a new one — so it kept the last page's
+ * state, and a slow reply for the old page could land in the new one.
+ */
+function Fresh({ children }) {
+  const params = useParams();
+  return <Fragment key={JSON.stringify(params)}>{children}</Fragment>;
+}
+
 function App() {
+  const location = useLocation();
   // Confirm the stored session is still good. Sessions live in memory on the
   // server, so a restart invalidates every one of them while the browser still
   // believes it is signed in; a 401 here is turned into a sign-out by the
@@ -66,12 +78,12 @@ function App() {
       <DocumentThemeLayers />
       <SiteBackground />
 
-      <AppErrorBoundary>
+      <AppErrorBoundary resetKey={location.pathname}>
 
       <Routes>
         <Route index element={ <Home />} />
-        <Route path="/editor" element={<RichTextEditor />} />
-        <Route path="/editor/:id" element={<RichTextEditor />} />
+        <Route path="/editor" element={<Fresh><RichTextEditor /></Fresh>} />
+        <Route path="/editor/:id" element={<Fresh><RichTextEditor /></Fresh>} />
         <Route path="/routes/Login" element={<Login />} />
         <Route path="/routes/Logout" element={<Logout />} />
         <Route path="/routes/AdminPanel" element={<AdminPanel />} />
@@ -79,7 +91,7 @@ function App() {
         <Route path="/inbox" element={<InboxPage />} />
         <Route path="/messages" element={<MessagesPage />} />
         <Route path="/search" element={<SearchPage />} />
-        <Route path="/activity/:username" element={<ActivityPage />} />
+        <Route path="/activity/:username" element={<Fresh><ActivityPage /></Fresh>} />
         <Route path="/settings" element={<SettingsPage />} />
         {/* Opened from links in emails, so these must work while signed out. */}
         <Route path="/verify-email" element={<EmailActionPage mode="verify" />} />
@@ -91,9 +103,9 @@ function App() {
             by specificity, and a literal segment always beats a dynamic one, so
             /settings can never be read as a profile called "settings".
             ReservedUsernames additionally stops such a name being registered. */}
-        <Route path="/:username" element={<PostsViewer />} />
-        <Route path="/:username/:id" element={<RichTextViewer />} />
-        <Route path="/:username/:id/discussion" element={<DiscussionPage />} />
+        <Route path="/:username" element={<Fresh><PostsViewer /></Fresh>} />
+        <Route path="/:username/:id" element={<Fresh><RichTextViewer /></Fresh>} />
+        <Route path="/:username/:id/discussion" element={<Fresh><DiscussionPage /></Fresh>} />
 
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>

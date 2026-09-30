@@ -29,6 +29,7 @@ import { CustomCodeNode, $createCustomCodeNode } from './CustomCodeNode.jsx';
 import { LinkNode, $createLinkNode, $isLinkNode, TOGGLE_LINK_COMMAND } from '@lexical/link';
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
 import { READ_POST, CREATE_POST, UPDATE_POST, GET_USER_FROM_POST, GET_POST_FEATURES, SET_REACTIONS_ENABLED, SET_DISCUSSION_ENABLED, SEARCH_POSTS } from '../../BasicTextPostServerApi.js';
+import { errorMessage } from '../../../../../utils/errorMessage.js';
 import { useDialog } from '../../../../Dialog/Dialog.jsx';
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ImageNode, $createImageNode } from './ImageNode.jsx';
@@ -1407,7 +1408,7 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
         .catch(err => {
           const code = err.response?.status;
           if (code === 401 || code === 403) showStatus('Not authorized to save.', true);
-          else showStatus('Save failed. Check your connection.', true);
+          else showStatus(errorMessage(err, 'Save failed. Check your connection.'), true);
         })
         .finally(() => setSaving(false));
     } else {
@@ -1420,8 +1421,8 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
           if (features && !features.discussionEnabled) SET_DISCUSSION_ENABLED(newId, false).catch(() => {});
           onSaved?.();
         })
-        .catch(() => {
-          showStatus('Failed to create post.', true);
+        .catch(err => {
+          showStatus(errorMessage(err, 'Failed to create post.'), true);
         })
         .finally(() => setSaving(false));
     }
@@ -1757,10 +1758,17 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
   );
 }
 
+const LOAD_TAG = 'webposting-load';
+
 function MyOnChangePlugin({ onChange }) {
   const [editor] = useLexicalComposerContext();
   useEffect(() => {
-    return editor.registerUpdateListener(({ editorState }) => {
+    // Only real edits count. Loading the post, focus and moving the caret are
+    // updates too, and used to mark a post as changed the moment it opened, so
+    // leaving an untouched post asked about unsaved changes.
+    return editor.registerUpdateListener(({ editorState, dirtyElements, dirtyLeaves, tags }) => {
+      if (tags.has(LOAD_TAG)) return;
+      if (dirtyElements.size === 0 && dirtyLeaves.size === 0) return;
       onChange(editorState);
     });
   }, [editor, onChange]);
@@ -1778,7 +1786,7 @@ function LoadEditorStatePlugin({ ready }) {
     const saved = localStorage.getItem("currentPostData");
     if (saved) {
       const state = editor.parseEditorState(saved);
-      editor.setEditorState(state);
+      editor.setEditorState(state, { tag: LOAD_TAG });
     }
   }, [editor, ready]);
   return null;
@@ -1876,6 +1884,12 @@ export default function RichTextEditor() {
     refreshPost();
   }, [refreshPost]);
 
+  // Settings saved with the post, not by themselves: changing one is an
+  // unsaved change like an edit to the text.
+  const changePattern = useCallback(v => { setBackgroundPattern(v); setIsDirty(true); }, []);
+  const changeFolder = useCallback(v => { setPostFolder(v); setIsDirty(true); }, []);
+  const changeSlug = useCallback(v => { setPostSlug(v); setIsDirty(true); }, []);
+
   // After a successful save, mark clean and note that at least one save has happened
   const handleSaved = useCallback(() => {
     savedOnceRef.current = true;
@@ -1922,6 +1936,7 @@ export default function RichTextEditor() {
                 const val = event.target.value ?? '';
                 titlehtml.current = val;
                 localStorage.setItem("currentPostTitle", val);
+                setIsDirty(true);
               }}
               editMode={true}
             />
@@ -1929,12 +1944,12 @@ export default function RichTextEditor() {
                 for "what will this post's address be". */}
             <PostSlugPlugin
               slug={postSlug}
-              onSlugChange={setPostSlug}
+              onSlugChange={changeSlug}
               username={postAuthor || me}
               titleRef={titlehtml}
               postId={id > 0 ? id : null}
             />
-            <ToolbarPlugin postid={id} backgroundPattern={backgroundPattern} onPatternChange={setBackgroundPattern} username={postAuthor || me} postPublished={postPublished} onPublishedChange={setPostPublished} features={features} onFeaturesChange={setFeatures} titleRef={titlehtml} onSaved={handleSaved} folder={postFolder} onFolderChange={setPostFolder} slug={postSlug} onSlugChange={setPostSlug} />
+            <ToolbarPlugin postid={id} backgroundPattern={backgroundPattern} onPatternChange={changePattern} username={postAuthor || me} postPublished={postPublished} onPublishedChange={setPostPublished} features={features} onFeaturesChange={setFeatures} titleRef={titlehtml} onSaved={handleSaved} folder={postFolder} onFolderChange={changeFolder} slug={postSlug} onSlugChange={changeSlug} />
             <div style={{ position: 'relative' }}>
               <RichTextPlugin
                 contentEditable={<ContentEditable className='editor-contenteditable' />}

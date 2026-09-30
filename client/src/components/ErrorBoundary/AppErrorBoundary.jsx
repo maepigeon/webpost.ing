@@ -22,6 +22,12 @@ export default class AppErrorBoundary extends Component {
     return { error };
   }
 
+  // The navbar sits outside this boundary, so leaving the broken page by it
+  // should bring the app back rather than keep showing the error.
+  componentDidUpdate(prevProps) {
+    if (this.state.error && prevProps.resetKey !== this.props.resetKey) this.setState({ error: null });
+  }
+
   componentDidCatch(error, info) {
     // Kept in the console: this is the detail a bug report needs, and there is
     // no error-reporting service configured to send it to.
