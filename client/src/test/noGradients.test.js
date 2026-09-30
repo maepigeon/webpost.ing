@@ -23,8 +23,6 @@ const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /** file → why a gradient is legitimate there */
 const ALLOWED = {
-  'App.css':
-    'The .glass-card ::before refractive ring. Only the 1.5px outside the card shows; the card fill covers the rest. Flattening it to one colour picked its single dark arc and turned the plate behind every glass surface navy.',
   'components/PatternPicker/patterns.js':
     'The wallpaper engine. Gradients are the product it generates.',
   'components/PatternPicker/PatternPicker.jsx':
@@ -35,8 +33,6 @@ const ALLOWED = {
     'repeating-conic-gradient: the standard transparency checkerboard, and the crop scrim.',
   'components/Pages/Posts/PostsViewer/ProfileEditor.css':
     'The banner scrim — a legibility device that guarantees contrast over an arbitrary photo.',
-  'components/Pages/Home/Home.css':
-    'The original liquid-glass surfaces — hero, feature cards, title panel. These are the app\'s signature look and were restored deliberately after a flattening pass removed them. The NEVER list below still applies: user cards stay flat.',
 };
 
 /** Elements that must never carry a gradient, whatever the file allows. */

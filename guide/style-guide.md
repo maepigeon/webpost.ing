@@ -82,8 +82,6 @@ box-shadow: var(--raise-2);
 | `PatternPicker.jsx` placeholder | Example text showing a user what to type. |
 | `MessagesPage.css` thread backdrop | `repeating-linear-gradient` — a texture, not a fill. |
 | `ImageCropDialog.css` crop frame | `repeating-conic-gradient` — the standard transparency checkerboard. |
-| `App.css` `.glass-card::before` | The refractive ring shared by every glass surface. Mostly light with one darker arc; flattening it picked the dark arc and turned the plate behind every card navy. |
-| `Home.css` card `::before` rims | The refractive edge. Only the 1.5px outside the card is visible, so it is an edge and not a fill; simulating light bending around a curved rim is what makes glass look like glass. Must be symmetric left-to-right. |
 
 Anything else is a regression. To check:
 
@@ -115,32 +113,12 @@ to read as text on cream, and `#4b44cc` is too dark to sit under white and still
 look like the accent.
 
 
-## Glass Card Pattern
+## No glass card panels
 
-Used for all content cards (posts, profile, modals):
+The `.glass-card` panel (frosted plate with a conic-gradient refractive rim) was
+removed on 2026-09-29 at the owner's request: it looked bad, and several attempts
+to fix it did not help. Do not reintroduce it — on the home page or anywhere else.
 
-```css
-.glass-card {
-  position: relative;
-  background:
-    radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 55%),
-    rgba(255,255,255,0.46);
-  backdrop-filter: blur(24px) saturate(200%) brightness(1.04);
-  -webkit-backdrop-filter: blur(24px) saturate(200%) brightness(1.04);
-  border-radius: 18px;
-  border: 1.5px solid transparent;
-  background-clip: padding-box;
-  box-shadow:
-    0 16px 48px rgba(0,0,0,0.12),
-    inset 0 2.5px 0 rgba(255,255,255,0.98),
-    inset 0 -1.5px 0 rgba(80,60,120,0.10),
-    inset 2px 0 0 rgba(255,255,255,0.60),
-    inset -2px 0 0 rgba(80,60,120,0.07);
-  isolation: isolate;
-}
-```
-
-The `::before` provides the refractive edge ring (see Gradient Rules above).
 
 ### backdrop-filter stacking context warning
 Any element with `backdrop-filter` creates a new containing block for `position: fixed` descendants. **Never render `position: fixed` modals or overlays inside an element with `backdrop-filter`.** Always use React `createPortal(content, document.body)` for modals.
