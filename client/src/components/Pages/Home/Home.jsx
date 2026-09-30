@@ -1,9 +1,7 @@
-import React from 'react';
 import { GET_RECENTLY_ACTIVE_USERS, GET_USER_AVATAR } from '../Posts/BasicTextPostServerApi.js';
 import { IMAGES_BASE_URL } from '../../../config.js';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import WaterTitle from './WaterTitle.jsx';
 import { usePageTitle } from '../../../utils/usePageTitle.js';
 import './Home.css';
 
@@ -40,11 +38,9 @@ function Home() {
   return (
     <div className="home-page">
       {/* ── Hero ── */}
-      {/* The whole hero sits on one glass panel — the shared .glass-card
-          surface, the same one the profile header uses. Previously only the
-          title had a panel and the text and buttons floated beside it. */}
+      {/* One glass panel — the shared .glass-card surface, as on the profile header. */}
       <section className="home-hero glass-card">
-        <WaterTitle text="webpost.ing" className="home-water-title" />
+        <h1 className="home-hero-title">webpost.ing</h1>
         <p className="home-hero-sub">
           A cozy, invite-only corner of the web for writing, sharing ideas,
           and connecting with others.

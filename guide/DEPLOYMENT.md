@@ -138,27 +138,18 @@ every pending `classpath:db/migrations/V*.sql` at startup and records it in
 run as `mae` cannot see a root-owned listener, so the port looks free when it
 is not. Always use `sudo systemctl restart start-servers.service`.
 
-`deploy.sh` in the repo root does *not* match this host: it kills by port,
-starts the JAR with `nohup` as the invoking user, and never copies anything to
-`/var/www/webpost.ing/html/` or `/home/webpost.ing/`. Running it produces a
-build plus an unmanaged second server. Treat it as a local-dev convenience
-only, or fix it to do the copies and use systemctl.
+`deploy.sh` now does the whole of §2 — it reads `deploy.env`, builds both
+halves, copies `client/dist/` to `WEB_ROOT` and the JAR to `APP_HOME`, restarts
+`SERVICE_NAME` via systemctl, and waits for the API before reporting success.
+`--dry-run` prints the steps without touching anything. (Before the config
+consolidation it killed by port and started the JAR with `nohup`, which
+produced an unmanaged second server; that version is gone.)
 
-**`application.properties` is gitignored and lives only on the server.** A
-`git pull` never updates it, and a fresh clone has none — the app then fails to
-start with a datasource error. Production content:
-
-```properties
-spring.profiles.active=prod
-spring.datasource.url=jdbc:postgresql://localhost:5432/webpostingdb
-spring.datasource.username=mae
-spring.datasource.password=<password>
-spring.datasource.driver-class-name=org.postgresql.Driver
-spring.jpa.hibernate.ddl-auto=none
-```
-
-Keep a copy outside the repo. The JAR bundles this file at package time, so
-editing it requires a **rebuild**, not just a restart.
+**`deploy.env` lives only on the server.** It is gitignored, so a `git pull`
+never updates it and a fresh clone has none — start the JAR without it and the
+`prod` profile refuses to boot, naming the missing variable. Keep a copy
+outside the repo. Unlike the old `application.properties`, it is read at
+startup, so changing it needs a **restart**, not a rebuild.
 
 **Usernames are case-sensitive.** The account is `Mae`, not `mae`. Any
 hand-written `WHERE username = '...'` must match exactly; a wrong case reports

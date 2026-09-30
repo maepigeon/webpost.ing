@@ -1,24 +1,28 @@
-## webpost.ing
+# webpost.ing
 
-A blog/post creation platform built with React (Vite) + Spring Boot + PostgreSQL.
+An invite-only blogging platform: rich-text posts, profiles, discussions,
+direct messages and image uploads.
 
----
-
-## Prerequisites
-
-- **Java 21 JDK** (not just JRE — `javac` must be available; check with `javac -version`)
-- **Node.js 18+** and npm
-- **PostgreSQL 14+**
+**React (Vite)** · **Spring Boot 3 / Java 21** · **PostgreSQL 14+**
 
 ---
 
-## Database Setup
+## Requirements
 
-PostgreSQL must be running before starting the server.
+| Needed | Check with | Note |
+|---|---|---|
+| Java **JDK** 21 | `javac -version` | The JDK, not just a JRE — Maven compiles with `javac`. If `javac` and `java` disagree, set `JAVA_HOME` to the JDK. |
+| Node.js 18+ | `node -v` | |
+| PostgreSQL 14+ | `psql --version` | Must be running before the backend starts. |
 
-**1. Create the database and user**
+---
 
-On Ubuntu/Debian, the PostgreSQL superuser commands must run as the `postgres` system user:
+## Run it locally
+
+Local development needs **no configuration** — every setting has a development
+default that matches the database created in step 1.
+
+**1. Create the database**
 
 ```bash
 sudo -u postgres psql -c "CREATE DATABASE testdb;"
@@ -27,212 +31,255 @@ sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE testdb TO mae;"
 sudo -u postgres psql -d testdb -c "GRANT ALL ON SCHEMA public TO mae;"
 ```
 
-Change `testdb`, `mae`, and `password` to whatever credentials you want — just keep them consistent with `application.properties`.
+The last line is not optional on PostgreSQL 15+, where `public` is no longer
+world-writable — without it every table creation fails with a permissions error.
 
 **2. Load the schema**
 
 ```bash
-PGPASSWORD=password psql -U mae -d testdb -h localhost -f config/database.sql
+PGPASSWORD=password psql -h localhost -U mae -d testdb -f config/database.sql
 ```
 
-(`-h localhost` forces password auth instead of peer auth. `PGPASSWORD` avoids an interactive prompt.)
-
-**3. Apply required migrations**
-
-These columns are required by the current codebase but are not in the base schema file:
+**3. Start the backend**
 
 ```bash
-PGPASSWORD=password psql -U mae -d testdb -h localhost -c "
-  ALTER TABLE notifications ADD COLUMN IF NOT EXISTS message TEXT;
-  ALTER TABLE users ADD COLUMN IF NOT EXISTS pattern_presets TEXT DEFAULT '{}';
-  ALTER TABLE users ADD COLUMN IF NOT EXISTS last_visited TIMESTAMP WITH TIME ZONE DEFAULT NULL;
-"
+cd server && ./mvnw spring-boot:run
 ```
 
-Key tables (see `config/database.sql` for the full schema):
-- `users` — accounts, background patterns, bio, roles, last-visited timestamp
-- `posts` — rich-text Lexical JSON, published flag, per-post background pattern
-- `users_posts_junctions` — authorship link (posts don't have a direct user FK)
-- `uploads` — uploaded image metadata (filename, size, user)
-- `post_uploads` — junction linking uploads to posts (for orphan cleanup)
-- `discussions` / `comments` / `comment_votes` / `comment_reactions` — discussion threads
-- `follows` / `notifications` / `post_reactions` — social features
-- `role_limits` — per-role storage and post-rate limits
+Serves `http://localhost:8080`. Pending migrations apply automatically at
+startup — look for `Database migration complete` in the log.
 
-**4. Configure the connection**
+**4. Start the frontend**
 
-Create `server/src/main/resources/application.properties` (this file is not in the repo — you must create it):
-
-```properties
-spring.profiles.active=dev
-
-spring.datasource.url=jdbc:postgresql://localhost:5432/testdb
-spring.datasource.username=mae
-spring.datasource.password=password
-spring.datasource.driver-class-name=org.postgresql.Driver
-
-spring.jpa.hibernate.ddl-auto=none
+```bash
+cd client && npm install && npm run dev
 ```
 
-> **Decision required:** These credentials are not managed by the environment toggle and must be set manually for each environment.
+Serves `http://localhost:5173`, calling the API on `:8080`.
 
-**Uploaded images** are stored on disk (path configured per environment — see Environment Toggle below). No schema changes are needed for image support; image paths are embedded in the post's Lexical JSON.
+**Tests**
+
+```bash
+cd client && npm test      # Vitest
+cd server && ./mvnw test   # JUnit 5
+```
+
+> Sessions are held in memory. Restarting the backend signs everyone out.
 
 ---
 
-## Environment Toggle
+## Configuration
 
-One line in `application.properties` controls the environment:
+**`deploy.env` in the repo root is the only file you edit**, and the only file
+that ever holds a secret. It is gitignored and never leaves the host.
 
-```properties
-# dev  → plain HTTP cookies, uploads in server/uploads/
-# prod → HTTPS-only cookies, uploads in /var/www/webposting/uploads
-spring.profiles.active=dev
+```bash
+cp config/deploy.env.example deploy.env
+chmod 600 deploy.env
+$EDITOR deploy.env
 ```
 
-Change `dev` → `prod` before deploying. The active profile loads the matching file automatically:
+`deploy.sh`, `server-start.sh` and `tools/backup.sh` all source it
+automatically. The `application*.properties` files are committed, secret-free,
+and read `${VAR:default}` from the environment — **do not edit them to
+configure a deployment**; add a variable instead.
 
-| Profile | File |
-|---------|------|
-| `dev` | `server/src/main/resources/application-dev.properties` |
-| `prod` | `server/src/main/resources/application-prod.properties` |
+What a production host must set:
 
-**What the toggle sets automatically:**
+| Variable | Example |
+|---|---|
+| `APP_PROFILE` | `prod` — HTTPS-only cookies, absolute upload path, no stack traces |
+| `DB_NAME` / `DB_USER` / `DB_PASSWORD` | your production database and its password |
+| `ALLOWED_ORIGINS` | `https://webpost.ing` — exact origins, comma-separated; `*` is rejected |
+| `UPLOAD_DIR` | `/var/www/webposting/uploads` — absolute, writable by the server user |
+| `APP_BASE_URL` | `https://webpost.ing` — used for links inside emails |
+| `WEB_ROOT` | `/var/www/webpost.ing/html` — where nginx serves the frontend |
+| `APP_HOME` | `/home/webpost.ing` — runtime tree; the JAR lands in `$APP_HOME/server/target/` |
+| `SERVICE_NAME` | `start-servers.service` — the systemd unit to restart |
 
-| Setting | dev | prod |
-|---------|-----|------|
-| `app.dev-mode` | `true` (HTTP cookies) | `false` (HTTPS-only cookies) |
-| `app.upload-dir` | `uploads` (relative, inside `server/`) | `/var/www/webposting/uploads` |
+Under `APP_PROFILE=prod` the server **refuses to start** if the database
+password is still the development default, `DB_NAME` is still `testdb`,
+`ALLOWED_ORIGINS` points at localhost, or `UPLOAD_DIR` is relative. The error
+names the variable to fix.
 
-**What you must still change manually (owner decisions):**
-
-| What | Where | Why |
-|------|-------|-----|
-| Database credentials | `application.properties` → `spring.datasource.*` | Different per deployment; should not be shared |
-| Production domain | `SecurityConfig.java` → `setAllowedOrigins(...)` | Your domain name — only you know what it is |
-| Prod upload path | `application-prod.properties` → `app.upload-dir` | Depends on your server layout; the default is a placeholder |
-
-**Frontend environment** is automatic — Vite uses `client/.env.development` for `npm run dev` and `client/.env.production` for `npm run build`. No manual toggle needed on the frontend.
+Email (verification, notifications, password reset) is off until
+`MAIL_ENABLED=true`. Every variable: [guide/CONFIGURATION.md](guide/CONFIGURATION.md).
 
 ---
 
-## Running Locally (Development)
+## Deploy to production
 
-**Backend:**
+### First time on a new host
+
+**1. Install** Java 21 JDK, Node 18+, PostgreSQL, nginx and git.
+
+**2. Create the production database** — same four commands as local step 1, with
+your real database name, user and password. Then load the schema:
+
 ```bash
-cd server
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 ./mvnw spring-boot:run
+PGPASSWORD='<password>' psql -h localhost -U <user> -d <dbname> -f config/database.sql
 ```
 
-> **Note:** If `javac -version` shows a different version than `java -version`, set `JAVA_HOME` to the Java 21 JDK path (find it with `update-alternatives --list java`). Maven uses `javac`, not `java`.
-Runs on `http://localhost:8080`. Stop with `Ctrl+C` in the terminal, or:
+**3. Clone and configure**
+
 ```bash
-kill $(lsof -ti:8080)
+git clone https://github.com/maepigeon/webpost.ing.git && cd webpost.ing
+cp config/deploy.env.example deploy.env && chmod 600 deploy.env && $EDITOR deploy.env
 ```
 
-**Frontend:**
+**4. Create the uploads directory** from `UPLOAD_DIR`, owned by the user the
+service runs as:
+
 ```bash
-cd client
-npm install   # first time only
-npm run dev
-```
-Runs on `http://localhost:5173`. API calls go to `http://localhost:8080` via `VITE_API_BASE_URL` in `client/.env.development`. Stop with `Ctrl+C`, or:
-```bash
-kill $(lsof -ti:5173)
+sudo mkdir -p /var/www/webposting/uploads
 ```
 
-**Tests:**
-```bash
-# Frontend (Vitest)
-cd client && npm test
+**5. Configure nginx.** The SPA owns routing, so paths that are not files must
+fall back to `index.html` — without it every `/{username}` profile link 404s.
 
-# Backend (JUnit 5)
-cd server && ./mvnw test
+```nginx
+server {
+    listen 443 ssl;
+    server_name webpost.ing;
+
+    ssl_certificate     /etc/letsencrypt/live/webpost.ing/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/webpost.ing/privkey.pem;
+
+    root /var/www/webpost.ing/html;          # WEB_ROOT
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # The trailing slash on proxy_pass strips the /api prefix.
+    location /api/ {
+        proxy_pass http://127.0.0.1:8080/;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        client_max_body_size 50m;            # keep >= UPLOAD_MAX_SIZE
+    }
+
+    location /uploads/ {
+        alias /var/www/webposting/uploads/;  # UPLOAD_DIR
+    }
+}
+
+server {
+    listen 80;
+    server_name webpost.ing;
+    return 301 https://$host$request_uri;
+}
 ```
 
-> **Tip:** Sessions are stored in memory on the server. Restarting the backend clears all sessions — users will need to log in again.
+```bash
+sudo nginx -t && sudo nginx -s reload
+```
+
+**6. Install the systemd unit** at `/etc/systemd/system/start-servers.service`,
+matching `SERVICE_NAME`:
+
+```ini
+[Unit]
+Description=webpost.ing backend
+After=network.target postgresql.service
+
+[Service]
+WorkingDirectory=/home/webpost.ing
+ExecStart=/home/webpost.ing/server-start.sh
+Restart=on-failure
+StandardOutput=append:/tmp/webposting.log
+StandardError=append:/tmp/webposting.log
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Copy `server-start.sh` and `deploy.env` into `APP_HOME`, then:
+
+```bash
+sudo systemctl daemon-reload && sudo systemctl enable start-servers.service
+```
+
+**7. Deploy.**
+
+```bash
+./deploy.sh
+```
+
+### Every deploy after that
+
+```bash
+git pull && ./deploy.sh
+```
+
+`deploy.sh` builds both halves, publishes `client/dist/` to `WEB_ROOT` and the
+JAR to `APP_HOME`, restarts the service, and waits for the API to answer before
+reporting success.
+
+| Flag | Effect |
+|---|---|
+| `--dry-run` | Print every step, change nothing |
+| `--no-build` | Publish existing artifacts and restart |
+
+Building is not deploying: the build tree and the runtime tree are different
+directories, which is why the publish step exists.
+
+**After deploying:** hard-refresh the browser. Vite content-hashes filenames,
+but a cached `index.html` keeps pointing at the old bundle — the usual reason a
+fix "isn't live".
+
+Host-specific details and the mistakes that have cost time:
+[guide/DEPLOYMENT.md](guide/DEPLOYMENT.md).
 
 ---
 
-## Building for Production
+## Operations
 
-**Frontend:**
-```bash
-cd client
-npm run build
-```
-Output is in `client/dist/`. Uses `VITE_API_BASE_URL=/api` so API calls are relative to the same origin.
+**Back up** — database *and* uploads, in one pair:
 
-**Backend:**
 ```bash
-cd server
-./mvnw package -DskipTests
+./tools/backup.sh                # into ./backups
+./tools/backup.sh /mnt/backups   # or elsewhere
 ```
-Produces `server/target/server-0.0.1-SNAPSHOT.jar`. The production `server-start.sh` script runs this JAR — rebuild after any backend changes.
+
+`pg_dump` alone is not a backup of this application: images, avatars and fonts
+live on disk, so a database-only restore brings back every post with broken
+images. The script takes both, reads them back, and prints the restore commands.
+
+**Migrations** — add `server/src/main/resources/db/migrations/V0NN__name.sql`
+and restart. The runner applies pending scripts in version order and records
+them in `schema_migrations`; Hibernate never touches the schema.
+See [guide/MIGRATIONS.md](guide/MIGRATIONS.md).
+
+**Service**
+
+```bash
+sudo systemctl restart start-servers.service   # never kill the JVM by port
+tail -f /tmp/webposting.log
+```
 
 ---
 
-## Deploying to Production
+## Ports
 
-1. Set `spring.profiles.active=prod` in `application.properties`
-2. Update database credentials in `application.properties`
-3. Update `app.upload-dir` in `application-prod.properties` to your actual uploads path
-4. Update `setAllowedOrigins` in `SecurityConfig.java` to include your production domain
-5. Build the frontend (`npm run build`) and backend (`./mvnw package`)
-6. Configure nginx to:
-   - Serve `client/dist/` for all non-API routes
-   - Proxy `/api/` → `http://localhost:8080/` (nginx strips the `/api` prefix)
-   - Serve the uploads directory at `/uploads/`
+| Service | Port |
+|---|---|
+| PostgreSQL | 5432 |
+| Spring Boot | 8080 |
+| Vite dev server | 5173 |
 
 ---
 
-## Default Ports
+## Documentation
 
-Service         | Port 
-PostgreSQL      | 5432 
-Spring Boot     | 8080 
-Vite dev server | 5173 
-
----
-
-## Database Migrations
-
-No migration framework is configured. Schema changes must be applied manually.
-
-1. Back up the database first (see below)
-2. Run the `ALTER TABLE` statement:
-   ```bash
-   psql -U <user> -d <db> -c "ALTER TABLE posts ALTER COLUMN description TYPE TEXT;"
-   ```
-
-See `config/database.sql` for the current schema and documented migrations.
-
----
-
-## PostgreSQL Backup & Restore
-
-**Full backup:**
-```bash
-pg_dump -U <user> -d <db> -F c -f backup_$(date +%Y%m%d_%H%M%S).dump
-```
-
-**Restore:**
-```bash
-pg_restore -U <user> -d <db> -c backup_<timestamp>.dump
-```
-`-c` drops existing objects before recreating. Omit it for an empty database.
-
-**Schema only:**
-```bash
-pg_dump -U <user> -d <db> --schema-only -f schema_$(date +%Y%m%d).sql
-```
-
-**Data only:**
-```bash
-pg_dump -U <user> -d <db> --data-only -F c -f data_$(date +%Y%m%d_%H%M%S).dump
-```
-
-**Daily cron backup:**
-```cron
-0 2 * * * pg_dump -U <user> -d <db> -F c -f /backups/webposting_$(date +\%Y\%m\%d).dump
-```
+| Guide | Covers |
+|---|---|
+| [CONFIGURATION.md](guide/CONFIGURATION.md) | Every environment variable and the code that reads it |
+| [DEPLOYMENT.md](guide/DEPLOYMENT.md) | Production host facts, runbook, known gotchas |
+| [DATABASE_SCHEMA.md](guide/DATABASE_SCHEMA.md) | Full schema, table by table |
+| [MIGRATIONS.md](guide/MIGRATIONS.md) | Writing and applying migrations |
+| [SECURITY.md](guide/SECURITY.md) | Auth, sessions, upload handling |
+| [EMAIL.md](guide/EMAIL.md) | SMTP setup and the email features |
+| [project-structure.md](guide/project-structure.md) | Where things live in the codebase |
