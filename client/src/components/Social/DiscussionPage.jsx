@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   GET_POST_FEATURES, GET_COMMENTS, ADD_COMMENT,
-  GET_USER_FROM_POST, READ_POST,
+ READ_POST,
 } from '../Pages/Posts/BasicTextPostServerApi.js';
 import CommentItem from './CommentItem.jsx';
 import { useBodyWallpaper } from '../TileArt/wallpaper.js';
@@ -10,6 +10,7 @@ import './Social.css';
 import { postPath } from '../../utils/postUrl.js';
 import { useResolvedPostId } from '../../utils/useResolvedPostId.js';
 import { useAuthorTheme } from '../PageTheme/PageTheme.jsx';
+import { useDialog } from '../Dialog/Dialog.jsx';
 
 function flattenTree(comments) {
   const result = [];
@@ -19,6 +20,7 @@ function flattenTree(comments) {
 }
 
 function DiscussionPageBody({ id }) {
+  const { alert: showError } = useDialog();
   // The route segment is "{id}-{slug}"; the slug is cosmetic and a stale or
   // hand-edited one still resolves to the right post.
   const { username } = useParams();
@@ -83,7 +85,9 @@ function DiscussionPageBody({ id }) {
       await ADD_COMMENT(id, newComment);
       setNewComment('');
       loadComments();
-    } catch {}
+    } catch {
+      showError('Could not post your comment. Try again.');
+    }
     setSubmitting(false);
   };
 

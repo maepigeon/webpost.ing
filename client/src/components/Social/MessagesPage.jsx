@@ -13,6 +13,7 @@ import { linkifyText } from '../../utils/linkifyText.jsx';
 import { IMAGES_BASE_URL } from '../../config.js';
 import './MessagesPage.css';
 import Icon from '../Icon/Icon.jsx';
+import { useDialog } from '../Dialog/Dialog.jsx';
 
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🎉'];
 
@@ -31,6 +32,7 @@ function truncate(text, n = 80) {
 }
 
 export default function MessagesPage() {
+  const { alert: showError } = useDialog();
   const [conversations, setConversations] = useState([]);
   const [groups, setGroups]               = useState([]);
   const [activeConvId, setActiveConvId]   = useState(null);
@@ -208,7 +210,7 @@ export default function MessagesPage() {
         await TOGGLE_DM_REACTION(activeConvId, msgId, emoji);
         GET_CONV_REACTIONS(activeConvId).then(r => setDmReactions(r)).catch(() => {});
       }
-    } catch {}
+    } catch { showError('Could not add that reaction.'); }
   };
 
   const confirmTransferOwnership = async () => {
@@ -332,7 +334,9 @@ export default function MessagesPage() {
       await RENAME_GROUP(activeGroupId, groupNameDraft.trim());
       setEditingGroupName(false);
       loadGroups();
-    } catch {}
+    } catch {
+      showError('Could not rename the group. Try again.');
+    }
   };
 
   // ── Computed ──────────────────────────────────────────────────────────────

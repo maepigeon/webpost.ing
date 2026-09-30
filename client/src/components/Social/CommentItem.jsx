@@ -50,7 +50,7 @@ function timeAgo(date) {
 }
 
 export default function CommentItem({ comment, postId, depth = 0, onRefresh }) {
-  const { confirm } = useDialog();
+  const { confirm, alert: showError } = useDialog();
   const [score, setScore] = useState(comment.score);
   const [userVote, setUserVote] = useState(comment.userVote);
   const [editing, setEditing] = useState(false);
@@ -100,17 +100,17 @@ export default function CommentItem({ comment, postId, depth = 0, onRefresh }) {
 
   const saveEdit = async () => {
     if (!editContent.trim()) return;
-    try { await EDIT_COMMENT(comment.id, editContent); setEditing(false); onRefresh(); } catch {}
+    try { await EDIT_COMMENT(comment.id, editContent); setEditing(false); onRefresh(); } catch { showError('Could not save your edit. Try again.'); }
   };
 
   const del = async () => {
     if (!(await confirm('Delete this comment?'))) return;
-    try { await DELETE_COMMENT(comment.id); onRefresh(); } catch {}
+    try { await DELETE_COMMENT(comment.id); onRefresh(); } catch { showError('Could not delete that comment. Try again.'); }
   };
 
   const submitReply = async () => {
     if (!replyContent.trim()) return;
-    try { await ADD_COMMENT(postId, replyContent, comment.id); setReplyContent(''); setReplying(false); onRefresh(); } catch {}
+    try { await ADD_COMMENT(postId, replyContent, comment.id); setReplyContent(''); setReplying(false); onRefresh(); } catch { showError('Could not post your reply. Try again.'); }
   };
 
   // Emojis that have at least one reaction (always shown if count > 0)

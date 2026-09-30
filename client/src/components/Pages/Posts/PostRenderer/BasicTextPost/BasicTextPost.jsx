@@ -1,4 +1,4 @@
-import {UPDATE_POST, DELETE_POST, CREATE_POST} from '../../BasicTextPostServerApi.js'
+import {UPDATE_POST, DELETE_POST} from '../../BasicTextPostServerApi.js'
 import {useState, useRef, useMemo} from 'react';
 import { Link } from 'react-router-dom';
 import './BasicTextPost.css'
@@ -32,12 +32,6 @@ function BasicTextPost(props) {
 
     const submitEditPost = () => {
         UPDATE_POST(postdata.id, titlehtml.current, descriptionhtml.current, postdata.published).then(
-        () => {props.updatePostsFlagCallback();}
-        );
-        setCurrentPostMode(Modes.VIEW);
-    }
-    const submitNewPost = () => {
-        CREATE_POST(postdata.id, titlehtml.current, descriptionhtml.current, postdata.published).then(
         () => {props.updatePostsFlagCallback();}
         );
         setCurrentPostMode(Modes.VIEW);

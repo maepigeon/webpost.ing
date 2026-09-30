@@ -159,6 +159,15 @@ function RichTextViewerBody({ id }) {
   const [dmSending, setDmSending] = useState(false);
   const [dmFeedback, setDmFeedback] = useState(null); // { ok, msg }
   const [isPinned, setIsPinned] = useState(false);
+  const togglePin = async () => {
+    try {
+      if (isPinned) await UNPIN_POST(postAuthor);
+      else await SET_PINNED_POST(postAuthor, parseInt(id, 10));
+      setIsPinned(p => !p);
+    } catch {
+      // The button keeps showing the old state, which is still the truth.
+    }
+  };
   const [viewCounts, setViewCounts] = useState(null); // { total_views, unique_views }
   const [postScore, setPostScore] = useState(0);
   const [userPostVote, setUserPostVote] = useState(0); // -1, 0, or 1
@@ -392,6 +401,12 @@ function RichTextViewerBody({ id }) {
                   <Link to={`/editor/${id}`}>
                     <button className="viewer-edit-btn">Edit post</button>
                   </Link>
+                  {postPublished && (
+                    <button type="button" className="viewer-edit-btn" onClick={togglePin}
+                      title={isPinned ? 'Take this post off the top of your profile' : 'Show this post at the top of your profile'}>
+                      {isPinned ? 'Unpin' : 'Pin to profile'}
+                    </button>
+                  )}
                 </div>
               )}
               {features.reactionsEnabled && <ReactionBar postId={parseInt(id)} isOwner={isAuthor} />}

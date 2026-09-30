@@ -24,11 +24,10 @@ import { $setBlocksType, $patchStyleText, $getSelectionStyleValueForProperty } f
 import { $createHeadingNode, HeadingNode } from '@lexical/rich-text';
 import { ListPlugin } from '@lexical/react/LexicalListPlugin';
 import { INSERT_ORDERED_LIST_COMMAND, INSERT_UNORDERED_LIST_COMMAND, ListNode, ListItemNode } from '@lexical/list';
-import { CodeNode, CodeHighlightNode, $isCodeNode, registerCodeHighlighting, getCodeLanguages, getLanguageFriendlyName } from '@lexical/code';
+import { CodeHighlightNode, $isCodeNode, registerCodeHighlighting, getCodeLanguages, getLanguageFriendlyName } from '@lexical/code';
 import { CustomCodeNode, $createCustomCodeNode } from './CustomCodeNode.jsx';
 import { LinkNode, $createLinkNode, $isLinkNode, TOGGLE_LINK_COMMAND } from '@lexical/link';
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
-import { ClickableLinkPlugin } from '@lexical/react/LexicalClickableLinkPlugin';
 import { READ_POST, CREATE_POST, UPDATE_POST, GET_USER_FROM_POST, GET_POST_FEATURES, SET_REACTIONS_ENABLED, SET_DISCUSSION_ENABLED, SEARCH_POSTS } from '../../BasicTextPostServerApi.js';
 import { useDialog } from '../../../../Dialog/Dialog.jsx';
 import { useParams, useNavigate, Link } from "react-router-dom";
@@ -319,7 +318,7 @@ function CodeHighlightPlugin() {
 // Highlights #hashtag text in the editor with a colored span after each Lexical update.
 // Uses DOM manipulation with debounce — re-applies after every edit since Lexical
 // overwrites the DOM on each reconcile. Spans carry data-hashtag so they're idempotent.
-function HashtagHighlightPlugin({ navigate }) {
+function HashtagHighlightPlugin() {
   const [editor] = useLexicalComposerContext();
   useEffect(() => {
     let timer = null;
@@ -1236,7 +1235,7 @@ function BackgroundToolbarPlugin({ pattern, onPatternChange }) {
 }
 
 function FeatureTogglePlugin({ postid, features, onFeaturesChange }) {
-  const { confirm } = useDialog();
+  const { confirm, alert: showError } = useDialog();
   const isNew = !postid || postid <= 0;
 
   const toggle = async (key) => {
@@ -1254,7 +1253,9 @@ function FeatureTogglePlugin({ postid, features, onFeaturesChange }) {
       if (key === 'reactionsEnabled') await SET_REACTIONS_ENABLED(postid, next);
       else await SET_DISCUSSION_ENABLED(postid, next);
       onFeaturesChange(f => ({ ...f, [key]: next }));
-    } catch {}
+    } catch {
+      showError('Could not change that setting. Try again.');
+    }
   };
 
   return (
@@ -1361,7 +1362,7 @@ function PostSlugPlugin({ slug, onSlugChange, username, titleRef, postId }) {
   );
 }
 
-function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublishedChange, titleRef, onSaved, username, folder, onFolderChange, features, slug }) {
+function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublishedChange, titleRef, onSaved, username, folder, features, slug }) {
   const { confirm } = useDialog();
   const [editor] = useLexicalComposerContext();
   const [saveStatus, setSaveStatus] = useState('');
@@ -1419,7 +1420,7 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
           if (features && !features.discussionEnabled) SET_DISCUSSION_ENABLED(newId, false).catch(() => {});
           onSaved?.();
         })
-        .catch(err => {
+        .catch(() => {
           showStatus('Failed to create post.', true);
         })
         .finally(() => setSaving(false));
@@ -1525,14 +1526,6 @@ function ToolbarMenu({ id, label, hint, openId, setOpenId, children }) {
 }
 
 /** Kept for the mobile panel, which shows every group expanded at once. */
-function ToolbarGroup({ label, children }) {
-  return (
-    <span className="toolbar-group">
-      <span className="toolbar-group-label">{label}</span>
-      <span className="toolbar-group-body">{children}</span>
-    </span>
-  );
-}
 
 function FormatToolbarPlugin() {
   const [editor] = useLexicalComposerContext();
@@ -1691,7 +1684,7 @@ const OVERFLOW_TRIGGER_WIDTH = 42;
 const TOOLBAR_BREATHING_ROOM = 12;
 const TOOLBAR_GAP = 4;
 
-function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, postPublished, onPublishedChange, features, onFeaturesChange, titleRef, onSaved, folder, onFolderChange, slug, onSlugChange }) {
+function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, postPublished, onPublishedChange, features, onFeaturesChange, titleRef, onSaved, folder, onFolderChange, slug }) {
   // Only one popover open at a time; two would overlap.
   const [openMenu, setOpenMenu] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -1752,27 +1745,6 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
     },
   ];
 
-  /** Mobile shows everything at once inside its own panel, so nothing is hidden. */
-  const mobileToolbar = (
-    <>
-      <ToolbarGroup label="History"><UndoRedoPlugin /></ToolbarGroup>
-      <ToolbarGroup label="Block"><BlockTypePlugin /><ListToolbarPlugin /></ToolbarGroup>
-      <ToolbarGroup label="Format"><FormatToolbarPlugin /></ToolbarGroup>
-      <ToolbarGroup label="Style"><InlineStylePlugin /></ToolbarGroup>
-      <ToolbarGroup label="Insert">
-        <LinkToolbarPlugin />
-        <PostLinkToolbarPlugin />
-        <ImageToolbarPlugin />
-        <CodeToolbarPlugin />
-        <MathToolbarPlugin />
-        <TileGridToolbarPlugin />
-      </ToolbarGroup>
-      <ToolbarGroup label="Page">
-        <BackgroundToolbarPlugin pattern={backgroundPattern} onPatternChange={onPatternChange} />
-        <FeatureTogglePlugin postid={postid} features={features} onFeaturesChange={onFeaturesChange} />
-      </ToolbarGroup>
-    </>
-  );
 
   return (
     <>
@@ -1795,19 +1767,6 @@ function MyOnChangePlugin({ onChange }) {
   return null;
 }
 
-function DirtyTrackerPlugin({ onDirty }) {
-  const [editor] = useLexicalComposerContext();
-  const initializedRef = useRef(false);
-  useEffect(() => {
-    return editor.registerUpdateListener(({ dirtyElements, dirtyLeaves }) => {
-      // Skip the first update which fires when the editor loads saved state
-      if (!initializedRef.current) { initializedRef.current = true; return; }
-      if (dirtyElements.size > 0 || dirtyLeaves.size > 0) onDirty();
-    });
-  }, [editor, onDirty]);
-  return null;
-}
-
 function onError(error) {
   console.error(error);
 }
@@ -1826,7 +1785,6 @@ function LoadEditorStatePlugin({ ready }) {
 }
 
 export default function RichTextEditor() {
-  const [editorState, setEditorState] = useState();
   let { id } = useParams();
   const navigate = useNavigate();
   const [postDate, setPostDate] = useState("");
@@ -1872,15 +1830,11 @@ export default function RichTextEditor() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [isDirty]);
 
-  const onChange = useCallback((editorState) => {
-    try {
-      const editorStateString = JSON.stringify(editorState);
-      setEditorState(JSON.parse(editorStateString));
-      // Mark dirty after the initial load has populated the editor
-      if (savedOnceRef.current || dataReady > 0) setIsDirty(true);
-    } catch (e) {
-      console.error("failed to serialize editor state:", e);
-    }
+  // Only marks the post as changed. It used to serialise the whole editor
+  // state on every keystroke into a copy nothing read — megabytes per key
+  // once a post holds a grid's pixels.
+  const onChange = useCallback(() => {
+    if (savedOnceRef.current || dataReady > 0) setIsDirty(true);
   }, [dataReady]);
 
   // For new posts, seed localStorage with the initial title so SaveToolbarPlugin has it

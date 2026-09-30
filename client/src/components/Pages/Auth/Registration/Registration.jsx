@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import axios from 'axios';
 import { BASE_URL as baseUrl } from '../../../../config.js';
 import { ADMIN_GET_STATUS } from '../../Posts/BasicTextPostServerApi.js';
-import { useNavigate } from 'react-router-dom';
 import './Registration.css';
 import { usePageTitle } from '../../../../utils/usePageTitle.js';
 
@@ -46,7 +45,6 @@ function Registration() {
   const [inviteCode, setInviteCode]       = useState('');
   const [error, setError]                 = useState('');
   const [loading, setLoading]             = useState(false);
-  const navigate = useNavigate();
 
   const pwChecks = checkPassword(password);
   const pwValid  = Object.values(pwChecks).every(Boolean);

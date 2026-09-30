@@ -5,6 +5,7 @@ import {
 } from '../Pages/Posts/BasicTextPostServerApi.js';
 import CommentItem from './CommentItem.jsx';
 import './Social.css';
+import { useDialog } from '../Dialog/Dialog.jsx';
 
 function flattenTree(comments) {
   const result = [];
@@ -14,6 +15,7 @@ function flattenTree(comments) {
 }
 
 export default function DiscussionSection({ postId, postAuthor }) {
+  const { alert: showError } = useDialog();
   const [enabled, setEnabled] = useState(false);
   const [style, setStyle] = useState('threaded');
   const [loaded, setLoaded] = useState(false);
@@ -45,12 +47,12 @@ export default function DiscussionSection({ postId, postAuthor }) {
 
   const toggleDiscussion = async () => {
     const next = !enabled;
-    try { await SET_DISCUSSION_ENABLED(postId, next); setEnabled(next); } catch {}
+    try { await SET_DISCUSSION_ENABLED(postId, next); setEnabled(next); } catch { showError('Could not change that setting. Try again.'); }
   };
 
   const toggleStyle = async () => {
     const next = style === 'threaded' ? 'flat' : 'threaded';
-    try { await SET_DISCUSSION_STYLE(postId, next); setStyle(next); } catch {}
+    try { await SET_DISCUSSION_STYLE(postId, next); setStyle(next); } catch { showError('Could not change that setting. Try again.'); }
   };
 
   const submitComment = async () => {
@@ -60,7 +62,7 @@ export default function DiscussionSection({ postId, postAuthor }) {
       await ADD_COMMENT(postId, newComment);
       setNewComment('');
       loadComments();
-    } catch {}
+    } catch { showError('Could not post your comment. Try again.'); }
     setSubmitting(false);
   };
 

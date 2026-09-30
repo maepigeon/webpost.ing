@@ -1,4 +1,4 @@
-import {useState, React} from 'react';
+
 import { Link } from 'react-router-dom';
 import './Title.css'
 
@@ -17,7 +17,7 @@ function TitleBar(props) {
         NEW: 2
     });
 
-    const [currentPostMode, setCurrentPostMode] = useState(editMode ? Modes.EDIT : Modes.VIEW);
+    const currentPostMode = editMode ? Modes.EDIT : Modes.VIEW;
 
     // Renders the heading and paragraph for the post
     function renderPostDataFields(postMode, handleEditTitleCallback) {

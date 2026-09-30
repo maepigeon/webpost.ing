@@ -4,7 +4,7 @@ import './styles/tokens.css'
 import './index.css'
 import App from './App.jsx'
 import { installClickFlash } from './utils/clickFlash.js'
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter } from 'react-router-dom';
 
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'

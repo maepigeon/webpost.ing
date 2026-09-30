@@ -1,4 +1,4 @@
-import { DecoratorNode, $getNodeByKey, $createParagraphNode } from 'lexical';
+import { DecoratorNode, $getNodeByKey } from 'lexical';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import katex from 'katex';

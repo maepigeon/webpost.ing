@@ -1,5 +1,4 @@
 import './Userdata.css'
-import React from "react";
 
 const Username = () => {
   return (

@@ -9,7 +9,6 @@ import Login from './components/Pages/Auth/Login/Login'
 import Registration from './components/Pages/Auth/Registration/Registration'
 import Logout from './components/Pages/Auth/Logout/Logout'
 import AdminPanel from './components/Pages/Auth/AdminPanel/AdminPanel'
-import PostEditor from './components/Pages/Posts/PostsViewer/PostEditor';
 import PostsViewer from './components/Pages/Posts/PostsViewer/PostsViewer';
 import RichTextEditor from './components/Pages/Posts/PostRenderer/RichTextPost/Editor';
 import RichTextViewer from './components/Pages/Posts/PostRenderer/RichTextPost/Viewer';
