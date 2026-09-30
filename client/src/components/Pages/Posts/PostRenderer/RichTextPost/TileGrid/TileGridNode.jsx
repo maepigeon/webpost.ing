@@ -8,10 +8,10 @@ import TileGrid from './TileGrid.jsx';
 function TileGridBlock({ data, nodeKey }) {
   const [editor] = useLexicalComposerContext();
 
-  const onChange = useCallback((patch) => {
+  const onChange = useCallback((grid) => {
     editor.update(() => {
       const node = $getNodeByKey(nodeKey);
-      if (node) node.getWritable().__data = normaliseGrid({ ...node.__data, ...patch });
+      if (node) node.getWritable().__data = normaliseGrid(grid);
     });
   }, [editor, nodeKey]);
 

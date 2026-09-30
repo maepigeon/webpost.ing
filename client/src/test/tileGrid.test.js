@@ -1,59 +1,116 @@
 import { describe, it, expect } from 'vitest';
 import {
-  normaliseGrid, defaultGrid, rowChars, setChar, convertMode, resizeText,
-  containRect, bitsFromHex, hexFromBits, seedBits, slotsPerRow,
+  normaliseGrid, pixelLayer, rowChars, writeSlot, restyleSlots, convertLayerMode, resizeLayerText,
+  orderSlots, slotsIn, containRect, bitsFromHex, hexFromBits, seedBits, slotsPerRow, LIMITS,
 } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
 import { pixelGlyph } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileFont.js';
 
-describe('tile grid data', () => {
+const grid = (extra = {}) => normaliseGrid({ cols: 4, rows: 3, layers: [pixelLayer('A')], ...extra });
+
+describe('grid data', () => {
   it('fills in defaults and clamps sizes', () => {
-    const d = normaliseGrid({ cols: 999, rows: -3, mode: 'weird', font: 'smooth' });
+    const d = normaliseGrid({ cols: 999, rows: -3, mode: 'weird' });
     expect(d.cols).toBe(64);
     expect(d.rows).toBe(1);
     expect(d.mode).toBe('full');
-    expect(d.font).toBe('smooth');
-    expect(d.image).toBeNull();
+    expect(d.layers).toHaveLength(1);
+  });
+
+  it('keeps between one and ten layers', () => {
+    const many = Array.from({ length: 14 }, (_, i) => pixelLayer(`L${i}`));
+    expect(normaliseGrid({ layers: many }).layers).toHaveLength(LIMITS.maxLayers);
+    expect(normaliseGrid({ layers: [] }).layers).toHaveLength(1);
+  });
+
+  it('refuses photos that are not the app\'s own uploads, and paint that is not PNG', () => {
+    const d = normaliseGrid({
+      layers: [
+        { kind: 'photo', src: 'https://tracker.example/pixel.gif' },
+        { kind: 'photo', src: '/uploads/ok.png' },
+        { kind: 'pixel', paint: 'javascript:alert(1)' },
+      ],
+    });
+    expect(d.layers.map(l => l.kind)).toEqual(['photo', 'pixel']);
+    expect(d.layers[1].paint).toBeNull();
+  });
+
+  it('drops malformed character styles', () => {
+    const d = normaliseGrid({ layers: [{ kind: 'pixel', style: { '0,0': { font: 'smooth', color: 'red;x' }, bad: { font: 'pixel' } } }] });
+    expect(d.layers[0].style).toEqual({ '0,0': { font: 'smooth' } });
   });
 
   it('has two slots per tile in double-char mode', () => {
-    expect(slotsPerRow({ ...defaultGrid(), cols: 10, mode: 'full' })).toBe(10);
-    expect(slotsPerRow({ ...defaultGrid(), cols: 10, mode: 'half' })).toBe(20);
+    expect(slotsPerRow(grid({ mode: 'full' }))).toBe(4);
+    expect(slotsPerRow(grid({ mode: 'half' }))).toBe(8);
+  });
+});
+
+describe('text on a layer', () => {
+  it('writes a character with its own style', () => {
+    const d = grid();
+    const l = writeSlot(d, d.layers[0], 1, 2, 'x', { font: 'smooth', color: '#ff0000' });
+    expect(l.text).toEqual(['', '  x']);
+    expect(l.style['1,2']).toEqual({ font: 'smooth', color: '#ff0000' });
+    expect(rowChars(d, l, 1)).toEqual([' ', ' ', 'x', ' ']);
   });
 
-  it('writes a character into a slot and pads the row', () => {
-    const d = { ...defaultGrid(), cols: 4 };
-    const text = setChar(d, 1, 2, 'x');
-    expect(text).toEqual(['', '  x']);
-    expect(rowChars({ ...d, text }, 1)).toEqual([' ', ' ', 'x', ' ']);
+  it('clears a slot and its style with a space', () => {
+    const d = grid();
+    let l = writeSlot(d, d.layers[0], 0, 0, 'a', { font: 'smooth' });
+    l = writeSlot(d, l, 0, 0, ' ');
+    expect(l.style['0,0']).toBeUndefined();
   });
 
-  it('keeps emoji as one character', () => {
-    const d = { ...defaultGrid(), cols: 3, text: ['a🙂b'] };
-    expect(rowChars(d, 0)).toEqual(['a', '🙂', 'b']);
+  it('restyles only the given slots, so one grid can mix fonts', () => {
+    const d = grid();
+    let l = writeSlot(d, d.layers[0], 0, 0, 'a', { font: 'pixel' });
+    l = writeSlot(d, l, 0, 1, 'b', { font: 'pixel' });
+    l = restyleSlots(l, [{ r: 0, s: 1 }], { font: 'smooth' });
+    expect(l.style['0,0'].font).toBe('pixel');
+    expect(l.style['0,1'].font).toBe('smooth');
   });
 
   it('keeps each tile in place when switching modes', () => {
-    const full = { ...defaultGrid(), cols: 3, mode: 'full', text: ['abc'] };
-    const half = convertMode(full, 'half');
-    expect(half).toEqual(['a b c']);
-    expect(convertMode({ ...full, mode: 'half', text: half }, 'full')).toEqual(['abc']);
+    const d = grid({ cols: 3 });
+    const l = { ...d.layers[0], text: ['abc'], style: { '0,1': { font: 'smooth' } } };
+    const half = convertLayerMode(d, l, 'half');
+    expect(half.text).toEqual(['a b c']);
+    expect(half.style['0,2']).toEqual({ font: 'smooth' });
   });
 
-  it('cuts text when the grid shrinks', () => {
-    const d = { ...defaultGrid(), cols: 5, text: ['hello', 'world', 'again'] };
-    expect(resizeText(d, 3, 2)).toEqual(['hel', 'wor']);
+  it('cuts text and styles when the grid shrinks', () => {
+    const d = grid({ cols: 5 });
+    const l = { ...d.layers[0], text: ['hello', 'world', 'again'], style: { '2,0': { font: 'smooth' } } };
+    const small = resizeLayerText(d, l, 3, 2);
+    expect(small.text).toEqual(['hel', 'wor']);
+    expect(small.style).toEqual({});
+  });
+});
+
+describe('typing direction', () => {
+  const d = normaliseGrid({ cols: 3, rows: 2 });
+  const all = slotsIn(d, null);
+  const seq = (dir) => orderSlots(all, dir).map(({ r, s }) => `${r}${s}`).join(' ');
+
+  it('goes left to right, then down', () => expect(seq('right')).toBe('00 01 02 10 11 12'));
+  it('goes right to left, then down', () => expect(seq('left')).toBe('02 01 00 12 11 10'));
+  it('goes top to bottom, then right', () => expect(seq('down')).toBe('00 10 01 11 02 12'));
+  it('goes bottom to top, then right', () => expect(seq('up')).toBe('10 00 11 01 12 02'));
+  it('runs along diagonals', () => {
+    const order = orderSlots(all, 'down-right');
+    for (let i = 1; i < order.length; i++) {
+      const [a, b] = [order[i - 1], order[i]];
+      if (a.s - a.r === b.s - b.r) expect(b.r - a.r).toBe(1);
+    }
   });
 });
 
 describe('photo placement', () => {
   it('letterboxes a wide photo in a square grid', () => {
-    const r = containRect(200, 100, 100, 100);
-    expect(r).toEqual({ x: 0, y: 25, w: 100, h: 50 });
+    expect(containRect(200, 100, 100, 100)).toEqual({ x: 0, y: 25, w: 100, h: 50 });
   });
-
-  it('pillarboxes a tall photo and honours scale', () => {
-    const r = containRect(100, 200, 100, 100, 0.5);
-    expect(r).toEqual({ x: 37.5, y: 25, w: 25, h: 50 });
+  it('honours scale and offset', () => {
+    expect(containRect(100, 200, 100, 100, 0.5, 10, -5)).toEqual({ x: 47.5, y: 20, w: 25, h: 50 });
   });
 });
 
@@ -70,7 +127,6 @@ describe('custom glyph bitmaps', () => {
   it('seeds a new glyph from the pixel font', () => {
     const bits = seedBits('A', 8);
     expect(bits.some(Boolean)).toBe(true);
-    // The font's rows are doubled vertically to fill the 16-tall cell.
     expect(bits.slice(0, 8)).toEqual(bits.slice(8, 16));
   });
 });

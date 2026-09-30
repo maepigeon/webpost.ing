@@ -31,6 +31,8 @@ const ALLOWED = {
     'repeating-linear-gradient: a texture on the message thread, not a fill.',
   'components/ImageCrop/ImageCropDialog.css':
     'repeating-conic-gradient: the standard transparency checkerboard, and the crop scrim.',
+  'components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/TileGrid.css':
+    'The transparency checkerboard behind the grid while editing.',
   'components/PageTheme/themes.css':
     'Page themes: textures and effects (ruled paper, scanlines, the rainbow of Pawprint Phenomenon, push pins), not fills.',
   'components/PageTheme/theme.js':

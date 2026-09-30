@@ -1,17 +1,30 @@
-/* ── Tile grid block ─────────────────────────────────────────────────────── */
+/* ── Tile grid block ─────────────────────────────────────────────────────────
+   The editor is built to look like what it makes: small square tiles with
+   pixel icons, dark by default and inverted when on. */
+
 .tilegrid {
   position: relative;
   margin: 16px 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  text-align: left;
+}
+
+/* A checkerboard behind the canvas, so transparent pixels read as transparent
+   while editing; in a post the page shows through instead. */
+.tilegrid--editing .tilegrid-stage {
+  background-color: #d8d8d8;
+  background-image:
+    linear-gradient(45deg, #bdbdbd 25%, transparent 25%, transparent 75%, #bdbdbd 75%),
+    linear-gradient(45deg, #bdbdbd 25%, transparent 25%, transparent 75%, #bdbdbd 75%);
+  background-size: 12px 12px;
+  background-position: 0 0, 6px 6px;
 }
 
 .tilegrid-canvas {
   display: block;
   width: 100%;
   height: auto;
-  /* Pixel art: scale up without blurring. */
   image-rendering: pixelated;
-  border-radius: 4px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
   touch-action: none;
 }
 
@@ -30,7 +43,7 @@
 
 .tilegrid-controls {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   margin-top: 6px;
   opacity: 0;
   transition: opacity 0.15s ease;
@@ -38,103 +51,251 @@
 .tilegrid:hover .tilegrid-controls,
 .tilegrid:focus-within .tilegrid-controls { opacity: 1; }
 
-.tilegrid-panel,
-.tilegrid-glyphs {
-  margin-top: 10px;
-  padding: 12px;
-  background: var(--surface-3);
-  border-radius: 12px;
-  box-shadow: var(--raise-1);
+/* ── Tiles ─────────────────────────────────────────────────────────────────── */
+
+.tg-tile {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 3px;
+  background: #1c1c1c;
+  color: #f2f2f2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 -2px 0 rgba(0, 0, 0, 0.5);
+  transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.1s ease;
+}
+.tg-tile:hover:not(:disabled) { background: #333333; transform: translateY(-1px); }
+.tg-tile:active:not(:disabled) { transform: translateY(1px); }
+.tg-tile.is-on { background: #f2f2f2; color: #111111; box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.18); }
+.tg-tile:disabled { opacity: 0.3; cursor: default; }
+.tg-tile.is-busy { opacity: 0.5; }
+.tg-tile input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+.tg-text-btn {
+  height: 26px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 3px;
+  background: #1c1c1c;
+  color: #f2f2f2;
+  font: 600 12px system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.tg-swatch {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 2px #1c1c1c, inset 0 0 0 3px #f2f2f2;
+  cursor: pointer;
+}
+.tg-swatch input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+/* ── Panel ─────────────────────────────────────────────────────────────────── */
+
+.tg-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 176px;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 8px;
+  background: #0d0d0d;
+  border-radius: 6px;
+  color: #e6e6e6;
+  font-size: 12px;
+}
+@media (max-width: 640px) {
+  .tg-panel { grid-template-columns: 1fr; }
+}
+
+.tg-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.tg-group { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; }
+.tg-gap { width: 8px; }
+
+.tg-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: 3px;
+  background: #1c1c1c;
+  color: #9a9a9a;
+  font-weight: 700;
+}
+.tg-size input {
+  width: 34px;
+  border: none;
+  background: transparent;
+  color: #f2f2f2;
+  font: 600 12px ui-monospace, Menlo, monospace;
+  text-align: right;
+}
+
+/* Direction pad: the straight arrows get the bigger cells. */
+.tg-dpad {
+  display: grid;
+  grid-template-columns: 14px 22px 14px;
+  grid-template-rows: 14px 22px 14px;
+  gap: 2px;
+}
+.tg-dpad-cell {
+  padding: 0;
+  border: none;
+  border-radius: 2px;
+  background: #1c1c1c;
+  color: #cfcfcf;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.tg-dpad-cell:hover { background: #333333; }
+.tg-dpad-cell.is-on { background: #f2f2f2; color: #111111; }
+.tg-dpad-cell.is-diagonal { background: #161616; }
+.tg-dpad-cell.is-diagonal.is-on { background: #f2f2f2; }
+.tg-dpad-centre { border-radius: 2px; background: #111111; box-shadow: inset 0 0 0 1px #2a2a2a; }
+
+.tg-textures {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 4px;
+}
+.tg-texture {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  font-size: 13px;
-  color: var(--ink);
-}
-
-.tilegrid-row {
-  display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-}
-.tilegrid-row--end { justify-content: space-between; }
-
-.tilegrid-label {
-  min-width: 42px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ink-soft);
-}
-
-.tilegrid-hint { color: var(--ink-soft); font-size: 12px; }
-.tilegrid-sep { width: 1px; height: 18px; background: var(--hairline); margin: 0 2px; }
-
-.tilegrid button,
-.tilegrid-file {
-  padding: 5px 11px;
-  border: none;
-  border-radius: 8px;
-  background: #ffffff;
-  color: var(--ink);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: var(--raise-1);
-  transition: transform 0.13s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.tilegrid button:hover:not(:disabled),
-.tilegrid-file:hover { transform: translateY(-1px); }
-.tilegrid button:active:not(:disabled) { transform: translateY(1px) scale(0.97); box-shadow: var(--pressed); }
-.tilegrid button:disabled { opacity: 0.45; cursor: default; }
-.tilegrid button.is-on { background: var(--ink); color: #ffffff; }
-.tilegrid .tilegrid-danger { color: var(--danger); }
-.tilegrid .tilegrid-done { background: var(--ink); color: #ffffff; padding: 6px 16px; }
-
-.tilegrid-file { position: relative; overflow: hidden; }
-.tilegrid-file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-
-.tilegrid input[type="number"] {
-  width: 52px;
-  padding: 4px 6px;
-  border: 1px solid var(--hairline);
-  border-radius: 6px;
-  font: inherit;
-}
-.tilegrid input[type="color"] {
-  width: 28px;
-  height: 24px;
-  padding: 0;
-  border: 1px solid var(--hairline);
-  border-radius: 6px;
-  background: none;
-  cursor: pointer;
-  vertical-align: middle;
-}
-.tilegrid label { display: inline-flex; align-items: center; gap: 4px; }
-.tilegrid-scale input[type="range"] { width: 120px; }
-.tilegrid-scale span { min-width: 38px; font-variant-numeric: tabular-nums; }
-
-.tilegrid-char {
-  width: 44px;
+  gap: 3px;
   padding: 4px;
-  text-align: center;
-  font-size: 16px;
-  border: 1px solid var(--hairline);
-  border-radius: 6px;
+  border: none;
+  border-radius: 3px;
+  background: #1c1c1c;
+  color: #cfcfcf;
+  font-size: 10px;
+  cursor: pointer;
+}
+.tg-texture:hover { background: #333333; }
+.tg-texture img { image-rendering: pixelated; border-radius: 2px; }
+
+.tg-photo { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.tg-photo label { display: inline-flex; align-items: center; gap: 6px; color: #9a9a9a; font-weight: 700; }
+.tg-photo input[type="range"] { width: 120px; }
+.tg-photo span { color: #e6e6e6; font-variant-numeric: tabular-nums; }
+
+.tg-status { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+.tg-hint { color: #8c8c8c; font-size: 11px; flex: 1; min-width: 0; }
+.tg-badge { padding: 2px 6px; border-radius: 3px; background: #1f3a5c; color: #cfe3ff; font-size: 11px; }
+.tg-done {
+  height: 26px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 3px;
+  background: #f2f2f2;
+  color: #111111;
+  font: 700 12px system-ui, sans-serif;
+  cursor: pointer;
 }
 
-/* The bitmap you draw a custom character on. */
+/* ── Layers ────────────────────────────────────────────────────────────────── */
+
+.tg-layers { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.tg-layers-head { display: flex; align-items: center; gap: 3px; }
+.tg-layers-head span { flex: 1; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8c8c8c; }
+.tg-layers-head .tg-tile { width: 22px; height: 22px; }
+
+.tg-layer-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.tg-layer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: #1a1a1a;
+  cursor: pointer;
+}
+.tg-layer:hover { background: #262626; }
+.tg-layer.is-active { background: #f2f2f2; color: #111111; }
+.tg-layer.is-dragging { opacity: 0.4; }
+.tg-layer-grip { color: #555555; cursor: grab; display: flex; }
+.tg-layer.is-active .tg-layer-grip { color: #888888; }
+.tg-layer-eye {
+  padding: 2px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+}
+.tg-layer-kind { display: flex; opacity: 0.6; }
+.tg-layer-name {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: 500 12px system-ui, sans-serif;
+  padding: 2px 0;
+}
+.tg-layer-name:focus { outline: 1px solid #5ea0ff; border-radius: 2px; }
+
+/* ── Custom characters ─────────────────────────────────────────────────────── */
+
+.tilegrid-glyphs {
+  margin-top: 6px;
+  padding: 10px;
+  background: #0d0d0d;
+  border-radius: 6px;
+  color: #e6e6e6;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+}
+.tilegrid-glyphs .tilegrid-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.tilegrid-glyphs .tilegrid-row--end { justify-content: flex-end; }
+.tilegrid-glyphs .tilegrid-label { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8c8c8c; }
+.tilegrid-glyphs .tilegrid-hint { color: #8c8c8c; }
+.tilegrid-glyphs label { display: inline-flex; align-items: center; gap: 6px; }
+.tilegrid-glyphs button {
+  height: 24px;
+  padding: 0 9px;
+  border: none;
+  border-radius: 3px;
+  background: #1c1c1c;
+  color: #f2f2f2;
+  font: 600 12px system-ui, sans-serif;
+  cursor: pointer;
+}
+.tilegrid-glyphs button.is-on,
+.tilegrid-glyphs .tilegrid-done { background: #f2f2f2; color: #111111; }
+.tilegrid-glyphs button:disabled { opacity: 0.35; cursor: default; }
+.tilegrid-glyphs .tilegrid-danger { color: #ff8a80; }
+.tilegrid-char {
+  width: 40px;
+  padding: 3px;
+  border: none;
+  border-radius: 3px;
+  background: #1c1c1c;
+  color: #f2f2f2;
+  text-align: center;
+  font-size: 15px;
+}
 .tilegrid-bitmap {
   display: grid;
-  width: min(100%, 256px);
+  width: min(100%, 224px);
   gap: 1px;
-  background: #cfcfcf;
-  border: 1px solid #cfcfcf;
+  background: #2a2a2a;
+  border: 1px solid #2a2a2a;
   user-select: none;
   touch-action: none;
 }
-.tilegrid-bitmap span { background: #ffffff; cursor: pointer; }
+.tilegrid-bitmap span { background: #f2f2f2; cursor: pointer; }
 .tilegrid-bitmap span.on { background: #111111; }
