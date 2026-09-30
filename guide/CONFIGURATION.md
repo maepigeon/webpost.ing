@@ -64,6 +64,9 @@ The schema is owned by the migration runner, which applies pending
 `db/migrations/V*.sql` at startup. `spring.jpa.hibernate.ddl-auto` is pinned to
 `none` and must stay that way — see [MIGRATIONS.md](MIGRATIONS.md).
 
+Tests ignore these and connect to `webposting_test` through `TEST_DB_*`
+variables — see [MIGRATIONS.md](MIGRATIONS.md#the-test-database).
+
 ### Origins
 
 | Variable | Default | Notes |
