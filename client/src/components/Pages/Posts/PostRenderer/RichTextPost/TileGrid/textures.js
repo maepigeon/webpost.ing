@@ -21,15 +21,19 @@ function rng(seed) {
 
 const px = (ctx, x, y, colour) => { ctx.fillStyle = colour; ctx.fillRect(x, y, 1, 1); };
 
-/** Cheap value noise on a coarse lattice, for blotches bigger than one pixel. */
+/**
+ * Cheap value noise on a coarse lattice, for blotches bigger than one pixel.
+ * The lattice wraps at the canvas edges, so the texture tiles without seams.
+ */
 function blotches(w, h, cell, seed) {
   const r = rng(seed);
-  const gw = Math.ceil(w / cell) + 2, gh = Math.ceil(h / cell) + 2;
+  const gw = Math.max(1, Math.round(w / cell)), gh = Math.max(1, Math.round(h / cell));
+  const cw = w / gw, ch = h / gh;
   const g = Array.from({ length: gw * gh }, () => r());
+  const at = (i, j) => g[((j % gh) + gh) % gh * gw + ((i % gw) + gw) % gw];
   return (x, y) => {
-    const gx = x / cell, gy = y / cell;
+    const gx = x / cw, gy = y / ch;
     const x0 = Math.floor(gx), y0 = Math.floor(gy), tx = gx - x0, ty = gy - y0;
-    const at = (i, j) => g[(j % gh) * gw + (i % gw)];
     const a = at(x0, y0) * (1 - tx) + at(x0 + 1, y0) * tx;
     const b = at(x0, y0 + 1) * (1 - tx) + at(x0 + 1, y0 + 1) * tx;
     return a * (1 - ty) + b * ty;

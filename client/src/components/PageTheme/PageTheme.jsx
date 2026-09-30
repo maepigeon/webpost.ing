@@ -1,20 +1,21 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
-import { DEFAULT_THEME, sanitiseTheme, applyThemeToDocument, themeStyle } from './theme.js';
-import { patternToStyle } from '../PatternPicker/patterns.js';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { defaultTheme, sanitiseTheme, applyThemeToDocument, themeVariables } from './theme.js';
+import { wallpaperStyle, renderGridImage, useWallpaperStyle } from '../TileArt/wallpaper.js';
+import { TILE } from '../Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
 import { GET_PAGE_THEME } from '../Pages/Posts/BasicTextPostServerApi.js';
 import './themes.css';
+
+/** CSS pixels per grid pixel for a card's sticker. */
+const STICKER_SCALE = 2;
 
 // ── The document's current theme ──────────────────────────────────────────────
 // Newspaper Life everywhere, except while an author's profile or post is open.
 
-let current = DEFAULT_THEME;
-let removeCurrent = applyThemeToDocument(DEFAULT_THEME, { isDefault: true });
+let current = { theme: null, isDefault: true };
 const listeners = new Set();
 
 function setDocumentTheme(theme) {
-  removeCurrent();
-  current = sanitiseTheme(theme || DEFAULT_THEME);
-  removeCurrent = applyThemeToDocument(current, { isDefault: !theme });
+  current = theme ? { theme: sanitiseTheme(theme), isDefault: false } : { theme: null, isDefault: true };
   listeners.forEach(l => l());
 }
 
@@ -51,23 +52,49 @@ export function useAuthorTheme(username) {
   }, [theme]);
 }
 
+// ── Pictures ──────────────────────────────────────────────────────────────────
+
+/** Draws a theme's card texture and sticker; {} until they are ready. */
+export function useThemeImages(theme) {
+  const card = theme?.card?.texture || null;
+  const sticker = theme?.card?.sticker || null;
+  const key = useMemo(() => JSON.stringify([card, sticker]), [card, sticker]);
+  const [images, setImages] = useState({});
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      const next = {};
+      if (card) next.card = await wallpaperStyle(card).catch(() => null);
+      if (sticker) {
+        const dpr = window.devicePixelRatio || 1;
+        const canvas = await renderGridImage(sticker, Math.round(STICKER_SCALE * dpr)).catch(() => null);
+        if (canvas) {
+          next.sticker = {
+            url: canvas.toDataURL('image/png'),
+            width: sticker.cols * TILE * STICKER_SCALE,
+            height: sticker.rows * TILE * STICKER_SCALE,
+          };
+        }
+      }
+      if (live) setImages(next);
+    })();
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  return images;
+}
+
 // ── Layers ────────────────────────────────────────────────────────────────────
 
-/** The page texture behind everything, and the effects in front of it. */
+/** The page background behind everything, and the screen effects in front of it. */
 export function ThemeLayers({ theme }) {
   const t = sanitiseTheme(theme);
-  const paw = t.page.texture === 'rainbow-paws' ? patternToStyle('paw-print') : null;
+  const style = useWallpaperStyle(t.page.useProfileWallpaper ? null : t.page.wallpaper);
   return (
     <>
-      <div className="th-backdrop" data-texture={t.page.texture} aria-hidden="true">
-        {paw && (
-          <div className="th-paws" style={{
-            WebkitMaskImage: paw.backgroundImage, maskImage: paw.backgroundImage,
-            WebkitMaskSize: paw.backgroundSize, maskSize: paw.backgroundSize,
-            WebkitMaskPosition: paw.backgroundPosition, maskPosition: paw.backgroundPosition,
-          }} />
-        )}
-      </div>
+      <div className="th-backdrop" aria-hidden="true"
+        data-wallpaper={t.page.useProfileWallpaper ? 'profile' : undefined}
+        style={style} />
       {(t.fx.scanlines || t.fx.flicker) && (
         <div className="th-overlay" aria-hidden="true"
           data-scanlines={t.fx.scanlines ? '' : undefined}
@@ -77,16 +104,23 @@ export function ThemeLayers({ theme }) {
   );
 }
 
-/** Layers for whatever theme the document is showing. Mounted once, in App. */
+/**
+ * The document's theme: its variables on <html> and its layers behind the
+ * page. Mounted once, in App.
+ */
 export function DocumentThemeLayers() {
-  const theme = useSyncExternalStore(subscribe, getCurrent);
+  const { theme: chosen, isDefault } = useSyncExternalStore(subscribe, getCurrent);
+  const theme = useMemo(() => chosen || defaultTheme(), [chosen]);
+  const images = useThemeImages(theme);
+  useEffect(() => applyThemeToDocument(theme, images, { isDefault }), [theme, images, isDefault]);
   return <ThemeLayers theme={theme} />;
 }
 
 /** A box that shows a theme regardless of the page around it. */
 export function ThemePreview({ theme, children, className = '' }) {
+  const images = useThemeImages(theme);
   return (
-    <div className={`theme-preview ${className}`} style={themeStyle(theme)}>
+    <div className={`theme-preview ${className}`} style={themeVariables(theme, images)}>
       <ThemeLayers theme={theme} />
       <div className="theme-preview-content">{children}</div>
     </div>

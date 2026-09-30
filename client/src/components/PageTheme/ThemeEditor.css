@@ -136,3 +136,21 @@
 .theme-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .theme-status { font-size: 13px; color: #2e7d32; font-family: system-ui, sans-serif; }
 .theme-status--error { color: var(--danger); }
+
+/* Sticker choices, matching the wallpaper editor's chips. */
+.theme-editor .theme-chips { display: flex; flex-wrap: wrap; gap: 3px; }
+.theme-editor .theme-chip {
+  height: 24px;
+  margin: 0;
+  padding: 0 9px;
+  border: none;
+  border-radius: 3px;
+  background: #1c1c1c;
+  color: #e6e6e6;
+  font: 600 11px system-ui, sans-serif;
+  cursor: pointer;
+}
+.theme-editor .theme-chip:hover { background: #333333; }
+.theme-editor .theme-chip.is-on { background: #f2f2f2; color: #111111; box-shadow: inset 0 0 0 1px #111111; }
+.theme-sticker { display: flex; flex-direction: column; gap: 6px; }
+.theme-controls .wp-editor { margin-bottom: 4px; }

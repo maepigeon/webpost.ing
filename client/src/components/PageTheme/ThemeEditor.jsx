@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  PRESETS, DEFAULT_THEME, FONTS, TEXTURES, BORDERS, SHADOWS, LINES, PINS, CASES, EFFECTS, sanitiseTheme,
+  getPresets, defaultTheme, FONTS, BORDERS, SHADOWS, CASES, EFFECTS, MAX_STICKER_TILES, sanitiseTheme,
 } from './theme.js';
 import { ThemePreview } from './PageTheme.jsx';
+import WallpaperEditor from '../TileArt/WallpaperEditor.jsx';
+import TileGrid from '../Pages/Posts/PostRenderer/RichTextPost/TileGrid/TileGrid.jsx';
+import { STICKERS } from '../TileArt/stickers.js';
 import { GET_PAGE_THEME, SET_PAGE_THEME } from '../Pages/Posts/BasicTextPostServerApi.js';
 import './ThemeEditor.css';
 
@@ -59,13 +62,39 @@ function Slider({ value, min, max, step, onChange, format = v => v }) {
   );
 }
 
+/** Pick a sticker to start from, or draw one, in the same designer as everything else. */
+function StickerPicker({ value, onChange }) {
+  const [drawing, setDrawing] = useState(false);
+  return (
+    <div className="theme-sticker">
+      <div className="theme-chips">
+        <button type="button" className={`theme-chip${!value ? ' is-on' : ''}`} onClick={() => { setDrawing(false); onChange(null); }}>None</button>
+        {Object.entries(STICKERS).map(([k, s]) => (
+          <button key={k} type="button" className="theme-chip" onClick={() => onChange(s.make())}>{s.label}</button>
+        ))}
+        {value && (
+          <button type="button" className={`theme-chip${drawing ? ' is-on' : ''}`} onClick={() => setDrawing(d => !d)}>
+            {drawing ? 'Close designer' : 'Draw'}
+          </button>
+        )}
+      </div>
+      {value && drawing && (
+        <TileGrid data={value} onChange={onChange} editable startEditing
+          maxCols={MAX_STICKER_TILES} maxRows={MAX_STICKER_TILES} onDone={() => setDrawing(false)} />
+      )}
+    </div>
+  );
+}
+
 /**
  * Choose a preset, change anything about it, save it as your own. A preset is
- * only a starting point: the same controls edit every one of them.
+ * only a starting point: the same controls edit every one of them, and its
+ * pictures open in the grid designer.
  */
 export default function ThemeEditor({ username }) {
+  const presets = useMemo(() => getPresets(), []);
   const [saved, setSaved] = useState(null);          // what is stored; null = Newspaper Life
-  const [draft, setDraft] = useState(DEFAULT_THEME);
+  const [draft, setDraft] = useState(() => defaultTheme());
   const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -75,7 +104,7 @@ export default function ThemeEditor({ username }) {
       .then(d => {
         const t = d?.theme ? sanitiseTheme(d.theme) : null;
         setSaved(t);
-        setDraft(t || DEFAULT_THEME);
+        setDraft(t || defaultTheme());
       })
       .catch(() => {})
       .finally(() => setLoaded(true));
@@ -91,10 +120,10 @@ export default function ThemeEditor({ username }) {
     setBusy(true);
     setStatus(null);
     try {
-      const res = await SET_PAGE_THEME(username, theme);
+      const res = await SET_PAGE_THEME(username, theme ? sanitiseTheme(theme) : null);
       const t = res?.theme ? sanitiseTheme(res.theme) : null;
       setSaved(t);
-      setDraft(t || DEFAULT_THEME);
+      setDraft(t || defaultTheme());
       setStatus({ ok: true, msg: res?.message || 'Saved.' });
       window.dispatchEvent(new CustomEvent('page-theme-changed', { detail: { username, theme: t } }));
     } catch (err) {
@@ -104,15 +133,15 @@ export default function ThemeEditor({ username }) {
     }
   };
 
-  const dirty = JSON.stringify(sanitiseTheme(draft)) !== JSON.stringify(saved || DEFAULT_THEME);
   const t = sanitiseTheme(draft);
+  const dirty = JSON.stringify(t) !== JSON.stringify(sanitiseTheme(saved || defaultTheme()));
 
   if (!loaded) return <p className="settings-section-hint">Loading your theme…</p>;
 
   return (
     <div className="theme-editor">
       <div className="theme-gallery" role="list">
-        {Object.entries(PRESETS).map(([key, p]) => (
+        {Object.entries(presets).map(([key, p]) => (
           <button key={key} type="button" role="listitem"
             className={`theme-gallery-item${draft.preset === key ? ' is-on' : ''}`}
             onClick={() => setDraft(p.theme)}
@@ -133,13 +162,15 @@ export default function ThemeEditor({ username }) {
 
         <div className="theme-controls">
           <fieldset>
-            <legend>Page</legend>
-            <Field label="Background"><Colour value={t.page.bg} onChange={set('page', 'bg')} /></Field>
-            <Field label="Texture"><Select value={t.page.texture} options={TEXTURES} onChange={set('page', 'texture')} /></Field>
-            <Field label="Texture colour"><Colour value={t.page.textureColor} onChange={set('page', 'textureColor')} /></Field>
-            <Field label="Texture strength">
-              <Slider value={t.page.textureOpacity} min={0} max={1} step={0.05} onChange={set('page', 'textureOpacity')} format={v => `${Math.round(v * 100)}%`} />
-            </Field>
+            <legend>Page background</legend>
+            <label className="theme-check">
+              <input type="checkbox" checked={t.page.useProfileWallpaper}
+                onChange={e => set('page', 'useProfileWallpaper')(e.target.checked)} />
+              Use my profile wallpaper
+            </label>
+            {!t.page.useProfileWallpaper && (
+              <WallpaperEditor value={t.page.wallpaper} onChange={set('page', 'wallpaper')} />
+            )}
           </fieldset>
 
           <fieldset>
@@ -165,10 +196,11 @@ export default function ThemeEditor({ username }) {
             <Field label="Border colour"><Colour value={t.card.borderColor} onChange={set('card', 'borderColor')} /></Field>
             <Field label="Corners"><Slider value={t.card.radius} min={0} max={28} step={1} onChange={set('card', 'radius')} format={v => `${v}px`} /></Field>
             <Field label="Shadow"><Select value={t.card.shadow} options={SHADOWS} onChange={set('card', 'shadow')} /></Field>
-            <Field label="Paper"><Select value={t.card.lines} options={LINES} onChange={set('card', 'lines')} /></Field>
-            <Field label="Line colour"><Colour value={t.card.lineColor} onChange={set('card', 'lineColor')} /></Field>
             <Field label="Tilt"><Slider value={t.card.tilt} min={0} max={5} step={0.1} onChange={set('card', 'tilt')} format={v => `${v.toFixed(1)}°`} /></Field>
-            <Field label="Stuck on with"><Select value={t.card.pin} options={PINS} onChange={set('card', 'pin')} /></Field>
+            <span className="theme-field-label">Texture</span>
+            <WallpaperEditor value={t.card.texture} onChange={set('card', 'texture')} />
+            <span className="theme-field-label">Sticker</span>
+            <StickerPicker value={t.card.sticker} onChange={set('card', 'sticker')} />
           </fieldset>
 
           <fieldset>
@@ -189,7 +221,7 @@ export default function ThemeEditor({ username }) {
           {busy ? 'Saving…' : 'Save theme'}
         </button>
         <button type="button" className="settings-btn" disabled={busy || !dirty}
-          onClick={() => setDraft(saved || DEFAULT_THEME)}>
+          onClick={() => setDraft(saved || defaultTheme())}>
           Undo changes
         </button>
         <button type="button" className="settings-btn" disabled={busy || saved === null}

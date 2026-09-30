@@ -96,6 +96,22 @@ public class PostController {
         return null;
     }
 
+    /** Title slugs that say nothing; such a post is addressed by its id instead. */
+    private static final java.util.Set<String> EMPTY_SLUGS = java.util.Set.of("untitled", "undefined", "null", "new-post", "post");
+
+    /**
+     * The slug a post is saved under: the author's own, or else one made from
+     * the title. Stored either way, so every post has a unique /author/slug
+     * address — two posts with the same title get "title" and "title-2" rather
+     * than sharing one address that only the older can answer.
+     */
+    private static String slugFor(Post post) {
+        String custom = normaliseSlug(post.getSlug());
+        if (custom != null) return custom;
+        String derived = titleSlug(post.getTitle());
+        return derived == null || EMPTY_SLUGS.contains(derived) ? null : derived;
+    }
+
     /** Mirrors slugify() in client/src/utils/postUrl.js, including its 60-character cap. */
     public static String titleSlug(String title) {
         String slug = normaliseSlug(title);
@@ -347,7 +363,7 @@ public class PostController {
             try {
                 int userId = loginResult.userId;
                 System.out.println("User ID: " + userId);
-                post.setSlug(uniqueSlugFor(normaliseSlug(post.getSlug()), username, null));
+                post.setSlug(uniqueSlugFor(slugFor(post), username, null));
                 int postId = postRepository.save(post, userId);
                 syncPostUploads(postId, post.getDescription());
                 social.parseAndSaveHashtags(postId, post.getDescription());
@@ -397,7 +413,7 @@ public class PostController {
             _post.setDate(post.getDate());
             _post.setBackgroundPattern(post.getBackgroundPattern());
             _post.setFolder(post.getFolder() != null && !post.getFolder().isBlank() ? post.getFolder().trim() : null);
-            _post.setSlug(uniqueSlugFor(normaliseSlug(post.getSlug()), username, (int) id));
+            _post.setSlug(uniqueSlugFor(slugFor(post), username, (int) id));
             postRepository.update(_post);
             syncPostUploads(id, post.getDescription());
             social.parseAndSaveHashtags((int) id, post.getDescription());

@@ -11,81 +11,30 @@
    the nearest value: the preview box in Settings sets its own and wins over
    the page around it.
 
-   Gradients here are textures and effects — ruled lines, scanlines, rainbow —
-   not fills; this file is on the documented exceptions list.
+   The pictures — page background, card texture, sticker — are tile grids
+   drawn by wallpaper.js and handed over as images. The only gradients left
+   here are effects (scanlines, the rainbow border and headings), which is why
+   this file is on the documented exceptions list.
    ══════════════════════════════════════════════════════════════════════════ */
 
 :root {
-  --th-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  --th-cork: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='a'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.28' numOctaves='2' seed='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .23 0 0 0 0 .13 0 0 0 0 .05 0 0 0 -1.6 1.05'/%3E%3C/filter%3E%3Cfilter id='b'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' seed='9' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .16 0 0 0 0 .09 0 0 0 0 .03 0 0 0 -3 1.9'/%3E%3C/filter%3E%3Cfilter id='c'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='1' seed='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 .86 0 0 0 0 .62 0 0 0 -3.4 2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23a)'/%3E%3Crect width='100%25' height='100%25' filter='url(%23b)'/%3E%3Crect width='100%25' height='100%25' filter='url(%23c)' opacity='.55'/%3E%3C/svg%3E");
   --th-rainbow: linear-gradient(115deg, #ff5e8a, #ffa45c, #ffe45c, #6ef29c, #5ec8ff, #a98bff, #ff5e8a);
 }
 
 /* ── Page ──────────────────────────────────────────────────────────────────── */
 
-html { background-color: var(--th-page-bg, #eeede9); }
+html { background-color: #eeede9; }
 html[data-th-hide-wallpaper] body { background-image: none !important; }
 
+/* The page wallpaper; its image and tiling are set inline from the grid. */
 .th-backdrop {
   position: fixed;
   inset: 0;
   z-index: -1;
-  overflow: hidden;
   pointer-events: none;
-  background-color: var(--th-page-bg);
 }
 .theme-preview .th-backdrop { position: absolute; z-index: 0; }
-.th-backdrop[data-texture="wallpaper"] { display: none; }
-
-.th-backdrop[data-texture="newsprint"]::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: var(--th-noise);
-  opacity: calc(var(--th-texture-opacity) * 0.24);
-  mix-blend-mode: multiply;
-}
-
-.th-backdrop[data-texture="cork"] {
-  background-image: var(--th-cork);
-  background-size: 300px 300px;
-}
-.th-backdrop[data-texture="cork"]::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-color: rgba(var(--th-texture-rgb), calc(var(--th-texture-opacity) * 0.14));
-  mix-blend-mode: multiply;
-}
-
-.th-backdrop[data-texture="graph"] {
-  background-image:
-    linear-gradient(rgba(var(--th-texture-rgb), var(--th-texture-opacity)) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(var(--th-texture-rgb), var(--th-texture-opacity)) 1px, transparent 1px),
-    linear-gradient(rgba(var(--th-texture-rgb), calc(var(--th-texture-opacity) * 0.45)) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(var(--th-texture-rgb), calc(var(--th-texture-opacity) * 0.45)) 1px, transparent 1px);
-  background-size: 120px 120px, 120px 120px, 24px 24px, 24px 24px;
-}
-
-.th-backdrop[data-texture="dots"] {
-  background-image: radial-gradient(rgba(var(--th-texture-rgb), var(--th-texture-opacity)) 1.6px, transparent 2px);
-  background-size: 22px 22px;
-}
-
-.th-backdrop[data-texture="scanlines"] {
-  background-image: radial-gradient(ellipse at 50% 35%, rgba(var(--th-texture-rgb), calc(var(--th-texture-opacity) * 0.55)), transparent 70%);
-}
-
-/* Rainbow seen through paw-shaped holes. The mask is the paw pattern from
-   patterns.js, set inline, so it is the same paw the wallpaper picker offers. */
-.th-paws {
-  position: absolute;
-  inset: 0;
-  background-image: var(--th-rainbow);
-  background-size: 400% 400%;
-  opacity: var(--th-texture-opacity);
-  animation: th-rainbow-drift 18s linear infinite;
-}
+.th-backdrop[data-wallpaper="profile"] { display: none; }
 
 /* Over-the-page effects. */
 .th-overlay {
@@ -191,35 +140,20 @@ html[data-th-hide-wallpaper] body { background-image: none !important; }
   transform: rotate(0deg) translateY(-2px);
 }
 
-/* Tape and pins. */
+/* The sticker: a small grid pinned to the top centre of every card. */
 #appBody :is(.profile-header-card, .basicTextPost):not(.editor-post-card .basicTextPost)::before,
 .theme-preview .theme-card::before {
   content: '';
-  display: var(--th-pin-display);
+  display: var(--th-sticker-display, none);
   position: absolute;
-  top: var(--th-pin-top);
+  top: calc(var(--th-sticker-h) * -0.5);
   left: 50%;
-  width: var(--th-pin-w);
-  height: var(--th-pin-h);
-  margin-left: var(--th-pin-ml);
-  border-radius: var(--th-pin-radius);
-  transform: rotate(var(--th-pin-rotate));
-  background: var(--th-pin-bg);
-  box-shadow: var(--th-pin-shadow);
+  width: var(--th-sticker-w);
+  height: var(--th-sticker-h);
+  transform: translateX(-50%);
+  background: var(--th-sticker-image) center / 100% 100% no-repeat;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.3));
   z-index: 2;
-  pointer-events: none;
-}
-
-/* Paper grain on the cards themselves. */
-#appBody :is(.profile-header-card, .basicTextPost, .editor-post-card, .settings-card, .search-card, .login-card):not(.editor-post-card .basicTextPost)::after,
-.theme-preview .theme-card::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background-image: var(--th-noise);
-  opacity: var(--th-grain-opacity);
-  mix-blend-mode: multiply;
   pointer-events: none;
 }
 
@@ -248,7 +182,7 @@ html[data-th-hide-wallpaper] body { background-image: none !important; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .th-overlay, .th-paws { animation: none !important; }
+  .th-overlay { animation: none !important; }
   :is(#appBody, .theme-preview) :is(h1, h2, h3) { animation: none !important; }
   #appBody :is(.profile-header-card, .basicTextPost, .editor-post-card), .theme-preview .theme-card { animation: none !important; }
 }

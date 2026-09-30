@@ -1283,9 +1283,9 @@ function FeatureTogglePlugin({ postid, features, onFeaturesChange }) {
 /**
  * Lets the author choose the readable part of their post's URL.
  *
- * The address is /{username}/{id}-{slug}. The id makes it unique, so the slug
- * is free-form and needs no collision handling — leaving it blank simply
- * derives one from the title.
+ * The address is /{username}/{slug}. Leaving it blank derives one from the
+ * title; the server makes it unique among the author's posts on save, adding
+ * "-2" and so on when two would clash.
  *
  * Input is tidied as you type rather than rejected: someone typing "My Post!"
  * gets "my-post", which is what they meant.
@@ -1311,7 +1311,6 @@ function PostSlugPlugin({ slug, onSlugChange, username, titleRef, postId }) {
 
   const derived = slugify((titleRef?.current || '').replace(/<[^>]*>/g, ''));
   const effective = tidy(draft).replace(/-+$/, '') || derived;
-  const idPart = postId || '123';
 
   // Collapsed to a single readable line until clicked. The address is worth
   // seeing on every post; the input only matters when you want to change it.
@@ -1319,8 +1318,8 @@ function PostSlugPlugin({ slug, onSlugChange, username, titleRef, postId }) {
     return (
       <div className="post-slug-row">
         <span className="post-slug-static" title="This post's address">
-          <span className="post-slug-dim">/{username || 'you'}/{idPart}-</span>
-          <span className="post-slug-value">{effective || 'untitled'}</span>
+          <span className="post-slug-dim">/{username || 'you'}/</span>
+          <span className="post-slug-value">{effective || postId || 'new-post'}</span>
         </span>
         <button type="button" className="post-slug-edit" onClick={() => setEditing(true)}>
           {slug ? 'Change URL' : 'Set a custom URL'}
@@ -1332,7 +1331,7 @@ function PostSlugPlugin({ slug, onSlugChange, username, titleRef, postId }) {
   return (
     <div className="post-slug-row post-slug-row--editing">
       <label className="post-slug-label" htmlFor="post-slug-input">
-        <span className="post-slug-dim">/{username || 'you'}/{idPart}-</span>
+        <span className="post-slug-dim">/{username || 'you'}/</span>
       </label>
       <input
         id="post-slug-input"
@@ -1894,7 +1893,9 @@ export default function RichTextEditor() {
       setPostPublished(data.published);
       setBackgroundPattern(data.backgroundPattern || '');
       setPostFolder(data.folder || '');
-      setPostSlug(data.slug || null);
+      // A slug that is just the title's is not a custom one: keep it following
+      // the title. Anything else — chosen, or de-duplicated — stays put.
+      setPostSlug(data.slug && data.slug !== slugify(data.title || '') ? data.slug : null);
       localStorage.setItem("currentPostData", data.description);
       setDataReady(v => v + 1);
       GET_USER_FROM_POST(id).then((author) => {

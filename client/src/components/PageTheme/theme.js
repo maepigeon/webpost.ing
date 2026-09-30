@@ -1,15 +1,23 @@
 /**
  * Page themes: how a user's profile and posts look.
  *
- * A theme is plain data — fonts, colours, a page texture, a card style and a
- * few effects — and every preset below is just a theme. The custom editor
- * edits exactly these fields, so anything a preset does, a user's own theme
- * can do too.
+ * A theme's pictures are tile grids, made in the same designer as the grids in
+ * posts: the page background and the card texture are wallpapers, and the
+ * sticker pinned to each card (a push pin, a strip of tape) is a small grid.
+ * The rest is fonts, colours, a card shape and a few effects.
  *
- * Values reach the page only as CSS custom properties and data attributes, and
- * only after sanitiseTheme(): keys from fixed lists, #rrggbb colours, clamped
- * numbers and booleans. The server applies the same rules (ThemeValidator.java).
+ * Every preset below is just a theme built from those pieces, so anything a
+ * preset does, a user's own theme can do too — and a preset's pictures can be
+ * opened in the designer and redrawn.
+ *
+ * Values reach the page only as CSS custom properties, and only after
+ * sanitiseTheme(): keys from fixed lists, #rrggbb colours, clamped numbers,
+ * booleans, and grids checked by normaliseGrid. The server applies the same
+ * rules (ThemeValidator.java).
  */
+import { sanitiseWallpaper, textureWallpaper, drawnTile } from '../TileArt/wallpaper.js';
+import { STICKERS } from '../TileArt/stickers.js';
+import { normaliseGrid } from '../Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
 
 // ── Vocabulary ────────────────────────────────────────────────────────────────
 
@@ -30,124 +38,169 @@ export const FONTS = {
   sans:          { label: 'Clean sans',       css: 'system-ui, -apple-system, "Segoe UI", sans-serif' },
 };
 
-export const TEXTURES = {
-  none:           'Plain colour',
-  newsprint:      'Newsprint grain',
-  cork:           'Cork board',
-  graph:          'Graph paper',
-  dots:           'Dot grid',
-  scanlines:      'CRT scanlines',
-  'rainbow-paws': 'Rainbow paw prints',
-  wallpaper:      'My wallpaper',
-};
-
 export const BORDERS = { none: 'None', rule: 'Thin rule', double: 'Double rule', dashed: 'Dashed', glow: 'Neon glow', rainbow: 'Rainbow' };
 export const SHADOWS = { none: 'None', soft: 'Soft', lifted: 'Lifted', curl: 'Paper curl', glow: 'Glow' };
-export const LINES   = { none: 'None', ruled: 'Ruled lines', grid: 'Grid' };
-export const PINS    = { none: 'None', tape: 'Tape', pin: 'Push pin' };
 export const CASES   = { none: 'As typed', upper: 'UPPERCASE' };
 export const EFFECTS = {
   glow:      'Glowing text',
   scanlines: 'Scanlines over the page',
   flicker:   'Screen flicker',
   rainbow:   'Rainbow headings',
-  grain:     'Paper grain on cards',
 };
+
+/** Largest sticker, in grid tiles on a side. */
+export const MAX_STICKER_TILES = 4;
 
 // ── Presets ───────────────────────────────────────────────────────────────────
+// Built on first use: their pictures are drawn with a canvas.
 
-export const PRESETS = {
-  newspaper: {
-    label: 'Newspaper Life',
-    blurb: 'Newsprint, ink and column rules. The default.',
-    theme: {
-      v: 1, preset: 'newspaper',
-      page: { bg: '#eeede9', texture: 'newsprint', textureColor: '#000000', textureOpacity: 0.5 },
-      type: { heading: 'headline', body: 'news-serif', ink: '#161616', headingInk: '#0b0b0b', accent: '#111111', headingCase: 'none', headingScale: 1.1 },
-      card: { bg: '#fbfaf6', opacity: 1, border: 'double', borderColor: '#161616', radius: 0, shadow: 'none', lines: 'none', lineColor: '#9ab8d8', tilt: 0, pin: 'none' },
-      fx:   { glow: false, scanlines: false, flicker: false, rainbow: false, grain: true },
-    },
-  },
-  sticky: {
-    label: 'Sticky Pad',
-    blurb: 'Neon notes slapped on a studio wall.',
-    theme: {
-      v: 1, preset: 'sticky',
-      page: { bg: '#bfe3ea', texture: 'dots', textureColor: '#2c6f7d', textureOpacity: 0.35 },
-      type: { heading: 'marker', body: 'handwriting', ink: '#2a2a2a', headingInk: '#e4572e', accent: '#e4572e', headingCase: 'none', headingScale: 1.15 },
-      card: { bg: '#fff27a', opacity: 1, border: 'none', borderColor: '#000000', radius: 2, shadow: 'curl', lines: 'none', lineColor: '#e8d64a', tilt: 2.2, pin: 'tape' },
-      fx:   { glow: false, scanlines: false, flicker: false, rainbow: false, grain: false },
-    },
-  },
-  notebook: {
-    label: 'Notebook',
-    blurb: 'Ruled pages, a red margin and blue biro.',
-    theme: {
-      v: 1, preset: 'notebook',
-      page: { bg: '#2f3b4c', texture: 'graph', textureColor: '#ffffff', textureOpacity: 0.12 },
-      type: { heading: 'handwriting', body: 'notebook', ink: '#1d2a6b', headingInk: '#1d2a6b', accent: '#d0342c', headingCase: 'none', headingScale: 1.3 },
-      card: { bg: '#fffef6', opacity: 1, border: 'none', borderColor: '#000000', radius: 3, shadow: 'lifted', lines: 'ruled', lineColor: '#9ab8d8', tilt: 0, pin: 'none' },
-      fx:   { glow: false, scanlines: false, flicker: false, rainbow: false, grain: false },
-    },
-  },
-  corkboard: {
-    label: 'Corkboard',
-    blurb: 'Typed notes pinned up on real cork.',
-    theme: {
-      v: 1, preset: 'corkboard',
-      page: { bg: '#b8834a', texture: 'cork', textureColor: '#3b2410', textureOpacity: 0.9 },
-      type: { heading: 'marker', body: 'typewriter', ink: '#2a2118', headingInk: '#1e1812', accent: '#c0392b', headingCase: 'none', headingScale: 1.05 },
-      card: { bg: '#fffdf4', opacity: 1, border: 'none', borderColor: '#000000', radius: 1, shadow: 'lifted', lines: 'none', lineColor: '#9ab8d8', tilt: 1.4, pin: 'pin' },
-      fx:   { glow: false, scanlines: false, flicker: false, rainbow: false, grain: true },
-    },
-  },
-  neon: {
-    label: 'Neon Terminal',
-    blurb: 'Phosphor green on black, humming.',
-    theme: {
-      v: 1, preset: 'neon',
-      page: { bg: '#04060a', texture: 'scanlines', textureColor: '#39ff14', textureOpacity: 0.18 },
-      type: { heading: 'terminal', body: 'terminal', ink: '#39ff14', headingInk: '#00f0ff', accent: '#ff2bd6', headingCase: 'upper', headingScale: 1.35 },
-      card: { bg: '#060c10', opacity: 0.88, border: 'glow', borderColor: '#39ff14', radius: 4, shadow: 'glow', lines: 'none', lineColor: '#39ff14', tilt: 0, pin: 'none' },
-      fx:   { glow: true, scanlines: true, flicker: true, rainbow: false, grain: false },
-    },
-  },
-  paw: {
-    label: 'Pawprint Phenomenon',
-    blurb: 'Rainbow paws everywhere, round and squishy.',
-    theme: {
-      v: 1, preset: 'paw',
-      page: { bg: '#fff4fb', texture: 'rainbow-paws', textureColor: '#ff6fb5', textureOpacity: 0.85 },
-      type: { heading: 'cookie', body: 'cookie', ink: '#4a2b5c', headingInk: '#7a2ea0', accent: '#ff4f9a', headingCase: 'none', headingScale: 1.2 },
-      card: { bg: '#ffffff', opacity: 0.92, border: 'rainbow', borderColor: '#ff6fb5', radius: 26, shadow: 'soft', lines: 'none', lineColor: '#ffd1ea', tilt: 0, pin: 'none' },
-      fx:   { glow: false, scanlines: false, flicker: false, rainbow: true, grain: false },
-    },
-  },
+const wall = (fill, bg) => (ctx, w, h) => {
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, w, h);
+  fill(ctx, w, h);
 };
 
-export const DEFAULT_THEME = PRESETS.newspaper.theme;
+function buildPresets() {
+  return {
+    newspaper: {
+      label: 'Newspaper Life',
+      blurb: 'Newsprint, ink and column rules. The default.',
+      theme: {
+        v: 2, preset: 'newspaper',
+        page: { wallpaper: textureWallpaper('newsprint', { scale: 2, bg: '#eeede9' }), useProfileWallpaper: false },
+        type: { heading: 'headline', body: 'news-serif', ink: '#161616', headingInk: '#0b0b0b', accent: '#111111', headingCase: 'none', headingScale: 1.1 },
+        card: { bg: '#fbfaf6', opacity: 1, border: 'double', borderColor: '#161616', radius: 0, shadow: 'none', tilt: 0, texture: null, sticker: null },
+        fx: { glow: false, scanlines: false, flicker: false, rainbow: false },
+      },
+    },
+    sticky: {
+      label: 'Sticky Pad',
+      blurb: 'Neon notes slapped on a studio wall.',
+      theme: {
+        v: 2, preset: 'sticky',
+        page: {
+          wallpaper: {
+            v: 3, tiling: 'repeat', scale: 2, bg: '#bfe3ea',
+            tile: drawnTile(2, 2, wall((ctx, w, h) => {
+              ctx.fillStyle = '#8cc4cf';
+              for (let y = 4; y < h; y += 8) for (let x = 4; x < w; x += 8) ctx.fillRect(x, y, 1, 1);
+            }, '#bfe3ea'), 'Wall'),
+          },
+          useProfileWallpaper: false,
+        },
+        type: { heading: 'marker', body: 'handwriting', ink: '#2a2a2a', headingInk: '#e4572e', accent: '#e4572e', headingCase: 'none', headingScale: 1.15 },
+        card: {
+          bg: '#fff27a', opacity: 1, border: 'none', borderColor: '#000000', radius: 2, shadow: 'curl', tilt: 2.2,
+          texture: textureWallpaper('sticky', { cols: 2, rows: 2, scale: 2, bg: '#fff27a' }),
+          sticker: STICKERS.tape.make(),
+        },
+        fx: { glow: false, scanlines: false, flicker: false, rainbow: false },
+      },
+    },
+    notebook: {
+      label: 'Notebook',
+      blurb: 'Ruled pages, a red margin and blue biro.',
+      theme: {
+        v: 2, preset: 'notebook',
+        page: {
+          wallpaper: {
+            v: 3, tiling: 'repeat', scale: 2, bg: '#2f3b4c',
+            tile: drawnTile(2, 2, wall((ctx, w, h) => {
+              ctx.fillStyle = '#3a4a5f';
+              for (let x = 0; x < w; x += 8) ctx.fillRect(x, 0, 1, h);
+              for (let y = 0; y < h; y += 8) ctx.fillRect(0, y, w, 1);
+            }, '#2f3b4c'), 'Desk'),
+          },
+          useProfileWallpaper: false,
+        },
+        type: { heading: 'handwriting', body: 'notebook', ink: '#1d2a6b', headingInk: '#1d2a6b', accent: '#d0342c', headingCase: 'none', headingScale: 1.3 },
+        card: {
+          bg: '#fffef6', opacity: 1, border: 'none', borderColor: '#000000', radius: 3, shadow: 'lifted', tilt: 0,
+          texture: textureWallpaper('notebook', { cols: 4, rows: 2, scale: 1, bg: '#fffef6' }),
+          sticker: null,
+        },
+        fx: { glow: false, scanlines: false, flicker: false, rainbow: false },
+      },
+    },
+    corkboard: {
+      label: 'Corkboard',
+      blurb: 'Typed notes pinned up on real cork.',
+      theme: {
+        v: 2, preset: 'corkboard',
+        page: { wallpaper: textureWallpaper('cork', { cols: 8, rows: 8, scale: 2, bg: '#b8834a' }), useProfileWallpaper: false },
+        type: { heading: 'marker', body: 'typewriter', ink: '#2a2118', headingInk: '#1e1812', accent: '#c0392b', headingCase: 'none', headingScale: 1.05 },
+        card: {
+          bg: '#fffdf4', opacity: 1, border: 'none', borderColor: '#000000', radius: 1, shadow: 'lifted', tilt: 1.4,
+          texture: null, sticker: STICKERS.pin.make(),
+        },
+        fx: { glow: false, scanlines: false, flicker: false, rainbow: false },
+      },
+    },
+    neon: {
+      label: 'Neon Terminal',
+      blurb: 'Phosphor green on black, humming.',
+      theme: {
+        v: 2, preset: 'neon',
+        page: { wallpaper: textureWallpaper('neon', { cols: 2, rows: 2, scale: 2, bg: '#04060a' }), useProfileWallpaper: false },
+        type: { heading: 'terminal', body: 'terminal', ink: '#39ff14', headingInk: '#00f0ff', accent: '#ff2bd6', headingCase: 'upper', headingScale: 1.35 },
+        card: { bg: '#060c10', opacity: 0.88, border: 'glow', borderColor: '#39ff14', radius: 4, shadow: 'glow', tilt: 0, texture: null, sticker: null },
+        fx: { glow: true, scanlines: true, flicker: true, rainbow: false },
+      },
+    },
+    paw: {
+      label: 'Pawprint Phenomenon',
+      blurb: 'Rainbow paws everywhere, round and squishy.',
+      theme: {
+        v: 2, preset: 'paw',
+        page: { wallpaper: textureWallpaper('paws', { cols: 4, rows: 4, scale: 2, tiling: 'brick', bg: '#fff4fb' }), useProfileWallpaper: false },
+        type: { heading: 'cookie', body: 'cookie', ink: '#4a2b5c', headingInk: '#7a2ea0', accent: '#ff4f9a', headingCase: 'none', headingScale: 1.2 },
+        card: { bg: '#ffffff', opacity: 0.94, border: 'rainbow', borderColor: '#ff6fb5', radius: 26, shadow: 'soft', tilt: 0, texture: null, sticker: STICKERS.paw.make() },
+        fx: { glow: false, scanlines: false, flicker: false, rainbow: true },
+      },
+    },
+  };
+}
+
+let presets = null;
+/** The preset themes, built on first use. */
+export function getPresets() {
+  if (!presets) presets = buildPresets();
+  return presets;
+}
+
+/** Newspaper Life: the site default. */
+export const defaultTheme = () => getPresets().newspaper.theme;
 
 // ── Sanitising ────────────────────────────────────────────────────────────────
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
-const oneOf = (v, list, fallback) => (typeof v === 'string' && Object.hasOwn(list, v) ? v : fallback);
+const PRESET_KEYS = ['newspaper', 'sticky', 'notebook', 'corkboard', 'neon', 'paw', 'custom'];
+const oneOf = (v, list, fallback) => (typeof v === 'string' && (Array.isArray(list) ? list.includes(v) : Object.hasOwn(list, v)) ? v : fallback);
 const colour = (v, fallback) => (typeof v === 'string' && HEX.test(v) ? v.toLowerCase() : fallback);
 const number = (v, lo, hi, fallback) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : fallback);
-const PRESET_KEYS = { ...PRESETS, custom: true };
+
+function cleanSticker(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const g = normaliseGrid(raw);
+  g.cols = Math.min(g.cols, MAX_STICKER_TILES);
+  g.rows = Math.min(g.rows, MAX_STICKER_TILES);
+  return g;
+}
 
 /** A theme made only of known values. Anything else falls back to Newspaper Life's. */
 export function sanitiseTheme(raw) {
-  const d = DEFAULT_THEME;
+  const d = {
+    type: { heading: 'headline', body: 'news-serif', ink: '#161616', headingInk: '#0b0b0b', accent: '#111111' },
+    card: { bg: '#fbfaf6', borderColor: '#161616' },
+  };
   const t = raw && typeof raw === 'object' ? raw : {};
   const page = t.page || {}, type = t.type || {}, card = t.card || {}, fx = t.fx || {};
   return {
-    v: 1,
+    v: 2,
     preset: oneOf(t.preset, PRESET_KEYS, 'custom'),
     page: {
-      bg: colour(page.bg, d.page.bg),
-      texture: oneOf(page.texture, TEXTURES, 'none'),
-      textureColor: colour(page.textureColor, d.page.textureColor),
-      textureOpacity: number(page.textureOpacity, 0, 1, 0.5),
+      wallpaper: sanitiseWallpaper(page.wallpaper),
+      useProfileWallpaper: page.useProfileWallpaper === true,
     },
     type: {
       heading: oneOf(type.heading, FONTS, d.type.heading),
@@ -165,10 +218,9 @@ export function sanitiseTheme(raw) {
       borderColor: colour(card.borderColor, d.card.borderColor),
       radius: number(card.radius, 0, 28, 0),
       shadow: oneOf(card.shadow, SHADOWS, 'none'),
-      lines: oneOf(card.lines, LINES, 'none'),
-      lineColor: colour(card.lineColor, d.card.lineColor),
       tilt: number(card.tilt, 0, 5, 0),
-      pin: oneOf(card.pin, PINS, 'none'),
+      texture: sanitiseWallpaper(card.texture),
+      sticker: cleanSticker(card.sticker),
     },
     fx: Object.fromEntries(Object.keys(EFFECTS).map(k => [k, fx[k] === true])),
   };
@@ -177,9 +229,13 @@ export function sanitiseTheme(raw) {
 // ── Applying ──────────────────────────────────────────────────────────────────
 //
 // Everything becomes a CSS custom property, including the choices that switch
-// rules on and off (border style, pins, effects). Variables inherit and the
+// rules on and off (border style, sticker, effects). Variables inherit and the
 // nearest one wins, so a preview box in Settings can show a different theme
-// from the page around it. Attributes on <html> could not do that.
+// from the page around it.
+//
+// The pictures are drawn asynchronously (wallpaper.js). `images` carries them
+// once ready: { card: {backgroundImage, backgroundSize, backgroundRepeat},
+// sticker: {url, width, height} }. Until then the card is its plain colour.
 
 function hexToRgb(hex) {
   const n = parseInt(hex.slice(1), 16);
@@ -216,47 +272,26 @@ function cardShadow(t) {
   return byShadow;
 }
 
-function cardBackground(t) {
+function cardBackground(t, texture) {
   const fill = `rgba(${hexToRgb(t.card.bg)}, ${t.card.opacity})`;
-  const lines = {
-    none: [],
-    ruled: [
-      'linear-gradient(90deg, transparent 38px, rgba(208, 52, 44, 0.55) 38px 40px, transparent 40px)',
-      `repeating-linear-gradient(to bottom, transparent 0 27px, ${t.card.lineColor} 27px 28px)`,
-    ],
-    grid: [
-      `linear-gradient(${t.card.lineColor} 1px, transparent 1px) 0 0 / 20px 20px`,
-      `linear-gradient(90deg, ${t.card.lineColor} 1px, transparent 1px) 0 0 / 20px 20px`,
-    ],
-  }[t.card.lines].map(l => `${l} padding-box`);
-  if (t.card.border === 'rainbow') {
-    return [...lines, `linear-gradient(${fill}, ${fill}) padding-box`, `${RAINBOW} 0 0 / 300% 100% border-box`].join(', ');
+  const layers = [];
+  if (texture?.backgroundImage) {
+    const size = texture.backgroundSize || 'auto';
+    const repeat = texture.backgroundRepeat || 'repeat';
+    layers.push(`${texture.backgroundImage} 0 0 / ${size} ${repeat} padding-box`);
   }
-  return [...lines, `linear-gradient(${fill}, ${fill}) padding-box`].join(', ');
+  layers.push(`linear-gradient(${fill}, ${fill}) padding-box`);
+  if (t.card.border === 'rainbow') layers.push(`${RAINBOW} 0 0 / 300% 100% border-box`);
+  return layers.join(', ');
 }
 
-const PIN_STYLES = {
-  none: { display: 'none' },
-  tape: {
-    display: 'block', w: '96px', h: '26px', top: '-12px', ml: '-48px', radius: '1px', rotate: '-3deg',
-    bg: 'rgba(255, 255, 255, 0.55)', shadow: '0 1px 3px rgba(0, 0, 0, 0.15)',
-  },
-  pin: {
-    display: 'block', w: '18px', h: '18px', top: '-7px', ml: '-9px', radius: '50%', rotate: '0deg',
-    shadow: '1px 4px 4px rgba(0, 0, 0, 0.45)',
-  },
-};
-
 /** The custom properties a theme sets. Every value is built from sanitised input. */
-export function themeVariables(theme) {
+export function themeVariables(theme, images = {}) {
   const t = sanitiseTheme(theme);
   const [top, side, bottom] = cardBorders(t);
-  const pin = PIN_STYLES[t.card.pin];
   const accentRgb = hexToRgb(t.type.accent);
+  const sticker = t.card.sticker && images.sticker;
   return {
-    '--th-page-bg': t.page.bg,
-    '--th-texture-rgb': hexToRgb(t.page.textureColor),
-    '--th-texture-opacity': String(t.page.textureOpacity),
     '--th-font-heading': FONTS[t.type.heading].css,
     '--th-font-body': FONTS[t.type.body].css,
     '--th-ink': t.type.ink,
@@ -267,7 +302,7 @@ export function themeVariables(theme) {
     '--th-heading-case': t.type.headingCase === 'upper' ? 'uppercase' : 'none',
     '--th-heading-scale': String(t.type.headingScale),
     '--th-text-glow': t.fx.glow ? `0 0 4px currentColor, 0 0 14px rgba(${accentRgb}, 0.45)` : 'none',
-    '--th-card-background': cardBackground(t),
+    '--th-card-background': cardBackground(t, t.card.texture ? images.card : null),
     '--th-card-border-top': top,
     '--th-card-border-side': side,
     '--th-card-border-bottom': bottom,
@@ -276,24 +311,11 @@ export function themeVariables(theme) {
     '--th-card-radius-curl': t.card.shadow === 'curl' ? '40px 6px' : `${t.card.radius}px`,
     '--th-card-anim': t.card.border === 'rainbow' ? 'th-rainbow-drift' : 'none',
     '--th-tilt': `${t.card.tilt}deg`,
-    '--th-pin-display': pin.display,
-    '--th-pin-w': pin.w || '0',
-    '--th-pin-h': pin.h || '0',
-    '--th-pin-top': pin.top || '0',
-    '--th-pin-ml': pin.ml || '0',
-    '--th-pin-radius': pin.radius || '0',
-    '--th-pin-rotate': pin.rotate || '0deg',
-    '--th-pin-bg': t.card.pin === 'pin'
-      ? `radial-gradient(circle at 35% 32%, #ff8a80 0 18%, ${t.type.accent} 42%, rgba(0, 0, 0, 0.55) 100%)`
-      : (pin.bg || 'none'),
-    '--th-pin-shadow': pin.shadow || 'none',
-    '--th-grain-opacity': t.fx.grain ? '0.07' : '0',
+    '--th-sticker-display': sticker ? 'block' : 'none',
+    '--th-sticker-image': sticker ? `url(${images.sticker.url})` : 'none',
+    '--th-sticker-w': sticker ? `${images.sticker.width}px` : '0px',
+    '--th-sticker-h': sticker ? `${images.sticker.height}px` : '0px',
   };
-}
-
-/** Inline style object for a React element (a preview box). */
-export function themeStyle(theme) {
-  return themeVariables(theme);
 }
 
 /**
@@ -301,16 +323,14 @@ export function themeStyle(theme) {
  *
  * `isDefault` is the site's own Newspaper Life rather than a theme someone
  * chose. A profile with no theme keeps showing its wallpaper, so the default
- * never hides it; a chosen theme does unless its texture is "My wallpaper".
+ * never hides it; a chosen theme does unless it asks to use the wallpaper.
  */
-export function applyThemeToDocument(theme, { isDefault = false } = {}) {
+export function applyThemeToDocument(theme, images = {}, { isDefault = false } = {}) {
   const root = document.documentElement;
   const t = sanitiseTheme(theme);
-  const vars = themeVariables(t);
+  const vars = themeVariables(t, images);
   for (const [k, v] of Object.entries(vars)) root.style.setProperty(k, v);
-  // The author's wallpaper is drawn on <body>, above the theme's backdrop, so
-  // it has to step aside unless the theme asks for it.
-  root.toggleAttribute('data-th-hide-wallpaper', !isDefault && t.page.texture !== 'wallpaper');
+  root.toggleAttribute('data-th-hide-wallpaper', !isDefault && !t.page.useProfileWallpaper);
   return () => {
     for (const k of Object.keys(vars)) root.style.removeProperty(k);
     root.removeAttribute('data-th-hide-wallpaper');

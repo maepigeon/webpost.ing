@@ -23,10 +23,6 @@ const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /** file → why a gradient is legitimate there */
 const ALLOWED = {
-  'components/PatternPicker/patterns.js':
-    'The wallpaper engine. Gradients are the product it generates.',
-  'components/PatternPicker/PatternPicker.jsx':
-    'Placeholder text showing a user what a custom gradient looks like.',
   'components/Social/MessagesPage.css':
     'repeating-linear-gradient: a texture on the message thread, not a fill.',
   'components/ImageCrop/ImageCropDialog.css':
@@ -34,9 +30,9 @@ const ALLOWED = {
   'components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/TileGrid.css':
     'The transparency checkerboard behind the grid while editing.',
   'components/PageTheme/themes.css':
-    'Page themes: textures and effects (ruled paper, scanlines, the rainbow of Pawprint Phenomenon, push pins), not fills.',
+    'Page theme effects: scanlines, and the rainbow border and headings of Pawprint Phenomenon. Pictures are tile grids.',
   'components/PageTheme/theme.js':
-    'Builds the same theme textures as CSS values from sanitised theme data.',
+    'Builds the card fill and the rainbow effects as CSS values from sanitised theme data.',
   'components/Pages/Posts/PostsViewer/ProfileEditor.css':
     'The banner scrim — a legibility device that guarantees contrast over an arbitrary photo.',
 };
