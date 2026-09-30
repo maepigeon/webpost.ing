@@ -1,155 +1,45 @@
-/* ── Post item wrapper (dnd-kit setNodeRef) ──────────────────────────────── */
-.profile-post-item {
+/* ── Post on a profile ─────────────────────────────────────────────────────
+   The wrap is exactly as wide as the card, so the folder button can sit on
+   the card's corner. */
+.profile-post-card-wrap {
   position: relative;
-  transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
-}
-
-.profile-post-item--dragging {
-  opacity: 0.45;
-  z-index: 50;
-}
-
-.profile-post-item--drop-target .profile-post-card-wrap {
-  outline: 2px dashed rgba(119, 119, 119, 0.5);
-  outline-offset: 3px;
-  border-radius: 12px;
-}
-
-/* ── Row layout: handle + card side-by-side ──────────────────────────────── */
-.profile-post-row {
-  /* non-edit: card renders centered naturally */
-}
-
-.profile-post-row--editable {
-  /* The handle is positioned inside the card now, so no side column. */
-  max-width: 666px;
+  max-width: min(600px, calc(100vw - 40px));
   margin: 0 auto;
 }
 
-/* ── Drag handle ──────────────────────────────────────────────────────────
-   Sits inside the post's glass panel, on its top-left corner, styled as part
-   of the card's own chrome. It used to be a separate column beside the card at
-   45% opacity with 40px of dead margin, which read as decoration and gave a
-   small target. */
+@media (max-width: 600px) {
+  .profile-post-card-wrap { max-width: 100%; }
+}
 
-.profile-post-drag-handle {
-  /* A full-height rail down the card's left edge, inside the glass panel but
-     beside the content rather than on top of it. It was previously a floating
-     button pinned to the top-left corner, which covered the post title. */
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  z-index: 22;
-  width: var(--drag-rail-width);
+/* ── Bar above the list: arrange button, and any save error ─────────────── */
+.profile-list-bar {
   display: flex;
   align-items: center;
-  justify-content: center;
-  cursor: grab;
-  font-size: 17px;
-  line-height: 1;
-  color: #565656;
-  border-radius: 8px 0 0 8px;
-  user-select: none;
-  touch-action: none;
-  background: rgba(255, 255, 255, 0.9);
-  border-right: 1px solid rgba(119, 119, 119, 0.22);
-  box-shadow:
-    inset 1.5px 0 0 rgba(255, 255, 255, 0.95),
-    inset 0 1.5px 0 rgba(255, 255, 255, 0.8);
-  transition: color 0.13s, background 0.13s, box-shadow 0.15s;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  max-width: min(600px, calc(100vw - 40px));
+  margin: 12px auto 0;
 }
 
-.profile-post-drag-handle:hover {
-  color: #373737;
-  background: #ffffff;
-  box-shadow:
-    inset 1.5px 0 0 rgba(255, 255, 255, 1),
-    inset -1.5px 0 0 rgba(255, 255, 255, 1);
-}
-
-.profile-post-drag-handle:active,
-.profile-post-item--dragging .profile-post-drag-handle {
-  cursor: grabbing;
-  color: #373737;
-  background: rgba(199, 199, 199, 0.95);
-  box-shadow: inset 0 2px 5px rgba(86, 86, 86, 0.2);
-}
-
-.profile-post-drag-handle:focus-visible,
-.profile-folder-drag-handle:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(119, 119, 119, 0.45), inset 0 1.5px 0 rgba(255, 255, 255, 0.95);
-}
-
-/* ── Drop preview ─────────────────────────────────────────────────────────
-   After dwelling over a target the list previews the order it would land in,
-   so the result is visible before the pointer is released. */
-
-.profile-post-item--preview-shift .profile-post-card-wrap {
-  outline: 2px solid rgba(119, 119, 119, 0.55);
-  outline-offset: 3px;
-  border-radius: 12px;
-}
-
-.profile-drop-indicator {
-  height: 4px;
-  margin: 6px auto 10px;
-  max-width: 640px;
-  border-radius: 999px;
-  background: rgba(119, 119, 119, 0.85);
-  box-shadow: 0 0 10px rgba(119, 119, 119, 0.5);
-  animation: profile-drop-in 0.18s ease-out;
-}
-
-@keyframes profile-drop-in {
-  from { opacity: 0; transform: scaleX(0.82); }
-  to   { opacity: 1; transform: scaleX(1); }
-}
-
-@media (max-width: 700px) {
-  /* Wider on touch — a thumb needs a bigger target than a cursor, and there is
-     no hover state to reveal it. */
-  .profile-post-card-wrap { --drag-rail-width: 38px; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .profile-post-drag-handle,
-  .profile-folder-drag-handle { transition: none; }
-  .profile-post-drag-handle:hover,
-  .profile-folder-drag-handle:hover { transform: none; }
-  .profile-drop-indicator { animation: none; }
-}
-
-/* ── Card wrap: sizing + positioning context for folder button ───────────── */
-.profile-post-card-wrap {
-  --drag-rail-width: 32px;
+.profile-list-error {
   flex: 1;
-  min-width: 0;
-  position: relative;
-  /* Reserves the rail's column so the post never renders underneath it. */
-  padding-left: var(--drag-rail-width);
-  box-sizing: border-box;
+  min-width: 200px;
+  font-size: 13px;
+  color: #a01515;
 }
 
-.profile-post-card-wrap--view {
-  /* view-only: no special layout, post centers naturally */
+.profile-arrange-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
 }
 
-/* Override basicTextPost centering when inside editable row */
-.profile-post-card-wrap .basicTextPost {
-  margin-left: 0 !important;
-  margin-right: 0 !important;
-  /* The card would otherwise overflow by the width of the rail. */
-  width: 100% !important;
-  border-radius: 0 8px 8px 0;
-}
-
-@media (max-width: 600px) {
-  .profile-post-row--editable {
-    max-width: 100%;
-    gap: 2px;
-  }
+.profile-arrange-loading {
+  text-align: center;
+  font-size: 14px;
+  color: #666;
+  margin: 24px auto;
 }
 
 /* ── Per-post folder assignment button + popover ─────────────────────────── */
@@ -273,111 +163,39 @@
 .profile-post-folder-new-btn:disabled { opacity: 0.38; cursor: not-allowed; }
 .profile-post-folder-new-btn:not(:disabled):hover { filter: brightness(1.1) !important; }
 
-/* ── Folder section — glass panel grouping all posts in the folder ───────── */
+/* ── Folder section ──────────────────────────────────────────────────────
+   Page themes restyle this as one of their cards (PageTheme/themes.css);
+   this is the look without a theme. */
 .profile-folder-section {
   max-width: 700px;
   margin: 16px auto;
   position: relative;
-  background: rgba(119, 119, 119, 0.07);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1.5px solid rgba(255,255,255,0.78);
-  border-radius: 22px;
+  background: #f1f1f1;
+  border: 1px solid rgba(119, 119, 119, 0.22);
+  border-radius: 18px;
   box-shadow:
-    inset 0 2px 0 rgba(255,255,255,0.92),
-    inset 0 -1px 0 rgba(119, 119, 119, 0.05),
-    0 8px 28px rgba(119, 119, 119, 0.09),
-    0 3px 10px rgba(0,0,0,0.07);
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.9),
+    0 4px 14px rgba(0, 0, 0, 0.08);
   overflow: visible;
-  transition: box-shadow 0.14s;
-}
-
-.profile-folder-section:has(.profile-folder-header--dragover) {
-  box-shadow:
-    inset 0 2px 0 rgba(255,255,255,0.92),
-    0 10px 32px rgba(119, 119, 119, 0.18),
-    0 4px 12px rgba(0,0,0,0.09);
-  /* Solid rather than dashed, and stronger: this says "release here and the
-     post lands in this folder", which is worth being unmistakable. */
-  outline: 2.5px solid rgba(119, 119, 119, 0.65);
-  outline-offset: 4px;
 }
 
 .profile-folder-posts {
   padding: 0 12px 12px;
 }
 
-/* ── Folder section drag state ───────────────────────────────────────────── */
-.profile-folder-section--dragging {
-  border-color: rgba(119, 119, 119, 0.35);
-  background: rgba(119, 119, 119, 0.12);
-}
-
-/* ── Folder drag handle (in header) ──────────────────────────────────────── */
-/* Matches the post handle — same rail, same affordance. */
-.profile-folder-drag-handle {
-  flex-shrink: 0;
-  width: 30px;
-  min-height: 34px;
-  align-self: stretch;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: grab;
-  font-size: 18px;
-  line-height: 1;
-  color: #565656;
-  border-radius: 9px;
-  user-select: none;
-  touch-action: none;
-  margin-right: 6px;
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(119, 119, 119, 0.26);
-  box-shadow:
-    inset 0 1.5px 0 rgba(255, 255, 255, 0.95),
-    inset 0 -1.5px 0 rgba(119, 119, 119, 0.13),
-    0 1.5px 4px rgba(28, 28, 28, 0.1);
-  transition: color 0.13s, background 0.13s, box-shadow 0.15s, transform 0.1s;
-}
-
-.profile-folder-drag-handle:hover {
-  color: #565656;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow:
-    inset 0 1.5px 0 rgba(255, 255, 255, 1),
-    inset 0 -1.5px 0 rgba(119, 119, 119, 0.18),
-    0 3px 9px rgba(28, 28, 28, 0.16);
-  transform: translateY(-1px);
-}
-
-.profile-folder-drag-handle:active,
-.profile-folder-section--dragging .profile-folder-drag-handle {
-  cursor: grabbing;
-  transform: translateY(0);
-  background: rgba(201, 201, 201, 0.95);
-  box-shadow: inset 0 2px 5px rgba(86, 86, 86, 0.22);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .profile-post-drag-handle,
-  .profile-folder-drag-handle { transition: none; }
-  .profile-post-drag-handle:hover,
-  .profile-folder-drag-handle:hover { transform: none; }
-}
-
-/* ── Folder header (top of glass panel) ─────────────────────────────────── */
+/* ── Folder header ─────────────────────────────────── */
 .profile-folder-header {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 14px 18px 14px 20px;
   border-bottom: 1px solid rgba(119, 119, 119, 0.11);
-  border-radius: 22px 22px 0 0;
+  border-radius: 18px 18px 0 0;
   background: rgba(119, 119, 119, 0.04);
   position: relative;
   transition: background 0.14s;
 }
-/* purple accent stripe on the left edge of the header */
+/* A stripe down the header's left edge marks it as a folder. */
 .profile-folder-header::before {
   content: '';
   position: absolute;
@@ -387,12 +205,6 @@
   width: 4px;
   background: rgba(119, 119, 119, 0.50);
   border-radius: 0 3px 3px 0;
-}
-.profile-folder-header--dragover {
-  background: rgba(119, 119, 119, 0.10);
-}
-.profile-folder-header--dragover::before {
-  background: rgba(119, 119, 119, 0.80);
 }
 
 .profile-folder-header-inner {
@@ -491,61 +303,8 @@
   transition: transform 0.15s;
 }
 
-/* ── Drop zone indicators (shown while dragging) ──────────────────────────── */
-.profile-folder-drop-zone {
-  border: 2px dashed rgba(119, 119, 119, 0.2);
-  border-radius: 10px;
-  padding: 8px 14px;
-  font-size: 12px;
-  color: rgba(119, 119, 119, 0.5);
-  margin-bottom: 4px;
-  transition: all 0.15s;
-  max-width: 660px;
-  margin-left: auto;
-  margin-right: auto;
-}
-.profile-folder-drop-zone--active {
-  border-color: rgba(119, 119, 119, 0.6);
-  background: rgba(119, 119, 119, 0.07);
-  color: #565656;
-}
-
 /* ── Animations ──────────────────────────────────────────────────────────── */
 @keyframes popup-spring {
   from { transform: scale(0.88) translateY(10px); opacity: 0; }
   to   { transform: scale(1) translateY(0);       opacity: 1; }
-}
-
-
-
-
-
-
-
-
-/* Announces that the list on screen is a preview, not the saved order. */
-.profile-drop-preview-note {
-  max-width: 640px;
-  margin: 0 auto 10px;
-  padding: 6px 14px;
-  text-align: center;
-  font-size: 12px;
-  font-weight: 600;
-  color: #373737;
-  background: rgba(238, 238, 238, 0.96);
-  border: 1px solid rgba(119, 119, 119, 0.34);
-  border-radius: 999px;
-  box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.9), 0 2px 8px rgba(28, 28, 28, 0.12);
-}
-
-
-/* The header itself reads as armed while a post hovers over the folder. */
-.profile-folder-header--dragover {
-  background: rgba(119, 119, 119, 0.14);
-  border-radius: 12px;
-}
-
-.profile-folder-header--dragover .profile-folder-name,
-.profile-folder-header--dragover .profile-folder-icon {
-  color: var(--accent-strong, #373737);
 }

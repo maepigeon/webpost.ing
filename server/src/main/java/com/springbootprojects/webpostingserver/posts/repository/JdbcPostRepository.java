@@ -40,16 +40,27 @@ public class JdbcPostRepository implements PostRepository {
         p.setBackgroundPattern(rs.getString("background_pattern"));
         p.setFolder(rs.getString("folder"));
         p.setSlug(rs.getString("slug"));
+        p.setSortOrder(rs.getInt("sort_order"));
         return p;
     };
 
+    /**
+     * The order posts appear in on a profile: the author's arrangement, then
+     * newest first among posts sharing a position (a new post has position 0,
+     * so it lands at the top). The id breaks exact ties, so every page of the
+     * profile is a slice of one fixed order and paging never repeats or skips
+     * a post.
+     */
+    private static final String PROFILE_ORDER = "ORDER BY post.sort_order, post.date DESC, post.id DESC";
+
     public List<Post> getPostsFromUsername(String username) {
         return jdbcTemplate.query(
-            "SELECT post.id, post.title, post.description, post.published, post.date, post.background_pattern, post.folder, post.slug " +
+            "SELECT post.id, post.title, post.description, post.published, post.date, post.background_pattern, post.folder, post.slug, post.sort_order " +
             "FROM posts post " +
             "INNER JOIN users_posts_junctions junction ON junction.post_id = post.id " +
             "INNER JOIN users selected_user ON selected_user.id = junction.user_id " +
-            "WHERE selected_user.username = ?;",
+            "WHERE selected_user.username = ? " +
+            PROFILE_ORDER + ";",
             POST_MAPPER, username);
     }
 
@@ -113,11 +124,52 @@ public class JdbcPostRepository implements PostRepository {
     public Post findById(Long id) {
         try {
             return jdbcTemplate.queryForObject(
-                "SELECT id, title, description, published, date, background_pattern, folder, slug FROM posts WHERE id=?",
+                "SELECT id, title, description, published, date, background_pattern, folder, slug, sort_order FROM posts WHERE id=?",
                 POST_MAPPER, id);
         } catch (IncorrectResultSizeDataAccessException e) {
             return null;
         }
+    }
+
+    /**
+     * Rearranges an author's posts.
+     *
+     * {@code orderedIds} is the order the author sees, top first; each gets
+     * that position and, from {@code folders}, its folder (null for none). The
+     * author's posts missing from the list keep their relative order and go
+     * after it. The client sends only the posts it has loaded, which are
+     * always the top of the profile, so the rest belong below them. Numbering
+     * them too is what stops a saved order colliding with posts further down,
+     * which had shuffled them into each other and repeated posts across pages.
+     *
+     * Ids of other people's posts are ignored. The author's rows are locked
+     * first, so two saves in quick succession apply one after the other rather
+     * than interleaving.
+     *
+     * @return how many of the requested posts were rearranged
+     */
+    @Override
+    @Transactional
+    public int reorder(int userId, List<Integer> orderedIds, java.util.Map<Integer, String> folders) {
+        List<Integer> current = jdbcTemplate.queryForList(
+            "SELECT post.id FROM posts post " +
+            "JOIN users_posts_junctions junction ON junction.post_id = post.id " +
+            "WHERE junction.user_id = ? " + PROFILE_ORDER + " FOR UPDATE OF post",
+            Integer.class, userId);
+
+        java.util.Set<Integer> owned = new java.util.HashSet<>(current);
+        java.util.LinkedHashSet<Integer> requested = new java.util.LinkedHashSet<>();
+        for (Integer id : orderedIds) if (id != null && owned.contains(id)) requested.add(id);
+
+        List<Object[]> moved = new java.util.ArrayList<>();
+        List<Object[]> rest = new java.util.ArrayList<>();
+        int position = 0;
+        for (Integer id : requested) moved.add(new Object[] { position++, folders.get(id), id });
+        for (Integer id : current) if (!requested.contains(id)) rest.add(new Object[] { position++, id });
+
+        if (!moved.isEmpty()) jdbcTemplate.batchUpdate("UPDATE posts SET sort_order=?, folder=? WHERE id=?", moved);
+        if (!rest.isEmpty()) jdbcTemplate.batchUpdate("UPDATE posts SET sort_order=? WHERE id=?", rest);
+        return moved.size();
     }
 
     /**

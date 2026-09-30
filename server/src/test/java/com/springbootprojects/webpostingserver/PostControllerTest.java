@@ -143,4 +143,49 @@ class PostControllerTest {
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(((java.util.Map<?, ?>) resp.getBody()).get("id")).isEqualTo(209);
     }
+
+    // ── Saving a profile's arrangement ───────────────────────────────────────
+
+    @Test
+    void updatePostOrder_passesTheListInOrderWithFolders() throws Exception {
+        when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
+        java.util.Map<String, Object> first = new java.util.HashMap<>();
+        first.put("id", 7);
+        first.put("folder", "  Travel ");
+        java.util.Map<String, Object> second = new java.util.HashMap<>();
+        second.put("id", 3);
+        second.put("folder", null);
+        // A position sent by the client is ignored: the list order decides.
+        second.put("sortOrder", 99);
+
+        ResponseEntity<String> resp = postController.updatePostOrder("kittycat",
+                java.util.Map.of("updates", java.util.List.of(first, second, java.util.Map.of("id", "junk"))),
+                "kittycat", "tok");
+
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
+        java.util.Map<Integer, String> folders = new java.util.HashMap<>();
+        folders.put(7, "Travel");
+        folders.put(3, null);
+        verify(postRepository).reorder(1, java.util.List.of(7, 3), folders);
+    }
+
+    @Test
+    void updatePostOrder_anotherUsersProfileIsForbidden() {
+        ResponseEntity<String> resp = postController.updatePostOrder("mittens",
+                java.util.Map.of("updates", java.util.List.of()), "kittycat", "tok");
+
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        verifyNoInteractions(postRepository);
+    }
+
+    @Test
+    void updatePostOrder_withoutAListIsRejected() throws Exception {
+        when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
+
+        ResponseEntity<String> resp = postController.updatePostOrder("kittycat",
+                java.util.Map.of("updates", "nope"), "kittycat", "tok");
+
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verifyNoInteractions(postRepository);
+    }
 }

@@ -17,4 +17,6 @@ public interface PostRepository {
     List<Post> getPostsFromUsername(String username);
 
     int deleteById(Long id);
+
+    int reorder(int userId, List<Integer> orderedIds, java.util.Map<Integer, String> folders);
 }

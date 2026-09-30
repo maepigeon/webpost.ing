@@ -31,7 +31,10 @@ webposting/
 │   │   │   │   │   │       ├── MathNode.jsx      # LaTeX/KaTeX decorator node
 │   │   │   │   │   │       └── CustomCodeNode.jsx # Syntax-highlighted code node
 │   │   │   │   │   └── PostsViewer/         # Profile page + post list
-│   │   │   │   │       └── PostsViewer.jsx
+│   │   │   │   │       ├── PostsViewer.jsx      # Profile page; pages posts in, never twice
+│   │   │   │   │       ├── ProfilePostList.jsx  # Posts in folders; folder menu; saves order
+│   │   │   │   │       ├── ProfileArrange.jsx   # Arrange view: one row per post, dragged
+│   │   │   │   │       └── profileOrder.js      # Pure order rules (tested in src/test/profileOrder.test.js)
 │   │   │   │   └── Activity/  # User activity page (comments + reactions)
 │   │   │   ├── PatternPicker/ # Background pattern picker UI
 │   │   │   │   ├── PatternPicker.jsx  # onPreview prop for preview-without-save
@@ -172,6 +175,27 @@ if (!(await confirm('Are you sure?'))) return;
 Two layers in `DiscussionController.addComment`:
 1. **Burst limiter** (`RateLimiter`): 5 comments per 5 minutes per user ID.
 2. **Minimum gap**: 15 seconds between any two consecutive comments (queried from DB). Both checks are bypassed for admins (`is_admin = true`).
+
+## Profile Order and Folders
+
+A post has `sort_order` (position on the author's profile, smallest first)
+and `folder` (a name or null). `GET /api/user/{u}` returns posts in profile
+order (`sort_order`, then newest, then id), so each page of the profile is a
+slice of the one order the page shows, and a page never repeats a post. A
+new post has position 0, so it lands at the top.
+
+`PUT /api/users/{u}/posts/order` takes `{ updates: [{ id, folder }, …] }`,
+top first. The list order sets positions (a `sortOrder` in the body is
+ignored), and the author's posts left out go after it in their old order,
+in one transaction (`PostRepository.reorder`). The client sends the posts it
+has loaded, which are always the top of the profile.
+
+Reordering is done in the arrange view (`ProfileArrange.jsx`), opened with
+"Arrange posts" on your own profile. It loads every post first, shows each
+as one row, and saves on every drop. A folder's posts are indented under it:
+drag a post right to file it into the folder above, left to take it out.
+The lifted row is rendered in a portal on `<body>`: the page container has a
+transform, which otherwise makes it the frame the fixed overlay is placed in.
 
 ## Post Votes
 

@@ -16,6 +16,14 @@ const PATHS = {
   chevronDown: <path d="M6 9l6 6 6-6" />,
   voteUp:      <path d="M12 6l7 10H5z" fill="currentColor" stroke="none" />,
   voteDown:    <path d="M12 18L5 8h14z" fill="currentColor" stroke="none" />,
+  grip: (
+    <g fill="currentColor" stroke="none">
+      <circle cx="9" cy="6" r="1.7" /><circle cx="15" cy="6" r="1.7" />
+      <circle cx="9" cy="12" r="1.7" /><circle cx="15" cy="12" r="1.7" />
+      <circle cx="9" cy="18" r="1.7" /><circle cx="15" cy="18" r="1.7" />
+    </g>
+  ),
+  folder:      <path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z" />,
 };
 
 export default function Icon({ name, size = '1em', strokeWidth = 2.4, className = '', title }) {

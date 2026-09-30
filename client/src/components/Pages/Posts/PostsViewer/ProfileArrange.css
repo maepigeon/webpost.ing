@@ -1,0 +1,218 @@
+/* ── Arrange view ───────────────────────────────────────────────────────────
+   A tool, not page content, so it keeps its own grays whatever the author's
+   theme: every row stays readable on any wallpaper. Solid surfaces with
+   raised edges, no glass. */
+
+.arrange {
+  max-width: min(640px, calc(100vw - 32px));
+  margin: 16px auto 40px;
+  padding: 16px;
+  box-sizing: border-box;
+  background: #efefef;
+  color: #1c1c1c;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.9),
+    0 8px 24px rgba(0, 0, 0, 0.12);
+  text-align: left;
+}
+
+.arrange-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.arrange-head-text { flex: 1 1 280px; min-width: 0; }
+
+.arrange-title {
+  margin: 0 0 4px;
+  font-size: 17px;
+  font-weight: 700;
+  color: #1c1c1c;
+}
+
+.arrange-hint {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #555;
+}
+
+.arrange-head-side {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.arrange-status { font-size: 12px; min-width: 4em; text-align: right; }
+.arrange-status--saving { color: #666; }
+.arrange-status--saved { color: #2b8a52; }
+.arrange-status--error { color: #a01515; text-align: left; }
+
+.arrange-done {
+  background: #2c2c2c;
+  color: #fff;
+  font-weight: 700;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 20px;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.35),
+    0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+/* ── Rows ──────────────────────────────────────────────────────────────── */
+
+.arrange-list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.arrange-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 5px 12px 5px 4px;
+  box-sizing: border-box;
+  /* One indent per level: a folder's posts sit under its header. */
+  margin-left: calc(var(--depth, 0) * 28px);
+  background: #fff;
+  color: #1c1c1c;
+  border: 1px solid rgba(0, 0, 0, 0.09);
+  border-radius: 10px;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1.5px 0 rgba(0, 0, 0, 0.06),
+    0 1px 3px rgba(0, 0, 0, 0.07);
+  font-size: 14px;
+  /* A drag that starts a little off the grip must not select text instead. */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.arrange-row--folder {
+  background: #e2e2e2;
+  border-left: 4px solid #8a8a8a;
+  padding-left: 1px;
+}
+
+/* Where the dragged row will land, at the indent the drop would get. */
+.arrange-row--slot {
+  background: rgba(255, 255, 255, 0.35);
+  border: 1.5px dashed rgba(0, 0, 0, 0.3);
+  box-shadow: none;
+}
+.arrange-row--slot > * { opacity: 0.3; }
+
+/* On the lifted row: says when the drop changes the post's folder. Keyed on
+   its text, so it pops again when the answer changes. */
+.arrange-drop-note {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #333;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-radius: 999px;
+  padding: 2px 9px;
+  animation: arrange-pop 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* The row under the pointer: lifted off the list, never tilted. */
+.arrange-row--lifted {
+  margin-left: 0;
+  cursor: grabbing;
+  box-shadow:
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.95),
+    0 16px 34px rgba(0, 0, 0, 0.22),
+    0 4px 10px rgba(0, 0, 0, 0.12);
+  animation: arrange-lift 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.arrange-grip {
+  flex-shrink: 0;
+  width: 32px;
+  height: 34px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  box-shadow: none;
+  color: #7a7a7a;
+  cursor: grab;
+  /* The page must not scroll when a finger starts a drag here. */
+  touch-action: none;
+}
+.arrange-grip:hover { color: #2c2c2c; background: rgba(0, 0, 0, 0.06); filter: none; }
+/* A ring for keyboard focus only; after a mouse drag the grip keeps focus,
+   and the browser's default ring would be left on it. */
+.arrange-grip:focus { outline: none; }
+.arrange-grip:focus-visible { outline: 2px solid #444; outline-offset: 1px; }
+
+.arrange-row-icon { color: #555; display: inline-flex; }
+
+.arrange-row-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.arrange-row-title--folder { font-weight: 700; }
+
+.arrange-row-date,
+.arrange-count {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: #777;
+}
+
+.arrange-badge {
+  flex-shrink: 0;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #444;
+  background: #ececec;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 6px;
+  padding: 1px 6px;
+}
+.arrange-badge--draft { background: #fff; border-style: dashed; }
+
+@keyframes arrange-lift {
+  from { transform: scale(1); }
+  to   { transform: scale(1.025); }
+}
+
+@keyframes arrange-pop {
+  from { transform: scale(0.8); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+@media (max-width: 520px) {
+  .arrange { padding: 12px; }
+  /* Dates crowd the title on a phone; the order is what matters here. */
+  .arrange-row-date { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arrange-row--lifted,
+  .arrange-drop-note { animation: none; }
+  .arrange-row { transition: none !important; }
+}

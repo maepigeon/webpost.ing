@@ -27,6 +27,13 @@ public class Post {
      */
     private String slug;
 
+    /**
+     * Position on the author's profile, smallest first; ties go newest first.
+     * Only PUT /api/users/{u}/posts/order writes it, so saving a post never
+     * moves it.
+     */
+    private int sortOrder;
+
 
     public Post() {
 
@@ -105,6 +112,10 @@ public class Post {
     public String getSlug() { return slug; }
 
     public void setSlug(String slug) { this.slug = slug; }
+
+    public int getSortOrder() { return sortOrder; }
+
+    public void setSortOrder(int sortOrder) { this.sortOrder = sortOrder; }
 
 
     @Override

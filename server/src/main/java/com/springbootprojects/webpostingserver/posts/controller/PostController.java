@@ -270,8 +270,10 @@ public class PostController {
 
         if (!isOwner) posts = posts.stream().filter(Post::isPublished).collect(java.util.stream.Collectors.toList());
 
-        // Sort newest first, then slice for pagination
-        posts.sort((a, b) -> b.getDate().compareTo(a.getDate()));
+        // Already in profile order (the author's arrangement, then newest
+        // first). Paging slices that same order: sorting pages by date while
+        // the page showed them by arrangement repeated some posts across pages
+        // and skipped others.
         int safeLimit  = Math.min(Math.max(limit, 1), 50);
         int safeOffset = Math.max(offset, 0);
         int end = Math.min(safeOffset + safeLimit, posts.size());
@@ -570,8 +572,12 @@ public class PostController {
     }
 
     /**
-     * Bulk-update post sort_order and folder for a user's posts.
-     * Body: { "updates": [ { "id": 1, "sortOrder": 0, "folder": null }, ... ] }
+     * Saves the arrangement of an author's profile.
+     * Body: { "updates": [ { "id": 7, "folder": "Travel" }, { "id": 3, "folder": null }, ... ] }
+     *
+     * The list is the order shown, top first. Positions come from that order,
+     * not from any number the client sends, and the author's posts left out of
+     * the list are placed after it (see PostRepository.reorder).
      */
     @PutMapping("/users/{username}/posts/order")
     public ResponseEntity<String> updatePostOrder(
@@ -589,22 +595,25 @@ public class PostController {
         }
         if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized.");
 
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> updates = body.get("updates") instanceof List<?> l
-            ? (List<Map<String, Object>>) l : List.of();
+        if (!(body.get("updates") instanceof List<?> updates))
+            return ResponseEntity.badRequest().body("Expected a list of updates.");
+        if (updates.size() > MAX_ORDER_UPDATES)
+            return ResponseEntity.badRequest().body("Too many posts in one update.");
 
-        for (Map<String, Object> u : updates) {
-            if (!(u.get("id") instanceof Number)) continue;
-            int postId    = ((Number) u.get("id")).intValue();
-            int sortOrder = u.get("sortOrder") instanceof Number n ? n.intValue() : 0;
-            String folder = u.get("folder") instanceof String s && !((String) s).isBlank()
-                ? ((String) s).trim() : null;
+        List<Integer> ids = new java.util.ArrayList<>();
+        Map<Integer, String> folders = new java.util.HashMap<>();
+        for (Object item : updates) {
+            if (!(item instanceof Map<?, ?> u) || !(u.get("id") instanceof Number n)) continue;
+            int postId = n.intValue();
+            String folder = u.get("folder") instanceof String s && !s.isBlank() ? s.trim() : null;
             if (folder != null && folder.length() > 100) folder = folder.substring(0, 100);
-            jdbc.update(
-                "UPDATE posts SET sort_order=?, folder=? WHERE id=? " +
-                "AND EXISTS (SELECT 1 FROM users_posts_junctions WHERE post_id=? AND user_id=?)",
-                sortOrder, folder, postId, postId, session.userId);
+            ids.add(postId);
+            folders.put(postId, folder);
         }
+        postRepository.reorder(session.userId, ids, folders);
         return ResponseEntity.ok("Updated.");
     }
+
+    /** Bounds the work one request can ask for; far above any real profile. */
+    private static final int MAX_ORDER_UPDATES = 5000;
 }

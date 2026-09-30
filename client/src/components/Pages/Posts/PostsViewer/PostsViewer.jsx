@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {AUTHORIZE_SESSION, READ_POSTS_BY_USER, GET_USER_BACKGROUND, GET_USER_BIO, UPDATE_USER_BIO, GET_USER_BIO_LINKS, UPDATE_USER_BIO_LINKS, GET_USER_STORAGE, GET_FOLLOWERS, GET_FOLLOWING, GET_BLOCK_MESSAGE_STATUS, BLOCK_MESSAGES, UNBLOCK_MESSAGES, EXPORT_MY_DATA, GET_PINNED_POST, GET_USER_AVATAR, POST_USER_AVATAR, GET_USER_ONLINE} from '../BasicTextPostServerApi.js'
 import ProfilePostList from './ProfilePostList.jsx';
+import { mergePosts, applyChanges } from './profileOrder.js';
 import { IMAGES_BASE_URL } from '../../../../config.js';
 import BasicTextPost from '../PostRenderer/BasicTextPost/BasicTextPost.jsx';
 import FollowButton from '../../../Social/FollowButton.jsx';
@@ -139,17 +140,73 @@ function PostsViewer() {
     const canEdit = hasModifyPermissions(username);
     const loggedIn = !!localStorage.getItem('userName');
 
+    // Each request remembers the generation it was made in. Opening another
+    // profile, or starting the list over, moves the generation on, so a late
+    // reply for the old list is dropped rather than added to the new one.
+    const generationRef = useRef(0);
+    // Set synchronously, unlike loadingMore: the scroll observer can fire
+    // before a re-render, and a second request for the same offset is how the
+    // first page used to appear twice.
+    const loadingRef = useRef(null);   // the page request in flight, if any
+
     const loadPosts = useCallback((reset = false) => {
+      if (reset) generationRef.current += 1;
+      else if (loadingRef.current) return loadingRef.current;
+      const generation = generationRef.current;
       const offset = reset ? 0 : offsetRef.current;
       setLoadingMore(true);
-      READ_POSTS_BY_USER(username, PAGE_SIZE, offset).then(data => {
+      const request = READ_POSTS_BY_USER(username, PAGE_SIZE, offset).then(data => {
+        if (generation !== generationRef.current) return;
         const page = Array.isArray(data) ? data : [];
-        setPostsArray(prev => reset ? page : [...prev, ...page]);
+        setPostsArray(prev => mergePosts(reset ? [] : prev, page));
         offsetRef.current = offset + page.length;
         setHasMore(page.length === PAGE_SIZE);
-        setLoadingMore(false);
-      }).catch(() => setLoadingMore(false));
+      }).catch(() => {}).finally(() => {
+        if (loadingRef.current === request) loadingRef.current = null;
+        if (generation === generationRef.current) setLoadingMore(false);
+      });
+      loadingRef.current = request;
+      return request;
     }, [username]);
+
+    /**
+     * Loads every post not yet shown, so the whole profile can be arranged at
+     * once. Resolves false if the list was started over meanwhile; rejects if
+     * a page fails to load.
+     */
+    const loadAllPosts = useCallback(async () => {
+      const ALL_PAGE = 50;   // the server's largest page
+      while (loadingRef.current) await loadingRef.current;
+      const generation = generationRef.current;
+      setLoadingMore(true);
+      const request = (async () => {
+        for (;;) {
+          const offset = offsetRef.current;
+          const data = await READ_POSTS_BY_USER(username, ALL_PAGE, offset);
+          if (generation !== generationRef.current) return false;
+          const page = Array.isArray(data) ? data : [];
+          setPostsArray(prev => mergePosts(prev, page));
+          offsetRef.current = offset + page.length;
+          if (page.length < ALL_PAGE) break;
+        }
+        setHasMore(false);
+        return true;
+      })();
+      // Registered as the request in flight, so scrolling cannot start a page
+      // alongside it.
+      loadingRef.current = request;
+      try {
+        return await request;
+      } finally {
+        if (loadingRef.current === request) loadingRef.current = null;
+        if (generation === generationRef.current) setLoadingMore(false);
+      }
+    }, [username]);
+
+    /** A new arrangement, already saving: shown at once. */
+    const arrangePosts = useCallback((changed) => {
+      setPostsArray(prev => applyChanges(prev, changed));
+    }, []);
 
     useEffect(() => {
       setPostsArray([]);
@@ -240,7 +297,6 @@ function PostsViewer() {
     }
 
     const visiblePosts = postsArray;
-    const nonPinnedPosts = visiblePosts.filter(p => !pinnedPost || p.id !== pinnedPost.id);
 
     return (
       <div className="window" style={{ minHeight: '100vh' }}>
@@ -528,10 +584,14 @@ function PostsViewer() {
           {(!Array.isArray(visiblePosts) || !visiblePosts.length) && !loadingMore
             ? <p>There are no posts, yet. Create one to get started.</p>
             : <ProfilePostList
-                posts={nonPinnedPosts}
+                posts={visiblePosts}
+                pinnedId={pinnedPost?.id ?? null}
                 canEdit={canEdit}
                 username={username}
                 onRefresh={() => loadPosts(true)}
+                onArrange={arrangePosts}
+                hasMore={hasMore}
+                loadAll={loadAllPosts}
               />
           }
           <div ref={sentinelRef} style={{ height: '1px' }} />
