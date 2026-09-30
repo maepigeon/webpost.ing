@@ -41,7 +41,17 @@ function blotches(w, h, cell, seed) {
 }
 
 const RAINBOW = ['#ff5e8a', '#ffa45c', '#f5d547', '#6ee29c', '#5ec8ff', '#a98bff'];
-const PAW = ['.XX.X', 'XXXXX', '.XXX.', 'XXXXX', 'XXXXX', '.XXX.'];
+// Four toe beans over a heart-shaped pad.
+const PAW = [
+  '..XX.XX..',
+  '..XX.XX..',
+  'XX.....XX',
+  'XX.XXX.XX',
+  '..XXXXX..',
+  '.XXXXXXX.',
+  '.XXXXXXX.',
+  '..XX.XX..',
+];
 
 export const TEXTURES = {
   cork: {
@@ -138,15 +148,24 @@ export const TEXTURES = {
     },
   },
   paws: {
-    label: 'Rainbow paws',
+    label: 'Paws',
+    // Pawprints scattered on black, each one solid and a random colour. One
+    // paw per 16-pixel cell, nudged about and sometimes left out, so the
+    // spacing looks loose; cells never overlap, so the tile repeats cleanly.
     draw(ctx, w, h) {
-      ctx.fillStyle = '#fff4fb';
+      const r = rng(23);
+      ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, w, h);
-      let i = 0;
-      for (let y = 2, row = 0; y < h; y += 12, row++) {
-        for (let x = (row % 2) * 8 + 2; x < w; x += 16) {
-          ctx.fillStyle = RAINBOW[i++ % RAINBOW.length];
-          PAW.forEach((line, dy) => [...line].forEach((c, dx) => { if (c === 'X') ctx.fillRect(x + dx, y + dy, 1, 1); }));
+      let last = -1;
+      for (let y = 0; y + 16 <= h; y += 16) {
+        for (let x = 0; x + 16 <= w; x += 16) {
+          if (r() < 0.55) continue;
+          let c = Math.floor(r() * RAINBOW.length);
+          if (c === last) c = (c + 1) % RAINBOW.length;
+          last = c;
+          ctx.fillStyle = RAINBOW[c];
+          const ox = x + 1 + Math.floor(r() * 6), oy = y + 1 + Math.floor(r() * 7);
+          PAW.forEach((line, dy) => [...line].forEach((ch, dx) => { if (ch === 'X') ctx.fillRect(ox + dx, oy + dy, 1, 1); }));
         }
       }
     },

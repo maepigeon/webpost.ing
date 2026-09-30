@@ -91,8 +91,10 @@ public class AdminController {
         String newPassword = body.get("password");
         if (newUsername == null || newUsername.isBlank() || newPassword == null || newPassword.isBlank())
             return ResponseEntity.badRequest().body("Username and password required.");
-        if (newUsername.length() > 32 || newPassword.length() > 32)
-            return ResponseEntity.badRequest().body("Username and password must be 32 chars or less.");
+        if (newUsername.length() > 32)
+            return ResponseEntity.badRequest().body("Username must be 32 characters or fewer.");
+        String pwErr = validatePassword(newPassword);
+        if (pwErr != null) return ResponseEntity.badRequest().body(pwErr);
         // Admin-created accounts go through the same URL-shadowing check as
         // self-registration; profiles live at /{username}.
         if (!newUsername.trim().matches("[A-Za-z0-9_\\-]+"))

@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { VERIFY_EMAIL, UNSUBSCRIBE_EMAIL, RESET_PASSWORD } from '../Posts/BasicTextPostServerApi.js';
 import { usePageTitle } from '../../../utils/usePageTitle.js';
-import './SettingsPage.css';
+import '../Auth/Login/Login.css';
+import { PasswordRequirements } from '../Auth/Registration/Registration.jsx';
 import { errorMessage } from '../../../utils/errorMessage.js';
 
 /**
@@ -80,55 +81,60 @@ export default function EmailActionPage({ mode }) {
   };
 
   return (
-    <div className="settings-page">
-      <div className="settings-card">
-        <h1 className="settings-title">{titles[mode]}</h1>
+    <div className="login-page">
+      <div className="login-card">
+        <div className="login-logo">
+          <span className="login-logo-text">webpost.ing</span>
+          <span className="login-subtitle">{titles[mode]}</span>
+        </div>
 
         {mode === 'reset' && !done ? (
-          <form onSubmit={submitReset}>
-            <p className="settings-section-hint">
-              Choose a new password. Every device signed in to this account will be
-              signed out.
+          <form onSubmit={submitReset} noValidate>
+            <p className="login-note">
+              Every device signed in to this account will be signed out.
             </p>
-            <div className="settings-email-form" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+            <div className="login-field">
+              <label className="login-label" htmlFor="new-password">New password</label>
               <input
+                className="login-input"
                 type="password"
-                className="settings-input"
+                id="new-password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                placeholder="New password (at least 8 characters)"
                 autoComplete="new-password"
-                minLength={8}
                 required
               />
+              {password && <PasswordRequirements password={password} />}
+            </div>
+            <div className="login-field">
+              <label className="login-label" htmlFor="confirm-password">Confirm new password</label>
               <input
+                className="login-input"
                 type="password"
-                className="settings-input"
+                id="confirm-password"
                 value={confirmPassword}
                 onChange={e => setConfirmPassword(e.target.value)}
-                placeholder="Confirm new password"
                 autoComplete="new-password"
                 required
               />
-              <button type="submit" className="settings-btn settings-btn--primary" disabled={busy}>
-                {busy ? 'Changing…' : 'Change password'}
-              </button>
             </div>
+            {message && failed && <div className="login-error" role="alert">{message}</div>}
+            <button type="submit" className="login-submit-btn" disabled={busy}>
+              {busy ? 'Changing…' : 'Change password'}
+            </button>
           </form>
         ) : busy ? (
-          <p className="settings-loading">Working…</p>
+          <p className="login-note">Working…</p>
+        ) : message ? (
+          <div className={failed ? 'login-error' : 'login-success'} role="status">{message}</div>
         ) : null}
 
-        {message && (
-          <p className={failed ? 'settings-error' : 'settings-status'} role="status">{message}</p>
-        )}
-
         {!busy && (
-          <p style={{ marginTop: 20 }}>
-            <Link className="settings-link-btn" style={{ marginLeft: 0 }} to={done || mode === 'reset' ? '/routes/Login' : '/'}>
+          <div className="login-have-code">
+            <Link className="login-register-link" to={done || mode === 'reset' ? '/routes/Login' : '/'}>
               {done || mode === 'reset' ? 'Go to sign in' : 'Back to webpost.ing'}
             </Link>
-          </p>
+          </div>
         )}
       </div>
     </div>

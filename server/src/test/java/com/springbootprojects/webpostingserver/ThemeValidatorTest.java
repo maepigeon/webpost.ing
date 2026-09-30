@@ -76,6 +76,8 @@ class ThemeValidatorTest {
         assertThat(((Map<?, ?>) ((Map<?, ?>) t.get("page")).get("wallpaper")).get("tiling")).isEqualTo("brick");
         assertThat(((Map<?, ?>) t.get("type")).get("ink")).isEqualTo("#39ff14");
         assertThat(((Map<?, ?>) t.get("card")).get("sticker")).isNotNull();
+        // Cards never rotate: a stored tilt is dropped.
+        assertThat(((Map<?, ?>) t.get("card")).containsKey("tilt")).isFalse();
         assertThat(((Map<?, ?>) t.get("fx")).get("glow")).isEqualTo(true);
         assertThat(((Map<?, ?>) t.get("fx")).get("rainbow")).isEqualTo(false);
     }

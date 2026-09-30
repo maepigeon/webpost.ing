@@ -2,7 +2,8 @@ import { useState } from 'react';
 import axios from 'axios';
 import { BASE_URL as baseUrl } from '../../../../config.js';
 import { ADMIN_GET_STATUS } from '../../Posts/BasicTextPostServerApi.js';
-import './Registration.css';
+import { Link } from 'react-router-dom';
+import '../Login/Login.css';
 import { usePageTitle } from '../../../../utils/usePageTitle.js';
 import { errorMessage } from '../../../../utils/errorMessage.js';
 
@@ -27,9 +28,9 @@ export function PasswordRequirements({ password }) {
     [c.special, 'One special character'],
   ];
   return (
-    <ul style={{ listStyle: 'none', padding: 0, margin: '6px 0', fontSize: 13 }}>
+    <ul className="password-requirements">
       {items.map(([ok, label]) => (
-        <li key={label} style={{ color: ok ? '#2a7a2a' : '#888', marginBottom: 2 }}>
+        <li key={label} className={ok ? 'is-met' : undefined}>
           {ok ? '✓' : '–'} {label}
         </li>
       ))}
@@ -90,75 +91,93 @@ function Registration() {
   };
 
   return (
-    <div className="registration-container">
-      <h2>Create an Account</h2>
-      <form onSubmit={handleSubmit}>
-        <div className="form-group invite-code-group">
-          <label htmlFor="inviteCode">Invite Code</label>
-          <input
-            type="text"
-            id="inviteCode"
-            value={inviteCode}
-            onChange={(e) => setInviteCode(e.target.value)}
-            placeholder="Paste your invite code here"
-            autoComplete="off"
-            required
-          />
+    <div className="login-page">
+      <div className="login-card">
+        <div className="login-logo">
+          <span className="login-logo-text">webpost.ing</span>
+          <span className="login-subtitle">Create an account</span>
         </div>
-        <div className="form-group">
-          <label htmlFor="username">Username</label>
-          <input
-            type="text"
-            id="username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="Choose a username"
-            autoComplete="username"
-            required
-          />
+
+        <form onSubmit={handleSubmit} noValidate>
+          <div className="login-field">
+            <label className="login-label" htmlFor="inviteCode">Invite code</label>
+            <input
+              className="login-input"
+              type="text"
+              id="inviteCode"
+              value={inviteCode}
+              onChange={e => setInviteCode(e.target.value)}
+              placeholder="paste your invite code"
+              autoComplete="off"
+              required
+            />
+          </div>
+          <div className="login-field">
+            <label className="login-label" htmlFor="username">Username</label>
+            <input
+              className="login-input"
+              type="text"
+              id="username"
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+              placeholder="choose a username"
+              autoComplete="username"
+              required
+            />
+          </div>
+          <div className="login-field">
+            <label className="login-label" htmlFor="email">Email</label>
+            <input
+              className="login-input"
+              type="email"
+              id="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              autoComplete="email"
+              required
+            />
+          </div>
+          <div className="login-field">
+            <label className="login-label" htmlFor="password">Password</label>
+            <input
+              className="login-input"
+              type="password"
+              id="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder=""
+              autoComplete="new-password"
+              required
+            />
+            {password && <PasswordRequirements password={password} />}
+          </div>
+          <div className="login-field">
+            <label className="login-label" htmlFor="confirmPassword">Confirm password</label>
+            <input
+              className="login-input"
+              type="password"
+              id="confirmPassword"
+              value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)}
+              placeholder=""
+              autoComplete="new-password"
+              required
+            />
+          </div>
+
+          {error && <div className="login-error">{error}</div>}
+
+          <button type="submit" className="login-submit-btn" disabled={loading}>
+            {loading ? 'Creating account…' : 'Create account'}
+          </button>
+        </form>
+
+        <div className="login-have-code">
+          Already have an account?{' '}
+          <Link to="/routes/Login" className="login-register-link">Sign in</Link>
         </div>
-        <div className="form-group">
-          <label htmlFor="email">Email</label>
-          <input
-            type="email"
-            id="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="your@email.com"
-            autoComplete="email"
-            required
-          />
-        </div>
-        <div className="form-group">
-          <label htmlFor="password">Password</label>
-          <input
-            type="password"
-            id="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Create a strong password"
-            autoComplete="new-password"
-            required
-          />
-          {password && <PasswordRequirements password={password} />}
-        </div>
-        <div className="form-group">
-          <label htmlFor="confirmPassword">Confirm Password</label>
-          <input
-            type="password"
-            id="confirmPassword"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder="Re-enter your password"
-            autoComplete="new-password"
-            required
-          />
-        </div>
-        {error && <p className="error">{error}</p>}
-        <button type="submit" className="reg-submit-btn" disabled={loading}>
-          {loading ? 'Creating account…' : 'Create Account'}
-        </button>
-      </form>
+      </div>
     </div>
   );
 }

@@ -384,10 +384,11 @@ public class EmailSettingsController {
     @PostMapping("/password/reset")
     public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> body) {
         String newPassword = body.getOrDefault("password", "");
-        if (newPassword.length() < 8)
-            return ResponseEntity.badRequest().body(Map.of("message", "Password must be at least 8 characters."));
-        if (newPassword.length() > 200)
-            return ResponseEntity.badRequest().body(Map.of("message", "That password is too long."));
+        // The same rules as signing up: a reset used to accept any 8 characters,
+        // so it was a way round them. Checked before the token is spent, so a
+        // rejected password leaves the link usable.
+        String pwErr = AdminController.validatePassword(newPassword);
+        if (pwErr != null) return ResponseEntity.badRequest().body(Map.of("message", pwErr));
 
         EmailTokenService.Redemption result =
                 tokenService.redeem(body.get("token"), EmailTokenService.PURPOSE_RESET);

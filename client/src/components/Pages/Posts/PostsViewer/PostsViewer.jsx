@@ -40,7 +40,7 @@ function StorageBar({ storage }) {
   const uploadUsed = Number(storage.uploadBytes ?? 0);
   const pct = uploadLimit > 0 ? Math.min(100, (uploadUsed / uploadLimit) * 100) : null;
   return (
-    <div style={{ marginTop: '12px', fontSize: '12px', color: '#555', textAlign: 'left' }}>
+    <div style={{ marginTop: '12px', fontSize: '12px', color: 'color-mix(in srgb, var(--th-ink, #222) 65%, transparent)', textAlign: 'left' }}>
       <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center', marginBottom: pct !== null ? '6px' : 0 }}>
         <span>Uploads: <strong>{fmtBytes(uploadUsed)}</strong>{uploadLimit > 0 ? ` / ${fmtBytes(uploadLimit)}` : ''}</span>
         <span>Post text: <strong>{fmtBytes(Number(storage.postTextBytes ?? 0))}</strong></span>
@@ -50,8 +50,8 @@ function StorageBar({ storage }) {
         {storage.presetsBytes > 0 && <span>Presets: <strong>{fmtBytes(Number(storage.presetsBytes ?? 0))}</strong></span>}
       </div>
       {pct !== null && (
-        <div style={{ height: '4px', borderRadius: '2px', background: '#e0e0e0', overflow: 'hidden', maxWidth: '320px', margin: '0 auto' }}>
-          <div style={{ height: '100%', width: `${pct}%`, background: pct > 85 ? '#d32f2f' : '#333333', borderRadius: '2px', transition: 'width 0.3s' }} />
+        <div style={{ height: '4px', borderRadius: '2px', background: 'color-mix(in srgb, var(--th-ink, #222) 15%, transparent)', overflow: 'hidden', maxWidth: '320px', margin: '0 auto' }}>
+          <div style={{ height: '100%', width: `${pct}%`, background: pct > 85 ? '#d32f2f' : 'var(--th-ink, #333333)', borderRadius: '2px', transition: 'width 0.3s' }} />
         </div>
       )}
     </div>

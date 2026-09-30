@@ -157,8 +157,7 @@ button:active {
 .discussion-page button:not(.reaction-btn):not(.comment-reaction-btn):not(:is(.tilegrid, .wp-editor, .theme-editor) *),
 .editor-post-card button:not(.reaction-btn):not(.toolbar-fmt-btn):not(.toolbar-btn-save):not(.toolbar-btn-draft):not(.toolbar-btn-image):not(.toolbar-btn-image-info):not(.toolbar-btn-view):not(:is(.tilegrid, .wp-editor, .theme-editor) *),
 .admin-panel button:not(.admin-tab):not(:is(.tilegrid, .wp-editor, .theme-editor) *),
-.form-container button:not(:is(.tilegrid, .wp-editor, .theme-editor) *),
-.registration-container button:not(:is(.tilegrid, .wp-editor, .theme-editor) *) {
+.form-container button:not(:is(.tilegrid, .wp-editor, .theme-editor) *) {
   background: rgba(255, 255, 255, 0.65);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -179,8 +178,7 @@ button:active {
 .discussion-page button:not(.reaction-btn):not(.comment-reaction-btn):not(:is(.tilegrid, .wp-editor, .theme-editor) *):hover,
 .editor-post-card button:not(.reaction-btn):not(.toolbar-fmt-btn):not(.toolbar-btn-save):not(.toolbar-btn-draft):not(.toolbar-btn-image):not(.toolbar-btn-view):not(:is(.tilegrid, .wp-editor, .theme-editor) *):hover,
 .admin-panel button:not(.admin-tab):not(:is(.tilegrid, .wp-editor, .theme-editor) *):hover,
-.form-container button:not(:is(.tilegrid, .wp-editor, .theme-editor) *):hover,
-.registration-container button:not(:is(.tilegrid, .wp-editor, .theme-editor) *):hover {
+.form-container button:not(:is(.tilegrid, .wp-editor, .theme-editor) *):hover {
   filter: none;
   box-shadow: var(--neo-shadow-hover);
   transform: translateY(-2px) scale(1.015);
@@ -192,8 +190,7 @@ button:active {
 .discussion-page button:not(.reaction-btn):not(.comment-reaction-btn):not(:is(.tilegrid, .wp-editor, .theme-editor) *):active,
 .editor-post-card button:not(.reaction-btn):not(.toolbar-fmt-btn):not(.toolbar-btn-save):not(.toolbar-btn-draft):not(.toolbar-btn-image):not(.toolbar-btn-view):not(:is(.tilegrid, .wp-editor, .theme-editor) *):active,
 .admin-panel button:not(.admin-tab):not(:is(.tilegrid, .wp-editor, .theme-editor) *):active,
-.form-container button:not(:is(.tilegrid, .wp-editor, .theme-editor) *):active,
-.registration-container button:not(:is(.tilegrid, .wp-editor, .theme-editor) *):active {
+.form-container button:not(:is(.tilegrid, .wp-editor, .theme-editor) *):active {
   filter: none;
   transform: translateY(1px) scale(0.97) !important;
   transition: transform 0.07s ease !important;

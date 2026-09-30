@@ -119,8 +119,18 @@ class AdminControllerTest {
         when(loginRepository.authorize("catmin", "tok")).thenReturn(catminSession);
         when(loginRepository.isAdmin("catmin")).thenReturn(true);
         ResponseEntity<String> resp = adminController.createUser(
-                Map.of("username", "kittens", "password", "pass123"), "catmin", "tok");
+                Map.of("username", "kittens", "password", "Whisker-Tuna-42"), "catmin", "tok");
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+    }
+
+    @Test
+    void createUser_weakPassword_returns400() throws Exception {
+        when(loginRepository.authorize("catmin", "tok")).thenReturn(catminSession);
+        when(loginRepository.isAdmin("catmin")).thenReturn(true);
+        ResponseEntity<String> resp = adminController.createUser(
+                Map.of("username", "kittens", "password", "pass123"), "catmin", "tok");
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(resp.getBody()).contains("12 characters");
     }
 
     // ── DELETE /admin/users/{targetUsername} ──────────────────────────────────
