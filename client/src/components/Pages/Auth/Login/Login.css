@@ -203,3 +203,23 @@
   font-weight: 500;
   line-height: 1.5;
 }
+
+/* Password rules under a new password, shared with the admin panel. */
+.password-requirements {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: #8a8a8a;
+}
+.password-requirements li { margin-bottom: 2px; }
+.password-requirements li.is-met { color: #1c1c1c; font-weight: 600; }
+
+/* A line of explanation above a form. */
+.login-note {
+  margin: 0 0 18px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #5e5e5e;
+  text-align: center;
+}

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FORGOT_PASSWORD } from '../Posts/BasicTextPostServerApi.js';
 import { usePageTitle } from '../../../utils/usePageTitle.js';
-import './SettingsPage.css';
+import '../Auth/Login/Login.css';
 import { errorMessage } from '../../../utils/errorMessage.js';
 
 /**
@@ -34,36 +34,42 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="settings-page">
-      <div className="settings-card">
-        <h1 className="settings-title">Reset your password</h1>
-        <p className="settings-section-hint">
-          Enter the email address on your account and we will send you a link to choose
-          a new password. The link is good for one hour.
+    <div className="login-page">
+      <div className="login-card">
+        <div className="login-logo">
+          <span className="login-logo-text">webpost.ing</span>
+          <span className="login-subtitle">Reset your password</span>
+        </div>
+
+        <p className="login-note">
+          Enter the email address on your account and we will send you a link to
+          choose a new password. The link is good for one hour.
         </p>
 
-        <form className="settings-email-form" onSubmit={submit}>
-          <input
-            type="email"
-            className="settings-input"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            placeholder="you@example.com"
-            autoComplete="email"
-            required
-          />
-          <button type="submit" className="settings-btn settings-btn--primary" disabled={busy}>
+        <form onSubmit={submit} noValidate>
+          <div className="login-field">
+            <label className="login-label" htmlFor="reset-email">Email</label>
+            <input
+              className="login-input"
+              type="email"
+              id="reset-email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              autoComplete="email"
+              autoFocus
+              required
+            />
+          </div>
+          {message && <div className="login-success" role="status">{message}</div>}
+          <button type="submit" className="login-submit-btn" disabled={busy}>
             {busy ? 'Sending…' : 'Send link'}
           </button>
         </form>
 
-        {message && <p className="settings-status" role="status">{message}</p>}
-
-        <p style={{ marginTop: 20 }}>
-          <Link className="settings-link-btn" style={{ marginLeft: 0 }} to="/routes/Login">
-            Back to sign in
-          </Link>
-        </p>
+        <div className="login-have-code">
+          <Link to="/routes/Login" className="login-register-link">Back to sign in</Link>
+        </div>
       </div>
     </div>
   );
