@@ -96,7 +96,7 @@ html[data-th-hide-wallpaper] body { background-image: none !important; }
 #appBody :is(
   .profile-header-card, .basicTextPost, .editor-post-card, .profile-folder-section,
   .search-card, .search-user-card, .settings-card, .login-card, .logout-card,
-  .registration-container, .activity-card, .app-error-card
+  .activity-card, .app-error-card
 ),
 .theme-preview .theme-card {
   position: relative;
@@ -125,19 +125,10 @@ html[data-th-hide-wallpaper] body { background-image: none !important; }
   animation: none;
 }
 
-/* Tilt: alternate cards lean opposite ways, and straighten under the pointer. */
-#appBody :is(.basicTextPost, .profile-folder-section):not(.editor-post-card .basicTextPost),
-.theme-preview .theme-card {
-  transform: rotate(var(--th-tilt));
-}
-#appBody .profile-post-item:nth-child(even) .basicTextPost,
-#appBody .profile-folder-section:nth-child(even),
-.theme-preview .theme-card:nth-child(even) {
-  transform: rotate(calc(var(--th-tilt) * -1));
-}
+/* Cards never lean or rotate, in any theme. They lift a little under the pointer. */
 #appBody .basicTextPost:not(.editor-post-card .basicTextPost):hover,
 .theme-preview .theme-card:hover {
-  transform: rotate(0deg) translateY(-2px);
+  transform: translateY(-2px);
 }
 
 /* The sticker: a small grid pinned to the top centre of every card. */
@@ -166,6 +157,35 @@ html[data-th-hide-wallpaper] body { background-image: none !important; }
   border: 1.5px solid var(--th-accent);
   box-shadow: none;
   text-shadow: none;
+}
+/* The number inside takes the button's colour, so it shows on a dark card. */
+#appBody .profile-header-card .follow-count-btn .follow-count-num { color: inherit; }
+
+/* Small buttons on a card — a post's edit/delete, the folder button — are
+   tinted from the ink too, instead of white plates that glare on dark themes. */
+#appBody .basicTextPost .bottom-nav button,
+#appBody .profile-post-folder-btn {
+  background: color-mix(in srgb, var(--th-ink) 8%, transparent);
+  color: var(--th-ink);
+  border: 1.5px solid color-mix(in srgb, var(--th-ink) 22%, transparent);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* A post's dateline, in the page's ink rather than a fixed grey. */
+#appBody .datestring p { color: color-mix(in srgb, var(--th-ink) 60%, transparent); }
+
+/* The owner's drag rail is tinted from the page's ink, not a fixed light grey,
+   so it belongs on dark themes as well as light ones. */
+#appBody .profile-post-drag-handle {
+  color: var(--th-ink);
+  background: color-mix(in srgb, var(--th-ink) 7%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--th-ink) 18%, transparent);
+  box-shadow: none;
+}
+#appBody .profile-post-drag-handle:hover {
+  background: color-mix(in srgb, var(--th-ink) 14%, transparent);
+  box-shadow: none;
 }
 
 @keyframes th-rainbow-drift {

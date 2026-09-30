@@ -69,13 +69,13 @@ function buildPresets() {
         v: 2, preset: 'newspaper',
         page: { wallpaper: textureWallpaper('newsprint', { scale: 2, bg: '#eeede9' }), useProfileWallpaper: false },
         type: { heading: 'headline', body: 'news-serif', ink: '#161616', headingInk: '#0b0b0b', accent: '#111111', headingCase: 'none', headingScale: 1.1 },
-        card: { bg: '#fbfaf6', opacity: 1, border: 'double', borderColor: '#161616', radius: 0, shadow: 'none', tilt: 0, texture: null, sticker: null },
+        card: { bg: '#fbfaf6', opacity: 1, border: 'double', borderColor: '#161616', radius: 0, shadow: 'none', texture: null, sticker: null },
         fx: { glow: false, scanlines: false, flicker: false, rainbow: false },
       },
     },
     sticky: {
       label: 'Sticky Pad',
-      blurb: 'Neon notes slapped on a studio wall.',
+      blurb: 'Plain yellow notes stuck to a studio wall.',
       theme: {
         v: 2, preset: 'sticky',
         page: {
@@ -89,11 +89,10 @@ function buildPresets() {
           useProfileWallpaper: false,
         },
         type: { heading: 'marker', body: 'handwriting', ink: '#2a2a2a', headingInk: '#e4572e', accent: '#e4572e', headingCase: 'none', headingScale: 1.15 },
-        card: {
-          bg: '#fff27a', opacity: 1, border: 'none', borderColor: '#000000', radius: 2, shadow: 'curl', tilt: 2.2,
-          texture: textureWallpaper('sticky', { cols: 2, rows: 2, scale: 2, bg: '#fff27a' }),
-          sticker: STICKERS.tape.make(),
-        },
+        // A plain, flat note: the colour of the real thing and a soft lift off
+        // the wall. A striped texture, a curled corner and a strip of tape made
+        // it look like a slice of cheese.
+        card: { bg: '#fff7b8', opacity: 1, border: 'none', borderColor: '#000000', radius: 1, shadow: 'soft', texture: null, sticker: null },
         fx: { glow: false, scanlines: false, flicker: false, rainbow: false },
       },
     },
@@ -115,7 +114,7 @@ function buildPresets() {
         },
         type: { heading: 'handwriting', body: 'notebook', ink: '#1d2a6b', headingInk: '#1d2a6b', accent: '#d0342c', headingCase: 'none', headingScale: 1.3 },
         card: {
-          bg: '#fffef6', opacity: 1, border: 'none', borderColor: '#000000', radius: 3, shadow: 'lifted', tilt: 0,
+          bg: '#fffef6', opacity: 1, border: 'none', borderColor: '#000000', radius: 3, shadow: 'lifted',
           texture: textureWallpaper('notebook', { cols: 4, rows: 2, scale: 1, bg: '#fffef6' }),
           sticker: null,
         },
@@ -130,7 +129,7 @@ function buildPresets() {
         page: { wallpaper: textureWallpaper('cork', { cols: 8, rows: 8, scale: 2, bg: '#b8834a' }), useProfileWallpaper: false },
         type: { heading: 'marker', body: 'typewriter', ink: '#2a2118', headingInk: '#1e1812', accent: '#c0392b', headingCase: 'none', headingScale: 1.05 },
         card: {
-          bg: '#fffdf4', opacity: 1, border: 'none', borderColor: '#000000', radius: 1, shadow: 'lifted', tilt: 1.4,
+          bg: '#fffdf4', opacity: 1, border: 'none', borderColor: '#000000', radius: 1, shadow: 'lifted',
           texture: null, sticker: STICKERS.pin.make(),
         },
         fx: { glow: false, scanlines: false, flicker: false, rainbow: false },
@@ -143,19 +142,19 @@ function buildPresets() {
         v: 2, preset: 'neon',
         page: { wallpaper: textureWallpaper('neon', { cols: 2, rows: 2, scale: 2, bg: '#04060a' }), useProfileWallpaper: false },
         type: { heading: 'terminal', body: 'terminal', ink: '#39ff14', headingInk: '#00f0ff', accent: '#ff2bd6', headingCase: 'upper', headingScale: 1.35 },
-        card: { bg: '#060c10', opacity: 0.88, border: 'glow', borderColor: '#39ff14', radius: 4, shadow: 'glow', tilt: 0, texture: null, sticker: null },
+        card: { bg: '#060c10', opacity: 0.88, border: 'glow', borderColor: '#39ff14', radius: 4, shadow: 'glow', texture: null, sticker: null },
         fx: { glow: true, scanlines: true, flicker: true, rainbow: false },
       },
     },
     paw: {
       label: 'Pawprint Phenomenon',
-      blurb: 'Rainbow paws everywhere, round and squishy.',
+      blurb: 'Black, with pawprints in every colour.',
       theme: {
         v: 2, preset: 'paw',
-        page: { wallpaper: textureWallpaper('paws', { cols: 4, rows: 4, scale: 2, tiling: 'brick', bg: '#fff4fb' }), useProfileWallpaper: false },
-        type: { heading: 'cookie', body: 'cookie', ink: '#4a2b5c', headingInk: '#7a2ea0', accent: '#ff4f9a', headingCase: 'none', headingScale: 1.2 },
-        card: { bg: '#ffffff', opacity: 0.94, border: 'rainbow', borderColor: '#ff6fb5', radius: 26, shadow: 'soft', tilt: 0, texture: null, sticker: STICKERS.paw.make() },
-        fx: { glow: false, scanlines: false, flicker: false, rainbow: true },
+        page: { wallpaper: textureWallpaper('paws', { cols: 8, rows: 8, scale: 2, bg: '#000000' }), useProfileWallpaper: false },
+        type: { heading: 'cookie', body: 'cookie', ink: '#f2f2f2', headingInk: '#ff5e8a', accent: '#5ec8ff', headingCase: 'none', headingScale: 1.2 },
+        card: { bg: '#111111', opacity: 1, border: 'rule', borderColor: '#ff5e8a', radius: 22, shadow: 'soft', texture: null, sticker: null },
+        fx: { glow: false, scanlines: false, flicker: false, rainbow: false },
       },
     },
   };
@@ -218,7 +217,6 @@ export function sanitiseTheme(raw) {
       borderColor: colour(card.borderColor, d.card.borderColor),
       radius: number(card.radius, 0, 28, 0),
       shadow: oneOf(card.shadow, SHADOWS, 'none'),
-      tilt: number(card.tilt, 0, 5, 0),
       texture: sanitiseWallpaper(card.texture),
       sticker: cleanSticker(card.sticker),
     },
@@ -310,7 +308,6 @@ export function themeVariables(theme, images = {}) {
     '--th-card-radius': `${t.card.radius}px`,
     '--th-card-radius-curl': t.card.shadow === 'curl' ? '40px 6px' : `${t.card.radius}px`,
     '--th-card-anim': t.card.border === 'rainbow' ? 'th-rainbow-drift' : 'none',
-    '--th-tilt': `${t.card.tilt}deg`,
     '--th-sticker-display': sticker ? 'block' : 'none',
     '--th-sticker-image': sticker ? `url(${images.sticker.url})` : 'none',
     '--th-sticker-w': sticker ? `${images.sticker.width}px` : '0px',

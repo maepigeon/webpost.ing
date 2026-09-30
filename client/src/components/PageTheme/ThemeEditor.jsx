@@ -26,7 +26,7 @@ function Sample({ name = 'you', compact = false }) {
       {!compact && (
         <div className="theme-card theme-sample-post">
           <h2>Another one</h2>
-          <p>Cards take turns leaning, if the theme tilts them.</p>
+          <p>Every card on the page shares the same look.</p>
         </div>
       )}
     </>
@@ -197,7 +197,6 @@ export default function ThemeEditor({ username }) {
             <Field label="Border colour"><Colour value={t.card.borderColor} onChange={set('card', 'borderColor')} /></Field>
             <Field label="Corners"><Slider value={t.card.radius} min={0} max={28} step={1} onChange={set('card', 'radius')} format={v => `${v}px`} /></Field>
             <Field label="Shadow"><Select value={t.card.shadow} options={SHADOWS} onChange={set('card', 'shadow')} /></Field>
-            <Field label="Tilt"><Slider value={t.card.tilt} min={0} max={5} step={0.1} onChange={set('card', 'tilt')} format={v => `${v.toFixed(1)}°`} /></Field>
             <span className="theme-field-label">Texture</span>
             <WallpaperEditor value={t.card.texture} onChange={set('card', 'texture')} />
             <span className="theme-field-label">Sticker</span>

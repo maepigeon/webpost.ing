@@ -21,7 +21,7 @@ import java.util.regex.Pattern;
  *   { v, preset,
  *     page: { wallpaper, useProfileWallpaper },
  *     type: { heading, body, ink, headingInk, accent, headingCase, headingScale },
- *     card: { bg, opacity, border, borderColor, radius, shadow, tilt, texture, sticker },
+ *     card: { bg, opacity, border, borderColor, radius, shadow, texture, sticker },
  *     fx:   { glow, scanlines, flicker, rainbow } }
  */
 public final class ThemeValidator {
@@ -83,7 +83,6 @@ public final class ThemeValidator {
         c.put("borderColor", colour(card.path("borderColor"), "#111111"));
         c.put("radius", GridValidator.clampNum(card.path("radius"), 0, 28, 0));
         c.put("shadow", oneOf(card.path("shadow"), SHADOWS, "none"));
-        c.put("tilt", GridValidator.clampNum(card.path("tilt"), 0, 5, 0));
         c.set("texture", optionalWallpaper(card.path("texture")));
         JsonNode sticker = card.path("sticker");
         if (sticker.isObject()) {
