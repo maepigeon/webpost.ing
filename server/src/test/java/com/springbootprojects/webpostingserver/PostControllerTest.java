@@ -20,6 +20,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 
 @ExtendWith(MockitoExtension.class)
 class PostControllerTest {
@@ -113,5 +115,32 @@ class PostControllerTest {
         ResponseEntity<String> resp = postController.updatePost(99L, samplePost, "kittycat", "tok");
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    // ── Resolving a post from a title-derived slug ───────────────────────────
+
+    @Test
+    void titleSlug_matchesTheClientSlugify() {
+        assertThat(PostController.titleSlug("Café au Lait!")).isEqualTo("cafe-au-lait");
+        assertThat(PostController.titleSlug("  sdfsdf ")).isEqualTo("sdfsdf");
+        assertThat(PostController.titleSlug("a".repeat(70))).hasSize(60);
+        assertThat(PostController.titleSlug("🎉")).isNull();
+    }
+
+    @Test
+    void resolvePost_findsAPostWithNoStoredSlugByItsTitle() {
+        when(jdbc.queryForList(contains("lower(p.slug)"), eq(Integer.class), eq("strky"), eq("my-first-post")))
+                .thenReturn(java.util.List.of());
+        when(jdbc.queryForList(contains("p.slug IS NULL"), eq("strky")))
+                .thenReturn(java.util.List.of(
+                        java.util.Map.of("id", 12, "title", "Something else"),
+                        java.util.Map.of("id", 209, "title", "My First Post")));
+        when(jdbc.queryForList(contains("WHERE p.id = ?"), eq(209)))
+                .thenReturn(java.util.List.of(java.util.Map.of("id", 209, "author", "strky")));
+
+        ResponseEntity<?> resp = postController.resolvePost("strky", "my-first-post");
+
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(((java.util.Map<?, ?>) resp.getBody()).get("id")).isEqualTo(209);
     }
 }

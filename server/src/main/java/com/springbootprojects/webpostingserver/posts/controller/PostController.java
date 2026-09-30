@@ -60,6 +60,7 @@ public class PostController {
                      LIMIT 1
                     """, Integer.class, username, segment);
             if (!matches.isEmpty()) postId = matches.get(0);
+            else postId = findByTitleSlug(username, segment);
         }
 
         if (postId == null) return ResponseEntity.notFound().build();
@@ -74,6 +75,35 @@ public class PostController {
         if (rows.isEmpty()) return ResponseEntity.notFound().build();
 
         return ResponseEntity.ok(rows.get(0));
+    }
+
+    /**
+     * Most posts have no stored slug: their links use one derived from the
+     * title (see client/src/utils/postUrl.js effectiveSlug). Match those the
+     * same way, lowest id first so a repeated title always resolves the same.
+     */
+    private Integer findByTitleSlug(String username, String segment) {
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+                SELECT p.id, p.title
+                  FROM posts p
+                  JOIN users_posts_junctions j ON j.post_id = p.id
+                  JOIN users u ON u.id = j.user_id
+                 WHERE u.username = ? AND (p.slug IS NULL OR p.slug = '')
+                 ORDER BY p.id
+                """, username);
+        String wanted = segment.toLowerCase();
+        for (Map<String, Object> row : rows) {
+            if (wanted.equals(titleSlug((String) row.get("title")))) return (Integer) row.get("id");
+        }
+        return null;
+    }
+
+    /** Mirrors slugify() in client/src/utils/postUrl.js, including its 60-character cap. */
+    public static String titleSlug(String title) {
+        String slug = normaliseSlug(title);
+        if (slug == null) return null;
+        if (slug.length() > 60) slug = slug.substring(0, 60).replaceAll("-+$", "");
+        return slug;
     }
 
     /**
