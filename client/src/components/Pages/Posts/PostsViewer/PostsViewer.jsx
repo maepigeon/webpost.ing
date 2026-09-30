@@ -165,7 +165,8 @@ function PostsViewer() {
         const links = Array.isArray(d) ? d : (typeof d === 'string' ? JSON.parse(d) : []);
         setBioLinks(links);
       }).catch(() => {});
-      if (loggedIn) GET_USER_STORAGE(username).then(setStorage).catch(() => {});
+      // Only the owner and admins may see how much space a profile uses.
+      if (canEdit || localStorage.getItem('isAdmin') === '1') GET_USER_STORAGE(username).then(setStorage).catch(() => {});
       const me = localStorage.getItem('userName');
       Promise.all([GET_FOLLOWERS(username), GET_FOLLOWING(username)])
         .then(([followers, following]) => {
