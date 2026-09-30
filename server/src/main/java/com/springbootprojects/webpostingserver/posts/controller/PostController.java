@@ -14,6 +14,8 @@ import com.springbootprojects.webpostingserver.posts.model.LoginInfo;
 import com.springbootprojects.webpostingserver.posts.repository.JdbcLoginRepository;
 import com.springbootprojects.webpostingserver.posts.repository.LoginRepository;
 import com.springbootprojects.webpostingserver.posts.validator.WallpaperValidator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -26,6 +28,8 @@ import com.springbootprojects.webpostingserver.posts.repository.SocialRepository
 @RestController
 @RequestMapping("/api")
 public class PostController {
+
+    private static final Logger log = LoggerFactory.getLogger(PostController.class);
     // ── Resolving a post from a URL segment ───────────────────────────────────
 
     /**
@@ -261,7 +265,6 @@ public class PostController {
         LoginInfo userLogin = postRepository.getUsernameFromPostId((int)id);
 
         if (userLogin != null) {
-            System.out.println("User " +  userLogin.getUsername() + " found using post ID " + id);
             return new ResponseEntity<>(userLogin.getUsername(), HttpStatus.OK);
         } else {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
@@ -337,7 +340,6 @@ public class PostController {
         } catch (JdbcLoginRepository.TokenExpiredException ex) {
             return loginRepository.deleteCookie();
         }
-        System.out.println("Attempting to create a new post");
         if (loginResult != null) {
             ResponseEntity<String> invalid = validatePost(post);
             if (invalid != null) return invalid;
@@ -359,10 +361,8 @@ public class PostController {
                     }
                 }
             } catch (Exception ignored) {}
-            System.out.println("Authorized post creation for user " + username);
             try {
                 int userId = loginResult.userId;
-                System.out.println("User ID: " + userId);
                 post.setSlug(uniqueSlugFor(slugFor(post), username, null));
                 int postId = postRepository.save(post, userId);
                 syncPostUploads(postId, post.getDescription());
@@ -377,11 +377,11 @@ public class PostController {
                 }
                 return new ResponseEntity<>(String.valueOf(postId), HttpStatus.CREATED);
             } catch (Exception e) {
-                System.out.println("Post creation failed: " + e.getMessage());
+                log.warn("Post creation failed for {}: {}", username, e.getMessage());
                 return new ResponseEntity<>("Failed to create post", HttpStatus.INTERNAL_SERVER_ERROR);
             }
         }
-        System.out.println("Attempted to create a new post as user " + username + " with a token " + token + ", but authorization failed.");
+        log.info("Refused post creation for {}: not authorised", username);
         return new ResponseEntity<>(null, HttpStatus.FORBIDDEN);
     }
 
@@ -439,12 +439,10 @@ public class PostController {
         catch (JdbcLoginRepository.TokenExpiredException ex) {
             return loginRepository.deleteCookie();
         }
-        System.out.println("Attempting delete a post");
         if (loginResult != null) {
-            System.out.println("User " + username + " authorized. Attempting to delete post with id: " + id + ". Validating ownership...");
             LoginInfo postOwner = postRepository.getUsernameFromPostId((int)id);
             if (postOwner.compareUsername(username) == false) {
-                System.out.println("User " + username + " not authorized to delete " + postOwner.getUsername() + "'s post with ID:" + id);
+                log.info("Refused delete of post {} by {}", id, username);
                 return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
             }
 

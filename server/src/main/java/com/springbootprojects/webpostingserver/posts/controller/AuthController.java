@@ -3,7 +3,6 @@ package com.springbootprojects.webpostingserver.posts.controller;
 import com.springbootprojects.webpostingserver.posts.model.AuthSession;
 import com.springbootprojects.webpostingserver.posts.validator.ReservedUsernames;
 import com.springbootprojects.webpostingserver.posts.model.LoginInfo;
-import com.springbootprojects.webpostingserver.posts.model.User;
 import com.springbootprojects.webpostingserver.posts.repository.JdbcLoginRepository;
 import com.springbootprojects.webpostingserver.posts.repository.LoginRepository;
 import com.springbootprojects.webpostingserver.posts.repository.SocialRepository;
@@ -11,6 +10,8 @@ import com.springbootprojects.webpostingserver.posts.validator.LoginRateLimiter;
 import com.springbootprojects.webpostingserver.posts.validator.WallpaperValidator;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -32,6 +33,8 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api")
 public class AuthController {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
     @Value("${app.dev-mode:false}")
     private boolean devMode;
@@ -385,12 +388,6 @@ public class AuthController {
         }
     }
 
-    @GetMapping("getAllUsers")
-    public ResponseEntity<List<User>> getAllUsers() {
-        System.out.println("getAllUsers: " + loginRepository.getAllUsers().toString());
-        return new ResponseEntity<>(loginRepository.getAllUsers(), HttpStatus.OK);
-    }
-
     /** Returns all users sorted by most-recently-active first. */
     @GetMapping("/users/recently-active")
     public ResponseEntity<List<Map<String, Object>>> getRecentlyActive() {
@@ -408,7 +405,7 @@ public class AuthController {
                 loginRepository.logout(username, token);
             }
         } catch (JdbcLoginRepository.TokenExpiredException e) {
-            System.out.println(e.getMessage());
+            // Already expired: nothing to log out.
         }
         return loginRepository.deleteCookie();
     }
@@ -737,7 +734,7 @@ public class AuthController {
             }
 
         } catch (Exception e) {
-            System.out.println("Internal server error (500): " + e.toString());
+            log.error("Login failed with an unexpected error", e);
             return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }

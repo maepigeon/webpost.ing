@@ -4,7 +4,6 @@ import com.springbootprojects.webpostingserver.posts.model.AuthSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.springbootprojects.webpostingserver.posts.model.LoginInfo;
-import com.springbootprojects.webpostingserver.posts.model.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -135,12 +134,6 @@ public class JdbcLoginRepository implements LoginRepository {
     private void purgeExpiredSessions() {
         Instant now = Instant.now();
         sessionsByToken.values().removeIf(s -> s.isExpired(now));
-    }
-
-    public List<User> getAllUsers() {
-        return jdbcTemplate.query(
-            "SELECT id, username, registration_date, last_visited FROM users ORDER BY last_visited DESC NULLS LAST",
-            BeanPropertyRowMapper.newInstance(User.class));
     }
 
     public void touchLastVisited(String username) {

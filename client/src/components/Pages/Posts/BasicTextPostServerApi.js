@@ -34,14 +34,6 @@ export function AUTHORIZE_SESSION() {
   return axios.post(baseUrl + "/api/authorizeSession").then((response) => response.data);
 };
 
-// Gets a list of all users, including user name, user id, and account creation date
-export function GET_ALL_USERS() {
-  const promise = axios.get(baseUrl + "/api/getAllUsers");
-  const dataPromise = promise.then((response) => response.data);
-  return dataPromise;
-}
-
-
 //get posts created by a specified user
 export function READ_POSTS_BY_USER(username, limit = 20, offset = 0) {
   return axios.get(baseUrl + `/api/user/${username}`, { params: { limit, offset }, withCredentials: true })
