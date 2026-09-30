@@ -57,11 +57,13 @@ class DiscussionControllerTest {
     void getFeatures_returnsAllFlags() {
         when(social.isDiscussionEnabled(10)).thenReturn(true);
         when(social.isReactionsEnabled(10)).thenReturn(false);
+        when(social.isVotesEnabled(10)).thenReturn(false);
         when(social.getDiscussionStyle(10)).thenReturn("threaded");
         ResponseEntity<Map<String, Object>> resp = discussionController.getFeatures(10);
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(resp.getBody()).containsEntry("discussionEnabled", true);
         assertThat(resp.getBody()).containsEntry("reactionsEnabled", false);
+        assertThat(resp.getBody()).containsEntry("votesEnabled", false);
         assertThat(resp.getBody()).containsEntry("discussionStyle", "threaded");
     }
 

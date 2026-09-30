@@ -28,7 +28,7 @@ import { CodeHighlightNode, $isCodeNode, registerCodeHighlighting, getCodeLangua
 import { CustomCodeNode, $createCustomCodeNode } from './CustomCodeNode.jsx';
 import { LinkNode, $createLinkNode, $isLinkNode, TOGGLE_LINK_COMMAND } from '@lexical/link';
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
-import { READ_POST, CREATE_POST, UPDATE_POST, GET_USER_FROM_POST, GET_POST_FEATURES, SET_REACTIONS_ENABLED, SET_DISCUSSION_ENABLED, SEARCH_POSTS } from '../../BasicTextPostServerApi.js';
+import { READ_POST, CREATE_POST, UPDATE_POST, GET_USER_FROM_POST, GET_POST_FEATURES, SET_REACTIONS_ENABLED, SET_DISCUSSION_ENABLED, SET_VOTES_ENABLED, SEARCH_POSTS } from '../../BasicTextPostServerApi.js';
 import { errorMessage } from '../../../../../utils/errorMessage.js';
 import { useDialog } from '../../../../Dialog/Dialog.jsx';
 import { useParams, useNavigate, Link } from "react-router-dom";
@@ -1245,13 +1245,14 @@ function FeatureTogglePlugin({ postid, features, onFeaturesChange }) {
       onFeaturesChange(f => ({ ...f, [key]: next }));
       return;
     }
-    const label = key === 'reactionsEnabled' ? 'reactions' : 'comments';
+    const label = { reactionsEnabled: 'reactions', discussionEnabled: 'comments', votesEnabled: 'voting' }[key];
     const msg = next
       ? `Enable ${label} on this post?`
       : `Disable ${label}? They will be hidden from readers until re-enabled.`;
     if (!(await confirm(msg))) return;
     try {
       if (key === 'reactionsEnabled') await SET_REACTIONS_ENABLED(postid, next);
+      else if (key === 'votesEnabled') await SET_VOTES_ENABLED(postid, next);
       else await SET_DISCUSSION_ENABLED(postid, next);
       onFeaturesChange(f => ({ ...f, [key]: next }));
     } catch {
@@ -1276,6 +1277,14 @@ function FeatureTogglePlugin({ postid, features, onFeaturesChange }) {
         style={{ fontSize: '12px' }}
       >
         {features.discussionEnabled ? 'Comments: on' : 'Comments: off'}
+      </button>
+      <button
+        className={`post-toggle-btn toolbar-fmt-btn${features.votesEnabled ? ' active' : ''}`}
+        onClick={() => toggle('votesEnabled')}
+        title="Toggle upvotes, downvotes and the score on this post"
+        style={{ fontSize: '12px' }}
+      >
+        {features.votesEnabled ? 'Voting: on' : 'Voting: off'}
       </button>
     </>
   );
@@ -1419,6 +1428,8 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
           // Apply any non-default feature settings chosen before saving
           if (features && !features.reactionsEnabled) SET_REACTIONS_ENABLED(newId, false).catch(() => {});
           if (features && !features.discussionEnabled) SET_DISCUSSION_ENABLED(newId, false).catch(() => {});
+          // Voting starts off on the server, so only turning it on needs saying.
+          if (features && features.votesEnabled) SET_VOTES_ENABLED(newId, true).catch(() => {});
           onSaved?.();
         })
         .catch(err => {
@@ -1805,7 +1816,7 @@ export default function RichTextEditor() {
   const [postSlug, setPostSlug] = useState(null);
   const [dataReady, setDataReady] = useState(0);
   const [postLoaded, setPostLoaded] = useState(false);
-  const [features, setFeatures] = useState({ reactionsEnabled: true, discussionEnabled: true });
+  const [features, setFeatures] = useState({ reactionsEnabled: true, discussionEnabled: true, votesEnabled: false });
   const [isDirty, setIsDirty] = useState(false);
   const savedOnceRef = useRef(false);
 
@@ -1871,7 +1882,7 @@ export default function RichTextEditor() {
         setPostLoaded(true);
       });
     });
-    GET_POST_FEATURES(id).then(d => setFeatures({ reactionsEnabled: d.reactionsEnabled, discussionEnabled: d.discussionEnabled })).catch(() => {});
+    GET_POST_FEATURES(id).then(d => setFeatures({ reactionsEnabled: d.reactionsEnabled, discussionEnabled: d.discussionEnabled, votesEnabled: !!d.votesEnabled })).catch(() => {});
   }, [id]);
 
   // Redirect non-owners away from the editor

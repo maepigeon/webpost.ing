@@ -108,7 +108,11 @@ CREATE TABLE posts (
   published          BOOLEAN      NOT NULL,   -- false = draft
   date               TIMESTAMPTZ  NOT NULL DEFAULT now(),
   background_pattern TEXT,                    -- post-level wallpaper (optional)
-  edited_at          TIMESTAMPTZ             -- set on PUT /api/posts/:id
+  edited_at          TIMESTAMPTZ,            -- set on PUT /api/posts/:id
+  folder             VARCHAR,                 -- profile folder (optional)
+  sort_order         INTEGER,                 -- position on the profile
+  slug               VARCHAR,                 -- /{username}/{slug}
+  votes_enabled      BOOLEAN      NOT NULL DEFAULT false  -- up/down votes and score (V007)
 );
 ```
 

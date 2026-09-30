@@ -134,7 +134,7 @@ function RichTextViewerBody({ id }) {
   const [backgroundPattern, setBackgroundPattern] = useState('');
   const [dataReady, setDataReady] = useState(false);
   const [postLoaded, setPostLoaded] = useState(false);
-  const [features, setFeatures] = useState({ reactionsEnabled: false, discussionEnabled: false });
+  const [features, setFeatures] = useState({ reactionsEnabled: false, discussionEnabled: false, votesEnabled: false });
   // The author's chosen URL slug, if they set one.
   const [postSlug, setPostSlug] = useState(null);
   // Rewrite the address bar to the canonical slugged URL once the title is
@@ -228,7 +228,7 @@ function RichTextViewerBody({ id }) {
       });
     });
     GET_POST_FEATURES(id)
-      .then(d => setFeatures({ reactionsEnabled: d.reactionsEnabled, discussionEnabled: d.discussionEnabled }))
+      .then(d => setFeatures({ reactionsEnabled: d.reactionsEnabled, discussionEnabled: d.discussionEnabled, votesEnabled: !!d.votesEnabled }))
       .catch(() => {});
     RECORD_POST_VIEW(id);
     GET_POST_VOTE(id).then(d => { setPostScore(d.score); setUserPostVote(d.userVote); }).catch(() => {});
@@ -357,8 +357,9 @@ function RichTextViewerBody({ id }) {
             <div className="post-footer">
               {/* Vote controls only for signed-in readers. They were rendered
                   disabled for everyone else, which offers an action that can
-                  never be taken; the score itself is still shown. */}
-              {loggedIn ? (
+                  never be taken; the score itself is still shown. The author
+                  can turn voting off, which hides the score as well. */}
+              {!features.votesEnabled ? null : loggedIn ? (
               <div className="post-vote-bar">
                 <button
                   className={`post-vote-btn${userPostVote === 1 ? ' post-vote-btn--up' : ''}`}

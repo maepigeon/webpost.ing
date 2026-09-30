@@ -738,6 +738,14 @@ public class SocialController {
             if (s != null) userId = s.userId;
         }
         Map<String, Object> result = new java.util.LinkedHashMap<>();
+        boolean enabled = social.isVotesEnabled(postId);
+        result.put("enabled", enabled);
+        // With voting off the score is the author's to hide, not just the buttons.
+        if (!enabled) {
+            result.put("score", 0);
+            result.put("userVote", 0);
+            return ResponseEntity.ok(result);
+        }
         result.put("score", social.getPostScore(postId));
         result.put("userVote", userId > 0 ? social.getUserPostVote(postId, userId) : 0);
         return ResponseEntity.ok(result);
@@ -753,6 +761,8 @@ public class SocialController {
         if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).<Map<String, Object>>build();
         int vote = body.get("vote") != null ? ((Number) body.get("vote")).intValue() : 0;
         if (vote < -1 || vote > 1) return ResponseEntity.badRequest().<Map<String, Object>>build();
+        if (!social.isVotesEnabled(postId))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).<Map<String, Object>>body(Map.of("message", "Voting is off for this post."));
         return ResponseEntity.ok(social.votePost(postId, session.userId, vote));
     }
 

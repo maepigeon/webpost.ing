@@ -158,6 +158,7 @@ class SocialControllerTest {
     @Test
     void votePost_upvote_callsRepository() throws Exception {
         when(loginRepository.authorize("whiskers", "tok")).thenReturn(whiskersSession);
+        when(social.isVotesEnabled(5)).thenReturn(true);
         when(social.votePost(5, 1, 1)).thenReturn(Map.of("score", 1, "userVote", 1));
 
         ResponseEntity<Map<String, Object>> resp = socialController.votePost(
@@ -170,6 +171,7 @@ class SocialControllerTest {
     @Test
     void votePost_downvote_callsRepository() throws Exception {
         when(loginRepository.authorize("whiskers", "tok")).thenReturn(whiskersSession);
+        when(social.isVotesEnabled(5)).thenReturn(true);
         when(social.votePost(5, 1, -1)).thenReturn(Map.of("score", -1, "userVote", -1));
 
         ResponseEntity<Map<String, Object>> resp = socialController.votePost(
@@ -182,6 +184,7 @@ class SocialControllerTest {
     @Test
     void votePost_removeVote_callsRepositoryWithZero() throws Exception {
         when(loginRepository.authorize("whiskers", "tok")).thenReturn(whiskersSession);
+        when(social.isVotesEnabled(5)).thenReturn(true);
         when(social.votePost(5, 1, 0)).thenReturn(Map.of("score", 0, "userVote", 0));
 
         ResponseEntity<Map<String, Object>> resp = socialController.votePost(
@@ -194,6 +197,7 @@ class SocialControllerTest {
     @Test
     void votePost_returnsScoreAndUserVote() throws Exception {
         when(loginRepository.authorize("whiskers", "tok")).thenReturn(whiskersSession);
+        when(social.isVotesEnabled(5)).thenReturn(true);
         when(social.votePost(5, 1, 1)).thenReturn(Map.of("score", 3, "userVote", 1));
 
         ResponseEntity<Map<String, Object>> resp = socialController.votePost(
@@ -201,5 +205,37 @@ class SocialControllerTest {
 
         assertThat(resp.getBody()).containsEntry("score", 3);
         assertThat(resp.getBody()).containsEntry("userVote", 1);
+    }
+
+    @Test
+    void votePost_votingOff_returns403() throws Exception {
+        when(loginRepository.authorize("whiskers", "tok")).thenReturn(whiskersSession);
+        when(social.isVotesEnabled(5)).thenReturn(false);
+
+        ResponseEntity<Map<String, Object>> resp = socialController.votePost(
+                5, Map.of("vote", 1), "whiskers", "tok");
+
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        verify(social, never()).votePost(anyInt(), anyInt(), anyInt());
+    }
+
+    @Test
+    void getPostVote_votingOff_hidesTheScore() {
+        when(social.isVotesEnabled(5)).thenReturn(false);
+
+        ResponseEntity<Map<String, Object>> resp = socialController.getPostVote(5, null, null);
+
+        assertThat(resp.getBody()).containsEntry("enabled", false).containsEntry("score", 0);
+        verify(social, never()).getPostScore(anyInt());
+    }
+
+    @Test
+    void getPostVote_votingOn_showsTheScore() {
+        when(social.isVotesEnabled(5)).thenReturn(true);
+        when(social.getPostScore(5)).thenReturn(4);
+
+        ResponseEntity<Map<String, Object>> resp = socialController.getPostVote(5, null, null);
+
+        assertThat(resp.getBody()).containsEntry("enabled", true).containsEntry("score", 4);
     }
 }

@@ -115,6 +115,17 @@ public class SocialRepository {
         return !r.isEmpty() && r.get(0);
     }
 
+    /** Whether readers may vote on the post. False for a post that does not exist. */
+    public boolean isVotesEnabled(int postId) {
+        List<Boolean> r = jdbc.queryForList(
+            "SELECT votes_enabled FROM posts WHERE id=?", Boolean.class, postId);
+        return !r.isEmpty() && Boolean.TRUE.equals(r.get(0));
+    }
+
+    public void setVotesEnabled(int postId, boolean enabled) {
+        jdbc.update("UPDATE posts SET votes_enabled=? WHERE id=?", enabled, postId);
+    }
+
     public void setDiscussionEnabled(int postId, boolean enabled) {
         int updated = jdbc.update("UPDATE discussions SET enabled=? WHERE post_id=?", enabled, postId);
         if (updated == 0 && enabled) getOrCreateDiscussion(postId);

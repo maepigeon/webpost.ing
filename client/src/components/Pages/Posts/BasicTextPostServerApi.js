@@ -227,6 +227,11 @@ export function SET_REACTIONS_ENABLED(postId, enabled) {
     .then(r => r.data);
 }
 
+export function SET_VOTES_ENABLED(postId, enabled) {
+  return axios.put(baseUrl + `/api/posts/${postId}/votes/enabled`, { enabled }, { withCredentials: true })
+    .then(r => r.data);
+}
+
 // ── Social: reactions ─────────────────────────────────────────────────────────
 
 export function GET_REACTIONS(postId) {

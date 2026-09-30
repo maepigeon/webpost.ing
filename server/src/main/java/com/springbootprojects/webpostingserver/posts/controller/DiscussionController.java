@@ -44,6 +44,7 @@ public class DiscussionController {
         Map<String, Object> body = new HashMap<>();
         body.put("discussionEnabled", social.isDiscussionEnabled(postId));
         body.put("reactionsEnabled", social.isReactionsEnabled(postId));
+        body.put("votesEnabled", social.isVotesEnabled(postId));
         body.put("discussionStyle", social.getDiscussionStyle(postId));
         return ResponseEntity.ok(body);
     }
@@ -94,6 +95,25 @@ public class DiscussionController {
         boolean enabled = Boolean.TRUE.equals(body.get("enabled"));
         social.setReactionsEnabled(postId, enabled);
         return ResponseEntity.ok(enabled ? "Reactions enabled." : "Reactions disabled.");
+    }
+
+    @PutMapping("/posts/{postId}/votes/enabled")
+    public ResponseEntity<String> setVotesEnabled(
+            @PathVariable int postId,
+            @RequestBody Map<String, Boolean> body,
+            @CookieValue(name = "username") String username,
+            @CookieValue(name = "authToken") String token) {
+
+        AuthSession session = authorize(username, token);
+        if (session == null) return unauthorized();
+
+        LoginInfo owner = postRepository.getUsernameFromPostId(postId);
+        if (owner == null || !owner.compareUsername(username))
+            return forbidden();
+
+        boolean enabled = Boolean.TRUE.equals(body.get("enabled"));
+        social.setVotesEnabled(postId, enabled);
+        return ResponseEntity.ok(enabled ? "Voting enabled." : "Voting disabled.");
     }
 
     @PutMapping("/posts/{postId}/discussion")
