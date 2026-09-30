@@ -54,18 +54,7 @@ public final class GridValidator {
         out.put("rows", rows);
         out.put("mode", mode);
 
-        ObjectNode glyphs = out.putObject("glyphs");
-        JsonNode inGlyphs = in.path("glyphs");
-        if (inGlyphs.isObject()) {
-            int n = 0;
-            for (Iterator<Map.Entry<String, JsonNode>> it = inGlyphs.fields(); it.hasNext() && n < 256; ) {
-                Map.Entry<String, JsonNode> e = it.next();
-                String ch = e.getKey();
-                if (ch.codePointCount(0, ch.length()) != 1) continue;
-                String hex = e.getValue().asText("");
-                if (GLYPH.matcher(hex).matches()) { glyphs.put(ch, hex); n++; }
-            }
-        }
+        out.set("glyphs", cleanGlyphs(in.path("glyphs"), 256));
 
         ArrayNode layers = out.putArray("layers");
         JsonNode inLayers = in.path("layers");
@@ -83,6 +72,23 @@ public final class GridValidator {
         }
         if (layers.isEmpty()) throw new InvalidGridException("A grid needs at least one layer.");
         return out;
+    }
+
+    /**
+     * Custom characters: one character each, mapped to an 8×16 or 16×16
+     * bitmap as hex. Anything else is dropped. Shared with pixel font libraries.
+     */
+    public static ObjectNode cleanGlyphs(JsonNode in, int max) {
+        ObjectNode glyphs = MAPPER.createObjectNode();
+        if (in == null || !in.isObject()) return glyphs;
+        for (Iterator<Map.Entry<String, JsonNode>> it = in.fields(); it.hasNext() && glyphs.size() < max; ) {
+            Map.Entry<String, JsonNode> e = it.next();
+            String ch = e.getKey();
+            if (ch.isEmpty() || ch.codePointCount(0, ch.length()) != 1) continue;
+            String hex = e.getValue().asText("");
+            if (GLYPH.matcher(hex).matches()) glyphs.put(ch, hex);
+        }
+        return glyphs;
     }
 
     private static ObjectNode normaliseLayer(JsonNode l, int rows, int slotsPerRow) throws InvalidGridException {

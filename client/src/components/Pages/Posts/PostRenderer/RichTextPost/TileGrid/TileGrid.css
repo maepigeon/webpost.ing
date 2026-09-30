@@ -299,3 +299,12 @@
 }
 .tilegrid-bitmap span { background: #f2f2f2; cursor: pointer; }
 .tilegrid-bitmap span.on { background: #111111; }
+.tilegrid-glyphs select {
+  height: 24px;
+  border: none;
+  border-radius: 3px;
+  background: #1c1c1c;
+  color: #f2f2f2;
+  font: 500 12px system-ui, sans-serif;
+  padding: 0 6px;
+}

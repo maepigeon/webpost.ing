@@ -329,3 +329,8 @@
 }
 
 .settings-code-sample code { font: inherit; color: inherit; }
+
+.settings-font-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.settings-font-list li { display: flex; align-items: center; gap: 12px; }
+.settings-font-name { font-weight: 700; }
+.settings-font-glyphs { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-soft); }

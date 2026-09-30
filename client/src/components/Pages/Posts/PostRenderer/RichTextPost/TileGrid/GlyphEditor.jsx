@@ -1,5 +1,61 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { bitsFromHex, hexFromBits, seedBits } from './tileGrid.js';
+import { GET_PIXEL_FONTS, CREATE_PIXEL_FONT, UPDATE_PIXEL_FONT } from '../../../BasicTextPostServerApi.js';
+
+/**
+ * The signed-in user's pixel font libraries, and actions on them. A grid
+ * copies the characters it uses, so a post never breaks if a library changes.
+ */
+function Libraries({ glyphs, onUse }) {
+  const me = typeof localStorage !== 'undefined' ? localStorage.getItem('userName') : null;
+  const [fonts, setFonts] = useState([]);
+  const [chosen, setChosen] = useState('');
+  const [note, setNote] = useState('');
+
+  const load = () => { if (me) GET_PIXEL_FONTS(me).then(f => setFonts(Array.isArray(f) ? f : [])).catch(() => {}); };
+  useEffect(load, [me]);
+
+  if (!me) return null;
+  const font = fonts.find(f => String(f.id) === chosen);
+  const count = Object.keys(glyphs).length;
+  const fail = (err, msg) => setNote(err?.response?.data?.message || msg);
+
+  const saveNew = async () => {
+    const name = window.prompt('Name this pixel font:')?.trim();
+    if (!name) return;
+    try {
+      const { id } = await CREATE_PIXEL_FONT(me, name.slice(0, 40), glyphs);
+      setNote(`Saved “${name}”.`);
+      load();
+      setChosen(String(id));
+    } catch (err) { fail(err, 'Could not save the font.'); }
+  };
+
+  const update = async () => {
+    if (!font) return;
+    try {
+      await UPDATE_PIXEL_FONT(me, font.id, font.name, { ...font.glyphs, ...glyphs });
+      setNote(`Updated “${font.name}”.`);
+      load();
+    } catch (err) { fail(err, 'Could not update the font.'); }
+  };
+
+  return (
+    <div className="tilegrid-row tilegrid-libraries">
+      <span className="tilegrid-label">Fonts</span>
+      <select value={chosen} onChange={e => setChosen(e.target.value)} aria-label="Your pixel fonts">
+        <option value="">{fonts.length ? 'Your pixel fonts…' : 'No saved fonts yet'}</option>
+        {fonts.map(f => <option key={f.id} value={f.id}>{f.name} ({Object.keys(f.glyphs || {}).length})</option>)}
+      </select>
+      <button type="button" disabled={!font} onClick={() => { onUse(font.glyphs); setNote(`Using “${font.name}”.`); }}
+        title="Copy this font's characters into the grid">Use</button>
+      <button type="button" disabled={!font || !count} onClick={update}
+        title="Add this grid's characters to the font, replacing any it already has">Update</button>
+      <button type="button" disabled={!count} onClick={saveNew} title="Save this grid's characters as a new font">Save as font…</button>
+      {note && <span className="tilegrid-hint">{note}</span>}
+    </div>
+  );
+}
 
 // ── Custom characters ─────────────────────────────────────────────────────────
 
@@ -58,6 +114,8 @@ export default function GlyphEditor({ width, glyphs, onChange, onClose }) {
         <button type="button" onClick={save} disabled={!ch} className="is-on">Save “{ch || '?'}”</button>
         <button type="button" onClick={remove} disabled={!ch || !glyphs[ch]} className="tilegrid-danger">Delete</button>
       </div>
+
+      <Libraries glyphs={glyphs} onUse={g => onChange({ ...glyphs, ...g })} />
 
       {Object.keys(glyphs).length > 0 && (
         <div className="tilegrid-row">

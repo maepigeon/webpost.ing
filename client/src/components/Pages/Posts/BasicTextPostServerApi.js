@@ -78,6 +78,24 @@ export function ORDER_PROFILE_GRIDS(username, ids) {
   return axios.put(`${gridsUrl(username)}/order`, ids, { withCredentials: true });
 }
 
+// ── Pixel font libraries ─────────────────────────────────────────────────────
+
+const fontsUrl = (username) => baseUrl + `/api/users/${encodeURIComponent(username)}/fonts`;
+
+/** [{id, name, glyphs}] */
+export function GET_PIXEL_FONTS(username) {
+  return axios.get(fontsUrl(username)).then(r => r.data);
+}
+export function CREATE_PIXEL_FONT(username, name, glyphs) {
+  return axios.post(fontsUrl(username), JSON.stringify({ name, glyphs }), asJson).then(r => r.data);
+}
+export function UPDATE_PIXEL_FONT(username, id, name, glyphs) {
+  return axios.put(`${fontsUrl(username)}/${id}`, JSON.stringify({ name, glyphs }), asJson).then(r => r.data);
+}
+export function DELETE_PIXEL_FONT(username, id) {
+  return axios.delete(`${fontsUrl(username)}/${id}`, { withCredentials: true });
+}
+
 /** A user's page theme: {theme: {...}} or {theme: null} for Newspaper Life. */
 export function GET_PAGE_THEME(username) {
   return axios.get(baseUrl + `/api/users/${encodeURIComponent(username)}/theme`).then(r => r.data);

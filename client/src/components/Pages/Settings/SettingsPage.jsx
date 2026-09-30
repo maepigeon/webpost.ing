@@ -15,6 +15,7 @@ import {
 } from '../../../utils/codeDisplay.js';
 import { usePageTitle } from '../../../utils/usePageTitle.js';
 import ThemeEditor from '../../PageTheme/ThemeEditor.jsx';
+import PixelFontsSection from './PixelFontsSection.jsx';
 import './SettingsPage.css';
 
 /**
@@ -385,6 +386,8 @@ export default function SettingsPage() {
           </p>
           <ThemeEditor username={username} />
         </section>
+
+        <PixelFontsSection username={username} />
 
         {/* ── Site background ─────────────────────────────────────────────── */}
         <section className="settings-section">
