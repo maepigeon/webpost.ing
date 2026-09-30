@@ -536,7 +536,7 @@ public class SocialRepository {
         out.put("username", username);
 
         List<Map<String, Object>> profileRows = jdbc.queryForList(
-            "SELECT username, registration_date, background_pattern, role, bio, pattern_presets, last_visited " +
+            "SELECT username, registration_date, background_pattern, site_background, page_theme, role, bio, bio_links, pattern_presets, last_visited " +
             "FROM users WHERE id=?", userId);
         out.put("profile", profileRows.isEmpty() ? new LinkedHashMap<>() : new LinkedHashMap<>(profileRows.get(0)));
 
@@ -545,6 +545,8 @@ public class SocialRepository {
             "FROM posts p JOIN users_posts_junctions j ON j.post_id=p.id " +
             "WHERE j.user_id=? ORDER BY p.date DESC", userId));
 
+        out.put("pixel_fonts", jdbc.queryForList(
+            "SELECT id, name, glyphs, created_at, updated_at FROM pixel_fonts WHERE user_id = ? ORDER BY id", userId));
         out.put("comments", getUserActivityComments(userId, 10000));
         out.put("post_reactions", getUserActivityPostReactions(userId, 10000));
         out.put("uploads", jdbc.queryForList(

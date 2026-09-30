@@ -654,8 +654,12 @@ public class AuthController {
             // Replace old avatar upload record(s), then insert new one
             for (Map<String, Object> row : existingAvatarRows) {
                 jdbc.update("DELETE FROM uploads WHERE id=?", row.get("id"));
-                String oldFile = (String) row.get("filename"); // e.g. "avatar/<uuid>.jpg"
-                try { Files.deleteIfExists(Paths.get(uploadDir, oldFile.replace("/", java.io.File.separator))); } catch (Exception ignored) {}
+                // Recorded as "avatar/<file>" but stored in the "avatars" folder;
+                // resolving the recorded name directly never found the file, so
+                // every replaced avatar used to stay on disk.
+                String oldFile = (String) row.get("filename");
+                String oldName = oldFile.substring(oldFile.lastIndexOf('/') + 1);
+                try { Files.deleteIfExists(avatarDir.resolve(oldName)); } catch (Exception ignored) {}
             }
             jdbc.update(
                 "INSERT INTO uploads(filename, user_id, original_name, size_bytes) VALUES(?,?,?,?)",

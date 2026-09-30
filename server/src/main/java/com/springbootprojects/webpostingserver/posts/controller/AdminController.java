@@ -342,16 +342,33 @@ public class AdminController {
 
         if (authorize(username, token) == null || !isAdmin(username)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
 
-        // Orphans: in uploads table but not referenced by any post_uploads row,
-        // and uploaded more than 1 hour ago (grace period for in-progress edits)
-        List<Map<String, Object>> orphans = jdbc.queryForList(
-            "SELECT id, filename FROM uploads " +
-            "WHERE id NOT IN (SELECT upload_id FROM post_uploads) " +
-            "AND uploaded_at < NOW() - INTERVAL '1 hour'");
+        // Orphans: uploads nothing refers to, older than an hour (grace for an
+        // edit in progress). A photo can be used by a post's content, and also
+        // — as a photo layer in a tile grid — by a post's or profile's
+        // wallpaper, the site background, a page theme or a saved wallpaper;
+        // all of those are checked. Avatars are left alone: replacing one
+        // already removes the old file.
+        List<Map<String, Object>> orphans = jdbc.queryForList("""
+                SELECT f.id, f.filename FROM uploads f
+                 WHERE f.uploaded_at < NOW() - INTERVAL '1 hour'
+                   AND f.filename NOT LIKE 'avatar/%'
+                   AND NOT EXISTS (SELECT 1 FROM post_uploads pu WHERE pu.upload_id = f.id)
+                   AND NOT EXISTS (SELECT 1 FROM posts p
+                                    WHERE position('/uploads/' || f.filename IN COALESCE(p.background_pattern, '')) > 0)
+                   AND NOT EXISTS (SELECT 1 FROM users u
+                                    WHERE position('/uploads/' || f.filename IN
+                                            COALESCE(u.background_pattern, '') || COALESCE(u.site_background, '')
+                                            || COALESCE(u.page_theme, '') || COALESCE(u.pattern_presets, '')) > 0)
+                """);
 
         int deleted = 0;
         for (Map<String, Object> row : orphans) {
             String fn = (String) row.get("filename");
+            // The resized copies go with the original.
+            for (String variant : jdbc.queryForList(
+                    "SELECT filename FROM upload_variants WHERE upload_id = ?", String.class, row.get("id"))) {
+                try { Files.deleteIfExists(Paths.get(uploadDir, variant)); } catch (Exception ignored) {}
+            }
             try { Files.deleteIfExists(Paths.get(uploadDir, fn)); } catch (Exception ignored) {}
             jdbc.update("DELETE FROM uploads WHERE id=?", row.get("id"));
             deleted++;
