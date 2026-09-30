@@ -213,26 +213,6 @@ public class PostController {
         }
     }
 
-    @GetMapping("/posts")
-    public ResponseEntity<List<Post>> getAllPosts(@RequestParam(required = false) String title) {
-        try {
-            List<Post> posts;
-            if (title == null)
-                posts = postRepository.findByPublished(true);
-            else
-                posts = postRepository.findByTitleContaining(title).stream()
-                        .filter(Post::isPublished).collect(java.util.stream.Collectors.toList());
-
-            if (posts.isEmpty()) {
-                return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-            }
-
-            return new ResponseEntity<>(posts, HttpStatus.OK);
-        } catch (Exception e) {
-            return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-    }
-
     @GetMapping("/posts/{id}")
     public ResponseEntity<Post> getPostById(
             @PathVariable("id") long id,
@@ -587,20 +567,6 @@ public class PostController {
                 pattern, pattern);
         }
         return ResponseEntity.ok(rows);
-    }
-
-    @GetMapping("/posts/published")
-    public ResponseEntity<List<Post>> findByPublished() {
-        try {
-            List<Post> posts = postRepository.findByPublished(true);
-
-            if (posts.isEmpty()) {
-                return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-            }
-            return new ResponseEntity<>(posts, HttpStatus.OK);
-        } catch (Exception e) {
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-        }
     }
 
     /**

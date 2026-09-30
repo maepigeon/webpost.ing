@@ -17,6 +17,7 @@ import { GET_PROFILE_HEADER } from '../BasicTextPostServerApi.js';
 import { useAuthorTheme } from '../../../PageTheme/PageTheme.jsx';
 import Icon from '../../../Icon/Icon.jsx';
 import NewGridPost from '../../../TileArt/NewGridPost.jsx';
+import { errorMessage } from '../../../../utils/errorMessage.js';
 
 function Heading(props) {
  if (props.username != null && props.username != "") {
@@ -226,7 +227,7 @@ function PostsViewer() {
       }
       UPDATE_USER_BIO_LINKS(username, filtered)
         .then(() => { setBioLinks(filtered); setEditingLinks(false); })
-        .catch(err => setLinksError(err?.response?.data || 'Failed to save links.'));
+        .catch(err => setLinksError(errorMessage(err, 'Failed to save links.')));
     }
 
     function saveBio() {
@@ -234,7 +235,7 @@ function PostsViewer() {
       setBioError('');
       UPDATE_USER_BIO(username, trimmed)
         .then(() => { setBio(trimmed); setEditingBio(false); })
-        .catch(err => setBioError(err?.response?.data || 'Failed to save bio. Try again.'));
+        .catch(err => setBioError(errorMessage(err, 'Failed to save bio. Try again.')));
     }
 
     const visiblePosts = postsArray;

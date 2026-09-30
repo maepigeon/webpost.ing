@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { bitsFromHex, hexFromBits, seedBits } from './tileGrid.js';
 import { GET_PIXEL_FONTS, CREATE_PIXEL_FONT, UPDATE_PIXEL_FONT } from '../../../BasicTextPostServerApi.js';
+import { errorMessage } from '../../../../../../utils/errorMessage.js';
 
 /**
  * The signed-in user's pixel font libraries, and actions on them. A grid
@@ -18,7 +19,7 @@ function Libraries({ glyphs, onUse }) {
   if (!me) return null;
   const font = fonts.find(f => String(f.id) === chosen);
   const count = Object.keys(glyphs).length;
-  const fail = (err, msg) => setNote(err?.response?.data?.message || msg);
+  const fail = (err, msg) => setNote(errorMessage(err, msg));
 
   const saveNew = async () => {
     const name = window.prompt('Name this pixel font:')?.trim();

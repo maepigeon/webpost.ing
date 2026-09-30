@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { REPORT_POST } from '../Pages/Posts/BasicTextPostServerApi.js';
 import './ReportDialog.css';
+import { errorMessage } from '../../utils/errorMessage.js';
 
 /**
  * Reports a post to the moderators.
@@ -47,7 +48,7 @@ export default function ReportDialog({ postId, postTitle, onClose }) {
       setMessage(result.message);
       setDone(true);
     } catch (err) {
-      setMessage(err?.response?.data?.message || 'Could not send that report.');
+      setMessage(errorMessage(err, 'Could not send that report.'));
       setFailed(true);
     } finally {
       setBusy(false);

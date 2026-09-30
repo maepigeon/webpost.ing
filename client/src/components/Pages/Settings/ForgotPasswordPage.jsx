@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { FORGOT_PASSWORD } from '../Posts/BasicTextPostServerApi.js';
 import { usePageTitle } from '../../../utils/usePageTitle.js';
 import './SettingsPage.css';
+import { errorMessage } from '../../../utils/errorMessage.js';
 
 /**
  * Requests a password-reset email.
@@ -26,7 +27,7 @@ export default function ForgotPasswordPage() {
       const result = await FORGOT_PASSWORD(email.trim());
       setMessage(result.message);
     } catch (err) {
-      setMessage(err?.response?.data?.message || 'Something went wrong. Try again shortly.');
+      setMessage(errorMessage(err, 'Something went wrong. Try again shortly.'));
     } finally {
       setBusy(false);
     }

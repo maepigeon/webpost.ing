@@ -12,6 +12,7 @@ import {
 import { PasswordRequirements } from '../Registration/Registration.jsx';
 import './AdminPanel.css';
 import { ADMIN_GET_REPORTS, ADMIN_UPDATE_REPORT } from '../../Posts/BasicTextPostServerApi.js';
+import { errorMessage } from '../../../../utils/errorMessage.js';
 
 function fmt(bytes) {
   if (bytes < 0) return 'unlimited';
@@ -84,7 +85,7 @@ export default function AdminPanel() {
       flash('User created.');
       ADMIN_LIST_USERS().then(setUsers);
     } catch (e) {
-      setCreateError(e.response?.data || 'Failed to create user.');
+      setCreateError(errorMessage(e, 'Failed to create user.'));
     }
   };
 
@@ -95,7 +96,7 @@ export default function AdminPanel() {
       setUsers(us => us.filter(u => u.username !== username));
       flash(`Deleted ${username}.`);
     } catch (e) {
-      flash(e.response?.data || 'Failed to delete user.');
+      flash(errorMessage(e, 'Failed to delete user.'));
     }
   };
 
@@ -105,7 +106,9 @@ export default function AdminPanel() {
       await ADMIN_SET_ROLE(username, role);
       setUsers(us => us.map(u => u.username === username ? { ...u, role } : u));
       flash(`Role updated for ${username}.`);
-    } catch {}
+    } catch (e) {
+      flash(errorMessage(e, 'Could not change the role.'));
+    }
   };
 
   const toggleAdmin = async (username, current) => {
@@ -115,7 +118,9 @@ export default function AdminPanel() {
       await ADMIN_SET_ADMIN(username, !current);
       setUsers(us => us.map(u => u.username === username ? { ...u, is_admin: !current } : u));
       flash(`Admin status toggled for ${username}.`);
-    } catch {}
+    } catch (e) {
+      flash(errorMessage(e, 'Could not change admin status.'));
+    }
   };
 
   const saveLimit = async (role) => {
@@ -128,7 +133,9 @@ export default function AdminPanel() {
       );
       flash(`Limits saved for role "${role}".`);
       ADMIN_GET_ROLE_LIMITS().then(d => { setRoleLimits(d); setLimitEdits({}); });
-    } catch {}
+    } catch (e) {
+      flash(errorMessage(e, 'Could not save the limits.'));
+    }
   };
 
   if (isAdmin === null) return <div className="admin-panel"><p>Loading…</p></div>;
@@ -435,7 +442,7 @@ export default function AdminPanel() {
                   if (importFileRef.current) importFileRef.current.value = '';
                   setImportUsername('');
                 } catch (e) {
-                  setImportError(e.response?.data?.error || e.message || 'Import failed.');
+                  setImportError(errorMessage(e, e.message || 'Import failed.'));
                 }
               }} disabled={!importUsername.trim()}>Import</button>
             </div>
@@ -481,7 +488,7 @@ export default function AdminPanel() {
                     flash(`Password changed for ${secPwTarget}.`);
                     setSecPwTarget(''); setSecPwNew(''); setSecPwConfirm('');
                   } catch (e) {
-                    setSecPwError(e.response?.data || 'Failed to change password.');
+                    setSecPwError(errorMessage(e, 'Failed to change password.'));
                   }
                 }}
               >Change Password</button>

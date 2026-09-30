@@ -41,13 +41,6 @@ export function READ_POSTS_BY_USER(username, limit = 20, offset = 0) {
 };
 
 
-//read
-export function READ_POSTS() {
-  const promise = axios.get(baseUrl + "/api/posts");
-  const dataPromise = promise.then((response) => response.data);
-  return dataPromise;
-};
-
 const asJson = { headers: { 'Content-Type': 'application/json' }, withCredentials: true };
 
 // ── Pixel font libraries ─────────────────────────────────────────────────────

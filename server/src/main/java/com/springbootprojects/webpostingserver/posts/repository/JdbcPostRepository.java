@@ -130,30 +130,4 @@ public class JdbcPostRepository implements PostRepository {
         jdbcTemplate.update("DELETE FROM users_posts_junctions WHERE post_id=?", id);
         return jdbcTemplate.update("DELETE FROM posts WHERE id=?", id);
     }
-
-    @Override
-    public List<Post> findAll() {
-        return jdbcTemplate.query(
-            "SELECT id, title, description, published, date, background_pattern, folder, slug FROM posts",
-            POST_MAPPER);
-    }
-
-    @Override
-    public List<Post> findByPublished(boolean published) {
-        return jdbcTemplate.query(
-            "SELECT id, title, description, published, date, background_pattern, folder, slug FROM posts WHERE published=?",
-            POST_MAPPER, published);
-    }
-
-    @Override
-    public List<Post> findByTitleContaining(String title) {
-        return jdbcTemplate.query(
-            "SELECT id, title, description, published, date, background_pattern, folder, slug FROM posts WHERE title ILIKE ?",
-            POST_MAPPER, "%" + title + "%");
-    }
-
-    @Override
-    public int deleteAll() {
-        return jdbcTemplate.update("DELETE from posts");
-    }
 }

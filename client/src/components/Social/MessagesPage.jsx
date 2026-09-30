@@ -14,6 +14,7 @@ import { IMAGES_BASE_URL } from '../../config.js';
 import './MessagesPage.css';
 import Icon from '../Icon/Icon.jsx';
 import { useDialog } from '../Dialog/Dialog.jsx';
+import { errorMessage } from '../../utils/errorMessage.js';
 
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🎉'];
 
@@ -71,6 +72,9 @@ export default function MessagesPage() {
   const pollRef      = useRef(null);
   const suggestTimer = useRef(null);
   const inputRef     = useRef(null);
+  // The thread on screen. A reply that arrives after the reader has moved to
+  // another thread is dropped, or it would show one thread's messages in another.
+  const threadRef    = useRef(null);
   const navigate     = useNavigate();
   const [searchParams] = useSearchParams();
   const authUser = localStorage.getItem('userName');
@@ -93,8 +97,12 @@ export default function MessagesPage() {
   // ── Open DM ───────────────────────────────────────────────────────────────
 
   const openConversation = useCallback(async (convId) => {
+    const thread = `c${convId}`;
+    threadRef.current = thread;
+    setError('');
     setActiveConvId(convId);
     setActiveGroupId(null);
+    setMessages([]);
     setMobileView('thread');
     setShowMembersPanel(false);
     try {
@@ -102,18 +110,25 @@ export default function MessagesPage() {
         GET_CONVERSATION_MESSAGES(convId, 100, 0),
         MARK_CONVERSATION_READ(convId).catch(() => {}),
       ]);
+      if (threadRef.current !== thread) return;
       setMessages(msgs);
       setConversations(cs => cs.map(c => c.id === convId ? { ...c, unread_count: 0 } : c));
       // Load reactions
       GET_CONV_REACTIONS(convId).then(r => setDmReactions(r)).catch(() => {});
-    } catch {}
+    } catch {
+      if (threadRef.current === thread) setError('Could not load this conversation.');
+    }
   }, []);
 
   // ── Open Group ────────────────────────────────────────────────────────────
 
   const openGroup = useCallback(async (groupId) => {
+    const thread = `g${groupId}`;
+    threadRef.current = thread;
+    setError('');
     setActiveGroupId(groupId);
     setActiveConvId(null);
+    setMessages([]);
     setMobileView('thread');
     setShowMembersPanel(false);
     setGroupReactions({});
@@ -122,11 +137,14 @@ export default function MessagesPage() {
         GET_GROUP_MESSAGES(groupId, 100, 0),
         MARK_GROUP_READ(groupId).catch(() => {}),
       ]);
+      if (threadRef.current !== thread) return;
       setMessages(msgs);
       setGroups(gs => gs.map(g => g.id === groupId ? { ...g, unread_count: 0 } : g));
       GET_GROUP_MEMBERS(groupId).then(setGroupMembersInfo).catch(() => {});
       GET_GROUP_REACTIONS(groupId).then(r => setGroupReactions(r)).catch(() => {});
-    } catch {}
+    } catch {
+      if (threadRef.current === thread) setError('Could not load this group.');
+    }
   }, []);
 
   // ── ?with= query param ────────────────────────────────────────────────────
@@ -136,7 +154,7 @@ export default function MessagesPage() {
     if (!withUser) return;
     GET_OR_CREATE_CONVERSATION(withUser)
       .then(({ id }) => openConversation(id))
-      .catch(() => {});
+      .catch(e => setError(errorMessage(e, `Could not start a conversation with ${withUser}.`)));
   }, [searchParams, openConversation]);
 
   useEffect(() => { loadAll(); }, [loadAll]);
@@ -145,18 +163,21 @@ export default function MessagesPage() {
 
   useEffect(() => {
     if (!activeConvId && !activeGroupId) return;
+    const thread = activeConvId ? `c${activeConvId}` : `g${activeGroupId}`;
     pollRef.current = setInterval(async () => {
       try {
         if (activeConvId) {
           const msgs = await GET_CONVERSATION_MESSAGES(activeConvId, 100, 0);
+          if (threadRef.current !== thread) return;
           setMessages(msgs);
           GET_CONV_REACTIONS(activeConvId).then(r => setDmReactions(r)).catch(() => {});
         } else if (activeGroupId) {
           const msgs = await GET_GROUP_MESSAGES(activeGroupId, 100, 0);
+          if (threadRef.current !== thread) return;
           setMessages(msgs);
           GET_GROUP_REACTIONS(activeGroupId).then(r => setGroupReactions(r)).catch(() => {});
         }
-      } catch {}
+      } catch { /* a missed poll is retried on the next one */ }
       loadAll();
     }, 10000);
     return () => clearInterval(pollRef.current);
@@ -190,7 +211,7 @@ export default function MessagesPage() {
       setReplyTo(null);
       loadAll();
     } catch (e) {
-      setError(e.response?.data || 'Failed to send.');
+      setError(errorMessage(e, 'Failed to send.'));
     } finally {
       setSending(false);
     }
@@ -220,7 +241,7 @@ export default function MessagesPage() {
       setTransferTarget(null);
       GET_GROUP_MEMBERS(activeGroupId).then(setGroupMembersInfo).catch(() => {});
     } catch (e) {
-      setError(e.response?.data || 'Could not transfer ownership.');
+      setError(errorMessage(e, 'Could not transfer ownership.'));
       setTransferTarget(null);
     }
   };
@@ -253,7 +274,7 @@ export default function MessagesPage() {
       setNewTarget('');
       openConversation(id);
     } catch (e) {
-      setError(e.response?.data || `User "${newTarget.trim()}" not found.`);
+      setError(errorMessage(e, `User "${newTarget.trim()}" not found.`));
     }
   };
 
@@ -270,7 +291,7 @@ export default function MessagesPage() {
       setGroupMembers('');
       openGroup(id);
     } catch (e) {
-      setError(e.response?.data || 'Failed to create group.');
+      setError(errorMessage(e, 'Failed to create group.'));
     }
   };
 
@@ -313,7 +334,7 @@ export default function MessagesPage() {
       setAddMemberInput('');
       GET_GROUP_MEMBERS(activeGroupId).then(setGroupMembersInfo).catch(() => {});
     } catch (e) {
-      setError(e.response?.data || 'Could not add member.');
+      setError(errorMessage(e, 'Could not add member.'));
     }
   };
 
@@ -322,9 +343,9 @@ export default function MessagesPage() {
     try {
       await REMOVE_GROUP_MEMBER(activeGroupId, username);
       GET_GROUP_MEMBERS(activeGroupId).then(setGroupMembersInfo).catch(() => {});
-      if (username === authUser) { setActiveGroupId(null); loadAll(); }
+      if (username === authUser) { threadRef.current = null; setActiveGroupId(null); setMessages([]); loadAll(); }
     } catch (e) {
-      setError(e.response?.data || 'Could not remove member.');
+      setError(errorMessage(e, 'Could not remove member.'));
     }
   };
 
@@ -430,6 +451,9 @@ export default function MessagesPage() {
             <button onClick={createGroup} style={{ alignSelf: 'flex-end' }}>Create</button>
           </div>
         )}
+
+        {/* With no thread open, the thread's error line is not on screen. */}
+        {error && !activeConvId && !activeGroupId && <p className="messages-error messages-error--sidebar">{error}</p>}
 
         {/* DM conversations */}
         {conversations.length > 0 && (

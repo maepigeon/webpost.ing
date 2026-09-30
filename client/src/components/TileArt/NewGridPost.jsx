@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { CREATE_POST } from '../Pages/Posts/BasicTextPostServerApi.js';
 import { gridPostContent } from '../../utils/gridPost.js';
 import './NewGridPost.css';
+import { errorMessage } from '../../utils/errorMessage.js';
 
 /**
  * Starts a grid post: a post whose content is one tile grid. It is created as
@@ -22,7 +23,7 @@ export default function NewGridPost() {
       const id = await CREATE_POST(1, 'Grid', gridPostContent(), false, null, null, null);
       navigate(`/editor/${id}`);
     } catch (err) {
-      setError(typeof err?.response?.data === 'string' ? err.response.data : 'Could not start a grid post.');
+      setError(errorMessage(err, 'Could not start a grid post.'));
       setBusy(false);
     }
   };

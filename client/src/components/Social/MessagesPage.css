@@ -515,6 +515,7 @@
   padding: 0 16px 8px;
   margin: 0;
 }
+.messages-error--sidebar { padding-top: 8px; }
 
 /* ── Section labels ─────────────────────────────────────────────── */
 .messages-conv-section-label {

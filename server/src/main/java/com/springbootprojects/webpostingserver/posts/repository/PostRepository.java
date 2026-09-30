@@ -17,12 +17,4 @@ public interface PostRepository {
     List<Post> getPostsFromUsername(String username);
 
     int deleteById(Long id);
-
-    List<Post> findAll();
-
-    List<Post> findByPublished(boolean published);
-
-    List<Post> findByTitleContaining(String title);
-
-    int deleteAll();
 }

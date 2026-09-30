@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { VERIFY_EMAIL, UNSUBSCRIBE_EMAIL, RESET_PASSWORD } from '../Posts/BasicTextPostServerApi.js';
 import { usePageTitle } from '../../../utils/usePageTitle.js';
 import './SettingsPage.css';
+import { errorMessage } from '../../../utils/errorMessage.js';
 
 /**
  * The landing page for links sent by email: confirm an address, unsubscribe, or
@@ -50,7 +51,7 @@ export default function EmailActionPage({ mode }) {
     action
       .then(result => { setMessage(result.message); setFailed(false); })
       .catch(err => {
-        setMessage(err?.response?.data?.message || 'That link could not be used.');
+        setMessage(errorMessage(err, 'That link could not be used.'));
         setFailed(true);
       })
       .finally(() => setBusy(false));
@@ -71,7 +72,7 @@ export default function EmailActionPage({ mode }) {
       setMessage(result.message);
       setDone(true);
     } catch (err) {
-      setMessage(err?.response?.data?.message || 'Could not change your password.');
+      setMessage(errorMessage(err, 'Could not change your password.'));
       setFailed(true);
     } finally {
       setBusy(false);

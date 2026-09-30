@@ -17,6 +17,7 @@ import { usePageTitle } from '../../../utils/usePageTitle.js';
 import ThemeEditor from '../../PageTheme/ThemeEditor.jsx';
 import PixelFontsSection from './PixelFontsSection.jsx';
 import './SettingsPage.css';
+import { errorMessage } from '../../../utils/errorMessage.js';
 
 /**
  * Account settings — currently the email address and what it is used for.
@@ -122,7 +123,7 @@ export default function SettingsPage() {
       }));
       setStatus(result.message);
     } catch (err) {
-      setError(err?.response?.data?.message || 'Could not save that address.');
+      setError(errorMessage(err, 'Could not save that address.'));
     } finally {
       setSaving(false);
     }
@@ -144,7 +145,7 @@ export default function SettingsPage() {
     } catch (err) {
       setSettings(s => ({ ...s, siteBackground: previous }));
       window.dispatchEvent(new CustomEvent('site-background-changed', { detail: previous }));
-      setError(err?.response?.data?.message || 'Could not save that background.');
+      setError(errorMessage(err, 'Could not save that background.'));
     }
   };
 
@@ -179,7 +180,7 @@ export default function SettingsPage() {
       setStatus('Wallpaper saved.');
     } catch (err) {
       setProfileWallpaper(previous);
-      setError(err?.response?.data || 'Could not save that wallpaper.');
+      setError(errorMessage(err, 'Could not save that wallpaper.'));
     }
   };
 
@@ -220,7 +221,7 @@ export default function SettingsPage() {
       const result = await RESEND_VERIFICATION(username);
       setStatus(result.message);
     } catch (err) {
-      setError(err?.response?.data?.message || 'Could not send that email.');
+      setError(errorMessage(err, 'Could not send that email.'));
     }
   };
 

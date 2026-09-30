@@ -8,6 +8,7 @@ import TileGrid from '../Pages/Posts/PostRenderer/RichTextPost/TileGrid/TileGrid
 import { STICKERS } from '../TileArt/stickers.js';
 import { GET_PAGE_THEME, SET_PAGE_THEME } from '../Pages/Posts/BasicTextPostServerApi.js';
 import './ThemeEditor.css';
+import { errorMessage } from '../../utils/errorMessage.js';
 
 /** A small page drawn in a theme: a header card and two posts. */
 function Sample({ name = 'you', compact = false }) {
@@ -127,7 +128,7 @@ export default function ThemeEditor({ username }) {
       setStatus({ ok: true, msg: res?.message || 'Saved.' });
       window.dispatchEvent(new CustomEvent('page-theme-changed', { detail: { username, theme: t } }));
     } catch (err) {
-      setStatus({ ok: false, msg: err?.response?.data?.message || 'Could not save the theme.' });
+      setStatus({ ok: false, msg: errorMessage(err, 'Could not save the theme.') });
     } finally {
       setBusy(false);
     }

@@ -5,6 +5,7 @@ import './Login.css';
 import { BASE_URL as baseUrl } from '../../../../config.js';
 import { ADMIN_GET_STATUS } from '../../Posts/BasicTextPostServerApi.js';
 import { usePageTitle } from '../../../../utils/usePageTitle.js';
+import { errorMessage } from '../../../../utils/errorMessage.js';
 
 function Login() {
   usePageTitle('Sign in');
@@ -40,7 +41,7 @@ function Login() {
       }
       window.location.href = `/${username.trim()}`;
     } catch (err) {
-      setError(err?.response?.data || 'Invalid username or password.');
+      setError(errorMessage(err, 'Invalid username or password.'));
     } finally {
       setLoading(false);
     }

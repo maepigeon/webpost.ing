@@ -4,6 +4,7 @@ import { BASE_URL as baseUrl } from '../../../../config.js';
 import { ADMIN_GET_STATUS } from '../../Posts/BasicTextPostServerApi.js';
 import './Registration.css';
 import { usePageTitle } from '../../../../utils/usePageTitle.js';
+import { errorMessage } from '../../../../utils/errorMessage.js';
 
 function checkPassword(pw) {
   return {
@@ -82,8 +83,7 @@ function Registration() {
       }
       window.location.href = `/${username.trim()}`;
     } catch (e) {
-      const raw = e.response?.data;
-      setError(typeof raw === 'string' ? raw : (raw?.message || raw?.error || 'Registration failed. Please try again.'));
+      setError(errorMessage(e, 'Registration failed. Please try again.'));
     } finally {
       setLoading(false);
     }
