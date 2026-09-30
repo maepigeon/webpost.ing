@@ -351,7 +351,8 @@ export function slotsIn(d, selection) {
  * Transparent wherever no layer has anything.
  *
  * @param {object} assets  per layer id: { paint: canvas } or { photo: {canvas, x, y} }
- * @param {object} view    editing overlays: cursor, selection, moveBy, showGrid
+ * @param {object} view    canvas pixels per grid pixel (scale, default SCALE), and
+ *                         editing overlays: cursor, selection, moveBy, showGrid
  */
 export function renderGrid(ctx, d, assets = {}, view = {}) {
   const W = d.cols * TILE;
@@ -359,7 +360,8 @@ export function renderGrid(ctx, d, assets = {}, view = {}) {
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-  ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
+  const k = view.scale || SCALE;
+  ctx.setTransform(k, 0, 0, k, 0, 0);
   ctx.imageSmoothingEnabled = false;
 
   for (const layer of d.layers) {

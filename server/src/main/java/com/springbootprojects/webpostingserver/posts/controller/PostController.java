@@ -13,7 +13,7 @@ import com.springbootprojects.webpostingserver.posts.model.LoginInfo;
 
 import com.springbootprojects.webpostingserver.posts.repository.JdbcLoginRepository;
 import com.springbootprojects.webpostingserver.posts.repository.LoginRepository;
-import com.springbootprojects.webpostingserver.posts.validator.PatternValidator;
+import com.springbootprojects.webpostingserver.posts.validator.WallpaperValidator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -301,10 +301,15 @@ public class PostController {
                 return new ResponseEntity<>("Add a title before publishing.", HttpStatus.BAD_REQUEST);
             post.setTitle("Untitled");
         }
-        if (desc != null && desc.length() > 100_000)
-            return new ResponseEntity<>("Post content must be under 100,000 characters.", HttpStatus.BAD_REQUEST);
-        if (!PatternValidator.isValid(post.getBackgroundPattern()))
-            return new ResponseEntity<>("Invalid background pattern", HttpStatus.BAD_REQUEST);
+        // Generous because tile grids carry their pixels as PNGs; each layer is
+        // capped separately by GridValidator on the client's save path.
+        if (desc != null && desc.length() > 5_000_000)
+            return new ResponseEntity<>("This post is too large to save.", HttpStatus.BAD_REQUEST);
+        try {
+            post.setBackgroundPattern(WallpaperValidator.normalise(post.getBackgroundPattern()));
+        } catch (WallpaperValidator.InvalidWallpaperException e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+        }
         return null;
     }
 

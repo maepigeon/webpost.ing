@@ -8,7 +8,7 @@ import com.springbootprojects.webpostingserver.posts.repository.JdbcLoginReposit
 import com.springbootprojects.webpostingserver.posts.repository.LoginRepository;
 import com.springbootprojects.webpostingserver.posts.repository.SocialRepository;
 import com.springbootprojects.webpostingserver.posts.validator.LoginRateLimiter;
-import com.springbootprojects.webpostingserver.posts.validator.PatternValidator;
+import com.springbootprojects.webpostingserver.posts.validator.WallpaperValidator;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -92,11 +92,13 @@ public class AuthController {
         if (session == null) {
             return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
         }
-        String trimmed = pattern == null ? "" : pattern.trim();
-        if (!PatternValidator.isValid(trimmed)) {
-            return new ResponseEntity<>("Invalid background pattern", HttpStatus.BAD_REQUEST);
+        String wallpaper;
+        try {
+            wallpaper = WallpaperValidator.normalise(pattern);
+        } catch (WallpaperValidator.InvalidWallpaperException e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
         }
-        loginRepository.updateUserBackground(username, trimmed.isBlank() ? null : trimmed);
+        loginRepository.updateUserBackground(username, wallpaper);
         return ResponseEntity.ok("Background updated");
     }
 
@@ -214,23 +216,29 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        if (body == null || body.length() > 50_000)
-            return ResponseEntity.badRequest().body("Presets payload too large.");
-        // Validate: must be a JSON object with string values that pass PatternValidator
+        if (body == null || body.length() > 4_000_000)
+            return ResponseEntity.badRequest().body("Saved wallpapers are too large.");
+        // A JSON object of name → wallpaper JSON string; each is rebuilt by
+        // WallpaperValidator, and the canonical form is what gets stored.
+        String canonical;
         try {
             com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
             java.util.Map<String, String> map = mapper.readValue(body,
-                    mapper.getTypeFactory().constructMapType(java.util.Map.class, String.class, String.class));
-            if (map.size() > 200) return ResponseEntity.badRequest().body("Too many presets (max 200).");
+                    mapper.getTypeFactory().constructMapType(java.util.LinkedHashMap.class, String.class, String.class));
+            if (map.size() > 40) return ResponseEntity.badRequest().body("Too many saved wallpapers (max 40).");
+            java.util.Map<String, String> clean = new java.util.LinkedHashMap<>();
             for (java.util.Map.Entry<String, String> e : map.entrySet()) {
-                if (e.getKey().length() > 80) return ResponseEntity.badRequest().body("Preset name too long.");
-                if (!PatternValidator.isValid(e.getValue()))
-                    return ResponseEntity.badRequest().body("Invalid pattern value for preset: " + e.getKey());
+                if (e.getKey().isBlank() || e.getKey().length() > 80) return ResponseEntity.badRequest().body("Wallpaper names must be 1–80 characters.");
+                String w = WallpaperValidator.normalise(e.getValue());
+                if (w != null) clean.put(e.getKey(), w);
             }
+            canonical = mapper.writeValueAsString(clean);
+        } catch (WallpaperValidator.InvalidWallpaperException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Invalid JSON.");
         }
-        loginRepository.updateUserPresets(username, body);
+        loginRepository.updateUserPresets(username, canonical);
         return ResponseEntity.ok("Presets saved.");
     }
 

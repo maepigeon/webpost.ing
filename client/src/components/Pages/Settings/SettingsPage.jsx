@@ -6,13 +6,13 @@ import {
   GET_USER_BACKGROUND, UPDATE_USER_BACKGROUND,
   GET_PROFILE_HEADER, UPLOAD_PROFILE_HEADER, UPDATE_PROFILE_HEADER,
 } from '../Posts/BasicTextPostServerApi.js';
-import PatternPicker from '../../PatternPicker/PatternPicker.jsx';
+import WallpaperEditor, { WallpaperSwatch } from '../../TileArt/WallpaperEditor.jsx';
+import { serialiseWallpaper } from '../../TileArt/wallpaper.js';
 import { IMAGES_BASE_URL } from '../../../config.js';
 import { describeUploadError } from '../../../utils/responsiveImage.js';
 import {
   CODE_FONTS, MIN_CODE_SIZE, MAX_CODE_SIZE, DEFAULT_CODE_SIZE, applyCodeDisplay,
 } from '../../../utils/codeDisplay.js';
-import { patternToStyle, parseWallpaper } from '../../PatternPicker/patterns.js';
 import { usePageTitle } from '../../../utils/usePageTitle.js';
 import ThemeEditor from '../../PageTheme/ThemeEditor.jsx';
 import './SettingsPage.css';
@@ -44,8 +44,6 @@ const CATEGORIES = [
  */
 function BackgroundChoice({ label, value, current, onChoose }) {
   const selected = (current || null) === (value || null);
-  const style = value ? patternToStyle(value) : {};
-  const data = value ? parseWallpaper(value) : null;
 
   return (
     <button
@@ -54,14 +52,7 @@ function BackgroundChoice({ label, value, current, onChoose }) {
       onClick={() => onChoose(value)}
       aria-pressed={selected}
     >
-      <span
-        className="settings-bg-swatch"
-        style={{
-          backgroundColor: data?.bgColor || 'var(--page-bg)',
-          backgroundImage: style.backgroundImage,
-          backgroundSize: style.backgroundSize,
-        }}
-      />
+      <WallpaperSwatch value={value} className="settings-bg-swatch" />
       <span className="settings-bg-name">{label}</span>
     </button>
   );
@@ -173,6 +164,11 @@ export default function SettingsPage() {
       setError('Could not save that.');
     }
   };
+
+  // Edited freely, saved on request: a wallpaper carries its pixels, so
+  // saving on every stroke would upload the whole tile each time.
+  const [wallpaperDraft, setWallpaperDraft] = useState('');
+  useEffect(() => { setWallpaperDraft(profileWallpaper); }, [profileWallpaper]);
 
   const saveWallpaper = async (pattern) => {
     const previous = profileWallpaper;
@@ -371,11 +367,11 @@ export default function SettingsPage() {
             The background of your profile page, shown to everyone who visits.
           </p>
           <div className="settings-wallpaper-panel">
-            <PatternPicker
-              value={profileWallpaper}
-              onChange={saveWallpaper}
-              username={username}
-            />
+            <WallpaperEditor value={wallpaperDraft} onChange={w => setWallpaperDraft(serialiseWallpaper(w))} />
+            <button type="button" className="settings-btn settings-btn--primary"
+              disabled={wallpaperDraft === profileWallpaper} onClick={() => saveWallpaper(wallpaperDraft)}>
+              Save wallpaper
+            </button>
           </div>
         </section>
 
@@ -427,8 +423,8 @@ export default function SettingsPage() {
 
           {savedPresets.length === 0 && !settings.profileBackground && (
             <p className="settings-section-hint">
-              You have no saved wallpapers yet. Make one with the wallpaper maker
-              on your profile and save it as a preset, and it will appear here.
+              Make a profile wallpaper above and it will appear here to use as
+              your site background too.
             </p>
           )}
         </section>

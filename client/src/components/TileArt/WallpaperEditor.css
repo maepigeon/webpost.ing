@@ -1,0 +1,73 @@
+/* ── Wallpaper editor ────────────────────────────────────────────────────────
+   Same visual language as the grid designer it opens: dark, small, square. */
+
+.wp-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 6px;
+  background: #0d0d0d;
+  color: #e6e6e6;
+  font: 12px system-ui, -apple-system, "Segoe UI", sans-serif;
+  text-align: left;
+}
+
+.wp-swatch {
+  position: relative;
+  border-radius: 4px;
+  background-color: #1a1a1a;
+}
+.wp-preview { height: 110px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); }
+.wp-none {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6f6f6f;
+}
+
+.wp-row { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; }
+.wp-label {
+  min-width: 42px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8c8c8c;
+}
+.wp-label--gap { margin-left: 10px; min-width: 0; }
+.wp-grow { flex: 1; }
+.wp-value { min-width: 24px; color: #e6e6e6; font-variant-numeric: tabular-nums; }
+
+.wp-editor .wp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  margin: 0;
+  padding: 0 8px;
+  border: none;
+  border-radius: 3px;
+  background: #1c1c1c;
+  color: #e6e6e6;
+  font: 600 11px system-ui, sans-serif;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -2px 0 rgba(0, 0, 0, 0.5);
+}
+.wp-editor .wp-chip:hover { background: #333333; }
+.wp-editor .wp-chip.is-on { background: #f2f2f2; color: #111111; }
+.wp-chip--texture img { image-rendering: pixelated; border-radius: 2px; }
+
+.wp-colour {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 2px #1c1c1c, inset 0 0 0 3px #f2f2f2;
+  cursor: pointer;
+}
+.wp-colour input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.wp-editor input[type="range"] { width: 110px; }
+.wp-editor .tilegrid { margin: 4px 0 0; }

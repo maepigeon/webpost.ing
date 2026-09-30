@@ -144,8 +144,12 @@
   border: 1px solid #ccc;
   border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-  padding: 12px;
-  min-width: 320px;
+  padding: 0;
+  width: min(560px, calc(100vw - 32px));
+  max-height: 70vh;
+  overflow: auto;
+  border: none;
+  background: #0d0d0d;
 }
 
 /* Image button group — image + info ⓘ share a single pill */

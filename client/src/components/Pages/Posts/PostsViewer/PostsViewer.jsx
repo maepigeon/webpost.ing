@@ -6,7 +6,7 @@ import BasicTextPost from '../PostRenderer/BasicTextPost/BasicTextPost.jsx';
 import FollowButton from '../../../Social/FollowButton.jsx';
 import FollowListModal from '../../../Social/FollowListModal.jsx';
 import AvatarPopup from '../../../Social/AvatarPopup.jsx';
-import { patternToStyle } from '../../../PatternPicker/patterns.js';
+import { useBodyWallpaper } from '../../../TileArt/wallpaper.js';
 import './ProfileEditor.css';
 import { useDialog } from '../../../Dialog/Dialog.jsx';
 import '../PostWindow.css';
@@ -197,20 +197,8 @@ function PostsViewer() {
     // Close wallpaper picker when clicking outside
 
 
-    // Apply profile page background to body
-    useEffect(() => {
-      const style = patternToStyle(bgPattern);
-      document.body.style.backgroundImage = style.backgroundImage || '';
-      document.body.style.backgroundSize = style.backgroundSize || 'auto';
-      document.body.style.backgroundPosition = style.backgroundPosition || 'initial';
-      document.documentElement.style.backgroundColor = style._bgColor || '';
-      return () => {
-        document.body.style.backgroundImage = '';
-        document.body.style.backgroundSize = '';
-        document.body.style.backgroundPosition = '';
-        document.documentElement.style.backgroundColor = '';
-      };
-    }, [bgPattern]);
+    // The author's wallpaper, behind the whole page.
+    useBodyWallpaper(bgPattern);
 
 
 

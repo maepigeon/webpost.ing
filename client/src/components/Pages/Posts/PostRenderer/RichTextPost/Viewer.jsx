@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import './Editor.css';
 import './Viewer.css';
-import { patternToStyle } from '../../../../PatternPicker/patterns.js';
+import { useBodyWallpaper } from '../../../../TileArt/wallpaper.js';
 import { exampleTheme } from './exampleTheme';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
@@ -231,20 +231,8 @@ function RichTextViewerBody({ id }) {
     if (!postPublished && me !== postAuthor) navigate('/');
   }, [postLoaded, postPublished, me, postAuthor, navigate]);
 
-  // Apply background pattern to body for backdrop-filter
-  useEffect(() => {
-    const style = patternToStyle(backgroundPattern);
-    document.body.style.backgroundImage = style.backgroundImage || '';
-    document.body.style.backgroundSize = style.backgroundSize || 'auto';
-    document.body.style.backgroundPosition = style.backgroundPosition || 'initial';
-    document.documentElement.style.backgroundColor = style._bgColor || '';
-    return () => {
-      document.body.style.backgroundImage = '';
-      document.body.style.backgroundSize = '';
-      document.body.style.backgroundPosition = '';
-      document.documentElement.style.backgroundColor = '';
-    };
-  }, [backgroundPattern]);
+  // The author's wallpaper, behind the whole page.
+  useBodyWallpaper(backgroundPattern);
 
   // Intercept external link clicks in post content to show a warning dialog.
   useEffect(() => {

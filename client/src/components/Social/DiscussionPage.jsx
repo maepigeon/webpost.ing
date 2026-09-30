@@ -5,7 +5,7 @@ import {
   GET_USER_FROM_POST, READ_POST,
 } from '../Pages/Posts/BasicTextPostServerApi.js';
 import CommentItem from './CommentItem.jsx';
-import { patternToStyle } from '../PatternPicker/patterns.js';
+import { useBodyWallpaper } from '../TileArt/wallpaper.js';
 import './Social.css';
 import { postPath } from '../../utils/postUrl.js';
 import { useResolvedPostId } from '../../utils/useResolvedPostId.js';
@@ -72,19 +72,9 @@ function DiscussionPageBody({ id }) {
 
   useEffect(() => { loadComments(); }, [loadComments]);
 
-  useEffect(() => {
-    const s = patternToStyle(backgroundPattern);
-    document.body.style.backgroundImage = s.backgroundImage || '';
-    document.body.style.backgroundSize = s.backgroundSize || 'auto';
-    document.body.style.backgroundPosition = s.backgroundPosition || 'initial';
-    document.documentElement.style.backgroundColor = s._bgColor || '';
-    return () => {
-      document.body.style.backgroundImage = '';
-      document.body.style.backgroundSize = '';
-      document.body.style.backgroundPosition = '';
-      document.documentElement.style.backgroundColor = '';
-    };
-  }, [backgroundPattern]);
+
+  // The author's wallpaper, behind the whole page.
+  useBodyWallpaper(backgroundPattern);
 
   const submitComment = async () => {
     if (!newComment.trim() || submitting) return;

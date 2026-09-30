@@ -5,7 +5,7 @@ import com.springbootprojects.webpostingserver.posts.repository.JdbcLoginReposit
 import com.springbootprojects.webpostingserver.posts.repository.LoginRepository;
 import com.springbootprojects.webpostingserver.posts.service.EmailService;
 import com.springbootprojects.webpostingserver.posts.service.EmailTokenService;
-import com.springbootprojects.webpostingserver.posts.validator.PatternValidator;
+import com.springbootprojects.webpostingserver.posts.validator.WallpaperValidator;
 import com.springbootprojects.webpostingserver.posts.validator.RateLimiter;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
@@ -433,21 +433,21 @@ public class EmailSettingsController {
         if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         if (!username.equals(authUsername)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
 
-        String pattern = body.getOrDefault("background", "").trim();
-        if (pattern.length() > 2000)
-            return ResponseEntity.badRequest().body(Map.of("message", "That background is too large."));
-        if (!pattern.isEmpty() && !PatternValidator.isValid(pattern))
-            return ResponseEntity.badRequest().body(Map.of("message", "That background is not a valid pattern."));
+        String pattern;
+        try {
+            pattern = WallpaperValidator.normalise(body.getOrDefault("background", ""));
+        } catch (WallpaperValidator.InvalidWallpaperException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
 
         Integer userId = userIdOf(username);
         if (userId == null) return ResponseEntity.notFound().build();
 
-        jdbc.update("UPDATE users SET site_background = ? WHERE id = ?",
-                pattern.isEmpty() ? null : pattern, userId);
+        jdbc.update("UPDATE users SET site_background = ? WHERE id = ?", pattern, userId);
 
         return ResponseEntity.ok(Map.of(
-                "siteBackground", pattern,
-                "message", pattern.isEmpty() ? "Site background cleared." : "Site background saved."));
+                "siteBackground", pattern == null ? "" : pattern,
+                "message", pattern == null ? "Site background cleared." : "Site background saved."));
     }
 
     // ── Code block display ────────────────────────────────────────────────────

@@ -76,7 +76,10 @@ function DirectionPad({ value, onChange }) {
  * it knows nothing about where its data lives: it reports each change as the
  * whole new grid through onChange(grid).
  */
-export default function TileGrid({ data: rawData, onChange, editable, onMoveUp, onMoveDown, onDelete, startEditing = false }) {
+export default function TileGrid({
+  data: rawData, onChange, editable, onMoveUp, onMoveDown, onDelete, startEditing = false,
+  maxCols = LIMITS.maxCols, maxRows = LIMITS.maxRows, onDone,
+}) {
   const data = useMemo(() => normaliseGrid(rawData), [rawData]);
 
   // The latest grid, updated synchronously: keystrokes and pointer events can
@@ -540,8 +543,8 @@ export default function TileGrid({ data: rawData, onChange, editable, onMoveUp, 
 
   const setSize = (cols, rows) => {
     const d = dataRef.current;
-    cols = Math.min(LIMITS.maxCols, Math.max(LIMITS.minCols, cols || 1));
-    rows = Math.min(LIMITS.maxRows, Math.max(LIMITS.minRows, rows || 1));
+    cols = Math.min(maxCols, Math.max(LIMITS.minCols, cols || 1));
+    rows = Math.min(maxRows, Math.max(LIMITS.minRows, rows || 1));
     const layers = d.layers.map(l => {
       if (l.kind !== 'pixel') return l;
       const resized = resizeLayerText(d, l, cols, rows);
@@ -730,11 +733,11 @@ export default function TileGrid({ data: rawData, onChange, editable, onMoveUp, 
               <DirectionPad value={direction} onChange={setDirection} />
               <span className="tg-gap" />
               <label className="tg-size" title="Width in tiles">W
-                <input type="number" min={LIMITS.minCols} max={LIMITS.maxCols} value={data.cols}
+                <input type="number" min={LIMITS.minCols} max={maxCols} value={data.cols}
                   onChange={e => setSize(parseInt(e.target.value, 10), data.rows)} />
               </label>
               <label className="tg-size" title="Height in tiles">H
-                <input type="number" min={LIMITS.minRows} max={LIMITS.maxRows} value={data.rows}
+                <input type="number" min={LIMITS.minRows} max={maxRows} value={data.rows}
                   onChange={e => setSize(data.cols, parseInt(e.target.value, 10))} />
               </label>
             </div>
@@ -766,7 +769,7 @@ export default function TileGrid({ data: rawData, onChange, editable, onMoveUp, 
             <div className="tg-status">
               <span className="tg-hint">{hint}</span>
               {hasSel && <span className="tg-badge">{selection.size} tile{selection.size === 1 ? '' : 's'}</span>}
-              <button type="button" className="tg-done" onClick={() => { setEditing(false); setSelection(EMPTY); setPanel(null); }}>
+              <button type="button" className="tg-done" onClick={() => { setEditing(false); setSelection(EMPTY); setPanel(null); onDone?.(); }}>
                 Done
               </button>
             </div>

@@ -37,8 +37,8 @@ import { MathNode, $createMathNode } from './MathNode.jsx';
 import { TileGridNode, $createTileGridNode } from './TileGrid/TileGridNode.jsx';
 import axios from 'axios';
 import { BASE_URL } from '../../../../../config.js';
-import PatternPicker from '../../../../PatternPicker/PatternPicker.jsx';
-import { patternToStyle } from '../../../../PatternPicker/patterns.js';
+import { useBodyWallpaper, serialiseWallpaper } from '../../../../TileArt/wallpaper.js';
+import WallpaperEditor from '../../../../TileArt/WallpaperEditor.jsx';
 import { normaliseUploadResponse, describeUploadError } from '../../../../../utils/responsiveImage.js';
 import ImageCropDialog from '../../../../ImageCrop/ImageCropDialog.jsx';
 import ImagePicker from '../../../../ImagePicker/ImagePicker.jsx';
@@ -1208,7 +1208,7 @@ function PostLinkToolbarPlugin() {
   );
 }
 
-function BackgroundToolbarPlugin({ pattern, onPatternChange, username }) {
+function BackgroundToolbarPlugin({ pattern, onPatternChange }) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef(null);
 
@@ -1228,7 +1228,7 @@ function BackgroundToolbarPlugin({ pattern, onPatternChange, username }) {
       </button>
       {open && (
         <div className="toolbar-bg-panel">
-          <PatternPicker value={pattern} onChange={onPatternChange} username={username} />
+          <WallpaperEditor value={pattern} onChange={w => onPatternChange(serialiseWallpaper(w))} />
         </div>
       )}
     </div>
@@ -1740,7 +1740,7 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
       node: (
         <ToolbarMenu id="page" label="Page" hint="Wallpaper, comments and reactions"
                      openId={openMenu} setOpenId={setOpenMenu}>
-          <BackgroundToolbarPlugin pattern={backgroundPattern} onPatternChange={onPatternChange} username={username} />
+          <BackgroundToolbarPlugin pattern={backgroundPattern} onPatternChange={onPatternChange} />
           <FeatureTogglePlugin postid={postid} features={features} onFeaturesChange={onFeaturesChange} />
         </ToolbarMenu>
       ),
@@ -1763,7 +1763,7 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
         <TileGridToolbarPlugin />
       </ToolbarGroup>
       <ToolbarGroup label="Page">
-        <BackgroundToolbarPlugin pattern={backgroundPattern} onPatternChange={onPatternChange} username={username} />
+        <BackgroundToolbarPlugin pattern={backgroundPattern} onPatternChange={onPatternChange} />
         <FeatureTogglePlugin postid={postid} features={features} onFeaturesChange={onFeaturesChange} />
       </ToolbarGroup>
     </>
@@ -1932,20 +1932,8 @@ export default function RichTextEditor() {
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
   }, [isDirty]);
 
-  // Apply background pattern to document.body so backdrop-filter on the glass card can blur it
-  useEffect(() => {
-    const style = patternToStyle(backgroundPattern);
-    document.body.style.backgroundImage = style.backgroundImage || '';
-    document.body.style.backgroundSize = style.backgroundSize || 'auto';
-    document.body.style.backgroundPosition = style.backgroundPosition || 'initial';
-    document.documentElement.style.backgroundColor = style._bgColor || '';
-    return () => {
-      document.body.style.backgroundImage = '';
-      document.body.style.backgroundSize = '';
-      document.body.style.backgroundPosition = '';
-      document.documentElement.style.backgroundColor = '';
-    };
-  }, [backgroundPattern]);
+  // The author's wallpaper, behind the whole page.
+  useBodyWallpaper(backgroundPattern);
 
   return (
     <div style={{ minHeight: '100vh' }}>

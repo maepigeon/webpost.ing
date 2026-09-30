@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { GET_SETTINGS } from '../Pages/Posts/BasicTextPostServerApi.js';
-import { patternToStyle } from '../PatternPicker/patterns.js';
+import { useWallpaperStyle } from '../TileArt/wallpaper.js';
 import { RESERVED_USERNAMES } from '../../utils/reservedUsernames.js';
 import { applyCodeDisplay } from '../../utils/codeDisplay.js';
 import './SiteBackground.css';
@@ -64,7 +64,7 @@ export default function SiteBackground() {
   }, []);
 
   const active = background && !ownsItsOwnBackground(location.pathname);
-  const style = active ? patternToStyle(background) : {};
+  const style = useWallpaperStyle(active ? background : null);
 
   // No global ink flip here.
   //
@@ -84,12 +84,7 @@ export default function SiteBackground() {
     <div
       className="site-background"
       aria-hidden="true"
-      style={{
-        backgroundColor: style._bgColor || undefined,
-        backgroundImage: style.backgroundImage,
-        backgroundSize: style.backgroundSize,
-        backgroundPosition: style.backgroundPosition,
-      }}
+      style={style}
     />
   );
 }
