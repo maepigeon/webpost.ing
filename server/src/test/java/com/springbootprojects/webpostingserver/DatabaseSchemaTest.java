@@ -12,11 +12,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Integration tests that validate the live database schema.
  *
- * These tests connect to the database configured in application.properties
- * and verify that all expected tables, columns, and seed data exist, as
- * created by the migration runner from db/migrations.
+ * These tests connect to the test database (webposting_test, see
+ * src/test/resources/config/application.properties) and verify that all
+ * expected tables, columns, and seed data exist, as created by the migration
+ * runner from db/migrations.
  *
- * Run with: ./mvnw test -pl server -Dtest=DatabaseSchemaTest
+ * Run with: ./mvnw test -Dtest=DatabaseSchemaTest
  */
 @SpringBootTest
 class DatabaseSchemaTest {

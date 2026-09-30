@@ -230,6 +230,10 @@ cd server
 ./mvnw test
 ```
 
+The tests use their own database, `webposting_test`, and refuse to run against
+any other. Create it once with `createdb webposting_test`; see
+[MIGRATIONS.md](MIGRATIONS.md#the-test-database).
+
 Spring Boot's test suite is minimal by default. The main value is that the application context loads cleanly — if a bean is misconfigured or a dependency is missing, the test run will fail during startup.
 
 ### Manual API smoke test

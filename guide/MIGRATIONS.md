@@ -125,12 +125,49 @@ sudo -u postgres psql -c "CREATE DATABASE webpostingdb OWNER mae;"
 sudo -u postgres psql -d webpostingdb -c "GRANT ALL ON SCHEMA public TO mae;"
 ```
 
-## Schema validation test
+## The test database
 
-`DatabaseSchemaTest.java` is a Spring integration test that connects to the real database and asserts every expected table, column, and seed row exists. Run it after any migration to confirm the live schema is correct:
+`./mvnw test` never uses the database `DB_NAME` points at. Starting a test
+context runs this migration runner, and the tests write rows, so they get a
+database of their own, `webposting_test`. Create it once, empty; the first
+test run applies every migration to it:
 
 ```bash
-cd server && set -a && . ../deploy.env && set +a && ./mvnw test -Dtest=DatabaseSchemaTest
+createdb webposting_test
+```
+
+On a server, or wherever the app user cannot create databases:
+
+```bash
+sudo -u postgres psql -c "CREATE DATABASE webposting_test OWNER mae;"
+sudo -u postgres psql -d webposting_test -c "GRANT ALL ON SCHEMA public TO mae;"
+```
+
+The connection comes from `server/src/test/resources/config/application.properties`,
+which reads its own variables, never the `DB_*` ones:
+
+| Variable | Default |
+|---|---|
+| `TEST_DB_HOST` | `localhost` |
+| `TEST_DB_PORT` | `5432` |
+| `TEST_DB_NAME` | `webposting_test` |
+| `TEST_DB_USER` | `mae` |
+| `TEST_DB_PASSWORD` | `password` |
+
+`TestDatabaseGuard` stops a test context from starting when the database name
+does not end in `_test`, or when it equals `DB_NAME`. It catches a
+`SPRING_DATASOURCE_URL` in the environment, a `-Dspring.datasource.url`, or a
+test's own `@TestPropertySource`. Sourcing `deploy.env` before a test run is
+harmless.
+
+To start over, drop and recreate it: `dropdb webposting_test && createdb webposting_test`.
+
+## Schema validation test
+
+`DatabaseSchemaTest.java` is a Spring integration test that asserts every expected table, column, and seed row exists in the test database after the migrations have run. Run it after adding a migration to confirm the chain builds the right schema:
+
+```bash
+cd server && ./mvnw test -Dtest=DatabaseSchemaTest
 ```
 
 It checks:

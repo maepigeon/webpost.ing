@@ -10,6 +10,8 @@ build/
 target/
 BOOT-INF/
 META-INF/
+# …but not the test-only Spring registrations (TestDatabaseGuard)
+!server/src/test/resources/META-INF/
 *.class
 *.jar
 !**/.mvn/wrapper/maven-wrapper.jar
