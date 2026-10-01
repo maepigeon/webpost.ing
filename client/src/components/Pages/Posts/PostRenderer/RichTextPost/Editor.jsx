@@ -28,7 +28,7 @@ import { CodeHighlightNode, $isCodeNode, registerCodeHighlighting, getCodeLangua
 import { CustomCodeNode, $createCustomCodeNode } from './CustomCodeNode.jsx';
 import { LinkNode, $createLinkNode, $isLinkNode, TOGGLE_LINK_COMMAND } from '@lexical/link';
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
-import { READ_POST, CREATE_POST, UPDATE_POST, GET_USER_FROM_POST, GET_POST_FEATURES, SET_REACTIONS_ENABLED, SET_DISCUSSION_ENABLED, SET_VOTES_ENABLED, SEARCH_POSTS } from '../../BasicTextPostServerApi.js';
+import { READ_POST, CREATE_POST, UPDATE_POST, GET_USER_FROM_POST, GET_POST_FEATURES, SET_REACTIONS_ENABLED, SET_DISCUSSION_ENABLED, SET_VOTES_ENABLED, SET_CARD_GRID, SEARCH_POSTS } from '../../BasicTextPostServerApi.js';
 import { errorMessage } from '../../../../../utils/errorMessage.js';
 import { useDialog } from '../../../../Dialog/Dialog.jsx';
 import ThemeEditor from '../../../../PageTheme/ThemeEditor.jsx';
@@ -1276,6 +1276,16 @@ function FeatureTogglePlugin({ postid, features, onFeaturesChange }) {
       onFeaturesChange(f => ({ ...f, [key]: next }));
       return;
     }
+    // Only how the card looks to visitors: nothing to confirm.
+    if (key === 'cardGrid') {
+      try {
+        await SET_CARD_GRID(postid, next);
+        onFeaturesChange(f => ({ ...f, cardGrid: next }));
+      } catch {
+        showError('Could not change that setting. Try again.');
+      }
+      return;
+    }
     const label = { reactionsEnabled: 'reactions', discussionEnabled: 'comments', votesEnabled: 'voting' }[key];
     const msg = next
       ? `Enable ${label} on this post?`
@@ -1316,6 +1326,14 @@ function FeatureTogglePlugin({ postid, features, onFeaturesChange }) {
         style={{ fontSize: '12px' }}
       >
         {features.votesEnabled ? 'Voting: on' : 'Voting: off'}
+      </button>
+      <button
+        className={`post-toggle-btn toolbar-fmt-btn${features.cardGrid ? ' active' : ''}`}
+        onClick={() => toggle('cardGrid')}
+        title="Show this post's first grid on its card in your profile"
+        style={{ fontSize: '12px' }}
+      >
+        {features.cardGrid ? 'Grid on card: on' : 'Grid on card: off'}
       </button>
     </>
   );
@@ -1462,6 +1480,7 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
           if (features && !features.discussionEnabled) SET_DISCUSSION_ENABLED(newId, false).catch(() => {});
           // Voting starts off on the server, so only turning it on needs saying.
           if (features && features.votesEnabled) SET_VOTES_ENABLED(newId, true).catch(() => {});
+          if (features && !features.cardGrid) SET_CARD_GRID(newId, false).catch(() => {});
           onSaved?.();
         })
         .catch(err => {
@@ -1785,7 +1804,7 @@ export default function RichTextEditor() {
   const [postSlug, setPostSlug] = useState(null);
   const [dataReady, setDataReady] = useState(0);
   const [postLoaded, setPostLoaded] = useState(false);
-  const [features, setFeatures] = useState({ reactionsEnabled: true, discussionEnabled: true, votesEnabled: false });
+  const [features, setFeatures] = useState({ reactionsEnabled: true, discussionEnabled: true, votesEnabled: false, cardGrid: true });
   const [isDirty, setIsDirty] = useState(false);
   const savedOnceRef = useRef(false);
 
@@ -1851,7 +1870,7 @@ export default function RichTextEditor() {
         setPostLoaded(true);
       });
     });
-    GET_POST_FEATURES(id).then(d => setFeatures({ reactionsEnabled: d.reactionsEnabled, discussionEnabled: d.discussionEnabled, votesEnabled: !!d.votesEnabled })).catch(() => {});
+    GET_POST_FEATURES(id).then(d => setFeatures({ reactionsEnabled: d.reactionsEnabled, discussionEnabled: d.discussionEnabled, votesEnabled: !!d.votesEnabled, cardGrid: d.cardGrid !== false })).catch(() => {});
   }, [id]);
 
   // Redirect non-owners away from the editor

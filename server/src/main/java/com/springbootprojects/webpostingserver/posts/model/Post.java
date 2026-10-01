@@ -34,6 +34,9 @@ public class Post {
      */
     private int sortOrder;
 
+    /** Whether the profile card previews the post's first grid (V010). */
+    private boolean cardGrid = true;
+
 
     public Post() {
 
@@ -116,6 +119,10 @@ public class Post {
     public int getSortOrder() { return sortOrder; }
 
     public void setSortOrder(int sortOrder) { this.sortOrder = sortOrder; }
+
+    public boolean isCardGrid() { return cardGrid; }
+
+    public void setCardGrid(boolean cardGrid) { this.cardGrid = cardGrid; }
 
 
     @Override

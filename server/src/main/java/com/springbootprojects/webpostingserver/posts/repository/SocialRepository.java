@@ -126,6 +126,17 @@ public class SocialRepository {
         jdbc.update("UPDATE posts SET votes_enabled=? WHERE id=?", enabled, postId);
     }
 
+    /** Whether the post's profile card shows its first grid. True for a post that does not exist. */
+    public boolean isCardGridEnabled(int postId) {
+        List<Boolean> r = jdbc.queryForList(
+            "SELECT card_grid FROM posts WHERE id=?", Boolean.class, postId);
+        return r.isEmpty() || !Boolean.FALSE.equals(r.get(0));
+    }
+
+    public void setCardGridEnabled(int postId, boolean enabled) {
+        jdbc.update("UPDATE posts SET card_grid=? WHERE id=?", enabled, postId);
+    }
+
     public void setDiscussionEnabled(int postId, boolean enabled) {
         int updated = jdbc.update("UPDATE discussions SET enabled=? WHERE post_id=?", enabled, postId);
         if (updated == 0 && enabled) getOrCreateDiscussion(postId);

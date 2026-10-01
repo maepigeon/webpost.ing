@@ -262,6 +262,12 @@ export function SET_VOTES_ENABLED(postId, enabled) {
     .then(r => r.data);
 }
 
+/** Whether the post's profile card previews its first grid. */
+export function SET_CARD_GRID(postId, enabled) {
+  return axios.put(baseUrl + `/api/posts/${postId}/card-grid`, { enabled }, { withCredentials: true })
+    .then(r => r.data);
+}
+
 // ── Social: reactions ─────────────────────────────────────────────────────────
 
 export function GET_REACTIONS(postId) {

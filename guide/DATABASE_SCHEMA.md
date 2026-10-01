@@ -112,7 +112,9 @@ CREATE TABLE posts (
   folder             VARCHAR,                 -- profile folder (optional)
   sort_order         INTEGER,                 -- position on the profile
   slug               VARCHAR,                 -- /{username}/{slug}
-  votes_enabled      BOOLEAN      NOT NULL DEFAULT false  -- up/down votes and score (V007)
+  votes_enabled      BOOLEAN      NOT NULL DEFAULT false, -- up/down votes and score (V007)
+  page_theme         TEXT,                    -- the post's own theme, copied from the author's at creation (V009)
+  card_grid          BOOLEAN      NOT NULL DEFAULT true   -- profile card previews the first grid (V010)
 );
 ```
 

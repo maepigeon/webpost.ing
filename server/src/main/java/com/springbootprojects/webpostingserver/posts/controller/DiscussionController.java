@@ -45,6 +45,7 @@ public class DiscussionController {
         body.put("discussionEnabled", social.isDiscussionEnabled(postId));
         body.put("reactionsEnabled", social.isReactionsEnabled(postId));
         body.put("votesEnabled", social.isVotesEnabled(postId));
+        body.put("cardGrid", social.isCardGridEnabled(postId));
         body.put("discussionStyle", social.getDiscussionStyle(postId));
         return ResponseEntity.ok(body);
     }
@@ -114,6 +115,26 @@ public class DiscussionController {
         boolean enabled = Boolean.TRUE.equals(body.get("enabled"));
         social.setVotesEnabled(postId, enabled);
         return ResponseEntity.ok(enabled ? "Voting enabled." : "Voting disabled.");
+    }
+
+    /** Whether the post's card on the profile shows the post's first grid. Author only. */
+    @PutMapping("/posts/{postId}/card-grid")
+    public ResponseEntity<String> setCardGrid(
+            @PathVariable int postId,
+            @RequestBody Map<String, Boolean> body,
+            @CookieValue(name = "username") String username,
+            @CookieValue(name = "authToken") String token) {
+
+        AuthSession session = authorize(username, token);
+        if (session == null) return unauthorized();
+
+        LoginInfo owner = postRepository.getUsernameFromPostId(postId);
+        if (owner == null || !owner.compareUsername(username))
+            return forbidden();
+
+        boolean enabled = Boolean.TRUE.equals(body.get("enabled"));
+        social.setCardGridEnabled(postId, enabled);
+        return ResponseEntity.ok(enabled ? "The card shows the first grid." : "The card shows no grid.");
     }
 
     @PutMapping("/posts/{postId}/discussion")

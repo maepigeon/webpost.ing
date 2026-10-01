@@ -108,5 +108,9 @@ body {
     vertical-align: middle;
 }
 /* A grid post draws its grid on the card. */
-.basicTextPost .post-card-grid { margin-top: 8px; }
+.basicTextPost .post-card-grid { margin-top: 8px; container-type: inline-size; }
+/* At most half as tall as it is wide; a taller grid shows its top, above a
+   dashed cut line that says there is more in the post. */
+.basicTextPost .post-card-grid-window { max-height: 50cqw; overflow: hidden; }
+.basicTextPost .post-card-grid-window.is-cropped { border-bottom: 2px dashed currentColor; }
 .basicTextPost .post-card-grid .tilegrid { margin: 0; }

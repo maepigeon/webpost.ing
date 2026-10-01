@@ -33,13 +33,13 @@ guide/HANDOFF-2026-09-30.txt for production state and open server work.
 - [x] **Profile arrangement**: order never stuck, posts repeated across pages, folders
       could not be moved past posts, posts could not leave folders.
       `claude/profile-drag-arrange` (arrange mode, keyboard dragging).
-- [ ] **Arrange mode "i" button** listing keyboard commands.
+- [x] **Arrange mode "i" button** listing keyboard commands.
 - [x] **Notifications button** goes to the notifications page; the sidebar one is
       smaller than the other buttons.
 - [x] **Terminal theme**: remove the scanline overlay.
 - [x] **Stickers cut off on posts** (pushpin, tape, heart, star).
 - [x] **Avatars are squircles everywhere.**
-- [ ] **Theme editor Cards section** overflows its container; restyle its controls in
+- [x] **Theme editor Cards section** overflows its container; restyle its controls in
       the grid editor's pixel style (Colour, Opacity, Border, Border colour,
       Corners, Shadow, Texture).
 - [x] **Pawprint texture**: tile in an ordered pattern, not scattered; paw colour
@@ -62,25 +62,26 @@ guide/HANDOFF-2026-09-30.txt for production state and open server work.
 - [ ] **Antialiasing option** (for smooth fonts and photos).
 - [ ] **Bake a photo layer** at the grid's pixel resolution.
 - [ ] **Links in grids**: a run of tiles can carry a link; external links ask first.
-- [ ] Fewer sliders: buttons and dropdowns instead, across the UI.
+- [~] Fewer sliders: buttons and dropdowns instead, across the UI. Done: theme
+      editor, wallpaper pixel size, code block sizes. Left: the grid editor's photo scale.
 
 ### P2 — Post editor
-- [ ] **Toolbar as a tidy grid**: headings in one "Heading" dropdown (H1/H2/H3),
+- [x] **Toolbar as a tidy grid**: headings in one "Heading" dropdown (H1/H2/H3),
       OL UL Link Image Code Math Grid, Post link, Style, Page grouped.
 - [ ] **Image resize by handles** on the image, not a percentage.
 
 ### P3 — Features **[needs decision]** before building
-- [ ] **Per-post themes**: posts keep their own theme; changing the profile theme
-      no longer restyles every post; posts themed with the same tool.
-      *Decide:* existing posts keep today's look (copy the current profile theme
-      onto each) or start plain?
-- [ ] **Profile customisation page**, separate from Settings, opened from a button
+- [x] **Per-post themes** (V009): posts keep their own theme; changing the profile
+      theme no longer restyles every post; the editor's Page menu opens the same
+      tool. Existing posts kept today's look (the profile theme was copied onto each).
+- [x] **Profile customisation page** (`/customize`), separate from Settings, opened from a button
       on your own profile.
 - [ ] **Profile banner as a grid**: rows 1–4 fixed (user: name / n followers k
       following / joined date / public posts), avatar on the right spanning those
       rows, the rest editable with the grid editor.
-- [ ] **First grid shown on profile cards** for any post containing one, up to
-      50% of the card's width in height, with a per-post switch to turn it off.
+- [x] **First grid shown on profile cards** (V010) for any post containing one, up to
+      50% of the card's width in height (a taller grid shows its top above a dashed
+      cut line), with a per-post switch in the editor's Page menu, "Grid on card".
 - [ ] **Stickies, stickers and pixel fonts made with the grid editor**; place
       stickies anywhere on a profile or post; react to comments with stickers;
       save a post as a sticky; turn a sticky into a sticker.

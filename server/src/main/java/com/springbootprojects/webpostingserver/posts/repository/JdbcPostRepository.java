@@ -41,6 +41,7 @@ public class JdbcPostRepository implements PostRepository {
         p.setFolder(rs.getString("folder"));
         p.setSlug(rs.getString("slug"));
         p.setSortOrder(rs.getInt("sort_order"));
+        p.setCardGrid(rs.getBoolean("card_grid"));
         return p;
     };
 
@@ -64,7 +65,7 @@ public class JdbcPostRepository implements PostRepository {
      */
     public List<Post> getPostsFromUsername(String username) {
         return jdbcTemplate.query("""
-            SELECT id, title, description, published, date, background_pattern, folder, slug, sort_order
+            SELECT id, title, description, published, date, background_pattern, folder, slug, sort_order, card_grid
               FROM (
                 SELECT post.*,
                        first_value(post.sort_order) OVER block AS block_sort,
@@ -150,7 +151,7 @@ public class JdbcPostRepository implements PostRepository {
     public Post findById(Long id) {
         try {
             return jdbcTemplate.queryForObject(
-                "SELECT id, title, description, published, date, background_pattern, folder, slug, sort_order FROM posts WHERE id=?",
+                "SELECT id, title, description, published, date, background_pattern, folder, slug, sort_order, card_grid FROM posts WHERE id=?",
                 POST_MAPPER, id);
         } catch (IncorrectResultSizeDataAccessException e) {
             return null;

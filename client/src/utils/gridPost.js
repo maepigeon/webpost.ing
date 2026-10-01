@@ -22,6 +22,29 @@ export function gridOfPost(description) {
   return grids.length === 1 && others.length === 0 ? normaliseGrid(grids[0].grid) : null;
 }
 
+/**
+ * The first grid anywhere in a post's stored content, whatever else the post
+ * holds, or null if it has none. The profile card previews it.
+ */
+export function firstGridOfPost(description) {
+  if (!description || typeof description !== 'string' || !description.includes('"tilegrid"')) return null;
+  let state;
+  try { state = JSON.parse(description); } catch { return null; }
+  const find = (node) => {
+    if (!node || typeof node !== 'object') return null;
+    if (node.type === 'tilegrid' && node.grid) return node;
+    if (!Array.isArray(node.children)) return null;
+    for (const child of node.children) {
+      const found = find(child);
+      if (found) return found;
+    }
+    return null;
+  };
+  const node = find(state?.root);
+  if (!node) return null;
+  try { return normaliseGrid(node.grid); } catch { return null; }
+}
+
 /** Stored content for a new grid post: one grid, with room to type around it. */
 export function gridPostContent(grid = defaultGrid(16, 8)) {
   return JSON.stringify({
