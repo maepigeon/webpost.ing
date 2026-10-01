@@ -17,30 +17,32 @@ guide/HANDOFF-2026-09-30.txt for production state and open server work.
       listable. Fixed on `claude/hotfix-draft-privacy` (branched from main;
       deploy first). Remaining, low: `/posts/{id}/discussion|features|reactions|views|vote`
       still answer for drafts with settings and counts (no content).
-- [ ] **Deploying is easy for Mae**: one local `tools/release.sh` (test, build,
+- [x] **Deploying is easy for Mae** (`tools/release.sh`, rehearsed; guide/DEPLOYMENT.md): one local `tools/release.sh` (test, build,
       upload) plus one server script she runs with sudo (back up, swap, restart,
       health-check, roll back). Health endpoint `/api/health`. Rewrite
       guide/DEPLOYMENT.md around it. Never build on the server.
-- [ ] **Vulnerability review**: X-Forwarded-For trust (getClientIp/clientIp), upload
-      500 → 400/401, upload orphan on failure, CSRF review, read-endpoint rate limits,
-      draft metadata endpoints above.
-- [ ] **Review tests for faked tests** (assertions that cannot fail, mocks
-      asserting themselves, tests that skip the code they name).
+- [~] **Vulnerability review**: done: draft leak, X-Forwarded-For trust, upload 500 → 400/401,
+      write endpoints all authenticate, no SQL injection, profile links http(s) only.
+      Open: upload orphan on failure, read-endpoint rate limits, draft metadata endpoints,
+      CSRF (relies on SameSite=Lax cookies).
+- [x] **Review tests for faked tests**: none found. Gap: most server tests mock the
+      database, so SQL is untested (the sort_order bug passed them all). Add DB-backed
+      repository tests (see ProfileOrderTest for the pattern).
 
 ### P1 — Bugs and quick fixes
 - [x] **Profile arrangement**: order never stuck, posts repeated across pages, folders
       could not be moved past posts, posts could not leave folders.
       `claude/profile-drag-arrange` (arrange mode, keyboard dragging).
 - [ ] **Arrange mode "i" button** listing keyboard commands.
-- [ ] **Notifications button** goes to the notifications page; the sidebar one is
+- [x] **Notifications button** goes to the notifications page; the sidebar one is
       smaller than the other buttons.
-- [ ] **Terminal theme**: remove the scanline overlay.
-- [ ] **Stickers cut off on posts** (pushpin, tape, heart, star).
-- [ ] **Avatars are squircles everywhere.**
+- [x] **Terminal theme**: remove the scanline overlay.
+- [x] **Stickers cut off on posts** (pushpin, tape, heart, star).
+- [x] **Avatars are squircles everywhere.**
 - [ ] **Theme editor Cards section** overflows its container; restyle its controls in
       the grid editor's pixel style (Colour, Opacity, Border, Border colour,
       Corners, Shadow, Texture).
-- [ ] **Pawprint texture**: tile in an ordered pattern, not scattered; paw colour
+- [x] **Pawprint texture**: tile in an ordered pattern, not scattered; paw colour
       options: one colour, random, downward rainbow, custom gradient with
       several colour stops.
 - [ ] **Water title** burns CPU while idle; see HANDOFF §4.
