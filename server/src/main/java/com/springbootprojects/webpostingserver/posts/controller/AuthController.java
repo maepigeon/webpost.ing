@@ -570,9 +570,17 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED).body("Account created. You can now log in.");
     }
 
+    /**
+     * The client's address, for rate limits.
+     *
+     * Never read X-Forwarded-For here: anyone can send it, and taking its first
+     * entry let "X-Forwarded-For: 127.0.0.1" pass as local, which skipped the
+     * sign-up limit and fooled the email limiters. server.forward-headers-strategy
+     * (application.properties) makes Tomcat take the header only from a proxy on
+     * this machine or a private network, nginx in production, so
+     * getRemoteAddr() is already the real client.
+     */
     private static String getClientIp(HttpServletRequest request) {
-        String xff = request.getHeader("X-Forwarded-For");
-        if (xff != null && !xff.isBlank()) return xff.split(",")[0].trim();
         return request.getRemoteAddr();
     }
 

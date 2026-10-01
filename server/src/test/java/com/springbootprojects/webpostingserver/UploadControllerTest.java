@@ -71,7 +71,7 @@ class UploadControllerTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "photo.jpg", "image/jpeg", realJpeg(64, 48));
 
-        ResponseEntity<?> resp = uploadController.uploadFile(file, "kittycat", "tok");
+        ResponseEntity<?> resp = uploadController.uploadFile("kittycat", "tok", file);
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(resp.getBody()).isInstanceOf(java.util.Map.class);
@@ -85,7 +85,7 @@ class UploadControllerTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "photo.jpg", "image/jpeg", new byte[100]);
 
-        ResponseEntity<?> resp = uploadController.uploadFile(file, "kittycat", "bad");
+        ResponseEntity<?> resp = uploadController.uploadFile("kittycat", "bad", file);
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
@@ -98,7 +98,7 @@ class UploadControllerTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "photo.jpg", "image/jpeg", new byte[100]);
 
-        ResponseEntity<?> resp = uploadController.uploadFile(file, "kittycat", "expired");
+        ResponseEntity<?> resp = uploadController.uploadFile("kittycat", "expired", file);
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
@@ -109,7 +109,7 @@ class UploadControllerTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "script.js", "text/javascript", new byte[100]);
 
-        ResponseEntity<?> resp = uploadController.uploadFile(file, "kittycat", "tok");
+        ResponseEntity<?> resp = uploadController.uploadFile("kittycat", "tok", file);
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat((String) resp.getBody()).contains(".jpg");
@@ -121,7 +121,7 @@ class UploadControllerTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "empty.jpg", "image/jpeg", new byte[0]);
 
-        ResponseEntity<?> resp = uploadController.uploadFile(file, "kittycat", "tok");
+        ResponseEntity<?> resp = uploadController.uploadFile("kittycat", "tok", file);
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
@@ -133,7 +133,7 @@ class UploadControllerTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "big.jpg", "image/jpeg", new byte[6 * 1024 * 1024]);
 
-        ResponseEntity<?> resp = uploadController.uploadFile(file, "kittycat", "tok");
+        ResponseEntity<?> resp = uploadController.uploadFile("kittycat", "tok", file);
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE);
     }
