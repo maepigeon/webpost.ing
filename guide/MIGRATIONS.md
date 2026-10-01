@@ -57,7 +57,7 @@ pgJDBC driver whole; the driver's own splitter does understand it.
 
 **See what has been applied:**
 ```bash
-psql -U mae -d webpostingdb -c "SELECT version, applied_at FROM schema_migrations ORDER BY version;"
+psql -U your_db_user -d your_database -c "SELECT version, applied_at FROM schema_migrations ORDER BY version;"
 ```
 
 **See what is pending:** compare that against the files on disk.
@@ -121,8 +121,8 @@ applies V001 and builds everything. On PostgreSQL 15+ the grant is not
 optional, or every table creation fails on permissions:
 
 ```bash
-sudo -u postgres psql -c "CREATE DATABASE webpostingdb OWNER mae;"
-sudo -u postgres psql -d webpostingdb -c "GRANT ALL ON SCHEMA public TO mae;"
+sudo -u postgres psql -c "CREATE DATABASE your_database OWNER your_db_user;"
+sudo -u postgres psql -d your_database -c "GRANT ALL ON SCHEMA public TO your_db_user;"
 ```
 
 ## The test database
@@ -139,8 +139,8 @@ createdb webposting_test
 On a server, or wherever the app user cannot create databases:
 
 ```bash
-sudo -u postgres psql -c "CREATE DATABASE webposting_test OWNER mae;"
-sudo -u postgres psql -d webposting_test -c "GRANT ALL ON SCHEMA public TO mae;"
+sudo -u postgres psql -c "CREATE DATABASE webposting_test OWNER your_db_user;"
+sudo -u postgres psql -d webposting_test -c "GRANT ALL ON SCHEMA public TO your_db_user;"
 ```
 
 The connection comes from `server/src/test/resources/config/application.properties`,
@@ -183,8 +183,8 @@ It checks:
 
 Always back up production before running migrations:
 ```bash
-pg_dump -Fc webpostingdb > backup_$(date +%Y%m%d_%H%M%S).dump
+pg_dump -Fc your_database > backup_$(date +%Y%m%d_%H%M%S).dump
 
 # Restore if needed:
-pg_restore -d webpostingdb backup_20260601_120000.dump
+pg_restore -d your_database backup_20260601_120000.dump
 ```

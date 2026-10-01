@@ -20,8 +20,12 @@ live credential:
 
 | Commit(s) | Value |
 |---|---|
-| `5f1936e5`, `87f7bb37`, `92fbc3d3`, `bda8340` … | `spring.datasource.password=catsRcool12345` (user `postgres` — the **superuser**) |
-| `74a203e7`, `8a71fa24`, `8ddf14b3`, `95c1dbb1` … | `spring.datasource.password=2c0014catsk001` |
+| `5f1936e5`, `87f7bb37`, `92fbc3d3`, `bda8340` … | `spring.datasource.password=…` (user `postgres`, the **superuser**) |
+| `74a203e7`, `8a71fa24`, `8ddf14b3`, `95c1dbb1` … | `spring.datasource.password=…` |
+
+*(2026-10-01: the values themselves used to be written out in this table,
+so this document was publishing them too. The repository is public, so
+assume both passwords are known: rotation is not optional.)*
 
 The file is gitignored *now*, but ignoring a file does not remove its history.
 **Publishing this repository publishes both passwords**, and credential
@@ -214,7 +218,7 @@ Worth recording so the next review can skip them:
 
 ## Before making the repository public
 
-- [ ] **Rotate `catsRcool12345` and `2c0014catsk001`** everywhere they were used.
+- [ ] **Rotate both old database passwords from item 1** everywhere they were used (the `postgres` superuser's first).
 - [ ] **Scrub `application.properties` from history** (finding 1), then verify:
       `git log --all -p -- server/src/main/resources/application.properties`
       should return nothing.

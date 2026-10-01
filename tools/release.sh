@@ -19,16 +19,19 @@
 #      password). That backs up the database, JAR and website, swaps in the
 #      new ones, restarts, checks /api/health, and rolls back if it fails.
 #
-# Settings (environment variables, all optional):
-#   DEPLOY_HOST   ssh destination            default you@example.com
-#   DEPLOY_INBOX  upload directory on it     default incoming (in your home)
+# Settings: release.env in the repository root (not in git; copy
+# config/release.env.example). Nothing about the server is written in this
+# script or anywhere else in the repository, which is public:
+#   DEPLOY_HOST    ssh destination, user@host
+#   SERVER_ENV     where deploy.env is on the server
+#   DEPLOY_INBOX   upload directory there, in your home (default incoming)
 #
 # Needs: Java 21, Node 20.19 or later, and git.
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-DEPLOY_HOST="${DEPLOY_HOST:-you@example.com}"
+[ -f "$ROOT/release.env" ] && { set -a; . "$ROOT/release.env"; set +a; }
 DEPLOY_INBOX="${DEPLOY_INBOX:-incoming}"
 TESTS=1 UPLOAD=1 INSTALL=1
 for arg in "$@"; do
@@ -43,6 +46,10 @@ done
 
 step() { echo; echo "── $* ──"; }
 fail() { echo; echo "STOPPED: $*" >&2; exit 1; }
+
+if [ "$UPLOAD" = 1 ] && { [ -z "${DEPLOY_HOST:-}" ] || [ -z "${SERVER_ENV:-}" ]; }; then
+  fail "set DEPLOY_HOST and SERVER_ENV in release.env (cp config/release.env.example release.env), or use --build-only."
+fi
 
 cd "$ROOT"
 COMMIT="$(git rev-parse --short HEAD)"
@@ -81,6 +88,8 @@ mkdir -p "$OUT"
 cp server/target/server-0.0.1-SNAPSHOT.jar "$OUT/server.jar"
 cp -R client/dist "$OUT/html"
 cp tools/install-release.sh "$OUT/install.sh"
+# One-off server scripts travel with every release, so they are at hand.
+mkdir -p "$OUT/server-tools" && cp tools/server/*.sh "$OUT/server-tools/"
 printf '%s\ncommit %s (%s)\nbuilt %s on %s\n' "$NAME" "$(git rev-parse HEAD)" "$BRANCH" "$(date)" "$(hostname)" > "$OUT/RELEASE"
 tar -czf "$ROOT/release/$NAME.tar.gz" -C "$ROOT/release" "$NAME"
 echo "Built release/$NAME.tar.gz ($(du -h "$ROOT/release/$NAME.tar.gz" | cut -f1))"
@@ -96,7 +105,7 @@ ssh "$DEPLOY_HOST" "mkdir -p ~/$DEPLOY_INBOX" || fail "could not reach $DEPLOY_H
 scp "$ROOT/release/$NAME.tar.gz" "$DEPLOY_HOST:$DEPLOY_INBOX/" || fail "upload failed."
 ssh "$DEPLOY_HOST" "cd ~/$DEPLOY_INBOX && tar -xzf $NAME.tar.gz" || fail "unpacking on the server failed."
 
-INSTALL_CMD="sudo bash ~/$DEPLOY_INBOX/$NAME/install.sh"
+INSTALL_CMD="sudo bash ~/$DEPLOY_INBOX/$NAME/install.sh --env $SERVER_ENV"
 if [ "$INSTALL" = 0 ]; then
   echo; echo "Uploaded. To put it live, on the server run:"
   echo "    $INSTALL_CMD"

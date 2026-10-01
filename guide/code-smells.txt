@@ -90,8 +90,8 @@ the invoking user. On the real host systemd owns the process, so that produced a
 second unmanaged server and a "port already in use" error — and `lsof` as a
 normal user cannot see the root-owned listener, so the port looked free.
 
-It also never copied anything to /var/www/webpost.ing/html/ or
-/home/webpost.ing/, meaning a "successful deploy" published nothing.
+It also never copied anything to /srv/webposting/html/ or
+/srv/webposting/app/, meaning a "successful deploy" published nothing.
 
 Now reads deploy.env, publishes both artifacts, restarts via systemctl, and has
 --dry-run. See guide/DEPLOYMENT.md.
@@ -189,8 +189,8 @@ default. Also noted in guide/SECURITY.md finding 11.
 11. README.md DOCUMENTS A DIFFERENT APPLICATION                         [MEDIUM]
 ================================================================================
 
-guide/README.md §5-6 still describe: frontend at /var/www/webposting/client
-(actually /var/www/webpost.ing/html), database testdb (actually webpostingdb),
+guide/README.md §5-6 still describe: frontend at an old client path
+(actually /srv/webposting/html), database testdb (actually your_database),
 `tools/migrate.sh` as the migration path (superseded), the old pipe wallpaper
 format instead of JSON v2, and "you never need to edit application.properties"
 advice that predates the env-var configuration.

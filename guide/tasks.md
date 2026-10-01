@@ -45,13 +45,16 @@ guide/HANDOFF-2026-09-30.txt for production state and open server work.
 - [x] **Pawprint texture**: tile in an ordered pattern, not scattered; paw colour
       options: one colour, random, downward rainbow, custom gradient with
       several colour stops.
-- [ ] **Water title** burns CPU while idle; see HANDOFF §4.
+- [ ] **Water title** burns CPU while idle; see HANDOFF §4. **[ask Mae first]**: she asked how it
+      works, not for a change; don't modify it unless she asks.
 
 ### P2 — Grid editor
 - [ ] **Per-tile width** (single/double characters change only at the cursor or
       selection). Done in grid-fixes.patch on the server; needs the patch copied here.
 - [ ] **Typing lost after clicking a toolbar button or layer** (focus bug, HANDOFF §3b).
 - [ ] **Cursor in select mode**: arrows move it, Shift+arrows extend the selection.
+- [ ] **Skip occupied tiles while typing**: an Insert-key-style toggle button (and the
+      Insert key) that makes typing jump over tiles that already hold a character.
 - [ ] **Keyboard shortcuts** for tools, undo/redo/copy/cut/paste, and a
       "Show shortcuts" panel.
 - [ ] **Organise the panel**: Draw / Text / Image groups.

@@ -3,7 +3,7 @@
 #
 # Runs ON THE SERVER, as root, from inside an unpacked release:
 #
-#     sudo bash ~/incoming/webposting-<date>-<commit>/install.sh
+#     sudo bash ~/incoming/webposting-<date>-<commit>/install.sh --env /path/to/deploy.env
 #
 # tools/release.sh on your own computer builds the release, uploads it and
 # runs this for you; you only type your password. Nothing is built here: the
@@ -13,37 +13,50 @@
 # What it does, in order. Any failure before step 4 changes nothing.
 #   1. checks the release is complete (server.jar, html/index.html)
 #   2. backs up the database (pg_dump), the running JAR and the website
-#      into ~/backups/release-<timestamp>/
+#      into ~/backups/release-<timestamp>/ (the home of whoever ran sudo)
 #   3. stages the new JAR and website next to the live ones
 #   4. swaps them in (renames, so neither is ever half-written)
 #   5. restarts the service and waits for GET /api/health to say ok
 #   6. if it does not within HEALTH_TIMEOUT seconds: puts the old JAR and
 #      website back, restarts, and exits non-zero
 #
-# Safe to run twice. Settings come from the server's deploy.env (APP_HOME,
-# WEB_ROOT, SERVICE_NAME, DB_NAME); see guide/DEPLOYMENT.md.
+# Safe to run twice. Every path and name comes from the server's deploy.env
+# (APP_HOME, WEB_ROOT, SERVICE_NAME, DB_NAME, SERVER_PORT): nothing about the
+# server is written in this script, which is public. See guide/DEPLOYMENT.md.
 #
+#   --env FILE  the server's deploy.env (required)
 #   --dry-run   print what would be done, change nothing
 
 set -euo pipefail
 
 RELEASE_DIR="$(cd "$(dirname "$0")" && pwd)"
 DRY=0
-[ "${1:-}" = "--dry-run" ] && DRY=1
+DEPLOY_ENV="${DEPLOY_ENV:-}"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --dry-run) DRY=1 ;;
+    --env) DEPLOY_ENV="${2:-}"; shift ;;
+    *) echo "Unknown option: $1"; exit 2 ;;
+  esac
+  shift
+done
 
 # ── Settings ──────────────────────────────────────────────────────────────────
-DEPLOY_ENV="${DEPLOY_ENV:-/path/to/deploy.env}"
-if [ -f "$DEPLOY_ENV" ]; then
-  # Only the four names needed; nothing from the file is printed.
-  eval "$(grep -E '^(APP_HOME|WEB_ROOT|SERVICE_NAME|DB_NAME)=' "$DEPLOY_ENV" | sed 's/^/export /')"
-fi
-APP_HOME="${APP_HOME:-/srv/webposting/app}"
-WEB_ROOT="${WEB_ROOT:-/srv/webposting/html}"
-SERVICE_NAME="${SERVICE_NAME:-webposting.service}"
-DB_NAME="${DB_NAME:-your_database}"
-FILE_OWNER="${FILE_OWNER:-root}"                     # owns the JAR and the website
-BACKUP_ROOT="${BACKUP_ROOT:-~/backups}"
-HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:8080/api/health}"
+# A key's value from deploy.env, or nothing. Always succeeds: a missing
+# optional key must not end the script under set -e.
+get() { { [ -f "$DEPLOY_ENV" ] && grep -E "^$1=" "$DEPLOY_ENV" | tail -1 | cut -d= -f2- | sed -e "s/^['\"]//" -e "s/['\"]\$//"; } || true; }
+APP_HOME="${APP_HOME:-$(get APP_HOME)}"
+WEB_ROOT="${WEB_ROOT:-$(get WEB_ROOT)}"
+SERVICE_NAME="${SERVICE_NAME:-$(get SERVICE_NAME)}"
+DB_NAME="${DB_NAME:-$(get DB_NAME)}"
+SERVER_PORT="${SERVER_PORT:-$(get SERVER_PORT)}"
+for v in APP_HOME WEB_ROOT SERVICE_NAME DB_NAME; do
+  [ -n "${!v}" ] || { echo "$v is unknown: pass the server's deploy.env with --env."; exit 1; }
+done
+# Whoever owns the running JAR keeps owning the new one.
+FILE_OWNER="${FILE_OWNER:-$(ls -ld "$APP_HOME/server/target/server-0.0.1-SNAPSHOT.jar" 2>/dev/null | awk '{print $3}')}"
+BACKUP_ROOT="${BACKUP_ROOT:-$(eval echo "~${SUDO_USER:-root}")/backups}"
+HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:${SERVER_PORT:-8080}/api/health}"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-120}"             # seconds; startup runs migrations
 # Overridable only so the script can be rehearsed off the server (with
 # REHEARSAL=1, which also lifts the must-be-root check).

@@ -27,8 +27,8 @@ default that matches the database created in step 1.
 ```bash
 sudo -u postgres psql -c "CREATE DATABASE testdb;"
 sudo -u postgres psql -c "CREATE USER mae WITH PASSWORD 'password';"
-sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE testdb TO mae;"
-sudo -u postgres psql -d testdb -c "GRANT ALL ON SCHEMA public TO mae;"
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE testdb TO your_db_user;"
+sudo -u postgres psql -d testdb -c "GRANT ALL ON SCHEMA public TO your_db_user;"
 ```
 
 The last line is not optional on PostgreSQL 15+, where `public` is no longer
@@ -85,11 +85,11 @@ What a production host must set:
 | `APP_PROFILE` | `prod` — HTTPS-only cookies, absolute upload path, no stack traces |
 | `DB_NAME` / `DB_USER` / `DB_PASSWORD` | your production database and its password |
 | `ALLOWED_ORIGINS` | `https://webpost.ing` — exact origins, comma-separated; `*` is rejected |
-| `UPLOAD_DIR` | `/var/www/webposting/uploads` — absolute, writable by the server user |
+| `UPLOAD_DIR` | `/srv/webposting/uploads` — absolute, writable by the server user |
 | `APP_BASE_URL` | `https://webpost.ing` — used for links inside emails |
-| `WEB_ROOT` | `/var/www/webpost.ing/html` — where nginx serves the frontend |
-| `APP_HOME` | `/home/webpost.ing` — runtime tree; the JAR lands in `$APP_HOME/server/target/` |
-| `SERVICE_NAME` | `start-servers.service` — the systemd unit to restart |
+| `WEB_ROOT` | `/srv/webposting/html` — where nginx serves the frontend |
+| `APP_HOME` | `/srv/webposting/app` — runtime tree; the JAR lands in `$APP_HOME/server/target/` |
+| `SERVICE_NAME` | `webposting.service` — the systemd unit to restart |
 
 Under `APP_PROFILE=prod` the server **refuses to start** if the database
 password is still the development default, `DB_NAME` is still `testdb`,
@@ -122,7 +122,7 @@ cp config/deploy.env.example deploy.env && chmod 600 deploy.env && $EDITOR deplo
 service runs as:
 
 ```bash
-sudo mkdir -p /var/www/webposting/uploads
+sudo mkdir -p /srv/webposting/uploads
 ```
 
 **5. Configure nginx.** The SPA owns routing, so paths that are not files must
@@ -136,7 +136,7 @@ server {
     ssl_certificate     /etc/letsencrypt/live/webpost.ing/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/webpost.ing/privkey.pem;
 
-    root /var/www/webpost.ing/html;          # WEB_ROOT
+    root /srv/webposting/html;          # WEB_ROOT
 
     location / {
         try_files $uri $uri/ /index.html;
@@ -153,7 +153,7 @@ server {
     }
 
     location /uploads/ {
-        alias /var/www/webposting/uploads/;  # UPLOAD_DIR
+        alias /srv/webposting/uploads/;  # UPLOAD_DIR
     }
 }
 
@@ -168,7 +168,7 @@ server {
 sudo nginx -t && sudo nginx -s reload
 ```
 
-**6. Install the systemd unit** at `/etc/systemd/system/start-servers.service`,
+**6. Install the systemd unit** at `/etc/systemd/system/webposting.service`,
 matching `SERVICE_NAME`:
 
 ```ini
@@ -177,8 +177,8 @@ Description=webpost.ing backend
 After=network.target postgresql.service
 
 [Service]
-WorkingDirectory=/home/webpost.ing
-ExecStart=/home/webpost.ing/server-start.sh
+WorkingDirectory=/srv/webposting/app
+ExecStart=/srv/webposting/app/server-start.sh
 Restart=on-failure
 StandardOutput=append:/tmp/webposting.log
 StandardError=append:/tmp/webposting.log
@@ -190,7 +190,7 @@ WantedBy=multi-user.target
 Copy `server-start.sh` and `deploy.env` into `APP_HOME`, then:
 
 ```bash
-sudo systemctl daemon-reload && sudo systemctl enable start-servers.service
+sudo systemctl daemon-reload && sudo systemctl enable webposting.service
 ```
 
 **7. Release.** On your own computer, never on the server:
@@ -244,7 +244,7 @@ See [guide/MIGRATIONS.md](guide/MIGRATIONS.md).
 **Service**
 
 ```bash
-sudo systemctl restart start-servers.service   # never kill the JVM by port
+sudo systemctl restart webposting.service   # never kill the JVM by port
 tail -f /tmp/webposting.log
 ```
 
