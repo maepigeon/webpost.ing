@@ -1,14 +1,28 @@
 import { DecoratorNode, $getNodeByKey } from 'lexical';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { IMAGES_BASE_URL } from '../../../../../config.js';
 import { prefixSrcset, adaptiveSizes } from '../../../../../utils/responsiveImage.js';
 
+const MIN_WIDTH = 80;
+const CORNERS = ['nw', 'ne', 'sw', 'se'];
+
 function ImageComponent({ src, altText, nodeKey, alignment = 'center', width = null, srcset = null, editable = true }) {
   const [editor] = useLexicalComposerContext();
-  const [showControls, setShowControls] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  // Selected by a click: its handles stay until you click elsewhere, so they
+  // can be reached on a touch screen too, where there is no hover.
+  const [selected, setSelected] = useState(false);
+  const [dragWidth, setDragWidth] = useState(null);
+  const frameRef = useRef(null);
   const imgRef = useRef(null);
-  const isResizingRef = useRef(false);
+
+  useEffect(() => {
+    if (!selected) return undefined;
+    const away = (e) => { if (!frameRef.current?.contains(e.target)) setSelected(false); };
+    document.addEventListener('pointerdown', away);
+    return () => document.removeEventListener('pointerdown', away);
+  }, [selected]);
 
   const updateNode = useCallback((changes) => {
     editor.update(() => {
@@ -47,46 +61,72 @@ function ImageComponent({ src, altText, nodeKey, alignment = 'center', width = n
     });
   }, [editor, nodeKey]);
 
-  const startResize = useCallback((e) => {
+  /**
+   * Drag a corner: the image keeps its proportions and follows the pointer.
+   * A centred image grows on both sides, so it moves twice as far per pixel
+   * dragged; a left handle grows it leftwards.
+   */
+  const startResize = useCallback((e, corner) => {
     e.preventDefault();
     e.stopPropagation();
-    isResizingRef.current = true;
-    setShowControls(true);
+    const handle = e.currentTarget;
+    handle.setPointerCapture?.(e.pointerId);
     const startX = e.clientX;
     const startWidth = imgRef.current?.offsetWidth ?? 400;
+    const maxWidth = frameRef.current?.parentElement?.clientWidth || Infinity;
+    const sign = corner.endsWith('w') ? -1 : 1;
+    const factor = alignment === 'center' || alignment === 'full' ? 2 : 1;
+    const widthAt = (x) => Math.round(Math.min(maxWidth, Math.max(MIN_WIDTH, startWidth + sign * factor * (x - startX))));
 
-    const onMove = (mv) => {
-      const newWidth = Math.max(80, startWidth + (mv.clientX - startX));
-      if (imgRef.current) imgRef.current.style.width = newWidth + 'px';
-    };
+    const onMove = (mv) => setDragWidth(widthAt(mv.clientX));
     const onUp = (mv) => {
-      isResizingRef.current = false;
-      setShowControls(false);
-      const newWidth = Math.max(80, startWidth + (mv.clientX - startX));
-      updateNode({ __width: newWidth });
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
+      handle.removeEventListener('pointermove', onMove);
+      handle.removeEventListener('pointerup', onUp);
+      handle.removeEventListener('pointercancel', onUp);
+      setDragWidth(null);
+      updateNode({ __width: widthAt(mv.clientX), ...(alignment === 'full' ? { __alignment: 'center' } : {}) });
     };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  }, [updateNode]);
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('pointerup', onUp);
+    handle.addEventListener('pointercancel', onUp);
+  }, [updateNode, alignment]);
 
-  const imgStyle = width ? { width, maxWidth: '100%' } : { maxWidth: '100%' };
+  /** Arrow keys on a selected image: 10px a press, 50 with Shift. */
+  const onKeyDown = (e) => {
+    if (!selected || !['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+    e.preventDefault();
+    const current = imgRef.current?.offsetWidth ?? 400;
+    const step = (e.shiftKey ? 50 : 10) * (e.key === 'ArrowRight' ? 1 : -1);
+    const maxWidth = frameRef.current?.parentElement?.clientWidth || Infinity;
+    updateNode({ __width: Math.min(maxWidth, Math.max(MIN_WIDTH, current + step)) });
+  };
+
+  // Resizing a full-width image makes it a centred one of that width.
+  const shownAlignment = alignment === 'full' && dragWidth != null ? 'center' : alignment;
+  const shownWidth = dragWidth ?? width;
+  const imgStyle = shownWidth ? { width: shownWidth, maxWidth: '100%' } : { maxWidth: '100%' };
+  const showControls = editable && (hovered || selected || dragWidth != null);
 
   const wrapperClass = [
     'editor-image-wrapper',
-    `editor-image-align-${alignment}`,
+    `editor-image-align-${shownAlignment}`,
     editable ? 'editor-image-editable' : '',
+    editable && selected ? 'is-selected' : '',
   ].join(' ');
 
   return (
     <div className={wrapperClass}>
       <div
+        ref={frameRef}
         className="editor-image-frame"
-        onMouseEnter={() => editable && setShowControls(true)}
-        onMouseLeave={() => editable && !isResizingRef.current && setShowControls(false)}
+        onMouseEnter={() => editable && setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onClick={() => editable && setSelected(true)}
+        onKeyDown={editable ? onKeyDown : undefined}
+        tabIndex={editable ? 0 : undefined}
+        aria-label={editable ? `Image${width ? `, ${width} pixels wide` : ''}. Click to select, drag a corner or use the arrow keys to resize.` : undefined}
       >
-        {editable && showControls && (
+        {showControls && (
           <div className="editor-image-controls">
             <button
               type="button"
@@ -144,9 +184,15 @@ function ImageComponent({ src, altText, nodeKey, alignment = 'center', width = n
           loading="lazy"
           decoding="async"
         />
-        {editable && showControls && (
-          <div className="editor-image-resize-handle" onMouseDown={startResize} />
-        )}
+        {showControls && CORNERS.map(corner => (
+          <div
+            key={corner}
+            className={`editor-image-resize-handle editor-image-resize-handle--${corner}`}
+            onPointerDown={(e) => startResize(e, corner)}
+            aria-hidden="true"
+          />
+        ))}
+        {dragWidth != null && <span className="editor-image-size">{dragWidth} px</span>}
       </div>
     </div>
   );

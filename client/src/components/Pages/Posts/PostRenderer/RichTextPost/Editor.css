@@ -930,16 +930,47 @@
   filter: none;
 }
 
-/* Resize handle — bottom-right corner of the image frame */
+/* Resize handles: a square on each corner, shown on hover and while the image
+   is selected (a click selects it, which is how a touch screen reaches them). */
+.editor-image-frame:focus { outline: none; }
+.editor-image-frame:focus-visible,
+.editor-image-wrapper.is-selected .editor-image-frame {
+  outline: 2px solid #1c1c1c;
+  outline-offset: 2px;
+  border-radius: 8px;
+}
 .editor-image-resize-handle {
   position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 16px;
-  height: 16px;
-  background: rgba(30, 30, 30, 0.6);
-  border-radius: 3px 0 8px 0;
-  cursor: se-resize;
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border: 2px solid #1c1c1c;
+  box-sizing: border-box;
+  touch-action: none;
+  z-index: 11;
+}
+.editor-image-resize-handle--nw { top: -6px;    left: -6px;  cursor: nwse-resize; }
+.editor-image-resize-handle--ne { top: -6px;    right: -6px; cursor: nesw-resize; }
+.editor-image-resize-handle--sw { bottom: -6px; left: -6px;  cursor: nesw-resize; }
+.editor-image-resize-handle--se { bottom: -6px; right: -6px; cursor: nwse-resize; }
+@media (pointer: coarse) {
+  .editor-image-resize-handle { width: 22px; height: 22px; }
+  .editor-image-resize-handle--nw, .editor-image-resize-handle--ne { top: -10px; }
+  .editor-image-resize-handle--sw, .editor-image-resize-handle--se { bottom: -10px; }
+  .editor-image-resize-handle--nw, .editor-image-resize-handle--sw { left: -10px; }
+  .editor-image-resize-handle--ne, .editor-image-resize-handle--se { right: -10px; }
+}
+.editor-image-size {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1c1c1c;
+  color: #fff;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  pointer-events: none;
 }
 
 /* ── Mobile editor ─────────────────────────────────────────────────────────── */
