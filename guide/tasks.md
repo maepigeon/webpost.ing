@@ -67,7 +67,10 @@ guide/HANDOFF-2026-09-30.txt for production state and open server work.
 - [x] **Antialiasing option** (for smooth fonts and photos): the grid's Edges,
       Smooth or Pixel (`edges` in the grid; absent keeps the original look).
 - [x] **Bake a photo layer** at the grid's pixel resolution ("Bake to pixels").
-- [ ] **Links in grids**: a run of tiles can carry a link; external links ask first.
+- [x] **Links in grids**: a run of tiles can carry a link; external links ask first.
+      Select tiles, then Link (Edit row). Readers get a real link per tile (one tab
+      stop per link); off by `linksActive={false}` inside profile cards. Links don't
+      move with tiles yet.
 - [~] Fewer sliders: buttons and dropdowns instead, across the UI. Done: theme
       editor, wallpaper pixel size, code block sizes. The grid editor's photo scale slider is gone too.
 

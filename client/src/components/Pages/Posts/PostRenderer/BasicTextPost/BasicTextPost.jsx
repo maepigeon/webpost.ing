@@ -148,7 +148,7 @@ function BasicTextPost(props) {
                     {grid && currentPostMode === Modes.VIEW && (
                         <div className="post-card-grid">
                             <div className={`post-card-grid-window${gridCropped ? ' is-cropped' : ''}`}>
-                                <TileGrid data={grid} editable={false} onChange={() => {}} />
+                                <TileGrid data={grid} editable={false} onChange={() => {}} linksActive={false} />
                             </div>
                         </div>
                     )}

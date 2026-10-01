@@ -137,11 +137,66 @@ export function normaliseGrid(raw) {
     : legacyFull ? upgradeFullWidth(l) : { ...l, wide: l.wide.filter(k => inGrid(d, k)) }));
   // How photos and smooth text are drawn (see EDGES); absent, the original look.
   if (EDGES[r.edges]) d.edges = r.edges;
+  const links = cleanLinks(r.links, d);
+  if (links.length) d.links = links;
   if (!d.layers.length) d.layers = [pixelLayer('Background')];
   const seen = new Set();
   for (const l of d.layers) { if (seen.has(l.id)) l.id = newLayerId(); seen.add(l.id); }
   return d;
 }
+
+// ── Links ─────────────────────────────────────────────────────────────────────
+// A run of tiles can carry a link: { href, tiles: ["r,c", …] }. Only web
+// addresses and paths on this site; never javascript: or data: and the like.
+
+export const MAX_LINKS = 64;
+const SITE_PATH = /^\/(?!\/)[^\s]*$/;
+const WEB_URL = /^https?:\/\/[^\s/$.?#][^\s]*$/i;
+
+/** The address as stored, or null if a grid may not link to it. Adds https:// to a bare domain. */
+export function cleanHref(raw) {
+  if (typeof raw !== 'string') return null;
+  let href = raw.trim();
+  if (!href || href.length > 500) return null;
+  if (!href.startsWith('/') && !/^[a-z][a-z0-9+.-]*:/i.test(href) && /^[^\s/]+\.[^\s/]+/.test(href)) href = `https://${href}`;
+  return SITE_PATH.test(href) || WEB_URL.test(href) ? href : null;
+}
+
+/** Whether a link leaves this site (and so asks first). */
+export function isExternalHref(href, origin = typeof window !== 'undefined' ? window.location.origin : '') {
+  if (href.startsWith('/')) return false;
+  try { return new URL(href).origin !== origin; } catch { return true; }
+}
+
+function cleanLinks(raw, d) {
+  if (!Array.isArray(raw)) return [];
+  const taken = new Set();
+  const out = [];
+  for (const link of raw) {
+    if (out.length >= MAX_LINKS) break;
+    const href = cleanHref(link?.href);
+    if (!href || !Array.isArray(link.tiles)) continue;
+    const tiles = link.tiles.filter(k => typeof k === 'string' && /^\d+,\d+$/.test(k) && inGrid(d, k) && !taken.has(k));
+    tiles.forEach(k => taken.add(k));
+    if (tiles.length) out.push({ href, tiles });
+  }
+  return out;
+}
+
+/** The grid with these tiles linked to href (taken from any other link), or unlinked when href is null. */
+export function setLink(d, tiles, href) {
+  const keys = new Set(tiles);
+  const links = (d.links || [])
+    .map(l => ({ ...l, tiles: l.tiles.filter(k => !keys.has(k)) }))
+    .filter(l => l.tiles.length);
+  if (href) links.push({ href, tiles: [...keys] });
+  const next = { ...d, links };
+  if (!links.length) delete next.links;
+  return next;
+}
+
+/** The link on a tile, if any. */
+export const linkAt = (d, r, c) => (d.links || []).find(l => l.tiles.includes(`${r},${c}`)) || null;
 
 const inGrid = (d, key) => { const [r, c] = key.split(',').map(Number); return r < d.rows && c < d.cols; };
 
@@ -497,6 +552,17 @@ export function renderGrid(ctx, d, assets = {}, view = {}) {
     for (let x = 1; x < d.cols; x++) { ctx.moveTo(x * TILE, 0); ctx.lineTo(x * TILE, H); }
     for (let y = 1; y < d.rows; y++) { ctx.moveTo(0, y * TILE); ctx.lineTo(W, y * TILE); }
     ctx.stroke();
+  }
+
+  if (view.showLinks && d.links) {
+    // Linked tiles are underlined while editing, so you can see what links.
+    ctx.fillStyle = '#5ea0ff';
+    for (const link of d.links) {
+      for (const key of link.tiles) {
+        const { r, c } = parseTileKey(key);
+        ctx.fillRect(c * TILE + 1, (r + 1) * TILE - 1.5, TILE - 2, 1);
+      }
+    }
   }
 
   if (view.selection && view.selection.size) drawSelection(ctx, view.selection, view.moveBy);

@@ -46,6 +46,17 @@ class ThemeValidatorTest {
     }
 
     @Test
+    void gridLinksGoOnlyToWebAddressesOrThisSite() throws Exception {
+        String grid = "{\"v\":3,\"cols\":2,\"rows\":1,\"layers\":[{\"id\":\"a1\",\"kind\":\"pixel\"}],\"links\":["
+            + "{\"href\":\"javascript:alert(1)\",\"tiles\":[\"0,0\"]},"
+            + "{\"href\":\"//evil.example\",\"tiles\":[\"0,0\"]},"
+            + "{\"href\":\"https://example.com/a\",\"tiles\":[\"0,0\",\"0,9\"]},"
+            + "{\"href\":\"/mae\",\"tiles\":[\"0,0\",\"0,1\"]}]}";
+        String out = GridValidator.normalise(new ObjectMapper().readTree(grid), 8, 8).path("links").toString();
+        assertThat(out).isEqualTo("[{\"href\":\"https://example.com/a\",\"tiles\":[\"0,0\"]},{\"href\":\"/mae\",\"tiles\":[\"0,1\"]}]");
+    }
+
+    @Test
     void gridKeepsOnlyAKnownEdgesSetting() throws Exception {
         ObjectMapper json = new ObjectMapper();
         String layers = ",\"layers\":[{\"id\":\"a1\",\"kind\":\"pixel\"}]}";

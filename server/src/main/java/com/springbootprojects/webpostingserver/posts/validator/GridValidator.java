@@ -32,6 +32,9 @@ public final class GridValidator {
     private static final Pattern HEX = Pattern.compile("^#[0-9a-fA-F]{6}$");
     private static final Pattern GLYPH = Pattern.compile("^([0-9a-f]{32}|[0-9a-f]{64})$");
     private static final Pattern SLOT = Pattern.compile("^\\d{1,3},\\d{1,3}$");
+    // A link from tiles: a path on this site or a web address, nothing that runs.
+    private static final Pattern LINK = Pattern.compile("^(/(?!/)\\S*|https?://[^\\s/$.?#]\\S*)$", Pattern.CASE_INSENSITIVE);
+    private static final int MAX_LINKS = 64;
     private static final Pattern LAYER_ID = Pattern.compile("^[A-Za-z0-9]{1,32}$");
     private static final int MAX_LAYERS = 10;
     private static final int MAX_PAINT_CHARS = 700_000;
@@ -64,6 +67,9 @@ public final class GridValidator {
 
         out.set("glyphs", cleanGlyphs(in.path("glyphs"), 256));
 
+        ArrayNode links = cleanLinks(in.path("links"), rows, cols);
+        if (!links.isEmpty()) out.set("links", links);
+
         ArrayNode layers = out.putArray("layers");
         JsonNode inLayers = in.path("layers");
         Set<String> ids = new HashSet<>();
@@ -85,6 +91,32 @@ public final class GridValidator {
      * Custom characters: one character each, mapped to an 8×16 or 16×16
      * bitmap as hex. Anything else is dropped. Shared with pixel font libraries.
      */
+    /** Each link's address and tiles; a tile belongs to one link at most. */
+    static ArrayNode cleanLinks(JsonNode in, int rows, int cols) {
+        ArrayNode out = MAPPER.createArrayNode();
+        if (!in.isArray()) return out;
+        Set<String> taken = new HashSet<>();
+        for (JsonNode link : in) {
+            if (out.size() >= MAX_LINKS) break;
+            String href = link.path("href").asText("").trim();
+            if (href.length() > 500 || !LINK.matcher(href).matches()) continue;
+            ArrayNode tiles = MAPPER.createArrayNode();
+            for (JsonNode t : link.path("tiles")) {
+                String key = t.asText("");
+                if (!SLOT.matcher(key).matches() || taken.contains(key)) continue;
+                String[] rc = key.split(",");
+                if (Integer.parseInt(rc[0]) >= rows || Integer.parseInt(rc[1]) >= cols) continue;
+                taken.add(key);
+                tiles.add(key);
+            }
+            if (tiles.isEmpty()) continue;
+            ObjectNode clean = out.addObject();
+            clean.put("href", href);
+            clean.set("tiles", tiles);
+        }
+        return out;
+    }
+
     public static ObjectNode cleanGlyphs(JsonNode in, int max) {
         ObjectNode glyphs = MAPPER.createObjectNode();
         if (in == null || !in.isObject()) return glyphs;

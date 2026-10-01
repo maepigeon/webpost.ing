@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   normaliseGrid, pixelLayer, rowChars, writeSlot, writeChar, setTileWidths, isWide, restyleSlots, resizeLayerText,
   orderSlots, slotsIn, containRect, bitsFromHex, hexFromBits, seedBits, slotsPerRow, LIMITS,
-  photoRect, resizePhoto, zoomPhoto, PHOTO_SCALE,
+  photoRect, resizePhoto, zoomPhoto, PHOTO_SCALE, cleanHref, isExternalHref, setLink, linkAt,
 } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
 import { pixelGlyph } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileFont.js';
 
@@ -240,5 +240,34 @@ describe('edges (antialiasing)', () => {
     expect(normaliseGrid({ edges: 'pixel' }).edges).toBe('pixel');
     expect('edges' in normaliseGrid({ edges: 'blurry' })).toBe(false);
     expect('edges' in normaliseGrid({})).toBe(false);
+  });
+});
+
+describe('links on tiles', () => {
+  it('takes web addresses and site paths, and nothing that runs', () => {
+    expect(cleanHref('https://example.com/x')).toBe('https://example.com/x');
+    expect(cleanHref('/mae/post')).toBe('/mae/post');
+    expect(cleanHref('example.com')).toBe('https://example.com');
+    for (const bad of ['javascript:alert(1)', 'data:text/html,hi', '//evil.example', 'JaVaScRiPt:x', '', 'https:// x', 7]) {
+      expect(cleanHref(bad)).toBeNull();
+    }
+  });
+
+  it('knows which links leave the site', () => {
+    expect(isExternalHref('/mae', 'https://webpost.ing')).toBe(false);
+    expect(isExternalHref('https://webpost.ing/mae', 'https://webpost.ing')).toBe(false);
+    expect(isExternalHref('https://example.com', 'https://webpost.ing')).toBe(true);
+  });
+
+  it('gives each tile one link, and drops bad ones when loading', () => {
+    let d = normaliseGrid({ v: 3, cols: 3, rows: 1 });
+    d = setLink(d, ['0,0', '0,1'], 'https://a.example');
+    d = setLink(d, ['0,1', '0,2'], '/b');
+    expect(linkAt(d, 0, 0).href).toBe('https://a.example');
+    expect(linkAt(d, 0, 1).href).toBe('/b');
+    d = setLink(d, ['0,0'], null);
+    expect(d.links).toEqual([{ href: '/b', tiles: ['0,1', '0,2'] }]);
+    const loaded = normaliseGrid({ ...d, links: [...d.links, { href: 'javascript:x', tiles: ['0,0'] }, { href: '/c', tiles: ['0,1', '5,5'] }] });
+    expect(loaded.links).toEqual([{ href: '/b', tiles: ['0,1', '0,2'] }]);
   });
 });

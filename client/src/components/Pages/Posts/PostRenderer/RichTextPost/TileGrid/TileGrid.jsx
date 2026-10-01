@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useDialog } from '../../../../../Dialog/Dialog.jsx';
 import axios from 'axios';
 import { BASE_URL, IMAGES_BASE_URL } from '../../../../../../config.js';
 import { normaliseUploadResponse, describeUploadError } from '../../../../../../utils/responsiveImage.js';
 import {
   TILE, SCALE, LIMITS, FONT_NAMES, DIRECTIONS, normaliseGrid, pixelLayer, photoLayer,
   SLOTS_PER_TILE, SLOT_W, slotsPerRow, rowChars, writeSlot, writeChar, setTileWidths, isWide, restyleSlots, resizeLayerText,
-  EDGES, orderSlots, slotsIn, renderGrid, pixelatePhoto, photoRect, resizePhoto, zoomPhoto, tileKey, rectTiles, combineSelection, orderedTiles,
+  EDGES, cleanHref, isExternalHref, setLink, linkAt, orderSlots, slotsIn, renderGrid, pixelatePhoto, photoRect, resizePhoto, zoomPhoto, tileKey, rectTiles, combineSelection, orderedTiles,
 } from './tileGrid.js';
 import { TEXTURES, fillTexture, texturePreview, DEFAULT_PAW_OPTIONS } from './textures.js';
 import PawOptions from '../../../../../TileArt/PawOptions.jsx';
@@ -109,9 +111,41 @@ function DirectionPad({ value, onChange }) {
  * it knows nothing about where its data lives: it reports each change as the
  * whole new grid through onChange(grid).
  */
+/**
+ * A grid's links, for readers: a real link over each linked tile, so they can
+ * be hovered, focused and copied like any other. One tab stop per link.
+ * Off-site addresses ask first, as links in posts do.
+ */
+function GridLinks({ data }) {
+  const navigate = useNavigate();
+  const { linkWarning } = useDialog();
+  const [hover, setHover] = useState(-1);
+  const open = (e, href) => {
+    // The post viewer may already have asked about it (it watches every link in a post).
+    if (e.defaultPrevented) return;
+    e.preventDefault();
+    if (!isExternalHref(href)) { navigate(href.startsWith('/') ? href : new URL(href).pathname); return; }
+    linkWarning(href).then(ok => { if (ok) window.open(href, '_blank', 'noopener,noreferrer'); });
+  };
+  return data.links.map((link, i) => link.tiles.map((key, j) => {
+    const [r, c] = key.split(',').map(Number);
+    return (
+      <a key={key} href={link.href} className={`tilegrid-link${hover === i ? ' is-hover' : ''}`}
+        style={{ left: `${(c / data.cols) * 100}%`, top: `${(r / data.rows) * 100}%`, width: `${100 / data.cols}%`, height: `${100 / data.rows}%` }}
+        title={link.href} aria-label={j === 0 ? `Link: ${link.href}` : undefined} tabIndex={j === 0 ? 0 : -1}
+        aria-hidden={j === 0 ? undefined : true} rel="noopener noreferrer nofollow"
+        onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(-1)}
+        onFocus={() => setHover(i)} onBlur={() => setHover(-1)}
+        onClick={e => open(e, link.href)} />
+    );
+  }));
+}
+
 export default function TileGrid({
   data: rawData, onChange, editable, onMoveUp, onMoveDown, onDelete, startEditing = false,
   maxCols = LIMITS.maxCols, maxRows = LIMITS.maxRows, onDone,
+  // Off where the grid sits inside another link (a post's card on a profile).
+  linksActive = true,
 }) {
   const data = useMemo(() => normaliseGrid(rawData), [rawData]);
 
@@ -187,8 +221,13 @@ export default function TileGrid({
   // Like a keyboard's Insert key: typing jumps over slots that already hold a character.
   const [skipFilled, setSkipFilled] = useState(false);
   const [showKeys, setShowKeys] = useState(false);
+  const [linkDraft, setLinkDraft] = useState('');
+  const [linkError, setLinkError] = useState('');
   // Where a Shift+arrow selection started (a tile).
   const selAnchor = useRef(null);
+
+  // Starting to edit hands the grid the keyboard, so shortcuts and typing work at once.
+  useEffect(() => { if (editing) typeRef.current?.focus({ preventScroll: true }); }, [editing]);
 
   const active = data.layers.find(l => l.id === activeId) || data.layers[data.layers.length - 1];
   useEffect(() => { if (active && active.id !== activeId) setActiveId(active.id); }, [active, activeId]);
@@ -246,6 +285,7 @@ export default function TileGrid({
       selection: editing ? selection : null,
       moveBy, activeId: active?.id,
       showGrid: editing,
+      showLinks: editing,
     });
     draw();
     document.fonts?.ready?.then(draw).catch(() => {});
@@ -805,6 +845,25 @@ export default function TileGrid({
     }
   };
 
+  /** Opens the link panel, filled in with the selection's link if it has one. */
+  const openLinkPanel = () => {
+    const d = dataRef.current;
+    const first = orderedTiles(selectionRef.current)[0];
+    setLinkDraft(first ? linkAt(d, first.r, first.c)?.href || '' : '');
+    setLinkError('');
+    setPanel(p => (p === 'link' ? null : 'link'));
+  };
+  const applyLink = (remove = false) => {
+    const tiles = [...selectionRef.current];
+    if (!tiles.length) { setLinkError('Select the tiles to link first.'); return; }
+    const href = remove ? null : cleanHref(linkDraft);
+    if (!remove && !href) { setLinkError('Use a web address (https://…) or a path on this site (/…).'); return; }
+    commit(setLink(dataRef.current, tiles, href));
+    setLinkError('');
+    setPanel(null);
+    typeRef.current?.focus();
+  };
+
   const setEdges = (edges) => {
     const d = dataRef.current;
     if (d.edges === edges) return;
@@ -895,6 +954,7 @@ export default function TileGrid({
           role="img"
           aria-label={data.layers.flatMap(l => l.text || []).join(' ').trim() || 'Tile grid'}
         />
+        {!editable && linksActive && data.links && <GridLinks data={data} />}
         {photoBox && (
           <div className="tg-photo-box" style={photoBox.style} aria-hidden="true">
             {['nw', 'ne', 'sw', 'se'].map(corner => (
@@ -992,7 +1052,27 @@ export default function TileGrid({
               <Tile icon="cut" label="Cut (⌘X)" onClick={() => { copySelection(); deleteSelection(); }} disabled={!hasSel || !isPixel} />
               <Tile icon="paste" label="Paste (⌘V)" onClick={paste} disabled={!clipboard.current || !isPixel} />
               <Tile icon="delete" label="Delete selection" onClick={deleteSelection} disabled={!hasSel || !isPixel} />
+              <span className="tg-gap" />
+              <Tile icon="link" label="Link the selected tiles" on={panel === 'link'} disabled={!hasSel && panel !== 'link'} onClick={openLinkPanel} />
             </div>
+
+            {panel === 'link' && (
+              <form className="tg-link-panel" onSubmit={e => { e.preventDefault(); applyLink(); }}>
+                <label className="tg-link-label">Link {selection.size} tile{selection.size === 1 ? '' : 's'} to
+                  <input type="text" inputMode="url" value={linkDraft} autoFocus placeholder="https://… or /username"
+                    onChange={e => { setLinkDraft(e.target.value); setLinkError(''); }}
+                    onKeyDown={e => {
+                      // Handled here, not by the form: focus returns to the grid, and the
+                      // key's own input must not follow it there.
+                      if (e.key === 'Enter') { e.preventDefault(); applyLink(); }
+                      if (e.key === 'Escape') { e.preventDefault(); setPanel(null); typeRef.current?.focus(); }
+                    }} />
+                </label>
+                <button type="submit" className="tg-text-btn">Link</button>
+                <button type="button" className="tg-text-btn" onClick={() => applyLink(true)}>Remove link</button>
+                {linkError && <span className="tg-error" role="alert">{linkError}</span>}
+              </form>
+            )}
 
             <div className="tg-group" role="group" aria-label="Size">
               <span className="tg-group-label">Size</span>
