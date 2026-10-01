@@ -4,7 +4,7 @@ import { BASE_URL, IMAGES_BASE_URL } from '../../../../../../config.js';
 import { normaliseUploadResponse, describeUploadError } from '../../../../../../utils/responsiveImage.js';
 import {
   TILE, SCALE, LIMITS, FONT_NAMES, DIRECTIONS, normaliseGrid, pixelLayer, photoLayer,
-  perTile, slotsPerRow, slotWidth, rowChars, writeSlot, restyleSlots, convertLayerMode, resizeLayerText,
+  SLOTS_PER_TILE, SLOT_W, slotsPerRow, rowChars, writeSlot, writeChar, setTileWidths, isWide, restyleSlots, resizeLayerText,
   EDGES, orderSlots, slotsIn, renderGrid, pixelatePhoto, photoRect, resizePhoto, zoomPhoto, tileKey, rectTiles, combineSelection, orderedTiles,
 } from './tileGrid.js';
 import { TEXTURES, fillTexture, texturePreview, DEFAULT_PAW_OPTIONS } from './textures.js';
@@ -162,6 +162,10 @@ export default function TileGrid({
   const [colour, setColour] = useState('#ffffff');
   const [font, setFont] = useState('pixel');
   const [direction, setDirection] = useState('right');
+  // Full: one wide character per tile; half: two narrow ones. It applies
+  // where you type (and to selected tiles when changed), never the whole grid.
+  const [width, setWidthState] = useState('full');
+  const widthRef = useRef('full');
   const [activeId, setActiveIdState] = useState(() => data.layers[data.layers.length - 1].id);
   // Read by key handlers, which can run twice before a re-render.
   const activeIdRef = useRef(activeId);
@@ -238,6 +242,7 @@ export default function TileGrid({
     }
     const draw = () => renderGrid(canvas.getContext('2d'), data, assets, {
       cursor: editing && (tool === 'text' || tool === 'select') && active?.kind === 'pixel' ? cursor : null,
+      cursorWide: width === 'full',
       selection: editing ? selection : null,
       moveBy, activeId: active?.id,
       showGrid: editing,
@@ -318,9 +323,11 @@ export default function TileGrid({
       const mode = e.shiftKey ? 'add' : e.altKey ? 'remove' : 'replace';
       gesture.current = { kind: 'select', anchor: p.tile, base: sel, mode, moved: false };
       if (mode === 'replace') setSelection(EMPTY);
-      if (tool === 'text' && mode === 'replace') {
+      if (mode === 'replace') {
+        // The cursor goes where you click: that slot for Text, the tile for Select.
         const d = dataRef.current;
-        setCursor({ r: p.tile.r, s: Math.min(slotsPerRow(d) - 1, Math.floor(p.x / slotWidth(d))) });
+        const s = tool === 'select' ? p.tile.c * SLOTS_PER_TILE : Math.min(slotsPerRow(d) - 1, Math.floor(p.x / SLOT_W));
+        setCursor({ r: p.tile.r, s: widthRef.current === 'full' ? s - (s % SLOTS_PER_TILE) : s });
       }
       return;
     }
@@ -367,8 +374,11 @@ export default function TileGrid({
     } else {
       if (!g.moved && g.mode !== 'replace') {
         setSelection(combineSelection(g.base, [tileKey(g.anchor.r, g.anchor.c)], g.mode));
+      } else if (!g.moved && tool === 'select') {
+        // A click in Select selects the one tile.
+        setSelection(new Set([tileKey(g.anchor.r, g.anchor.c)]));
       }
-      if (selectionRef.current.size) setCursor(orderSlots(slotsIn(dataRef.current, selectionRef.current), direction)[0]);
+      if (selectionRef.current.size) setCursor(typingOrder()[0]);
     }
     typeRef.current?.focus();
   };
@@ -399,7 +409,7 @@ export default function TileGrid({
   /** Each tile's characters, styles and pixels, relative to the selection's corner. */
   const capture = (sel, layer) => {
     const d = dataRef.current;
-    const n = perTile(d);
+    const n = SLOTS_PER_TILE;
     const box = boundsOf(sel);
     const ctx = paintCanvas(layer.id)?.getContext('2d');
     return {
@@ -408,13 +418,14 @@ export default function TileGrid({
         chars: rowChars(d, layer, r).slice(c * n, (c + 1) * n),
         styles: Array.from({ length: n }, (_, i) => layer.style[`${r},${c * n + i}`] || null),
         pixels: ctx ? ctx.getImageData(c * TILE, r * TILE, TILE, TILE) : null,
+        wide: isWide(layer, r, c),
       })),
     };
   };
 
   const clearTiles = (d, layer, tiles) => {
-    const n = perTile(d);
-    let l = layer;
+    const n = SLOTS_PER_TILE;
+    let l = setTileWidths(d, layer, tiles, 'half');
     for (const { r, c } of tiles) for (let i = 0; i < n; i++) l = writeSlot(d, l, r, c * n + i, ' ');
     const ctx = paintCanvas(layer.id)?.getContext('2d');
     if (ctx) for (const { r, c } of tiles) ctx.clearRect(c * TILE, r * TILE, TILE, TILE);
@@ -422,18 +433,20 @@ export default function TileGrid({
   };
 
   const stamp = (d, layer, clip, top, left) => {
-    const n = perTile(d);
+    const n = SLOTS_PER_TILE;
     const ctx = paintCanvas(layer.id)?.getContext('2d');
     let l = layer;
     const placed = new Set();
+    const wide = new Set(layer.wide || []);
     for (const t of clip.tiles) {
       const r = top + t.dr, c = left + t.dc;
       if (r < 0 || c < 0 || r >= d.rows || c >= d.cols) continue;
       placed.add(tileKey(r, c));
       for (let i = 0; i < n; i++) l = writeSlot(d, l, r, c * n + i, t.chars[i] ?? ' ', t.styles[i] || undefined);
+      if (t.wide) wide.add(tileKey(r, c)); else wide.delete(tileKey(r, c));
       if (ctx && t.pixels) ctx.putImageData(t.pixels, c * TILE, r * TILE);
     }
-    return { layer: l, placed };
+    return { layer: { ...l, wide: [...wide] }, placed };
   };
 
   const applyLayer = (d, layer) => {
@@ -508,7 +521,7 @@ export default function TileGrid({
     if (!clip || layer.kind !== 'pixel') return;
     const d = dataRef.current;
     const sel = selectionRef.current;
-    const corner = sel.size ? boundsOf(sel) : { r0: cursorRef.current.r, c0: Math.floor(cursorRef.current.s / perTile(d)) };
+    const corner = sel.size ? boundsOf(sel) : { r0: cursorRef.current.r, c0: Math.floor(cursorRef.current.s / SLOTS_PER_TILE) };
     const res = stamp(d, layer, clip, corner.r0, corner.c0);
     commit(applyLayer(d, res.layer));
     setSelection(res.placed);
@@ -521,12 +534,15 @@ export default function TileGrid({
 
   // ── Typing ─────────────────────────────────────────────────────────────────
 
-  const typingOrder = () => orderSlots(slotsIn(dataRef.current, selectionRef.current), direction);
+  /** Slots in the order typing fills them: every half slot, or a tile at a time when full width. */
+  const step = () => (widthRef.current === 'full' ? SLOTS_PER_TILE : 1);
+  const typingOrder = () => orderSlots(slotsIn(dataRef.current, selectionRef.current, widthRef.current), direction, step());
 
   /** The first slot of the next line across the typing direction. */
   const nextLineIndex = (order, i) => {
     const [dr, ds] = DIRECTIONS[direction];
-    const line = ({ r, s }) => (dr === 0 ? r : ds === 0 ? s : dr * ds > 0 ? s - r : s + r);
+    const k = step();
+    const line = ({ r, s }) => { const x = s / k; return dr === 0 ? r : ds === 0 ? x : dr * ds > 0 ? x - r : x + r; };
     const here = line(order[i]);
     const j = order.findIndex((p, k) => k > i && line(p) !== here);
     return j === -1 ? i : j;
@@ -535,7 +551,14 @@ export default function TileGrid({
   /** Whether a slot holds a character on any visible layer (this one as typed so far). */
   const slotFilled = (d, typing, { r, s }) => d.layers.some(l => {
     const layer = l.id === typing.id ? typing : l;
-    return layer.visible && layer.kind === 'pixel' && (rowChars(d, layer, r)[s] || ' ') !== ' ';
+    if (!layer.visible || layer.kind !== 'pixel') return false;
+    const chars = rowChars(d, layer, r);
+    const first = s - (s % SLOTS_PER_TILE);
+    // A wide tile is full whichever half you ask about; typing full width needs the whole tile free.
+    if (widthRef.current === 'full' || isWide(layer, r, first / SLOTS_PER_TILE)) {
+      return chars[first] !== ' ' || chars[first + 1] !== ' ';
+    }
+    return (chars[s] || ' ') !== ' ';
   });
 
   /**
@@ -570,7 +593,7 @@ export default function TileGrid({
         if (slotFilled(d, l, order[i])) break;
       }
       const { r, s } = order[i];
-      l = writeSlot(d, l, r, s, ch, { font, color: colour });
+      l = writeChar(d, l, r, s, ch, { font, color: colour }, widthRef.current);
       if (i < order.length - 1) i += 1;
     }
     commit(withLayer(d, layer.id, () => l));
@@ -602,11 +625,13 @@ export default function TileGrid({
     }
     if (nudge) {
       const { r, s } = cursorRef.current;
+      const k = step();
+      const from = s - (s % k);
       const next = {
         r: Math.max(0, Math.min(d.rows - 1, r + nudge[0])),
-        s: Math.max(0, Math.min(slotsPerRow(d) - 1, s + nudge[1])),
+        s: Math.max(0, Math.min(slotsPerRow(d) - k, from + nudge[1] * k)),
       };
-      const tileOf = (p) => ({ r: p.r, c: Math.floor(p.s / perTile(d)) });
+      const tileOf = (p) => ({ r: p.r, c: Math.floor(p.s / SLOTS_PER_TILE) });
       if (e.shiftKey) {
         // Shift+arrows grow the selection from where it started.
         if (!selAnchor.current) selAnchor.current = tileOf(cursorRef.current);
@@ -630,14 +655,21 @@ export default function TileGrid({
       case 'Backspace': {
         if (hasSel && i === 0) { deleteSelection(); break; }
         if (layer.kind !== 'pixel' || i === 0) break;
-        const prev = order[i - 1];
-        commit(withLayer(d, layer.id, l => writeSlot(d, l, prev.r, prev.s, ' ')));
+        let prev = order[i - 1];
+        // The second half of a wide tile is part of its character: one press clears it.
+        if (prev.s % SLOTS_PER_TILE && isWide(layer, prev.r, Math.floor(prev.s / SLOTS_PER_TILE)) && i >= 2) prev = order[i - 2];
+        const wideTile = isWide(layer, prev.r, Math.floor(prev.s / SLOTS_PER_TILE));
+        commit(withLayer(d, layer.id, l => writeChar(d, l, prev.r, prev.s, ' ', undefined, wideTile ? 'full' : 'half')));
         setCursor(prev);
         break;
       }
       case 'Delete':
         if (hasSel) deleteSelection();
-        else if (layer.kind === 'pixel') commit(withLayer(d, layer.id, l => writeSlot(d, l, cursorRef.current.r, cursorRef.current.s, ' ')));
+        else if (layer.kind === 'pixel') {
+          const { r, s } = cursorRef.current;
+          const wideTile = isWide(layer, r, Math.floor(s / SLOTS_PER_TILE));
+          commit(withLayer(d, layer.id, l => writeChar(d, l, r, s, ' ', undefined, wideTile || widthRef.current === 'full' ? 'full' : 'half')));
+        }
         break;
       case 'Escape':
         selAnchor.current = null;
@@ -694,11 +726,19 @@ export default function TileGrid({
     commit({ ...d, cols, rows, layers });
   };
 
-  const setMode = (mode) => {
+  /**
+   * Picks the width typed from here on. With tiles selected, it changes just
+   * those tiles on this layer (a narrow pair made wide keeps its first character).
+   */
+  const setWidth = (w) => {
+    widthRef.current = w;
+    setWidthState(w);
+    const { r, s } = cursorRef.current;
+    if (w === 'full') setCursor({ r, s: s - (s % SLOTS_PER_TILE) });
+    const layer = activeLayer();
+    if (!selectionRef.current.size || layer.kind !== 'pixel') return;
     const d = dataRef.current;
-    if (mode === d.mode) return;
-    commit({ ...d, mode, layers: d.layers.map(l => convertLayerMode(d, l, mode)) });
-    setCursor({ r: cursorRef.current.r, s: 0 });
+    commit(withLayer(d, layer.id, l => setTileWidths(d, l, orderedTiles(selectionRef.current), w)));
   };
 
   // ── Layers ─────────────────────────────────────────────────────────────────
@@ -900,8 +940,8 @@ export default function TileGrid({
             <div className="tg-group tg-group--type" role="group" aria-label="Text">
               <span className="tg-group-label">Text</span>
               <Tile icon="text" label="Text: type on tiles (⌥T)" on={tool === 'text'} onClick={() => setTool('text')} />
-              <Tile icon="one" label="One character per tile" on={data.mode === 'full'} onClick={() => setMode('full')} />
-              <Tile icon="two" label="Two characters per tile" on={data.mode === 'half'} onClick={() => setMode('half')} />
+              <Tile icon="one" label="One wide character per tile: for what you type next, or the selected tiles" on={width === 'full'} onClick={() => setWidth('full')} />
+              <Tile icon="two" label="Two narrow characters per tile: for what you type next, or the selected tiles" on={width === 'half'} onClick={() => setWidth('half')} />
               <span className="tg-gap" />
               <Tile icon="fontPixel" label={`${FONT_NAMES.pixel} font — for the selection or cursor`} on={font === 'pixel'} onClick={() => chooseFont('pixel')} />
               <Tile icon="fontSmooth" label={`${FONT_NAMES.smooth} font — for the selection or cursor`} on={font === 'smooth'} onClick={() => chooseFont('smooth')} />
@@ -1047,7 +1087,7 @@ export default function TileGrid({
       )}
 
       {editing && panel === 'glyphs' && (
-        <GlyphEditor width={data.mode === 'half' ? 8 : 16} glyphs={data.glyphs}
+        <GlyphEditor width={width === 'half' ? 8 : 16} glyphs={data.glyphs}
           onChange={glyphs => commit({ ...dataRef.current, glyphs })} onClose={() => setPanel(null)} />
       )}
     </div>

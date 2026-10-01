@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class ThemeValidatorTest {
 
     private static final String PNG = "data:image/png;base64,iVBORw0KGgo=";
-    private static final String GRID = "{\"cols\":2,\"rows\":2,\"layers\":[{\"id\":\"a1\",\"kind\":\"pixel\",\"paint\":\"" + PNG + "\",\"text\":[\"hi\"],\"style\":{\"0,0\":{\"font\":\"smooth\",\"color\":\"#FF0000\"}}}]}";
+    private static final String GRID = "{\"v\":3,\"cols\":2,\"rows\":2,\"layers\":[{\"id\":\"a1\",\"kind\":\"pixel\",\"paint\":\"" + PNG + "\",\"text\":[\"hi\"],\"style\":{\"0,0\":{\"font\":\"smooth\",\"color\":\"#FF0000\"}}}]}";
     private static final String WALLPAPER = "{\"v\":3,\"tile\":" + GRID + ",\"tiling\":\"brick\",\"scale\":3,\"bg\":\"#123456\"}";
 
     // ── Grids ──
@@ -23,6 +23,26 @@ class ThemeValidatorTest {
     void gridKeepsKnownFields() throws Exception {
         String out = GridValidator.normalise(new ObjectMapper().readTree(GRID), 8, 8).toString();
         assertThat(out).contains("\"paint\":\"" + PNG + "\"", "\"text\":[\"hi\"]", "\"color\":\"#ff0000\"");
+    }
+
+    @Test
+    void gridUpgradesAnOldFullWidthGridSoEachCharacterKeepsItsTile() throws Exception {
+        String old = "{\"cols\":3,\"rows\":1,\"layers\":[{\"id\":\"a1\",\"kind\":\"pixel\",\"text\":[\"a c\"],\"style\":{\"0,2\":{\"font\":\"smooth\"}}}]}";
+        var out = GridValidator.normalise(new ObjectMapper().readTree(old), 8, 8);
+        assertThat(out.path("v").asInt()).isEqualTo(3);
+        assertThat(out.has("mode")).isFalse();
+        var layer = out.path("layers").get(0);
+        assertThat(layer.path("text").get(0).asText()).isEqualTo("a   c");
+        assertThat(layer.path("wide").toString()).isEqualTo("[\"0,0\",\"0,2\"]");
+        assertThat(layer.path("style").has("0,4")).isTrue();
+    }
+
+    @Test
+    void gridKeepsWideTilesInsideTheGridAndTwoSlotsPerTile() throws Exception {
+        String v3 = "{\"v\":3,\"cols\":2,\"rows\":1,\"layers\":[{\"id\":\"a1\",\"kind\":\"pixel\",\"text\":[\"abcdef\"],\"wide\":[\"0,1\",\"0,9\",\"5,0\",\"x\"]}]}";
+        var layer = GridValidator.normalise(new ObjectMapper().readTree(v3), 8, 8).path("layers").get(0);
+        assertThat(layer.path("text").get(0).asText()).isEqualTo("abcd");
+        assertThat(layer.path("wide").toString()).isEqualTo("[\"0,1\"]");
     }
 
     @Test

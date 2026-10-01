@@ -49,8 +49,11 @@ guide/HANDOFF-2026-09-30.txt for production state and open server work.
       works, not for a change; don't modify it unless she asks.
 
 ### P2 — Grid editor
-- [ ] **Per-tile width** (single/double characters change only at the cursor or
-      selection). Done in grid-fixes.patch on the server; needs the patch copied here.
+- [x] **Per-tile width** (single/double characters change only at the cursor or
+      selection): grid v3, each text layer lists its `wide` tiles; older grids upgrade
+      on load and in GridValidator. Written here from the handoff's description, so
+      grid-fixes.patch on the server is superseded: don't apply it.
+- [x] **Typing on a photo layer** (HANDOFF §3a) goes on a text layer above it.
 - [x] **Typing lost after clicking a toolbar button or layer** (focus bug, HANDOFF §3b).
       Buttons no longer take focus; clicking a layer selects it (double-click or F2
       renames); a printable key with another tool picked switches to Text and types.

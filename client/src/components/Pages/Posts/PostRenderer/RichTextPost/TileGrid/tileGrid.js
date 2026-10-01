@@ -35,7 +35,7 @@ export const newLayerId = () => `l${Date.now().toString(36)}${(idCounter++).toSt
 // ── Layers ────────────────────────────────────────────────────────────────────
 
 export function pixelLayer(name = 'Layer', extra = {}) {
-  return { id: newLayerId(), kind: 'pixel', name, visible: true, paint: null, text: [], style: {}, ...extra };
+  return { id: newLayerId(), kind: 'pixel', name, visible: true, paint: null, text: [], style: {}, wide: [], ...extra };
 }
 
 export function photoLayer(src, name = 'Photo') {
@@ -57,10 +57,9 @@ export function solidPaint(cols, rows, colour = '#000000') {
 
 export function defaultGrid(cols = 16, rows = 6) {
   return {
-    v: 2,
+    v: 3,
     cols,
     rows,
-    mode: 'full',
     glyphs: {},
     layers: [
       pixelLayer('Background', { paint: solidPaint(cols, rows) }),
@@ -100,6 +99,7 @@ function cleanLayer(raw) {
     paint: typeof raw.paint === 'string' && raw.paint.startsWith(PNG_DATA) ? raw.paint : null,
     text: Array.isArray(raw.text) ? raw.text.map(r => String(r ?? '')) : [],
     style,
+    wide: Array.isArray(raw.wide) ? [...new Set(raw.wide.filter(k => typeof k === 'string' && /^\d+,\d+$/.test(k)))] : [],
   };
 }
 
@@ -124,19 +124,41 @@ export const EDGES = { smooth: 'Smooth', pixel: 'Pixel' };
 export function normaliseGrid(raw) {
   const r = raw && typeof raw === 'object' ? raw : {};
   const d = {
-    v: 2,
+    v: 3,
     cols: clampInt(r.cols, LIMITS.minCols, LIMITS.maxCols, 16),
     rows: clampInt(r.rows, LIMITS.minRows, LIMITS.maxRows, 6),
-    mode: r.mode === 'half' ? 'half' : 'full',
     glyphs: cleanGlyphs(r.glyphs),
     layers: Array.isArray(r.layers) ? r.layers.map(cleanLayer).filter(Boolean).slice(0, LIMITS.maxLayers) : [],
   };
+  // Before v3 a whole grid was one width; a full-width grid is upgraded so
+  // that each character takes a wide tile of its own.
+  const legacyFull = !(Number(r.v) >= 3) && r.mode !== 'half';
+  d.layers = d.layers.map(l => (l.kind !== 'pixel' ? l
+    : legacyFull ? upgradeFullWidth(l) : { ...l, wide: l.wide.filter(k => inGrid(d, k)) }));
   // How photos and smooth text are drawn (see EDGES); absent, the original look.
   if (EDGES[r.edges]) d.edges = r.edges;
   if (!d.layers.length) d.layers = [pixelLayer('Background')];
   const seen = new Set();
   for (const l of d.layers) { if (seen.has(l.id)) l.id = newLayerId(); seen.add(l.id); }
   return d;
+}
+
+const inGrid = (d, key) => { const [r, c] = key.split(',').map(Number); return r < d.rows && c < d.cols; };
+
+/** A layer from a pre-v3 full-width grid, where character c sat in tile c. */
+function upgradeFullWidth(layer) {
+  const wide = new Set();
+  const text = layer.text.map((row, r) => {
+    const chars = Array.from(row);
+    chars.forEach((ch, c) => { if (ch !== ' ') wide.add(`${r},${c}`); });
+    return chars.flatMap(ch => [ch, ' ']).join('').replace(/ +$/, '');
+  });
+  const style = {};
+  for (const [k, v] of Object.entries(layer.style)) {
+    const [r, s] = k.split(',').map(Number);
+    style[`${r},${s * 2}`] = v;
+  }
+  return { ...layer, text, style, wide: [...wide] };
 }
 
 function clampInt(v, lo, hi, fallback) {
@@ -151,11 +173,17 @@ function clampNum(v, lo, hi, fallback) {
 
 // ── Text slots ────────────────────────────────────────────────────────────────
 
-export const perTile = (d) => (d.mode === 'half' ? 2 : 1);
-export const slotsPerRow = (d) => d.cols * perTile(d);
-/** Width of one character cell in grid pixels. */
-export const slotWidth = (d) => TILE / perTile(d);
+// Text sits in slots, two to a tile (half width). A tile listed in its
+// layer's `wide` holds one full-width character instead, in its first slot.
+// Widths are per tile, so both kinds can share a row.
+
+export const SLOTS_PER_TILE = 2;
+export const slotsPerRow = (d) => d.cols * SLOTS_PER_TILE;
+/** Width of one slot in grid pixels. */
+export const SLOT_W = TILE / SLOTS_PER_TILE;
 export const slotKey = (r, s) => `${r},${s}`;
+export const tileOfSlot = ({ r, s }) => ({ r, c: Math.floor(s / SLOTS_PER_TILE) });
+export const isWide = (layer, r, c) => Boolean(layer.wide && layer.wide.includes(`${r},${c}`));
 
 /** The characters of a layer's row, padded with spaces to the full slot count. Code-point safe. */
 export function rowChars(d, layer, r) {
@@ -166,8 +194,51 @@ export function rowChars(d, layer, r) {
 }
 
 /**
- * Writes one character (and optionally its style) into a pixel layer, and
- * returns the changed layer. A space clears the slot and its style.
+ * Types one character at a slot, full or half width, and returns the changed
+ * layer. Full width takes the whole tile (the slot snaps to its first half);
+ * half width makes a wide tile narrow again, its character keeping the first
+ * half. A space clears what is there.
+ */
+export function writeChar(d, layer, r, s, ch, style, width = 'half') {
+  const c = Math.floor(s / SLOTS_PER_TILE);
+  const first = c * SLOTS_PER_TILE;
+  const key = `${r},${c}`;
+  const others = (layer.wide || []).filter(k => k !== key);
+  if (width === 'full') {
+    let l = writeSlot(d, layer, r, first + 1, ' ');
+    l = writeSlot(d, l, r, first, ch, style);
+    return { ...l, wide: ch === ' ' ? others : [...others, key] };
+  }
+  const wasWide = others.length !== (layer.wide || []).length;
+  const l = writeSlot(d, wasWide ? { ...layer, wide: others } : layer, r, s, ch, style);
+  return l;
+}
+
+/** Sets the width of whole tiles, keeping each tile's first character. */
+export function setTileWidths(d, layer, tiles, width) {
+  if (layer.kind !== 'pixel') return layer;
+  let l = layer;
+  const wide = new Set(layer.wide || []);
+  for (const { r, c } of tiles) {
+    const key = `${r},${c}`;
+    if (width === 'half') { wide.delete(key); continue; }
+    if (wide.has(key)) continue;
+    const first = c * SLOTS_PER_TILE;
+    const chars = rowChars(d, l, r);
+    const keep = chars[first] !== ' ' ? first : chars[first + 1] !== ' ' ? first + 1 : -1;
+    if (keep === first + 1) {
+      const style = l.style[slotKey(r, keep)];
+      l = writeSlot(d, l, r, first, chars[keep], style);
+    }
+    l = writeSlot(d, l, r, first + 1, ' ');
+    if (keep !== -1) wide.add(key);
+  }
+  return { ...l, wide: [...wide] };
+}
+
+/**
+ * Writes one character (and optionally its style) into a slot, and returns
+ * the changed layer. A space clears the slot and its style.
  */
 export function writeSlot(d, layer, r, s, ch, style) {
   const text = layer.text.slice();
@@ -188,37 +259,18 @@ export function restyleSlots(layer, slots, style) {
   return { ...layer, style: next };
 }
 
-/**
- * Switching modes keeps each tile's content in place: a full-width character
- * becomes the first half of its tile; going back keeps the first half.
- */
-export function convertLayerMode(d, layer, mode) {
-  if (mode === d.mode || layer.kind !== 'pixel') return layer;
-  const text = layer.text.map((row, r) => {
-    const chars = rowChars(d, layer, r);
-    const out = mode === 'half' ? chars.flatMap(ch => [ch, ' ']) : chars.filter((_, i) => i % 2 === 0);
-    return out.join('').replace(/ +$/, '');
-  });
-  const style = {};
-  for (const [k, v] of Object.entries(layer.style)) {
-    const [r, s] = k.split(',').map(Number);
-    if (mode === 'half') style[slotKey(r, s * 2)] = v;
-    else if (s % 2 === 0) style[slotKey(r, s / 2)] = v;
-  }
-  return { ...layer, text, style };
-}
-
 /** Cuts a layer's text to a new size; paint is resized separately, anchored top-left. */
 export function resizeLayerText(d, layer, cols, rows) {
   if (layer.kind !== 'pixel') return layer;
-  const n = cols * perTile(d);
+  const n = cols * SLOTS_PER_TILE;
   const text = layer.text.slice(0, rows).map(row => Array.from(row).slice(0, n).join('').replace(/ +$/, ''));
   const style = {};
   for (const [k, v] of Object.entries(layer.style)) {
     const [r, s] = k.split(',').map(Number);
     if (r < rows && s < n) style[k] = v;
   }
-  return { ...layer, text, style };
+  const wide = (layer.wide || []).filter(k => { const [r, c] = k.split(',').map(Number); return r < rows && c < cols; });
+  return { ...layer, text, style, wide };
 }
 
 // ── Typing direction ──────────────────────────────────────────────────────────
@@ -235,12 +287,13 @@ export const DIRECTIONS = {
  * direction, and line after line across it. For "right" that is left to
  * right, then down; for "down" it is top to bottom, then right.
  */
-export function orderSlots(slots, direction) {
+export function orderSlots(slots, direction, step = 1) {
   const [dr, ds] = DIRECTIONS[direction] || DIRECTIONS.right;
-  const along = ({ r, s }) => r * dr + s * ds;
+  // `step` slots make one column: 2 when typing full width, a tile at a time.
+  const along = ({ r, s }) => r * dr + (s / step) * ds;
   // Lines run across the direction, visited top-to-bottom / left-to-right:
   // rows for horizontal typing, columns for vertical, diagonals for diagonal.
-  const across = ({ r, s }) => (dr === 0 ? r : ds === 0 ? s : dr * ds > 0 ? s - r : s + r);
+  const across = ({ r, s }) => { const x = s / step; return dr === 0 ? r : ds === 0 ? x : dr * ds > 0 ? x - r : x + r; };
   return slots.slice().sort((a, b) => across(a) - across(b) || along(a) - along(b));
 }
 
@@ -386,15 +439,16 @@ export function orderedTiles(selection) {
   return [...selection].map(parseTileKey).sort((a, b) => a.r - b.r || a.c - b.c);
 }
 
-/** Every text slot inside a set of tiles (or the whole grid when there is none). */
-export function slotsIn(d, selection) {
-  const n = perTile(d);
+/**
+ * Every text slot inside a set of tiles (or the whole grid when there is
+ * none): both halves of each tile, or only the first when typing full width.
+ */
+export function slotsIn(d, selection, width = 'half') {
+  const n = width === 'full' ? 1 : SLOTS_PER_TILE;
+  const tiles = selection && selection.size ? orderedTiles(selection)
+    : Array.from({ length: d.rows * d.cols }, (_, i) => ({ r: Math.floor(i / d.cols), c: i % d.cols }));
   const slots = [];
-  if (selection && selection.size) {
-    for (const { r, c } of orderedTiles(selection)) for (let i = 0; i < n; i++) slots.push({ r, s: c * n + i });
-  } else {
-    for (let r = 0; r < d.rows; r++) for (let s = 0; s < slotsPerRow(d); s++) slots.push({ r, s });
-  }
+  for (const { r, c } of tiles) for (let i = 0; i < n; i++) slots.push({ r, s: c * SLOTS_PER_TILE + i });
   return slots;
 }
 
@@ -448,8 +502,9 @@ export function renderGrid(ctx, d, assets = {}, view = {}) {
   if (view.selection && view.selection.size) drawSelection(ctx, view.selection, view.moveBy);
 
   if (view.cursor) {
-    const sw = slotWidth(d);
-    const { r, s } = view.cursor;
+    const sw = view.cursorWide ? TILE : SLOT_W;
+    const { r } = view.cursor;
+    const s = view.cursorWide ? view.cursor.s - (view.cursor.s % SLOTS_PER_TILE) : view.cursor.s;
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 2 / SCALE;
     ctx.strokeRect(s * sw + 0.25, r * TILE + 0.25, sw - 0.5, TILE - 0.5);
@@ -491,20 +546,24 @@ function drawSelection(ctx, selection, moveBy) {
 }
 
 function drawLayerText(ctx, d, layer) {
-  const sw = slotWidth(d);
   for (let r = 0; r < d.rows; r++) {
     const chars = rowChars(d, layer, r);
-    for (let s = 0; s < chars.length; s++) {
-      const ch = chars[s];
-      if (ch === ' ') continue;
-      const style = layer.style[slotKey(r, s)] || {};
-      ctx.fillStyle = style.color || '#ffffff';
-      const x = s * sw;
-      const y = r * TILE;
-      if (d.glyphs[ch]) drawCustomGlyph(ctx, d.glyphs[ch], x, y, sw);
-      else if (style.font !== 'smooth' && pixelGlyph(ch)) drawPixelGlyph(ctx, pixelGlyph(ch), x, y, sw);
-      else if (d.edges === 'pixel') drawPixelatedChar(ctx, ch, x, y, sw);
-      else drawSmoothChar(ctx, ch, x, y, sw);
+    for (let c = 0; c < d.cols; c++) {
+      const wide = isWide(layer, r, c);
+      for (let i = 0; i < (wide ? 1 : SLOTS_PER_TILE); i++) {
+        const s = c * SLOTS_PER_TILE + i;
+        const ch = chars[s];
+        if (ch === ' ') continue;
+        const sw = wide ? TILE : SLOT_W;
+        const style = layer.style[slotKey(r, s)] || {};
+        ctx.fillStyle = style.color || '#ffffff';
+        const x = s * SLOT_W;
+        const y = r * TILE;
+        if (d.glyphs[ch]) drawCustomGlyph(ctx, d.glyphs[ch], x, y, sw);
+        else if (style.font !== 'smooth' && pixelGlyph(ch)) drawPixelGlyph(ctx, pixelGlyph(ch), x, y, sw);
+        else if (d.edges === 'pixel') drawPixelatedChar(ctx, ch, x, y, sw);
+        else drawSmoothChar(ctx, ch, x, y, sw);
+      }
     }
   }
 }

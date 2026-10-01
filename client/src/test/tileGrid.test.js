@@ -1,19 +1,19 @@
 import { describe, it, expect } from 'vitest';
 import {
-  normaliseGrid, pixelLayer, rowChars, writeSlot, restyleSlots, convertLayerMode, resizeLayerText,
+  normaliseGrid, pixelLayer, rowChars, writeSlot, writeChar, setTileWidths, isWide, restyleSlots, resizeLayerText,
   orderSlots, slotsIn, containRect, bitsFromHex, hexFromBits, seedBits, slotsPerRow, LIMITS,
   photoRect, resizePhoto, zoomPhoto, PHOTO_SCALE,
 } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
 import { pixelGlyph } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileFont.js';
 
-const grid = (extra = {}) => normaliseGrid({ cols: 4, rows: 3, layers: [pixelLayer('A')], ...extra });
+const grid = (extra = {}) => normaliseGrid({ v: 3, cols: 4, rows: 3, layers: [pixelLayer('A')], ...extra });
 
 describe('grid data', () => {
   it('fills in defaults and clamps sizes', () => {
     const d = normaliseGrid({ cols: 999, rows: -3, mode: 'weird' });
     expect(d.cols).toBe(64);
     expect(d.rows).toBe(1);
-    expect(d.mode).toBe('full');
+    expect(d.v).toBe(3);
     expect(d.layers).toHaveLength(1);
   });
 
@@ -40,9 +40,29 @@ describe('grid data', () => {
     expect(d.layers[0].style).toEqual({ '0,0': { font: 'smooth' } });
   });
 
-  it('has two slots per tile in double-char mode', () => {
-    expect(slotsPerRow(grid({ mode: 'full' }))).toBe(4);
-    expect(slotsPerRow(grid({ mode: 'half' }))).toBe(8);
+  it('has two slots per tile, whatever widths its tiles have', () => {
+    expect(slotsPerRow(grid())).toBe(8);
+  });
+
+  it('upgrades an old full-width grid so each character keeps its tile, wide', () => {
+    const old = normaliseGrid({ v: 2, mode: 'full', cols: 3, rows: 1, layers: [{ id: 'a', kind: 'pixel', text: ['a c'], style: { '0,2': { font: 'smooth' } } }] });
+    const l = old.layers[0];
+    expect(rowChars(old, l, 0)).toEqual(['a', ' ', ' ', ' ', 'c', ' ']);
+    expect(l.wide.sort()).toEqual(['0,0', '0,2']);
+    expect(l.style).toEqual({ '0,4': { font: 'smooth' } });
+  });
+
+  it('keeps an old half-width grid as it was, and a grid without a version counts as old', () => {
+    const half = normaliseGrid({ v: 2, mode: 'half', cols: 2, rows: 1, layers: [{ id: 'a', kind: 'pixel', text: ['abcd'] }] });
+    expect(half.layers[0].text).toEqual(['abcd']);
+    expect(half.layers[0].wide).toEqual([]);
+    const unversioned = normaliseGrid({ cols: 2, rows: 1, layers: [{ id: 'a', kind: 'pixel', text: ['ab'] }] });
+    expect(unversioned.layers[0].text).toEqual(['a b']);
+  });
+
+  it('drops wide tiles outside the grid or malformed', () => {
+    const d = normaliseGrid({ v: 3, cols: 2, rows: 1, layers: [{ id: 'a', kind: 'pixel', wide: ['0,1', '0,5', '3,0', 'x', 7] }] });
+    expect(d.layers[0].wide).toEqual(['0,1']);
   });
 });
 
@@ -52,7 +72,7 @@ describe('text on a layer', () => {
     const l = writeSlot(d, d.layers[0], 1, 2, 'x', { font: 'smooth', color: '#ff0000' });
     expect(l.text).toEqual(['', '  x']);
     expect(l.style['1,2']).toEqual({ font: 'smooth', color: '#ff0000' });
-    expect(rowChars(d, l, 1)).toEqual([' ', ' ', 'x', ' ']);
+    expect(rowChars(d, l, 1)).toEqual([' ', ' ', 'x', ' ', ' ', ' ', ' ', ' ']);
   });
 
   it('clears a slot and its style with a space', () => {
@@ -71,34 +91,69 @@ describe('text on a layer', () => {
     expect(l.style['0,1'].font).toBe('smooth');
   });
 
-  it('keeps each tile in place when switching modes', () => {
+  it('types full and half width side by side, each tile its own width', () => {
     const d = grid({ cols: 3 });
-    const l = { ...d.layers[0], text: ['abc'], style: { '0,1': { font: 'smooth' } } };
-    const half = convertLayerMode(d, l, 'half');
-    expect(half.text).toEqual(['a b c']);
-    expect(half.style['0,2']).toEqual({ font: 'smooth' });
+    let l = writeChar(d, d.layers[0], 0, 0, 'W', null, 'full');
+    l = writeChar(d, l, 0, 2, 'a', null, 'half');
+    l = writeChar(d, l, 0, 3, 'b', null, 'half');
+    expect(rowChars(d, l, 0).join('')).toBe('W ab  ');
+    expect(isWide(l, 0, 0)).toBe(true);
+    expect(isWide(l, 0, 1)).toBe(false);
+    // Full width snaps to the tile's first half and clears the second.
+    l = writeChar(d, l, 0, 3, 'X', null, 'full');
+    expect(rowChars(d, l, 0).join('')).toBe('W X   ');
+    expect(isWide(l, 0, 1)).toBe(true);
+  });
+
+  it('makes a wide tile narrow when typed into at half width, and clears it with a space', () => {
+    const d = grid();
+    let l = writeChar(d, d.layers[0], 0, 0, 'W', null, 'full');
+    l = writeChar(d, l, 0, 1, 'z', null, 'half');
+    expect(isWide(l, 0, 0)).toBe(false);
+    expect(rowChars(d, l, 0).slice(0, 2)).toEqual(['W', 'z']);
+    l = writeChar(d, writeChar(d, l, 0, 0, 'Q', null, 'full'), 0, 0, ' ', null, 'full');
+    expect(isWide(l, 0, 0)).toBe(false);
+    expect(rowChars(d, l, 0).slice(0, 2)).toEqual([' ', ' ']);
+  });
+
+  it('changes only the chosen tiles\' widths, keeping their first character', () => {
+    const d = grid();
+    let l = { ...d.layers[0], text: ['ab cdef'], style: { '0,3': { color: '#ff0000' } } };
+    l = setTileWidths(d, l, [{ r: 0, c: 0 }, { r: 0, c: 1 }], 'full');
+    expect(rowChars(d, l, 0).join('')).toBe('a c def ');
+    expect(l.style['0,2']).toEqual({ color: '#ff0000' });
+    expect(l.wide.sort()).toEqual(['0,0', '0,1']);
+    l = setTileWidths(d, l, [{ r: 0, c: 1 }], 'half');
+    expect(l.wide).toEqual(['0,0']);
+    expect(rowChars(d, l, 0).join('')).toBe('a c def ');
   });
 
   it('cuts text and styles when the grid shrinks', () => {
     const d = grid({ cols: 5 });
     const l = { ...d.layers[0], text: ['hello', 'world', 'again'], style: { '2,0': { font: 'smooth' } } };
-    const small = resizeLayerText(d, l, 3, 2);
-    expect(small.text).toEqual(['hel', 'wor']);
+    const small = resizeLayerText(d, { ...l, wide: ['0,1', '0,4'] }, 2, 2);
+    expect(small.text).toEqual(['hell', 'worl']);
     expect(small.style).toEqual({});
+    expect(small.wide).toEqual(['0,1']);
   });
 });
 
 describe('typing direction', () => {
-  const d = normaliseGrid({ cols: 3, rows: 2 });
-  const all = slotsIn(d, null);
-  const seq = (dir) => orderSlots(all, dir).map(({ r, s }) => `${r}${s}`).join(' ');
+  // Full width: one slot per tile (the first), visited a tile at a time.
+  const d = normaliseGrid({ v: 3, cols: 3, rows: 2 });
+  const all = slotsIn(d, null, 'full');
+  const seq = (dir) => orderSlots(all, dir, 2).map(({ r, s }) => `${r}${s / 2}`).join(' ');
 
   it('goes left to right, then down', () => expect(seq('right')).toBe('00 01 02 10 11 12'));
   it('goes right to left, then down', () => expect(seq('left')).toBe('02 01 00 12 11 10'));
   it('goes top to bottom, then right', () => expect(seq('down')).toBe('00 10 01 11 02 12'));
   it('goes bottom to top, then right', () => expect(seq('up')).toBe('10 00 11 01 12 02'));
+  it('visits both halves of each tile at half width', () => {
+    const half = orderSlots(slotsIn(d, null, 'half'), 'right').map(({ r, s }) => `${r}${s}`).join(' ');
+    expect(half).toBe('00 01 02 03 04 05 10 11 12 13 14 15');
+  });
   it('runs along diagonals', () => {
-    const order = orderSlots(all, 'down-right');
+    const order = orderSlots(slotsIn(d, null, 'half'), 'down-right');
     for (let i = 1; i < order.length; i++) {
       const [a, b] = [order[i - 1], order[i]];
       if (a.s - a.r === b.s - b.r) expect(b.r - a.r).toBe(1);

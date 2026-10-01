@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -48,11 +49,14 @@ public final class GridValidator {
         ObjectNode out = MAPPER.createObjectNode();
         int cols = clampInt(in.path("cols"), 1, maxCols, Math.min(16, maxCols));
         int rows = clampInt(in.path("rows"), 1, maxRows, Math.min(6, maxRows));
-        String mode = "half".equals(in.path("mode").asText()) ? "half" : "full";
-        out.put("v", 2);
+        // v3 sets each tile's width on its own: text is kept two slots to a
+        // tile, and a layer's "wide" tiles hold one full-width character. A
+        // grid from before (no v, or v < 3) was all one width, its "mode";
+        // a full-width one is upgraded so each character keeps its tile.
+        boolean legacyFull = in.path("v").asInt(0) < 3 && !"half".equals(in.path("mode").asText());
+        out.put("v", 3);
         out.put("cols", cols);
         out.put("rows", rows);
-        out.put("mode", mode);
         // How photos and smooth text are drawn: "smooth" (antialiased) or "pixel"
         // (snapped to the grid's pixels). Absent keeps the original look.
         String edges = in.path("edges").asText();
@@ -63,11 +67,10 @@ public final class GridValidator {
         ArrayNode layers = out.putArray("layers");
         JsonNode inLayers = in.path("layers");
         Set<String> ids = new HashSet<>();
-        int slotsPerRow = cols * ("half".equals(mode) ? 2 : 1);
         if (inLayers.isArray()) {
             for (JsonNode l : inLayers) {
                 if (layers.size() >= MAX_LAYERS) break;
-                ObjectNode layer = normaliseLayer(l, rows, slotsPerRow);
+                ObjectNode layer = normaliseLayer(l, rows, cols, legacyFull);
                 if (layer == null) continue;
                 String id = layer.path("id").asText();
                 if (!ids.add(id)) continue;
@@ -95,7 +98,7 @@ public final class GridValidator {
         return glyphs;
     }
 
-    private static ObjectNode normaliseLayer(JsonNode l, int rows, int slotsPerRow) throws InvalidGridException {
+    private static ObjectNode normaliseLayer(JsonNode l, int rows, int cols, boolean legacyFull) throws InvalidGridException {
         if (!l.isObject()) return null;
         String id = l.path("id").asText("");
         if (!LAYER_ID.matcher(id).matches()) return null;
@@ -127,14 +130,31 @@ public final class GridValidator {
         }
 
         ArrayNode text = out.putArray("text");
+        Set<String> wide = new LinkedHashSet<>();
         JsonNode inText = l.path("text");
         if (inText.isArray()) {
             for (int r = 0; r < inText.size() && r < rows; r++) {
                 String row = inText.get(r).asText("");
-                int end = row.offsetByCodePoints(0, Math.min(row.codePointCount(0, row.length()), slotsPerRow));
-                text.add(row.substring(0, end));
+                int[] chars = row.codePoints().limit(legacyFull ? cols : cols * 2L).toArray();
+                if (!legacyFull) { text.add(new String(chars, 0, chars.length)); continue; }
+                StringBuilder upgraded = new StringBuilder();
+                for (int c = 0; c < chars.length; c++) {
+                    upgraded.appendCodePoint(chars[c]).append(' ');
+                    if (chars[c] != ' ') wide.add(r + "," + c);
+                }
+                text.add(upgraded.toString().replaceAll(" +$", ""));
             }
         }
+        if (!legacyFull && l.path("wide").isArray()) {
+            for (JsonNode k : l.path("wide")) {
+                String key = k.asText("");
+                if (!SLOT.matcher(key).matches()) continue;
+                String[] rc = key.split(",");
+                if (Integer.parseInt(rc[0]) < rows && Integer.parseInt(rc[1]) < cols) wide.add(key);
+            }
+        }
+        ArrayNode wideOut = out.putArray("wide");
+        wide.forEach(wideOut::add);
 
         ObjectNode style = out.putObject("style");
         JsonNode inStyle = l.path("style");
@@ -147,7 +167,14 @@ public final class GridValidator {
                 if (font.equals("pixel") || font.equals("smooth")) s.put("font", font);
                 String color = e.getValue().path("color").asText("");
                 if (HEX.matcher(color).matches()) s.put("color", color.toLowerCase());
-                if (!s.isEmpty()) style.set(e.getKey(), s);
+                if (s.isEmpty()) continue;
+                if (legacyFull) {
+                    // The character moved from slot s to slot 2s.
+                    String[] rs = e.getKey().split(",");
+                    style.set(rs[0] + "," + (Integer.parseInt(rs[1]) * 2), s);
+                } else {
+                    style.set(e.getKey(), s);
+                }
             }
         }
         return out;
