@@ -289,6 +289,47 @@ export function containRect(imgW, imgH, areaW, areaH, scale = 1, x = 0, y = 0) {
   return { x: (areaW - w) / 2 + x, y: (areaH - h) / 2 + y, w, h };
 }
 
+/** Limits on a photo layer's scale, the same as GridValidator's. */
+export const PHOTO_SCALE = { min: 0.05, max: 8 };
+
+/** A photo layer's rectangle on the grid, in grid pixels. */
+export function photoRect(layer, natural, d) {
+  return containRect(natural.w, natural.h, d.cols * TILE, d.rows * TILE, layer.scale, layer.x, layer.y);
+}
+
+/**
+ * The scale and offset that put a photo's dragged corner under the pointer
+ * while the opposite corner stays put. The photo keeps its proportions:
+ * whichever way the pointer has gone further, across or down, sets the size.
+ *
+ * `corner` is 'nw', 'ne', 'sw' or 'se'; `pointer` is in grid pixels.
+ */
+export function resizePhoto(layer, natural, d, corner, pointer) {
+  const W = d.cols * TILE, H = d.rows * TILE;
+  const r = photoRect(layer, natural, d);
+  const left = corner.endsWith('w'), top = corner.startsWith('n');
+  const ax = left ? r.x + r.w : r.x;   // the corner that stays put
+  const ay = top ? r.y + r.h : r.y;
+  const aspect = r.w / r.h;
+  const across = (left ? ax - pointer.x : pointer.x - ax);
+  const down = (top ? ay - pointer.y : pointer.y - ay) * aspect;
+  const unit = r.w / layer.scale;      // the photo's width at scale 1
+  const scale = Math.min(PHOTO_SCALE.max, Math.max(PHOTO_SCALE.min, Math.max(across, down) / unit));
+  const w = unit * scale, h = w / aspect;
+  const x0 = left ? ax - w : ax, y0 = top ? ay - h : ay;
+  return {
+    scale: Math.round(scale * 1000) / 1000,
+    x: Math.round(x0 - (W - w) / 2),
+    y: Math.round(y0 - (H - h) / 2),
+  };
+}
+
+/** A photo scaled by a factor about its centre, as the + and − buttons do. */
+export function zoomPhoto(layer, factor) {
+  const scale = Math.min(PHOTO_SCALE.max, Math.max(PHOTO_SCALE.min, layer.scale * factor));
+  return { scale: Math.round(scale * 1000) / 1000 };
+}
+
 /**
  * Reduces a loaded photo to grid pixels at its scale, so it reads as part of
  * the pixel art. Drawn at its offset by the renderer.

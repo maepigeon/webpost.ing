@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   normaliseGrid, pixelLayer, rowChars, writeSlot, restyleSlots, convertLayerMode, resizeLayerText,
   orderSlots, slotsIn, containRect, bitsFromHex, hexFromBits, seedBits, slotsPerRow, LIMITS,
+  photoRect, resizePhoto, zoomPhoto, PHOTO_SCALE,
 } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
 import { pixelGlyph } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileFont.js';
 
@@ -137,5 +138,43 @@ describe('pixel font', () => {
     expect(pixelGlyph(' ').every(b => b === 0)).toBe(true);
     expect(pixelGlyph('~').some(Boolean)).toBe(true);
     expect(pixelGlyph('é')).toBeNull();
+  });
+});
+
+describe('resizing a photo layer by its corners', () => {
+  // A 10×4 grid is 160×64 grid pixels; a 200×100 photo fits it at 128×64.
+  const d = { cols: 10, rows: 4 };
+  const natural = { w: 200, h: 100 };
+  const photo = (extra = {}) => ({ kind: 'photo', scale: 1, x: 0, y: 0, ...extra });
+  const near = (a, b) => expect(Math.abs(a - b)).toBeLessThanOrEqual(1);
+
+  it('keeps the opposite corner where it was', () => {
+    const before = photoRect(photo(), natural, d);
+    const next = resizePhoto(photo(), natural, d, 'se', { x: before.x + 64, y: before.y + 32 });
+    const after = photoRect(photo(next), natural, d);
+    near(after.x, before.x); near(after.y, before.y);
+    near(after.w, 64); near(after.h, 32);
+    expect(next.scale).toBeCloseTo(0.5, 2);
+
+    const grown = resizePhoto(photo(), natural, d, 'nw', { x: before.x - 64, y: before.y });
+    const big = photoRect(photo(grown), natural, d);
+    near(big.x + big.w, before.x + before.w); near(big.y + big.h, before.y + before.h);
+    near(big.w, 192);
+  });
+
+  it('keeps the proportions, following whichever way the pointer went further', () => {
+    const before = photoRect(photo(), natural, d);
+    const next = resizePhoto(photo(), natural, d, 'se', { x: before.x + 10, y: before.y + 50 });
+    const after = photoRect(photo(next), natural, d);
+    near(after.w / after.h, 2);
+    near(after.h, 50);
+  });
+
+  it('stays within the scale limits', () => {
+    const r = photoRect(photo(), natural, d);
+    expect(resizePhoto(photo(), natural, d, 'se', { x: r.x - 500, y: r.y - 500 }).scale).toBe(PHOTO_SCALE.min);
+    expect(resizePhoto(photo(), natural, d, 'se', { x: r.x + 99999, y: r.y }).scale).toBe(PHOTO_SCALE.max);
+    expect(zoomPhoto(photo({ scale: 7.9 }), 1.25).scale).toBe(PHOTO_SCALE.max);
+    expect(zoomPhoto(photo(), 0.8).scale).toBeCloseTo(0.8);
   });
 });

@@ -11,6 +11,8 @@
 
 /* A checkerboard behind the canvas, so transparent pixels read as transparent
    while editing; in a post the page shows through instead. */
+.tilegrid-stage { position: relative; }
+
 .tilegrid--editing .tilegrid-stage {
   background-color: #d8d8d8;
   background-image:
@@ -185,9 +187,35 @@
 .tg-texture img { image-rendering: pixelated; border-radius: 2px; }
 
 .tg-photo { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.tg-photo label { display: inline-flex; align-items: center; gap: 6px; color: #9a9a9a; font-weight: 700; }
-.tg-photo input[type="range"] { width: 120px; }
-.tg-photo span { color: #e6e6e6; font-variant-numeric: tabular-nums; }
+
+/* The active photo's outline and corner handles, drawn over the canvas. */
+.tg-photo-box {
+  position: absolute;
+  outline: 1px dashed #fff;
+  box-shadow: 0 0 0 1px #000;
+  pointer-events: none;   /* dragging inside still moves the photo */
+}
+.tg-photo-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border: 2px solid #111;
+  box-sizing: border-box;
+  pointer-events: auto;
+  touch-action: none;
+}
+.tg-photo-handle--nw { top: -6px;    left: -6px;  cursor: nwse-resize; }
+.tg-photo-handle--ne { top: -6px;    right: -6px; cursor: nesw-resize; }
+.tg-photo-handle--sw { bottom: -6px; left: -6px;  cursor: nesw-resize; }
+.tg-photo-handle--se { bottom: -6px; right: -6px; cursor: nwse-resize; }
+@media (pointer: coarse) {
+  .tg-photo-handle { width: 20px; height: 20px; }
+  .tg-photo-handle--nw, .tg-photo-handle--ne { top: -10px; }
+  .tg-photo-handle--sw, .tg-photo-handle--se { bottom: -10px; }
+  .tg-photo-handle--nw, .tg-photo-handle--sw { left: -10px; }
+  .tg-photo-handle--ne, .tg-photo-handle--se { right: -10px; }
+}
 
 .tg-status { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
 .tg-hint { color: #8c8c8c; font-size: 11px; flex: 1; min-width: 0; }

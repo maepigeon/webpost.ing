@@ -63,12 +63,14 @@ guide/HANDOFF-2026-09-30.txt for production state and open server work.
 - [ ] **Bake a photo layer** at the grid's pixel resolution.
 - [ ] **Links in grids**: a run of tiles can carry a link; external links ask first.
 - [~] Fewer sliders: buttons and dropdowns instead, across the UI. Done: theme
-      editor, wallpaper pixel size, code block sizes. Left: the grid editor's photo scale.
+      editor, wallpaper pixel size, code block sizes. The grid editor's photo scale slider is gone too.
 
 ### P2 — Post editor
 - [x] **Toolbar as a tidy grid**: headings in one "Heading" dropdown (H1/H2/H3),
       OL UL Link Image Code Math Grid, Post link, Style, Page grouped.
-- [ ] **Image resize by handles** on the image, not a percentage.
+- [x] **Image resize by handles** on the image, not a percentage: post images
+      (four corners, touch, arrow keys) and grid photo layers (corner handles,
+      − / + buttons; the percentage slider is gone).
 
 ### P3 — Features **[needs decision]** before building
 - [x] **Per-post themes** (V009): posts keep their own theme; changing the profile

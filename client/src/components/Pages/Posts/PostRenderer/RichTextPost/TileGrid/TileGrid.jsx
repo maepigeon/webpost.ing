@@ -5,7 +5,7 @@ import { normaliseUploadResponse, describeUploadError } from '../../../../../../
 import {
   TILE, SCALE, LIMITS, FONT_NAMES, DIRECTIONS, normaliseGrid, pixelLayer, photoLayer,
   perTile, slotsPerRow, slotWidth, rowChars, writeSlot, restyleSlots, convertLayerMode, resizeLayerText,
-  orderSlots, slotsIn, renderGrid, pixelatePhoto, tileKey, rectTiles, combineSelection, orderedTiles,
+  orderSlots, slotsIn, renderGrid, pixelatePhoto, photoRect, resizePhoto, zoomPhoto, tileKey, rectTiles, combineSelection, orderedTiles,
 } from './tileGrid.js';
 import { TEXTURES, fillTexture, texturePreview, DEFAULT_PAW_OPTIONS } from './textures.js';
 import PawOptions from '../../../../../TileArt/PawOptions.jsx';
@@ -120,7 +120,7 @@ export default function TileGrid({
   const canvasRef = useRef(null);
   const typeRef = useRef(null);
   const paints = useRef({});    // layer id → { src, canvas }
-  const photos = useRef({});    // layer id → { key, photo }
+  const photos = useRef({});    // layer id → { key, photo, natural }
   const clipboard = useRef(null);
   const [, redraw] = useState(0);
   const bump = () => redraw(n => n + 1);
@@ -138,6 +138,8 @@ export default function TileGrid({
   const [selection, setSelectionState] = useState(EMPTY);
   const setSelection = (s) => { selectionRef.current = s; setSelectionState(s); };
   const [moveBy, setMoveBy] = useState(null);
+  // A photo corner being dragged: the scale and offset it would have now.
+  const [photoResize, setPhotoResize] = useState(null);
   const [panel, setPanel] = useState(null);   // 'texture' | 'glyphs' | null
   const [pawOptions, setPawOptions] = useState(DEFAULT_PAW_OPTIONS);
   const [uploading, setUploading] = useState(false);
@@ -148,8 +150,12 @@ export default function TileGrid({
 
   // ── Assets ─────────────────────────────────────────────────────────────────
 
+  // A load that finishes after the grid has changed still lands, as long as the
+  // layer still wants that image: the canvas or key checks below say so. (It
+  // used to be dropped whenever the grid changed while it loaded, and as the
+  // layer was by then marked loaded it was never tried again: a photo stayed
+  // blank, and a painted layer's next edit saved over its pixels.)
   useEffect(() => {
-    let cancelled = false;
     for (const layer of data.layers) {
       if (layer.kind !== 'pixel') continue;
       const have = paints.current[layer.id];
@@ -159,7 +165,7 @@ export default function TileGrid({
       paints.current[layer.id] = { src: layer.paint, canvas };
       if (!layer.paint) continue;
       loadImage(layer.paint).then(img => {
-        if (cancelled || paints.current[layer.id]?.canvas !== canvas) return;
+        if (paints.current[layer.id]?.canvas !== canvas) return;
         canvas.getContext('2d').drawImage(img, 0, 0);
         bump();
       }).catch(() => {});
@@ -170,12 +176,12 @@ export default function TileGrid({
       if (photos.current[layer.id]?.key === key) continue;
       photos.current[layer.id] = { key, photo: null };
       loadImage(IMAGES_BASE_URL + layer.src).then(img => {
-        if (cancelled || photos.current[layer.id]?.key !== key) return;
+        if (photos.current[layer.id]?.key !== key) return;
         photos.current[layer.id].photo = pixelatePhoto(img, data, layer);
+        photos.current[layer.id].natural = { w: img.naturalWidth || img.width, h: img.naturalHeight || img.height };
         bump();
       }).catch(() => {});
     }
-    return () => { cancelled = true; };
   }, [data]);
 
   useEffect(() => {
@@ -391,6 +397,37 @@ export default function TileGrid({
   const applyLayer = (d, layer) => {
     const next = withLayer(d, layer.id, () => layer);
     return paintCanvas(layer.id) ? savePaint(next, layer.id) : next;
+  };
+
+  /**
+   * Drag a corner of the active photo to resize it; the opposite corner stays
+   * put. The outline follows the pointer and the photo is redrawn on release.
+   */
+  const startPhotoResize = (e, corner) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const layer = activeLayer();
+    const natural = photos.current[layer.id]?.natural;
+    if (layer.kind !== 'photo' || !natural) return;
+    const handle = e.currentTarget;
+    handle.setPointerCapture?.(e.pointerId);
+    const at = (ev) => {
+      const p = toGrid(ev);
+      return resizePhoto(layer, natural, dataRef.current, corner, { x: p.fx, y: p.fy });
+    };
+    const onMove = (ev) => setPhotoResize({ layerId: layer.id, ...at(ev) });
+    const onUp = (ev) => {
+      handle.removeEventListener('pointermove', onMove);
+      handle.removeEventListener('pointerup', onUp);
+      handle.removeEventListener('pointercancel', onUp);
+      setPhotoResize(null);
+      const next = at(ev);
+      commit(withLayer(dataRef.current, layer.id, l => ({ ...l, ...next })));
+      typeRef.current?.focus();
+    };
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('pointerup', onUp);
+    handle.addEventListener('pointercancel', onUp);
   };
 
   /** Moves whatever is selected on the active layer — or the whole layer, or the photo. */
@@ -646,9 +683,25 @@ export default function TileGrid({
   const canvasCursor = !editing ? 'default'
     : { text: 'text', select: 'cell', move: 'move', fill: 'copy' }[tool] || 'crosshair';
   const isPixel = active?.kind === 'pixel';
+  // The active photo's outline and corner handles, over the canvas.
+  const photoBox = (() => {
+    if (!editing || active?.kind !== 'photo' || !active.visible) return null;
+    const natural = photos.current[active.id]?.natural;
+    if (!natural) return null;
+    const shown = photoResize?.layerId === active.id ? { ...active, ...photoResize } : active;
+    const r = photoRect(shown, natural, data);
+    const dx = moveBy && !photoResize ? moveBy.px : 0, dy = moveBy && !photoResize ? moveBy.py : 0;
+    const W = data.cols * TILE, H = data.rows * TILE;
+    return {
+      style: {
+        left: `${((r.x + dx) / W) * 100}%`, top: `${((r.y + dy) / H) * 100}%`,
+        width: `${(r.w / W) * 100}%`, height: `${(r.h / H) * 100}%`,
+      },
+    };
+  })();
   const hasSel = selection.size > 0;
   const hint = !isPixel && !['move', 'select'].includes(tool)
-    ? 'Photo layer: drag to move it, or flatten it to pixels to paint on it.'
+    ? 'Photo layer: drag it to move, drag a corner to resize, or flatten it to pixels to paint on it.'
     : {
       text: 'Click a tile and type. Drag to select tiles; typing then fills them.',
       select: 'Drag to select. Shift adds, Alt removes. Drag a selection to move it.',
@@ -671,6 +724,14 @@ export default function TileGrid({
           role="img"
           aria-label={data.layers.flatMap(l => l.text || []).join(' ').trim() || 'Tile grid'}
         />
+        {photoBox && (
+          <div className="tg-photo-box" style={photoBox.style} aria-hidden="true">
+            {['nw', 'ne', 'sw', 'se'].map(corner => (
+              <span key={corner} className={`tg-photo-handle tg-photo-handle--${corner}`}
+                onPointerDown={e => startPhotoResize(e, corner)} />
+            ))}
+          </div>
+        )}
       </div>
 
       {editing && (
@@ -759,11 +820,8 @@ export default function TileGrid({
 
             {active?.kind === 'photo' && (
               <div className="tg-photo">
-                <label>Scale
-                  <input type="range" min="0.1" max="4" step="0.05" value={active.scale}
-                    onChange={e => commit(withLayer(dataRef.current, active.id, l => ({ ...l, scale: parseFloat(e.target.value) })))} />
-                  <span>{Math.round(active.scale * 100)}%</span>
-                </label>
+                <Tile icon="minus" label="Smaller" onClick={() => commit(withLayer(dataRef.current, active.id, l => ({ ...l, ...zoomPhoto(l, 1 / 1.25) })))} />
+                <Tile icon="plus" label="Larger" onClick={() => commit(withLayer(dataRef.current, active.id, l => ({ ...l, ...zoomPhoto(l, 1.25) })))} />
                 <button type="button" className="tg-text-btn" onClick={() => commit(withLayer(dataRef.current, active.id, l => ({ ...l, scale: 1, x: 0, y: 0 })))}>Fit</button>
                 <button type="button" className="tg-text-btn" onClick={flattenPhoto}>Flatten to pixels</button>
               </div>
