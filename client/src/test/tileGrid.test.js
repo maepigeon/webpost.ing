@@ -178,3 +178,12 @@ describe('resizing a photo layer by its corners', () => {
     expect(zoomPhoto(photo(), 0.8).scale).toBeCloseTo(0.8);
   });
 });
+
+describe('edges (antialiasing)', () => {
+  it('keeps smooth or pixel, and leaves the setting out otherwise', () => {
+    expect(normaliseGrid({ edges: 'smooth' }).edges).toBe('smooth');
+    expect(normaliseGrid({ edges: 'pixel' }).edges).toBe('pixel');
+    expect('edges' in normaliseGrid({ edges: 'blurry' })).toBe(false);
+    expect('edges' in normaliseGrid({})).toBe(false);
+  });
+});

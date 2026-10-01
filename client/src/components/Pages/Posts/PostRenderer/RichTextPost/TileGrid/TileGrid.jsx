@@ -5,7 +5,7 @@ import { normaliseUploadResponse, describeUploadError } from '../../../../../../
 import {
   TILE, SCALE, LIMITS, FONT_NAMES, DIRECTIONS, normaliseGrid, pixelLayer, photoLayer,
   perTile, slotsPerRow, slotWidth, rowChars, writeSlot, restyleSlots, convertLayerMode, resizeLayerText,
-  orderSlots, slotsIn, renderGrid, pixelatePhoto, photoRect, resizePhoto, zoomPhoto, tileKey, rectTiles, combineSelection, orderedTiles,
+  EDGES, orderSlots, slotsIn, renderGrid, pixelatePhoto, photoRect, resizePhoto, zoomPhoto, tileKey, rectTiles, combineSelection, orderedTiles,
 } from './tileGrid.js';
 import { TEXTURES, fillTexture, texturePreview, DEFAULT_PAW_OPTIONS } from './textures.js';
 import PawOptions from '../../../../../TileArt/PawOptions.jsx';
@@ -210,7 +210,7 @@ export default function TileGrid({
     }
     for (const layer of data.layers) {
       if (layer.kind !== 'photo') continue;
-      const key = `${layer.src}|${layer.scale}|${data.cols}|${data.rows}`;
+      const key = `${layer.src}|${layer.scale}|${data.cols}|${data.rows}|${data.edges || ''}`;
       if (photos.current[layer.id]?.key === key) continue;
       photos.current[layer.id] = { key, photo: null };
       loadImage(IMAGES_BASE_URL + layer.src).then(img => {
@@ -717,13 +717,50 @@ export default function TileGrid({
   };
 
   /** Turns the active photo into pixels on its own layer, to edit it tile by tile. */
+  const [saveError, setSaveError] = useState('');
+  /** Downloads the grid as a PNG, four image pixels to a grid pixel, without the editing marks. */
+  const savePng = () => {
+    const d = dataRef.current;
+    const c = document.createElement('canvas');
+    c.width = d.cols * TILE * SCALE;
+    c.height = d.rows * TILE * SCALE;
+    const assets = {};
+    for (const l of d.layers) {
+      assets[l.id] = l.kind === 'pixel' ? { paint: paints.current[l.id]?.canvas } : { photo: photos.current[l.id]?.photo };
+    }
+    renderGrid(c.getContext('2d'), d, assets, {});
+    setSaveError('');
+    try {
+      c.toBlob(blob => {
+        if (!blob) { setSaveError('Could not make the image.'); return; }
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'grid.png';
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+      }, 'image/png');
+    } catch {
+      setSaveError('Could not make the image.');
+    }
+  };
+
+  const setEdges = (edges) => {
+    const d = dataRef.current;
+    if (d.edges === edges) return;
+    commit({ ...d, edges });
+  };
+
   const flattenPhoto = () => {
     const d = dataRef.current;
     const layer = activeLayer();
     const photo = layer.kind === 'photo' && photos.current[layer.id]?.photo;
     if (!photo) return;
     const c = blankCanvas(d);
-    c.getContext('2d').drawImage(photo.canvas, photo.x + layer.x, photo.y + layer.y);
+    // Baked at the grid's own pixels, whatever resolution the photo is shown at.
+    const ctx = c.getContext('2d');
+    ctx.imageSmoothingEnabled = d.edges !== 'pixel';
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(photo.canvas, photo.x + layer.x, photo.y + layer.y, photo.w, photo.h);
     const pixels = pixelLayer(layer.name, { paint: c.toDataURL('image/png') });
     commit({ ...d, layers: d.layers.map(l => (l.id === layer.id ? pixels : l)) });
     setActiveId(pixels.id);
@@ -824,8 +861,8 @@ export default function TileGrid({
       {editing && (
         <div className="tg-panel" onMouseDown={keepTypingFocus}>
           <div className="tg-main">
-            <div className="tg-group" aria-label="Tools">
-              <Tile icon="text" label="Text: type on tiles (⌥T)" on={tool === 'text'} onClick={() => setTool('text')} />
+            <div className="tg-group" role="group" aria-label="Draw">
+              <span className="tg-group-label">Draw</span>
               <Tile icon="select" label="Select tiles (⌥S)" on={tool === 'select'} onClick={() => setTool('select')} />
               <Tile icon="move" label="Move (⌥M)" on={tool === 'move'} onClick={() => setTool('move')} />
               <Tile icon="pixel" label="Paint pixels (⌥P)" on={tool === 'pixel'} onClick={() => setTool('pixel')} />
@@ -835,9 +872,56 @@ export default function TileGrid({
               <label className="tg-swatch" title="Colour" style={{ background: colour }}>
                 <input type="color" value={colour} onChange={e => chooseColour(e.target.value)} aria-label="Colour" />
               </label>
+              <Tile icon="texture" label="Fill with a texture" on={panel === 'texture'} disabled={!isPixel}
+                onClick={() => setPanel(p => (p === 'texture' ? null : 'texture'))} />
             </div>
 
-            <div className="tg-group" aria-label="Edit">
+            <div className="tg-group tg-group--type" role="group" aria-label="Text">
+              <span className="tg-group-label">Text</span>
+              <Tile icon="text" label="Text: type on tiles (⌥T)" on={tool === 'text'} onClick={() => setTool('text')} />
+              <Tile icon="one" label="One character per tile" on={data.mode === 'full'} onClick={() => setMode('full')} />
+              <Tile icon="two" label="Two characters per tile" on={data.mode === 'half'} onClick={() => setMode('half')} />
+              <span className="tg-gap" />
+              <Tile icon="fontPixel" label={`${FONT_NAMES.pixel} font — for the selection or cursor`} on={font === 'pixel'} onClick={() => chooseFont('pixel')} />
+              <Tile icon="fontSmooth" label={`${FONT_NAMES.smooth} font — for the selection or cursor`} on={font === 'smooth'} onClick={() => chooseFont('smooth')} />
+              <Tile icon="glyph" label="Custom characters" on={panel === 'glyphs'}
+                onClick={() => setPanel(p => (p === 'glyphs' ? null : 'glyphs'))} />
+              <Tile icon="skip" label={`Skip filled slots while typing (Insert): ${skipFilled ? 'on' : 'off'}`} on={skipFilled} onClick={() => setSkipFilled(v => !v)} />
+              <span className="tg-gap" />
+              <DirectionPad value={direction} onChange={setDirection} />
+            </div>
+
+            <div className="tg-group" role="group" aria-label="Image">
+              <span className="tg-group-label">Image</span>
+              <label className={`tg-tile${uploading ? ' is-busy' : ''}`} title="Add a photo layer">
+                <PixelIcon name="photo" size={14} />
+                <input type="file" accept="image/*" disabled={uploading} aria-label="Add a photo layer"
+                  onChange={e => { onPhoto(e.target.files?.[0]); e.target.value = ''; }} />
+              </label>
+              {active?.kind === 'photo' && (
+                <>
+                  <Tile icon="minus" label="Smaller" onClick={() => commit(withLayer(dataRef.current, active.id, l => ({ ...l, ...zoomPhoto(l, 1 / 1.25) })))} />
+                  <Tile icon="plus" label="Larger" onClick={() => commit(withLayer(dataRef.current, active.id, l => ({ ...l, ...zoomPhoto(l, 1.25) })))} />
+                  <button type="button" className="tg-text-btn" onClick={() => commit(withLayer(dataRef.current, active.id, l => ({ ...l, scale: 1, x: 0, y: 0 })))}>Fit</button>
+                  <button type="button" className="tg-text-btn" onClick={flattenPhoto}
+                    title="Turn the photo into the grid's own pixels, to paint on it tile by tile">Bake to pixels</button>
+                </>
+              )}
+              <span className="tg-gap" />
+              <span className="tg-seg" role="group" aria-label="Edges (antialiasing)"
+                title="Smooth: photos at full resolution and soft-edged text. Pixel: both snapped to the grid's pixels.">
+                {Object.entries(EDGES).map(([k, label]) => (
+                  <button key={k} type="button" className={`tg-text-btn${data.edges === k ? ' is-on' : ''}`}
+                    aria-pressed={data.edges === k} onClick={() => setEdges(k)}>{label}</button>
+                ))}
+              </span>
+              <span className="tg-gap" />
+              <Tile icon="save" label="Save the grid as a PNG image" onClick={savePng} />
+              {saveError && <span className="tg-error" role="alert">{saveError}</span>}
+            </div>
+
+            <div className="tg-group" role="group" aria-label="Edit">
+              <span className="tg-group-label">Edit</span>
               <Tile icon="undo" label="Undo (⌘Z)" onClick={undo} disabled={!past.current.length} />
               <Tile icon="redo" label="Redo (⇧⌘Z)" onClick={redo} disabled={!future.current.length} />
               <span className="tg-gap" />
@@ -847,28 +931,10 @@ export default function TileGrid({
               <Tile icon="cut" label="Cut (⌘X)" onClick={() => { copySelection(); deleteSelection(); }} disabled={!hasSel || !isPixel} />
               <Tile icon="paste" label="Paste (⌘V)" onClick={paste} disabled={!clipboard.current || !isPixel} />
               <Tile icon="delete" label="Delete selection" onClick={deleteSelection} disabled={!hasSel || !isPixel} />
-              <span className="tg-gap" />
-              <Tile icon="texture" label="Fill with a texture" on={panel === 'texture'} disabled={!isPixel}
-                onClick={() => setPanel(p => (p === 'texture' ? null : 'texture'))} />
-              <label className={`tg-tile${uploading ? ' is-busy' : ''}`} title="Add a photo layer">
-                <PixelIcon name="photo" size={14} />
-                <input type="file" accept="image/*" disabled={uploading} aria-label="Add a photo layer"
-                  onChange={e => { onPhoto(e.target.files?.[0]); e.target.value = ''; }} />
-              </label>
-              <Tile icon="glyph" label="Custom characters" on={panel === 'glyphs'}
-                onClick={() => setPanel(p => (p === 'glyphs' ? null : 'glyphs'))} />
             </div>
 
-            <div className="tg-group tg-group--type" aria-label="Text">
-              <Tile icon="one" label="One character per tile" on={data.mode === 'full'} onClick={() => setMode('full')} />
-              <Tile icon="two" label="Two characters per tile" on={data.mode === 'half'} onClick={() => setMode('half')} />
-              <span className="tg-gap" />
-              <Tile icon="fontPixel" label={`${FONT_NAMES.pixel} font — for the selection or cursor`} on={font === 'pixel'} onClick={() => chooseFont('pixel')} />
-              <Tile icon="fontSmooth" label={`${FONT_NAMES.smooth} font — for the selection or cursor`} on={font === 'smooth'} onClick={() => chooseFont('smooth')} />
-              <Tile icon="skip" label={`Skip filled slots while typing (Insert): ${skipFilled ? 'on' : 'off'}`} on={skipFilled} onClick={() => setSkipFilled(v => !v)} />
-              <span className="tg-gap" />
-              <DirectionPad value={direction} onChange={setDirection} />
-              <span className="tg-gap" />
+            <div className="tg-group" role="group" aria-label="Size">
+              <span className="tg-group-label">Size</span>
               <label className="tg-size" title="Width in tiles">W
                 <input type="number" min={LIMITS.minCols} max={maxCols} value={data.cols}
                   onChange={e => setSize(parseInt(e.target.value, 10), data.rows)} />
@@ -889,15 +955,6 @@ export default function TileGrid({
                     <span>{t.label}</span>
                   </button>
                 ))}
-              </div>
-            )}
-
-            {active?.kind === 'photo' && (
-              <div className="tg-photo">
-                <Tile icon="minus" label="Smaller" onClick={() => commit(withLayer(dataRef.current, active.id, l => ({ ...l, ...zoomPhoto(l, 1 / 1.25) })))} />
-                <Tile icon="plus" label="Larger" onClick={() => commit(withLayer(dataRef.current, active.id, l => ({ ...l, ...zoomPhoto(l, 1.25) })))} />
-                <button type="button" className="tg-text-btn" onClick={() => commit(withLayer(dataRef.current, active.id, l => ({ ...l, scale: 1, x: 0, y: 0 })))}>Fit</button>
-                <button type="button" className="tg-text-btn" onClick={flattenPhoto}>Flatten to pixels</button>
               </div>
             )}
 

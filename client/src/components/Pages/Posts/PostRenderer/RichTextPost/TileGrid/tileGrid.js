@@ -114,6 +114,13 @@ export function cleanGlyphs(raw) {
 }
 
 /** Fills in anything missing or out of range, so any stored grid still renders. */
+/**
+ * Antialiasing, per grid. Smooth: photos at full resolution and soft-edged
+ * text. Pixel: both snapped to the grid's own pixels, hard-edged. A grid
+ * without the setting keeps the original look: photos in grid pixels, soft text.
+ */
+export const EDGES = { smooth: 'Smooth', pixel: 'Pixel' };
+
 export function normaliseGrid(raw) {
   const r = raw && typeof raw === 'object' ? raw : {};
   const d = {
@@ -124,6 +131,8 @@ export function normaliseGrid(raw) {
     glyphs: cleanGlyphs(r.glyphs),
     layers: Array.isArray(r.layers) ? r.layers.map(cleanLayer).filter(Boolean).slice(0, LIMITS.maxLayers) : [],
   };
+  // How photos and smooth text are drawn (see EDGES); absent, the original look.
+  if (EDGES[r.edges]) d.edges = r.edges;
   if (!d.layers.length) d.layers = [pixelLayer('Background')];
   const seen = new Set();
   for (const l of d.layers) { if (seen.has(l.id)) l.id = newLayerId(); seen.add(l.id); }
@@ -338,14 +347,17 @@ export function pixelatePhoto(img, d, layer) {
   const W = d.cols * TILE;
   const H = d.rows * TILE;
   const r = containRect(img.naturalWidth || img.width, img.naturalHeight || img.height, W, H, layer.scale);
+  // Smooth edges keep the photo at the display's resolution; otherwise it is
+  // reduced to grid pixels, sampled (pixel) or averaged (the original look).
+  const k = d.edges === 'smooth' ? SCALE : 1;
   const c = document.createElement('canvas');
-  c.width = Math.max(1, Math.round(r.w));
-  c.height = Math.max(1, Math.round(r.h));
+  c.width = Math.max(1, Math.round(r.w * k));
+  c.height = Math.max(1, Math.round(r.h * k));
   const ctx = c.getContext('2d');
-  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingEnabled = d.edges !== 'pixel';
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(img, 0, 0, c.width, c.height);
-  return { canvas: c, x: Math.round(r.x), y: Math.round(r.y) };
+  return { canvas: c, x: Math.round(r.x), y: Math.round(r.y), w: c.width / k, h: c.height / k };
 }
 
 // ── Selections ────────────────────────────────────────────────────────────────
@@ -414,7 +426,9 @@ export function renderGrid(ctx, d, assets = {}, view = {}) {
       if (a.photo) {
         const dx = (lift?.px ?? 0);
         const dy = (lift?.py ?? 0);
-        ctx.drawImage(a.photo.canvas, a.photo.x + layer.x + dx, a.photo.y + layer.y + dy);
+        ctx.imageSmoothingEnabled = d.edges === 'smooth';
+        ctx.drawImage(a.photo.canvas, a.photo.x + layer.x + dx, a.photo.y + layer.y + dy, a.photo.w, a.photo.h);
+        ctx.imageSmoothingEnabled = false;
       }
       continue;
     }
@@ -489,6 +503,7 @@ function drawLayerText(ctx, d, layer) {
       const y = r * TILE;
       if (d.glyphs[ch]) drawCustomGlyph(ctx, d.glyphs[ch], x, y, sw);
       else if (style.font !== 'smooth' && pixelGlyph(ch)) drawPixelGlyph(ctx, pixelGlyph(ch), x, y, sw);
+      else if (d.edges === 'pixel') drawPixelatedChar(ctx, ch, x, y, sw);
       else drawSmoothChar(ctx, ch, x, y, sw);
     }
   }
@@ -512,6 +527,43 @@ function drawCustomGlyph(ctx, hex, x, y, sw) {
   for (let gy = 0; gy < 16; gy++) {
     for (let gx = 0; gx < w; gx++) if (bits[gy * w + gx]) ctx.fillRect(x + gx * px, y + gy, px, 1);
   }
+}
+
+/**
+ * A smooth-font character snapped to grid pixels: drawn once into a cell of
+ * grid pixels, its coverage cut at half, and each covered pixel filled.
+ */
+const pixelatedChars = new Map();
+function drawPixelatedChar(ctx, ch, x, y, sw) {
+  const key = `${ch}|${sw}`;
+  let mask = pixelatedChars.get(key);
+  if (!mask) {
+    if (typeof document === 'undefined') return;
+    const c = document.createElement('canvas');
+    c.width = sw * SCALE; c.height = TILE * SCALE;
+    const g = c.getContext('2d');
+    if (!g) return;
+    g.scale(SCALE, SCALE);
+    g.fillStyle = '#000';
+    drawSmoothChar(g, ch, 0, 0, sw);
+    const data = g.getImageData(0, 0, c.width, c.height).data;
+    mask = [];
+    for (let py = 0; py < TILE; py++) {
+      for (let px = 0; px < sw; px++) {
+        let cover = 0;
+        for (let sy = 0; sy < SCALE; sy++) {
+          for (let sx = 0; sx < SCALE; sx++) cover += data[(((py * SCALE + sy) * c.width) + px * SCALE + sx) * 4 + 3];
+        }
+        if (cover / (SCALE * SCALE) >= 128) mask.push(px, py);
+      }
+    }
+    // Kept only once the font has loaded; until then it is the fallback's shape.
+    if (document.fonts?.status !== 'loading') {
+      if (pixelatedChars.size > 2000) pixelatedChars.clear();
+      pixelatedChars.set(key, mask);
+    }
+  }
+  for (let i = 0; i < mask.length; i += 2) ctx.fillRect(x + mask[i], y + mask[i + 1], 1, 1);
 }
 
 function drawSmoothChar(ctx, ch, x, y, sw) {

@@ -120,6 +120,20 @@
 .tg-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .tg-group { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; }
 .tg-gap { width: 8px; }
+/* Each row of the panel is named: Draw, Text, Image, Edit. */
+.tg-group-label {
+  flex: 0 0 42px;
+  color: #8c8c8c;
+  font: 700 10px system-ui, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+@media (max-width: 600px) {
+  .tg-group-label { flex-basis: 100%; }
+}
+.tg-seg { display: inline-flex; gap: 2px; }
+.tg-text-btn.is-on { background: #f2f2f2; color: #111; }
+.tg-error { color: #ff8a8a; font-size: 11px; }
 
 .tg-size {
   display: inline-flex;
@@ -186,7 +200,6 @@
 .tg-texture:hover { background: #333333; }
 .tg-texture img { image-rendering: pixelated; border-radius: 2px; }
 
-.tg-photo { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 
 /* The active photo's outline and corner handles, drawn over the canvas. */
 .tg-photo-box {

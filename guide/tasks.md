@@ -59,10 +59,11 @@ guide/HANDOFF-2026-09-30.txt for production state and open server work.
       Insert key) that makes typing jump over tiles that already hold a character.
 - [x] **Keyboard shortcuts** for tools (⌥ + letter), undo/redo/copy/cut/paste, and a
       "Show shortcuts" panel (⌘/ or the keyboard button).
-- [ ] **Organise the panel**: Draw / Text / Image groups.
-- [ ] **Save grid as image** (PNG).
-- [ ] **Antialiasing option** (for smooth fonts and photos).
-- [ ] **Bake a photo layer** at the grid's pixel resolution.
+- [x] **Organise the panel**: Draw / Text / Image / Edit / Size rows, each named.
+- [x] **Save grid as image** (PNG, 4 image pixels per grid pixel; Image row).
+- [x] **Antialiasing option** (for smooth fonts and photos): the grid's Edges,
+      Smooth or Pixel (`edges` in the grid; absent keeps the original look).
+- [x] **Bake a photo layer** at the grid's pixel resolution ("Bake to pixels").
 - [ ] **Links in grids**: a run of tiles can carry a link; external links ask first.
 - [~] Fewer sliders: buttons and dropdowns instead, across the UI. Done: theme
       editor, wallpaper pixel size, code block sizes. The grid editor's photo scale slider is gone too.

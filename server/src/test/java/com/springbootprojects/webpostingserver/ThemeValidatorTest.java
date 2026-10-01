@@ -26,6 +26,15 @@ class ThemeValidatorTest {
     }
 
     @Test
+    void gridKeepsOnlyAKnownEdgesSetting() throws Exception {
+        ObjectMapper json = new ObjectMapper();
+        String layers = ",\"layers\":[{\"id\":\"a1\",\"kind\":\"pixel\"}]}";
+        assertThat(GridValidator.normalise(json.readTree("{\"edges\":\"pixel\"" + layers), 8, 8).path("edges").asText()).isEqualTo("pixel");
+        assertThat(GridValidator.normalise(json.readTree("{\"edges\":\"smooth\"" + layers), 8, 8).path("edges").asText()).isEqualTo("smooth");
+        assertThat(GridValidator.normalise(json.readTree("{\"edges\":\"<b>\"" + layers), 8, 8).has("edges")).isFalse();
+    }
+
+    @Test
     void gridRefusesAnythingThatCouldLoadFromElsewhere() throws Exception {
         String evil = "{\"layers\":[{\"id\":\"a\",\"kind\":\"photo\",\"src\":\"https://tracker.example/x.gif\"},"
                 + "{\"id\":\"b\",\"kind\":\"photo\",\"src\":\"/uploads/../../etc/passwd\"},"

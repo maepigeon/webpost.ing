@@ -53,6 +53,10 @@ public final class GridValidator {
         out.put("cols", cols);
         out.put("rows", rows);
         out.put("mode", mode);
+        // How photos and smooth text are drawn: "smooth" (antialiased) or "pixel"
+        // (snapped to the grid's pixels). Absent keeps the original look.
+        String edges = in.path("edges").asText();
+        if ("smooth".equals(edges) || "pixel".equals(edges)) out.put("edges", edges);
 
         out.set("glyphs", cleanGlyphs(in.path("glyphs"), 256));
 
