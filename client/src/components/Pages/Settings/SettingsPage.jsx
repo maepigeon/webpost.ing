@@ -14,7 +14,10 @@ import {
   CODE_FONTS, MIN_CODE_SIZE, MAX_CODE_SIZE, DEFAULT_CODE_SIZE, applyCodeDisplay,
 } from '../../../utils/codeDisplay.js';
 import { usePageTitle } from '../../../utils/usePageTitle.js';
-import ThemeEditor from '../../PageTheme/ThemeEditor.jsx';
+import ThemeEditor, { Steps } from '../../PageTheme/ThemeEditor.jsx';
+
+/** Code text sizes offered as buttons (it used to be a slider). */
+const CODE_SIZE_STEPS = [11, 12, 13, 14, 16, 18, 20].filter(n => n >= MIN_CODE_SIZE && n <= MAX_CODE_SIZE);
 import PixelFontsSection from './PixelFontsSection.jsx';
 import './SettingsPage.css';
 import { errorMessage } from '../../../utils/errorMessage.js';
@@ -455,20 +458,13 @@ export default function SettingsPage() {
               </select>
             </label>
 
-            <label className="settings-code-field">
-              <span className="settings-code-label">
-                Size <span className="settings-code-size">{settings.codeFontSize || DEFAULT_CODE_SIZE}px</span>
-              </span>
-              <input
-                type="range"
-                className="settings-range"
-                min={MIN_CODE_SIZE}
-                max={MAX_CODE_SIZE}
-                step={1}
-                value={settings.codeFontSize || DEFAULT_CODE_SIZE}
-                onChange={e => changeCodeDisplay({ codeFontSize: Number(e.target.value) })}
-              />
-            </label>
+            <div className="settings-code-field">
+              <span className="settings-code-label">Size</span>
+              {/* Buttons, not a slider. */}
+              <Steps label="Code size" value={settings.codeFontSize || DEFAULT_CODE_SIZE}
+                options={CODE_SIZE_STEPS} format={v => `${v}px`}
+                onChange={v => changeCodeDisplay({ codeFontSize: v })} />
+            </div>
           </div>
 
           {/* A live sample, because a font name and a pixel count do not tell

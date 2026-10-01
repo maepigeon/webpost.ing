@@ -54,14 +54,25 @@ function Colour({ value, onChange }) {
   return <input type="color" value={value} onChange={e => onChange(e.target.value)} />;
 }
 
-function Slider({ value, min, max, step, onChange, format = v => v }) {
+/**
+ * A few preset values as buttons, in the grid editor's tile style. These were
+ * sliders: fiddly to land on a value, and their read-outs spilled out of the
+ * panel. The preset nearest the current value shows as chosen, so a value
+ * saved before there were presets still lights one up.
+ */
+export function Steps({ value, options, onChange, format = v => v, label }) {
+  const nearest = options.reduce((a, b) => (Math.abs(b - value) < Math.abs(a - value) ? b : a));
   return (
-    <span className="theme-slider">
-      <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(parseFloat(e.target.value))} />
-      <span>{format(value)}</span>
+    <span className="theme-steps" role="radiogroup" aria-label={label}>
+      {options.map(o => (
+        <button key={o} type="button" role="radio" aria-checked={o === nearest}
+          className={`theme-step${o === nearest ? ' is-on' : ''}`} onClick={() => onChange(o)}>{format(o)}</button>
+      ))}
     </span>
   );
 }
+
+const pct = v => `${Math.round(v * 100)}%`;
 
 /** Pick a sticker to start from, or draw one, in the same designer as everything else. */
 function StickerPicker({ value, onChange }) {
@@ -183,7 +194,7 @@ export default function ThemeEditor({ username }) {
             <Field label="Accent"><Colour value={t.type.accent} onChange={set('type', 'accent')} /></Field>
             <Field label="Heading case"><Select value={t.type.headingCase} options={CASES} onChange={set('type', 'headingCase')} /></Field>
             <Field label="Heading size">
-              <Slider value={t.type.headingScale} min={0.7} max={1.8} step={0.05} onChange={set('type', 'headingScale')} format={v => `${Math.round(v * 100)}%`} />
+              <Steps label="Heading size" value={t.type.headingScale} options={[0.8, 0.9, 1, 1.15, 1.35, 1.6]} onChange={set('type', 'headingScale')} format={pct} />
             </Field>
           </fieldset>
 
@@ -191,11 +202,11 @@ export default function ThemeEditor({ username }) {
             <legend>Cards</legend>
             <Field label="Colour"><Colour value={t.card.bg} onChange={set('card', 'bg')} /></Field>
             <Field label="Opacity">
-              <Slider value={t.card.opacity} min={0} max={1} step={0.05} onChange={set('card', 'opacity')} format={v => `${Math.round(v * 100)}%`} />
+              <Steps label="Opacity" value={t.card.opacity} options={[1, 0.9, 0.8, 0.65, 0.5, 0.3]} onChange={set('card', 'opacity')} format={pct} />
             </Field>
             <Field label="Border"><Select value={t.card.border} options={BORDERS} onChange={set('card', 'border')} /></Field>
             <Field label="Border colour"><Colour value={t.card.borderColor} onChange={set('card', 'borderColor')} /></Field>
-            <Field label="Corners"><Slider value={t.card.radius} min={0} max={28} step={1} onChange={set('card', 'radius')} format={v => `${v}px`} /></Field>
+            <Field label="Corners"><Steps label="Corners" value={t.card.radius} options={[0, 2, 6, 12, 20, 28]} onChange={set('card', 'radius')} format={v => `${v}px`} /></Field>
             <Field label="Shadow"><Select value={t.card.shadow} options={SHADOWS} onChange={set('card', 'shadow')} /></Field>
             <span className="theme-field-label">Texture</span>
             <WallpaperEditor value={t.card.texture} onChange={set('card', 'texture')} />
