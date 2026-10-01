@@ -69,18 +69,18 @@ function canvasOf(w, h) {
 }
 
 /** A tile grid of one pixel layer filled with a texture from textures.js. */
-export function textureTile(kind, cols = 4, rows = 4) {
+export function textureTile(kind, cols = 4, rows = 4, options) {
   const c = canvasOf(cols * TILE, rows * TILE);
-  if (c && TEXTURES[kind]) TEXTURES[kind].draw(c.getContext('2d'), c.width, c.height);
+  if (c && TEXTURES[kind]) TEXTURES[kind].draw(c.getContext('2d'), c.width, c.height, options);
   return normaliseGrid({
     cols, rows,
     layers: [pixelLayer(TEXTURES[kind]?.label || 'Texture', { paint: c ? c.toDataURL('image/png') : null })],
   });
 }
 
-/** A wallpaper that tiles a texture. */
-export function textureWallpaper(kind, { cols = 4, rows = 4, tiling = 'repeat', scale = 2, bg = '#eeede9' } = {}) {
-  return { v: 3, tile: textureTile(kind, cols, rows), tiling, scale, bg };
+/** A wallpaper that tiles a texture; `options` are the texture's own (paw colours). */
+export function textureWallpaper(kind, { cols = 4, rows = 4, tiling = 'repeat', scale = 2, bg = '#eeede9', options } = {}) {
+  return { v: 3, tile: textureTile(kind, cols, rows, options), tiling, scale, bg };
 }
 
 /** A tile drawn by a function(ctx, width, height) — for stickers and one-off presets. */

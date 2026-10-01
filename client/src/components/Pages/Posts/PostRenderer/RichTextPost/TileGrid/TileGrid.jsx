@@ -7,7 +7,8 @@ import {
   perTile, slotsPerRow, slotWidth, rowChars, writeSlot, restyleSlots, convertLayerMode, resizeLayerText,
   orderSlots, slotsIn, renderGrid, pixelatePhoto, tileKey, rectTiles, combineSelection, orderedTiles,
 } from './tileGrid.js';
-import { TEXTURES, fillTexture, texturePreview } from './textures.js';
+import { TEXTURES, fillTexture, texturePreview, DEFAULT_PAW_OPTIONS } from './textures.js';
+import PawOptions from '../../../../../TileArt/PawOptions.jsx';
 import GlyphEditor from './GlyphEditor.jsx';
 import PixelIcon from './PixelIcon.jsx';
 import './TileGrid.css';
@@ -138,6 +139,7 @@ export default function TileGrid({
   const setSelection = (s) => { selectionRef.current = s; setSelectionState(s); };
   const [moveBy, setMoveBy] = useState(null);
   const [panel, setPanel] = useState(null);   // 'texture' | 'glyphs' | null
+  const [pawOptions, setPawOptions] = useState(DEFAULT_PAW_OPTIONS);
   const [uploading, setUploading] = useState(false);
   const [dragLayer, setDragLayer] = useState(null);
 
@@ -341,7 +343,7 @@ export default function TileGrid({
     if (!canvas) return;
     const d = dataRef.current;
     const tiles = selectionRef.current.size ? orderedTiles(selectionRef.current) : allTiles(d);
-    fillTexture(canvas, kind, tiles, TILE);
+    fillTexture(canvas, kind, tiles, TILE, kind === 'paws' ? pawOptions : undefined);
     commit(savePaint(d, layer.id));
     setPanel(null);
   };
@@ -636,7 +638,7 @@ export default function TileGrid({
   };
 
   const texturePreviews = useMemo(() => (panel === 'texture'
-    ? Object.fromEntries(Object.keys(TEXTURES).map(k => [k, texturePreview(k)])) : {}), [panel]);
+    ? Object.fromEntries(Object.keys(TEXTURES).map(k => [k, texturePreview(k, 32, k === 'paws' ? pawOptions : undefined)])) : {}), [panel, pawOptions]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -744,6 +746,7 @@ export default function TileGrid({
 
             {panel === 'texture' && (
               <div className="tg-textures" aria-label="Textures">
+                <div className="tg-texture-options"><PawOptions value={pawOptions} onChange={setPawOptions} /></div>
                 {Object.entries(TEXTURES).map(([k, t]) => (
                   <button key={k} type="button" className="tg-texture" onClick={() => fillWithTexture(k)}
                     title={`Fill ${hasSel ? 'the selection' : 'the layer'} with ${t.label.toLowerCase()}`}>

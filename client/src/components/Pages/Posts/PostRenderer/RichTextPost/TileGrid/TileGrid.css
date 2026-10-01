@@ -308,3 +308,6 @@
   font: 500 12px system-ui, sans-serif;
   padding: 0 6px;
 }
+
+/* Paw colours, above the texture buttons; they apply to the Paws fill. */
+.tg-texture-options { grid-column: 1 / -1; padding: 2px 0 6px; }

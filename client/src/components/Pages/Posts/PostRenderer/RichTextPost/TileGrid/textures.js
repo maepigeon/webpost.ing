@@ -53,6 +53,106 @@ const PAW = [
   '..XX.XX..',
 ];
 
+// ── Paws ──────────────────────────────────────────────────────────────────────
+
+/** One paw per cell of this many pixels. */
+const PAW_CELL = 16;
+
+/** How the paws are coloured. */
+export const PAW_COLOURINGS = {
+  random: 'Random colours',
+  single: 'One colour',
+  rainbow: 'Rainbow, downwards',
+  gradient: 'My gradient',
+};
+export const DEFAULT_PAW_OPTIONS = { colouring: 'random', colour: '#ff5e8a', stops: ['#ff5e8a', '#f5d547', '#5ec8ff'] };
+export const MAX_PAW_STOPS = 6;
+
+/**
+ * Where the paws go: one per 16-pixel cell, every cell filled, each row half
+ * a cell along from the one above, like a walking trail. It used to be one
+ * paw per cell with about half the cells skipped and every paw nudged at
+ * random, which read as scattered.
+ *
+ * Rows only stagger when there is an even number of them, so the tile still
+ * repeats without a seam.
+ */
+export function pawLayout(w, h) {
+  const cols = Math.max(1, Math.floor(w / PAW_CELL));
+  const rows = Math.max(1, Math.floor(h / PAW_CELL));
+  const stagger = rows % 2 === 0;
+  const paws = [];
+  for (let row = 0; row < rows; row++) {
+    const shift = stagger && row % 2 ? PAW_CELL / 2 : 0;
+    for (let col = 0; col < cols; col++) {
+      paws.push({ row, col, x: col * PAW_CELL + shift + 3, y: row * PAW_CELL + 4 });
+    }
+  }
+  return { rows, cols, paws };
+}
+
+const hex = (n) => n.toString(16).padStart(2, '0');
+const toRgb = (c) => [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16));
+const mix = (a, b, t) => {
+  const [x, y] = [toRgb(a), toRgb(b)];
+  return '#' + x.map((v, i) => hex(Math.round(v + (y[i] - v) * t))).join('');
+};
+const isColour = (c) => typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c);
+
+/** HSL to #rrggbb, for the rainbow. */
+function hsl(h, s, l) {
+  const k = (n) => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n) => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1))));
+  return '#' + [f(0), f(8), f(4)].map(hex).join('');
+}
+
+/**
+ * The colour of every paw, as colours[row][col].
+ *
+ *   random   — a different colour from the paw before, the same every time
+ *   single   — options.colour
+ *   rainbow  — one hue per row, red at the top through violet, back to red
+ *   gradient — options.stops, top to bottom and back to the first
+ *
+ * The rainbow and gradient come back round to where they started, so the
+ * repeating tile meets itself without a jump.
+ */
+export function pawColours(options, rows, cols) {
+  const o = { ...DEFAULT_PAW_OPTIONS, ...(options || {}) };
+  const grid = Array.from({ length: rows }, () => new Array(cols));
+  if (o.colouring === 'single') {
+    const c = isColour(o.colour) ? o.colour : DEFAULT_PAW_OPTIONS.colour;
+    for (const line of grid) line.fill(c);
+    return grid;
+  }
+  if (o.colouring === 'rainbow') {
+    grid.forEach((line, row) => line.fill(hsl((row / rows) * 360, 0.9, 0.65)));
+    return grid;
+  }
+  if (o.colouring === 'gradient') {
+    const stops = (Array.isArray(o.stops) ? o.stops : []).filter(isColour).slice(0, MAX_PAW_STOPS);
+    const ring = stops.length ? [...stops, stops[0]] : [DEFAULT_PAW_OPTIONS.colour, DEFAULT_PAW_OPTIONS.colour];
+    grid.forEach((line, row) => {
+      const t = (row / rows) * (ring.length - 1);
+      const i = Math.min(Math.floor(t), ring.length - 2);
+      line.fill(mix(ring[i], ring[i + 1], t - i));
+    });
+    return grid;
+  }
+  const r = rng(23);
+  let last = -1;
+  for (const line of grid) {
+    for (let col = 0; col < cols; col++) {
+      let c = Math.floor(r() * RAINBOW.length);
+      if (c === last) c = (c + 1) % RAINBOW.length;
+      last = c;
+      line[col] = RAINBOW[c];
+    }
+  }
+  return grid;
+}
+
 export const TEXTURES = {
   cork: {
     label: 'Cork',
@@ -149,24 +249,19 @@ export const TEXTURES = {
   },
   paws: {
     label: 'Paws',
-    // Pawprints scattered on black, each one solid and a random colour. One
-    // paw per 16-pixel cell, nudged about and sometimes left out, so the
-    // spacing looks loose; cells never overlap, so the tile repeats cleanly.
-    draw(ctx, w, h) {
-      const r = rng(23);
+    // Pawprints on black in an even, staggered pattern; see pawLayout and
+    // pawColours for the colouring options.
+    draw(ctx, w, h, options) {
       ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, w, h);
-      let last = -1;
-      for (let y = 0; y + 16 <= h; y += 16) {
-        for (let x = 0; x + 16 <= w; x += 16) {
-          if (r() < 0.55) continue;
-          let c = Math.floor(r() * RAINBOW.length);
-          if (c === last) c = (c + 1) % RAINBOW.length;
-          last = c;
-          ctx.fillStyle = RAINBOW[c];
-          const ox = x + 1 + Math.floor(r() * 6), oy = y + 1 + Math.floor(r() * 7);
-          PAW.forEach((line, dy) => [...line].forEach((ch, dx) => { if (ch === 'X') ctx.fillRect(ox + dx, oy + dy, 1, 1); }));
-        }
+      const layout = pawLayout(w, h);
+      const colours = pawColours(options, layout.rows, layout.cols);
+      for (const { row, col, x, y } of layout.paws) {
+        ctx.fillStyle = colours[row][col];
+        PAW.forEach((line, dy) => [...line].forEach((ch, dx) => {
+          // Wrapped at the right edge, so a shifted row still tiles seamlessly.
+          if (ch === 'X') ctx.fillRect((x + dx) % w, y + dy, 1, 1);
+        }));
       }
     },
   },
@@ -177,14 +272,14 @@ export const TEXTURES = {
  * once across the whole grid and clipped to the tiles, so neighbouring fills
  * line up.
  */
-export function fillTexture(paintCanvas, kind, tiles, tileSize) {
+export function fillTexture(paintCanvas, kind, tiles, tileSize, options) {
   const tex = TEXTURES[kind];
   if (!tex) return;
   const w = paintCanvas.width, h = paintCanvas.height;
   const full = document.createElement('canvas');
   full.width = w;
   full.height = h;
-  tex.draw(full.getContext('2d'), w, h);
+  tex.draw(full.getContext('2d'), w, h, options);
   const ctx = paintCanvas.getContext('2d');
   ctx.save();
   ctx.beginPath();
@@ -196,9 +291,9 @@ export function fillTexture(paintCanvas, kind, tiles, tileSize) {
 }
 
 /** A small preview of a texture, for its button. */
-export function texturePreview(kind, size = 32) {
+export function texturePreview(kind, size = 32, options) {
   const c = document.createElement('canvas');
   c.width = c.height = size;
-  TEXTURES[kind].draw(c.getContext('2d'), size, size);
+  TEXTURES[kind].draw(c.getContext('2d'), size, size, options);
   return c.toDataURL('image/png');
 }

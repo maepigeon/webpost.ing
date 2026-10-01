@@ -71,3 +71,6 @@
 .wp-colour input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .wp-editor input[type="range"] { width: 110px; }
 .wp-editor .tilegrid { margin: 4px 0 0; }
+
+/* Pixel size: buttons, not a slider. */
+.wp-sizes { display: inline-flex; flex-wrap: wrap; gap: 3px; }
