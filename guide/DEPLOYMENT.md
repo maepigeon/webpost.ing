@@ -1,238 +1,158 @@
-# Deployment Runbook — webpost.ing
+# Deploying webpost.ing
 
-Written from what actually happened on the production host, not from what the
-scripts assume. `guide/README.md` §5 describes an idealized setup that does not
-match the live server; where they disagree, **this file is correct**.
+Last verified: 2026-10-01 (release scripts rehearsed locally, including both
+rollback paths; production layout from the go-live of 2026-09-30).
 
-Last verified: 2026-09-08 (against the deploy session of 2026-07-09).
+**The rule: build on your own computer, never on the server.** The server is a
+1-CPU, 2 GB droplet. Building, testing or running extra Java or Postgres
+processes there is what ran it out of memory and crashed it on 2026-09-30.
+The server only receives finished releases.
 
 ---
 
-## 0. Before the next deploy — one-time steps
+## 1. Releasing (the normal way)
 
-This release changes how the app is configured and how profile URLs work. Work
-through these once; afterwards §2 is the whole procedure.
-
-### a. nginx must fall back to index.html for every path
-
-Profiles now live at `/{username}`, so nginx sees requests for paths that are
-not files. Without a catch-all fallback it answers 404 and the request never
-reaches the SPA — **every profile link breaks**, while `/users/{username}` keeps
-working, which makes it look like a frontend bug.
-
-```nginx
-location / {
-    try_files $uri $uri/ /index.html;
-}
-```
-
-Check the live config before deploying:
+On your own computer, from the repository root, on the commit you want live:
 
 ```bash
-sudo nginx -T | grep -A 3 'location / '
+./tools/release.sh
 ```
 
-If `try_files … /index.html` is absent, add it and `sudo nginx -s reload`.
-Afterwards, confirm from outside the server:
+It does five things, and stops at the first that fails:
+
+1. **Tests**: the server suite (needs your local `webposting_test` database,
+   see [MIGRATIONS.md](MIGRATIONS.md#the-test-database)) and the client suite.
+2. **Builds** the website (`client/dist`) and the server JAR.
+3. **Packs** them, with the install script, into
+   `release/webposting-<date>-<commit>.tar.gz`.
+4. **Uploads** it to `~/incoming` on the server and unpacks it (asks for your
+   SSH password).
+5. **Installs** it with `sudo` (asks for your sudo password on the server).
+   The install script:
+   - backs up the database (`pg_dump`), the running JAR and the website to
+     `/home/mae/backups/release-<timestamp>/`;
+   - swaps the new JAR and website in (by renaming, so nothing is ever
+     half-written);
+   - restarts the service and waits up to 2 minutes for `GET /api/health`
+     to answer `{"status":"ok"}`;
+   - if it doesn't, **puts the previous JAR and website back** and restarts.
+
+Expect everyone to be signed out: sessions live in memory, so every restart
+ends them.
+
+Other ways to run it:
+
+| Command | Does |
+|---|---|
+| `./tools/release.sh --build-only` | test and build the archive; upload nothing |
+| `./tools/release.sh --no-install` | …and upload it; install later yourself |
+| `./tools/release.sh --skip-tests` | skip the tests (emergencies only) |
+| `sudo bash ~/incoming/<release>/install.sh --dry-run` | on the server: show what an install would do |
+| `sudo bash ~/incoming/<release>/install.sh` | on the server: install an uploaded release |
+
+Database migrations need no step of their own: the server applies pending
+`db/migrations/V*.sql` when it starts, and the install backs the database up
+just before that happens.
+
+### One-time setup on your computer
+
+- Java 21 and Node 20.19 or newer (`java -version`, `node -v`).
+- A local test database: `createdb webposting_test`.
+- SSH access: `ssh mae@webpost.ing` should work. If you'd rather not type the
+  password every time, set up a key: `ssh-copy-id mae@webpost.ing`.
+
+### After a release
+
+- Open https://webpost.ing, **hard-refresh** (the browser may keep an old
+  `index.html`), sign in, open a profile and a post.
+- `curl -s https://webpost.ing/api/health` should say `{"status":"ok",…}`.
+
+---
+
+## 2. When something goes wrong
+
+**The install rolled back on its own.** The previous version is running; the
+output above the rollback says why the new one failed. Logs:
+`sudo journalctl -u start-servers -n 200`.
+
+**The new version is live but misbehaving.** Put the previous release back
+from its backup:
 
 ```bash
-curl -s -o /dev/null -w '%{http_code}\n' https://webpost.ing/Mae   # expect 200
+B=/home/mae/backups/release-<timestamp>      # the one made by the bad release
+sudo cp -p $B/server.jar /home/webpost.ing/server/target/server-0.0.1-SNAPSHOT.jar.new
+sudo mv -f /home/webpost.ing/server/target/server-0.0.1-SNAPSHOT.jar.new /home/webpost.ing/server/target/server-0.0.1-SNAPSHOT.jar
+sudo rm -rf /var/www/webpost.ing/html && sudo tar -xzf $B/html.tgz -C /var/www/webpost.ing
+sudo systemctl restart start-servers.service
 ```
 
-### b. Move production settings into deploy.env
-
-`application.properties` is now committed and secret-free, so the untracked copy
-on the server will block `git pull`:
-
-```bash
-grep -E 'datasource|profiles' server/src/main/resources/application.properties  # note the values
-mv server/src/main/resources/application.properties /root/application.properties.bak
-git pull
-cp config/deploy.env.example deploy.env && chmod 600 deploy.env && $EDITOR deploy.env
-```
-
-The server now **refuses to start** under the `prod` profile if the database
-password is missing or still the development default, if the database is still
-`testdb`, if `ALLOWED_ORIGINS` points at localhost, or if `UPLOAD_DIR` is
-relative. Previously it would have started against an empty local database and
-looked like a successful deploy.
-
-### c. Move the database onto the single-file schema
-
-The migration history was squashed into one file (`V001__schema.sql`, see
-[MIGRATIONS.md](MIGRATIONS.md)). The live database recorded the old V001–V023,
-so the new server would try to build the schema on top of it and refuse to
-start. Move it across once, keeping every row, **with the service stopped**:
+**A migration broke the data.** Restore the database dump taken just before
+the release (this loses anything written since):
 
 ```bash
 sudo systemctl stop start-servers.service
-ADMIN_PSQL="sudo -u postgres psql" ./tools/reset-schema.sh --dry-run
-ADMIN_PSQL="sudo -u postgres psql" ./tools/reset-schema.sh
+sudo -u postgres pg_restore --clean --if-exists -d webpostingdb $B/webpostingdb.dump
+sudo systemctl start start-servers.service
 ```
-
-It backs up first (`tools/backup.sh`), builds a fresh database from the schema,
-copies the rows, and swaps the two by renaming; the old one is kept as
-`webpostingdb_before_reset_<timestamp>`. Then deploy as normal (§2) and check
-the site before dropping the old database.
-
-Rehearsed on a copy of the development database: every row, the ID sequences
-and the schema record came across, and the server started against it.
-
-### d. Expect everyone to be signed out
-
-Sessions live in memory, so the restart ends all of them. Normal, but worth
-knowing before the messages arrive.
 
 ---
 
-## 1. Production facts
+## 3. Production facts
 
 | Thing | Value |
 |---|---|
-| Repo checkout (build here) | `/home/mae/webpost.ing` |
-| Frontend served from | `/var/www/webpost.ing/html/` |
-| JAR the service runs | `/home/webpost.ing/server/target/server-0.0.1-SNAPSHOT.jar` |
-| Process owner | **root**, via systemd |
-| systemd unit | `start-servers.service` → `/home/webpost.ing/server-start.sh` |
-| Server log | `/tmp/webposting.log` |
-| Database | `webpostingdb` (**not** `webposting`, **not** `testdb`) |
-| DB user | `mae` |
-| Uploads | `/var/www/webposting/uploads` (from `application-prod.properties`) |
-| API port | `8080`, reverse-proxied by nginx at `/api/` |
+| Server | DigitalOcean droplet, 1 vCPU, ~2 GB RAM, host `webpost.ing`, user `mae` |
+| JAR the service runs | `/home/webpost.ing/server/target/server-0.0.1-SNAPSHOT.jar` (owned by `mae`) |
+| Website | `/var/www/webpost.ing/html` (owned by `mae`) |
+| Uploads | `/var/www/webposting/uploads` (owned by `webposting`, served by nginx) |
+| Service | `start-servers.service` → `/home/webpost.ing/server-start.sh`, runs as **`webposting`** (not root), with systemd hardening |
+| Settings | `/home/webpost.ing/deploy.env` (`root:webposting`, mode 0640). Read at startup: change it, then restart |
+| Database | `webpostingdb` on the same machine; app user `mae` |
+| API | `127.0.0.1:8080`, behind nginx at `/api/` |
+| Health | `GET /api/health` |
+| Release uploads | `~/incoming/` (mae's home) |
+| Backups | `/home/mae/backups/` (release backups, older dumps) |
 
-Two directory trees are easy to confuse: the **build** tree is under
-`/home/mae/`, the **runtime** tree is under `/home/webpost.ing/`. Building does
-not deploy — artifacts must be copied across.
+`/home/webpost.ing` is an old git checkout. Only `server-start.sh`,
+`deploy.env` and the JAR there are live. Don't build or `git pull` there.
+`/home/mae/webpost.ing` is an old build tree; don't build there either.
 
----
-
-## 2. Standard deploy
-
-```bash
-cd /home/mae/webpost.ing
-git pull
-
-# frontend
-cd client && npm ci && npm run build
-
-# backend
-cd ../server && ./mvnw package -DskipTests
-
-# publish frontend (needs sudo — the assets dir is root-owned in places)
-sudo cp -r /home/mae/webpost.ing/client/dist/. /var/www/webpost.ing/html/
-
-# publish backend
-sudo cp /home/mae/webpost.ing/server/target/server-0.0.1-SNAPSHOT.jar \
-        /home/webpost.ing/server/target/
-
-# restart (this is the only correct way — see §3)
-sudo systemctl restart start-servers.service
-
-# verify
-curl -s -o /dev/null -w '%{http_code}\n' https://webpost.ing/api/posts
-tail -40 /tmp/webposting.log
-```
-
-Database migrations need no separate step: `DatabaseMigrationService` applies
-every pending `classpath:db/migrations/V*.sql` at startup and records it in
-`schema_migrations`. Watch the log line
-`Database migration complete — applied: N, skipped: M`.
+nginx config is on the server only (`/etc/nginx/sites-available/webpost.ing`):
+HSTS, `nosniff`, `server_tokens off`, a 50 MB body limit on `/api/`,
+`X-Forwarded-For` set to the real client address, and a catch-all
+`try_files $uri $uri/ /index.html` so profile URLs like `/maepigeon` reach the
+app.
 
 ---
 
-## 3. Gotchas that have actually cost time
+## 4. Gotchas that have cost time
 
-**Do not `kill` the Java process.** It is owned by root under
-`start-servers.service`, which restarts it immediately — you get a confusing
-"port 8080 already in use" on your own start attempt. Also, `lsof -ti :8080`
-run as `mae` cannot see a root-owned listener, so the port looks free when it
-is not. Always use `sudo systemctl restart start-servers.service`.
+**Never build or run tests on the server**, and don't leave a VSCode
+Remote-SSH or Claude session open there. Each reconnect starts more
+background processes and keeps the old ones for three hours. That is how
+the second crash on 2026-09-30 happened.
 
-`deploy.sh` now does the whole of §2 — it reads `deploy.env`, builds both
-halves, copies `client/dist/` to `WEB_ROOT` and the JAR to `APP_HOME`, restarts
-`SERVICE_NAME` via systemctl, and waits for the API before reporting success.
-`--dry-run` prints the steps without touching anything. (Before the config
-consolidation it killed by port and started the JAR with `nohup`, which
-produced an unmanaged second server; that version is gone.)
+**Use `systemctl`, not `kill`.** systemd restarts a killed JVM straight away,
+and a normal user can't even see the service's process on port 8080.
 
-**`deploy.env` lives only on the server.** It is gitignored, so a `git pull`
-never updates it and a fresh clone has none — start the JAR without it and the
-`prod` profile refuses to boot, naming the missing variable. Keep a copy
-outside the repo. Unlike the old `application.properties`, it is read at
-startup, so changing it needs a **restart**, not a rebuild.
+**Hard-refresh after a release.** Vite gives every bundle a new filename, but
+a cached `index.html` still points at the old one. If a fix "isn't live",
+check which bundle the browser loaded before debugging the code.
 
-**Usernames are case-sensitive.** The account is `Mae`, not `mae`. Any
-hand-written `WHERE username = '...'` must match exactly; a wrong case reports
-`UPDATE 0` and silently does nothing. Always confirm the write:
+**Usernames are case-sensitive** in hand-written SQL. The admin account is
+`maepigeon`. Confirm a write changed a row: `UPDATE 0` means it didn't.
 
-```bash
-psql -U mae -d webpostingdb -c "SELECT username FROM users;"
-```
-
-`psql -U mae -d webpostingdb` works without `sudo` — reach for
-`sudo -u postgres` only for cluster-level operations (CREATE/DROP DATABASE,
-role management).
-
-**Hard-refresh after a frontend deploy.** Vite content-hashes filenames, but a
-cached `index.html` keeps pointing at the old bundle. If a fix "isn't live",
-check which hash the browser actually loaded before re-debugging the code.
-
-**Verify the copy landed.** Compare timestamps rather than trusting `cp`:
-
-```bash
-ls -la /var/www/webpost.ing/html/assets/*.js | tail -3
-grep -o 'index-[^.]*\.js' /var/www/webpost.ing/html/index.html
-```
-
-A silently failed `sudo cp` was mistaken for a broken fix for several rounds.
+**`DROP DATABASE` can't run in a transaction**, so give each statement its
+own `-c`. On PostgreSQL 15+ a new database needs
+`GRANT ALL ON SCHEMA public TO mae;` or every migration fails on permissions.
 
 ---
 
-## 4. Postgres cluster operations
+## 5. Backups
 
-`DROP DATABASE` cannot run inside a transaction block, so each statement needs
-its own `-c` invocation — several `-c` clauses in one command are wrapped in a
-transaction and fail.
-
-```bash
-sudo -u postgres psql -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='webpostingdb';"
-sudo -u postgres psql -c "DROP DATABASE webpostingdb;"
-sudo -u postgres psql -c "CREATE DATABASE webpostingdb OWNER mae;"
-sudo -u postgres psql -d webpostingdb -c "GRANT ALL ON SCHEMA public TO mae;"
-```
-
-The last line is not optional on PostgreSQL 15+: `public` is no longer
-world-writable, so a non-owner role cannot create tables and every migration
-fails with a permissions error. This is what made a freshly recreated
-`webposting` database unusable and forced the move to `webpostingdb`.
-
----
-
-## 5. Back up before anything destructive
-
-```bash
-./tools/backup.sh              # into ./backups
-./tools/backup.sh /mnt/backups # or wherever
-```
-
-Takes both halves and verifies them. **`pg_dump` alone is not a backup of this
-application**: images, avatars and fonts live on disk, so a database-only
-restore brings back every post with every image broken. The script archives
-`UPLOAD_DIR` alongside the dump with a matching timestamp, and reads both back
-before reporting success — an unreadable backup is worse than none, because you
-believe you have one.
-
-To restore, the script prints the exact two commands for the pair it just made.
-
----
-
-## 6. Post-deploy smoke check
-
-```bash
-curl -s -o /dev/null -w 'posts %{http_code}\n'  https://webpost.ing/api/posts
-curl -s https://webpost.ing/api/users/Mae/background; echo
-grep -iE 'error|exception|migration' /tmp/webposting.log | tail -20
-```
-
-Then in a browser, hard-refreshed: log in, open a profile (wallpaper renders),
-open a post, post a comment, send a DM.
+Each release backs up the database, JAR and website (section 1). That's not
+the same as regular backups: nothing schedules `tools/backup.sh` yet, and
+images, avatars and fonts live on disk, so a database dump alone restores
+every post with its pictures broken. To do (guide/tasks.md): a nightly
+database-and-uploads backup copied off the server, and an uptime monitor on
+`/api/health`.

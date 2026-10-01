@@ -277,8 +277,8 @@ The short version:
 
 ```bash
 cp config/deploy.env.example deploy.env && chmod 600 deploy.env && $EDITOR deploy.env
-./deploy.sh --dry-run     # check what it will do
-./deploy.sh               # build, publish, restart, verify
+./tools/release.sh        # on your own computer: test, build, upload, install
+                          # (never build on the server; see DEPLOYMENT.md)
 ```
 
 ## 6. Database Architecture

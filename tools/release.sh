@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+# release.sh — test, build and ship webpost.ing from YOUR computer.
+#
+#     ./tools/release.sh              test, build, upload, install (asks for passwords)
+#     ./tools/release.sh --no-install test, build, upload; install later by hand
+#     ./tools/release.sh --build-only test and build the release archive, nothing more
+#     ./tools/release.sh --skip-tests skip the test suites (emergencies only)
+#
+# Everything heavy happens here, never on the server: the server has 2 GB of
+# memory, and building on it crashed it on 2026-09-30.
+#
+# Steps:
+#   1. run the server tests (needs the local webposting_test database, see
+#      guide/MIGRATIONS.md) and the client tests
+#   2. build the website (client/dist) and the server JAR
+#   3. pack them with install-release.sh into release/webposting-<date>-<commit>.tar.gz
+#   4. upload it to the server's ~/incoming (scp; asks for your SSH password)
+#   5. unpack it there and run its install.sh with sudo (asks for your sudo
+#      password). That backs up the database, JAR and website, swaps in the
+#      new ones, restarts, checks /api/health, and rolls back if it fails.
+#
+# Settings (environment variables, all optional):
+#   DEPLOY_HOST   ssh destination            default mae@webpost.ing
+#   DEPLOY_INBOX  upload directory on it     default incoming (in your home)
+#
+# Needs: Java 21, Node 20.19 or later, and git.
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+DEPLOY_HOST="${DEPLOY_HOST:-mae@webpost.ing}"
+DEPLOY_INBOX="${DEPLOY_INBOX:-incoming}"
+TESTS=1 UPLOAD=1 INSTALL=1
+for arg in "$@"; do
+  case "$arg" in
+    --skip-tests) TESTS=0 ;;
+    --no-install) INSTALL=0 ;;
+    --build-only) UPLOAD=0; INSTALL=0 ;;
+    -h|--help) sed -n '2,32p' "$0"; exit 0 ;;
+    *) echo "Unknown option: $arg (try --help)"; exit 2 ;;
+  esac
+done
+
+step() { echo; echo "── $* ──"; }
+fail() { echo; echo "STOPPED: $*" >&2; exit 1; }
+
+cd "$ROOT"
+COMMIT="$(git rev-parse --short HEAD)"
+BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+NAME="webposting-$(date +%Y%m%d-%H%M)-$COMMIT"
+
+step "Release $NAME (branch $BRANCH)"
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+  echo "Warning: there are uncommitted changes; they will be in this release"
+  echo "but not in git. Commit them first if this is a real release."
+fi
+
+# ── 1. Test ───────────────────────────────────────────────────────────────────
+if [ "$TESTS" = 1 ]; then
+  step "1/5 Server tests"
+  (cd server && ./mvnw -q clean test) || fail "server tests failed (see server/target/surefire-reports)."
+  step "1/5 Client tests"
+  (cd client && npm ci --no-audit --no-fund --silent && npx vitest run) || fail "client tests failed."
+else
+  step "1/5 Tests SKIPPED (--skip-tests)"
+  (cd client && npm ci --no-audit --no-fund --silent)
+fi
+
+# ── 2. Build ──────────────────────────────────────────────────────────────────
+step "2/5 Build"
+(cd client && npm run build) || fail "website build failed."
+# `clean` matters: an incremental build can leave a stale class behind and
+# produce a JAR that fails at runtime.
+(cd server && ./mvnw -q clean package -DskipTests) || fail "server build failed."
+
+# ── 3. Pack ───────────────────────────────────────────────────────────────────
+step "3/5 Pack"
+OUT="$ROOT/release/$NAME"
+rm -rf "$OUT"
+mkdir -p "$OUT"
+cp server/target/server-0.0.1-SNAPSHOT.jar "$OUT/server.jar"
+cp -R client/dist "$OUT/html"
+cp tools/install-release.sh "$OUT/install.sh"
+printf '%s\ncommit %s (%s)\nbuilt %s on %s\n' "$NAME" "$(git rev-parse HEAD)" "$BRANCH" "$(date)" "$(hostname)" > "$OUT/RELEASE"
+tar -czf "$ROOT/release/$NAME.tar.gz" -C "$ROOT/release" "$NAME"
+echo "Built release/$NAME.tar.gz ($(du -h "$ROOT/release/$NAME.tar.gz" | cut -f1))"
+
+if [ "$UPLOAD" = 0 ]; then
+  echo; echo "Done (--build-only). Nothing was uploaded."
+  exit 0
+fi
+
+# ── 4. Upload ─────────────────────────────────────────────────────────────────
+step "4/5 Upload to $DEPLOY_HOST:~/$DEPLOY_INBOX"
+ssh "$DEPLOY_HOST" "mkdir -p ~/$DEPLOY_INBOX" || fail "could not reach $DEPLOY_HOST."
+scp "$ROOT/release/$NAME.tar.gz" "$DEPLOY_HOST:$DEPLOY_INBOX/" || fail "upload failed."
+ssh "$DEPLOY_HOST" "cd ~/$DEPLOY_INBOX && tar -xzf $NAME.tar.gz" || fail "unpacking on the server failed."
+
+INSTALL_CMD="sudo bash ~/$DEPLOY_INBOX/$NAME/install.sh"
+if [ "$INSTALL" = 0 ]; then
+  echo; echo "Uploaded. To put it live, on the server run:"
+  echo "    $INSTALL_CMD"
+  echo "(add --dry-run first to see what it will do)"
+  exit 0
+fi
+
+# ── 5. Install ────────────────────────────────────────────────────────────────
+step "5/5 Install (your sudo password on the server)"
+ssh -t "$DEPLOY_HOST" "$INSTALL_CMD" || fail "install did not complete; it has rolled back if it got as far as the swap. Its output is above."
+echo; echo "Released $NAME."

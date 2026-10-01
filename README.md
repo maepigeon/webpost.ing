@@ -73,7 +73,7 @@ chmod 600 deploy.env
 $EDITOR deploy.env
 ```
 
-`deploy.sh`, `server-start.sh` and `tools/backup.sh` all source it
+`server-start.sh` and `tools/backup.sh` source it
 automatically. The `application*.properties` files are committed, secret-free,
 and read `${VAR:default}` from the environment — **do not edit them to
 configure a deployment**; add a variable instead.
@@ -193,21 +193,18 @@ Copy `server-start.sh` and `deploy.env` into `APP_HOME`, then:
 sudo systemctl daemon-reload && sudo systemctl enable start-servers.service
 ```
 
-**7. Deploy.**
+**7. Release.** On your own computer, never on the server:
 
 ```bash
-./deploy.sh
+./tools/release.sh
 ```
 
-### Every deploy after that
+### Every release after that
 
-```bash
-git pull && ./deploy.sh
-```
-
-`deploy.sh` builds both halves, publishes `client/dist/` to `WEB_ROOT` and the
-JAR to `APP_HOME`, restarts the service, and waits for the API to answer before
-reporting success.
+The same command. It tests, builds, uploads, backs up the database, JAR and
+website, swaps the new version in, restarts, checks `/api/health`, and rolls
+back if the new version doesn't come up. See
+[guide/DEPLOYMENT.md](guide/DEPLOYMENT.md).
 
 | Flag | Effect |
 |---|---|
