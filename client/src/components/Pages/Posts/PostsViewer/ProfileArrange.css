@@ -66,6 +66,46 @@
     0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
+/* The "i" button: shows the keyboard keys. */
+.arrange-info {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 2px solid #2c2c2c;
+  border-radius: 10px;
+  background: #fff;
+  color: #2c2c2c;
+  font: italic 700 16px/1 Georgia, 'Times New Roman', serif;
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.12), 0 2px 5px rgba(0, 0, 0, 0.12);
+}
+.arrange-info.is-on { background: #2c2c2c; color: #fff; }
+
+.arrange-keys {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 14px;
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  font-size: 13px;
+  animation: arrange-pop 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.arrange-keys dt { margin: 0; white-space: nowrap; }
+.arrange-keys dd { margin: 0; color: #444; }
+.arrange-keys kbd {
+  display: inline-block;
+  min-width: 1.6em;
+  padding: 1px 6px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  border-bottom-width: 3px;
+  border-radius: 6px;
+  background: #f6f6f6;
+  font: 600 12px/1.5 ui-monospace, Menlo, monospace;
+  text-align: center;
+}
+
 /* ── Rows ──────────────────────────────────────────────────────────────── */
 
 .arrange-list {
