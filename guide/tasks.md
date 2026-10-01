@@ -51,12 +51,14 @@ guide/HANDOFF-2026-09-30.txt for production state and open server work.
 ### P2 — Grid editor
 - [ ] **Per-tile width** (single/double characters change only at the cursor or
       selection). Done in grid-fixes.patch on the server; needs the patch copied here.
-- [ ] **Typing lost after clicking a toolbar button or layer** (focus bug, HANDOFF §3b).
-- [ ] **Cursor in select mode**: arrows move it, Shift+arrows extend the selection.
-- [ ] **Skip occupied tiles while typing**: an Insert-key-style toggle button (and the
+- [x] **Typing lost after clicking a toolbar button or layer** (focus bug, HANDOFF §3b).
+      Buttons no longer take focus; clicking a layer selects it (double-click or F2
+      renames); a printable key with another tool picked switches to Text and types.
+- [x] **Cursor in select mode**: arrows move it, Shift+arrows extend the selection.
+- [x] **Skip occupied tiles while typing**: an Insert-key-style toggle button (and the
       Insert key) that makes typing jump over tiles that already hold a character.
-- [ ] **Keyboard shortcuts** for tools, undo/redo/copy/cut/paste, and a
-      "Show shortcuts" panel.
+- [x] **Keyboard shortcuts** for tools (⌥ + letter), undo/redo/copy/cut/paste, and a
+      "Show shortcuts" panel (⌘/ or the keyboard button).
 - [ ] **Organise the panel**: Draw / Text / Image groups.
 - [ ] **Save grid as image** (PNG).
 - [ ] **Antialiasing option** (for smooth fonts and photos).

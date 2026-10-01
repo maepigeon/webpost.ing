@@ -40,6 +40,38 @@ function boundsOf(selection) {
   };
 }
 
+/** Alt (Option) + a letter picks a tool. Keyed by KeyboardEvent.code. */
+const TOOL_KEYS = { KeyT: 'text', KeyS: 'select', KeyM: 'move', KeyP: 'pixel', KeyB: 'tile', KeyE: 'erase', KeyF: 'fill' };
+
+/** The editor's keyboard shortcuts, as the shortcuts panel lists them. */
+const SHORTCUTS = [
+  ['Tools', [
+    ['⌥T', 'Text'], ['⌥S', 'Select'], ['⌥M', 'Move'], ['⌥P', 'Paint pixels'],
+    ['⌥B', 'Paint tiles'], ['⌥E', 'Erase'], ['⌥F', 'Fill'],
+  ]],
+  ['Edit', [
+    ['⌘Z', 'Undo'], ['⇧⌘Z or ⌘Y', 'Redo'], ['⌘C', 'Copy'], ['⌘X', 'Cut'], ['⌘V', 'Paste'],
+    ['⌘A', 'Select all'], ['Delete', 'Clear the selection'], ['Esc', 'Deselect'],
+  ]],
+  ['Cursor and selection', [
+    ['Arrows', 'Move the cursor (in Select, it selects that tile)'], ['⇧ Arrows', 'Grow the selection'],
+    ['⌥ Arrows', 'Nudge the selection or layer'],
+  ]],
+  ['Typing', [
+    ['Any key', 'Types, switching to Text if another tool is picked'], ['Insert', 'Skip filled slots on or off'],
+    ['Enter', 'Next line'], ['F2', 'Rename the layer'], ['⌘/', 'Show or hide this list'],
+  ]],
+];
+
+/**
+ * A mouse press on a button would take the keyboard away from the hidden
+ * typing area, and typing after clicking a tool did nothing. Buttons act on
+ * click anyway; the press itself need not move focus. Fields keep theirs.
+ */
+function keepTypingFocus(e) {
+  if (e.target.closest('button') && !e.target.closest('input, select, textarea, label')) e.preventDefault();
+}
+
 const allTiles = (d) => orderedTiles(new Set(rectTiles({ r: 0, c: 0 }, { r: d.rows - 1, c: d.cols - 1 })));
 
 /** A square tile button with a pixel icon. */
@@ -144,6 +176,12 @@ export default function TileGrid({
   const [pawOptions, setPawOptions] = useState(DEFAULT_PAW_OPTIONS);
   const [uploading, setUploading] = useState(false);
   const [dragLayer, setDragLayer] = useState(null);
+  const [renaming, setRenaming] = useState(null);   // layer id whose name is being edited
+  // Like a keyboard's Insert key: typing jumps over slots that already hold a character.
+  const [skipFilled, setSkipFilled] = useState(false);
+  const [showKeys, setShowKeys] = useState(false);
+  // Where a Shift+arrow selection started (a tile).
+  const selAnchor = useRef(null);
 
   const active = data.layers.find(l => l.id === activeId) || data.layers[data.layers.length - 1];
   useEffect(() => { if (active && active.id !== activeId) setActiveId(active.id); }, [active, activeId]);
@@ -196,7 +234,7 @@ export default function TileGrid({
       else assets[l.id] = { photo: photos.current[l.id]?.photo };
     }
     const draw = () => renderGrid(canvas.getContext('2d'), data, assets, {
-      cursor: editing && tool === 'text' && active?.kind === 'pixel' ? cursor : null,
+      cursor: editing && (tool === 'text' || tool === 'select') && active?.kind === 'pixel' ? cursor : null,
       selection: editing ? selection : null,
       moveBy, activeId: active?.id,
       showGrid: editing,
@@ -273,6 +311,7 @@ export default function TileGrid({
       return;
     }
     if (tool === 'text' || tool === 'select') {
+      selAnchor.current = p.tile;
       const mode = e.shiftKey ? 'add' : e.altKey ? 'remove' : 'replace';
       gesture.current = { kind: 'select', anchor: p.tile, base: sel, mode, moved: false };
       if (mode === 'replace') setSelection(EMPTY);
@@ -490,6 +529,12 @@ export default function TileGrid({
     return j === -1 ? i : j;
   };
 
+  /** Whether a slot holds a character on any visible layer (this one as typed so far). */
+  const slotFilled = (d, typing, { r, s }) => d.layers.some(l => {
+    const layer = l.id === typing.id ? typing : l;
+    return layer.visible && layer.kind === 'pixel' && (rowChars(d, layer, r)[s] || ' ') !== ' ';
+  });
+
   const typeChars = (str) => {
     const layer = activeLayer();
     if (layer.kind !== 'pixel') return;
@@ -499,6 +544,10 @@ export default function TileGrid({
     let l = layer;
     for (const ch of Array.from(str)) {
       if (ch === '\n' || ch === '\r') { i = nextLineIndex(order, i); continue; }
+      if (skipFilled) {
+        while (i < order.length - 1 && slotFilled(d, l, order[i])) i += 1;
+        if (slotFilled(d, l, order[i])) break;
+      }
       const { r, s } = order[i];
       l = writeSlot(d, l, r, s, ch, { font, color: colour });
       if (i < order.length - 1) i += 1;
@@ -516,6 +565,12 @@ export default function TileGrid({
     if (mod && k === 'x') { copySelection(); deleteSelection(); e.preventDefault(); return; }
     if (mod && k === 'v') { paste(); e.preventDefault(); return; }
     if (mod && k === 'a') { selectAll(); e.preventDefault(); return; }
+    if (mod && e.key === '/') { setShowKeys(v => !v); e.preventDefault(); return; }
+    if (e.key === 'Insert') { setSkipFilled(v => !v); e.preventDefault(); return; }
+    if (e.key === 'F2') { setRenaming(activeLayer().id); e.preventDefault(); return; }
+    // Alt (Option) and a letter picks a tool; e.code, as Option+letter types an accent on a Mac.
+    const toolKey = e.altKey && !mod && TOOL_KEYS[e.code];
+    if (toolKey) { setTool(toolKey); e.preventDefault(); return; }
     const d = dataRef.current;
     const hasSel = selectionRef.current.size > 0;
     const nudge = { ArrowLeft: [0, -1], ArrowRight: [0, 1], ArrowUp: [-1, 0], ArrowDown: [1, 0] }[e.key];
@@ -526,10 +581,23 @@ export default function TileGrid({
     }
     if (nudge) {
       const { r, s } = cursorRef.current;
-      setCursor({
+      const next = {
         r: Math.max(0, Math.min(d.rows - 1, r + nudge[0])),
         s: Math.max(0, Math.min(slotsPerRow(d) - 1, s + nudge[1])),
-      });
+      };
+      const tileOf = (p) => ({ r: p.r, c: Math.floor(p.s / perTile(d)) });
+      if (e.shiftKey) {
+        // Shift+arrows grow the selection from where it started.
+        if (!selAnchor.current) selAnchor.current = tileOf(cursorRef.current);
+        setSelection(new Set(rectTiles(selAnchor.current, tileOf(next))));
+      } else if (tool === 'select') {
+        // In select mode the cursor carries a one-tile selection with it.
+        selAnchor.current = tileOf(next);
+        setSelection(new Set([tileKey(selAnchor.current.r, selAnchor.current.c)]));
+      } else {
+        selAnchor.current = null;
+      }
+      setCursor(next);
       e.preventDefault();
       return;
     }
@@ -551,7 +619,9 @@ export default function TileGrid({
         else if (layer.kind === 'pixel') commit(withLayer(d, layer.id, l => writeSlot(d, l, cursorRef.current.r, cursorRef.current.s, ' ')));
         break;
       case 'Escape':
-        if (hasSel) setSelection(EMPTY); else if (panel) setPanel(null); else typeRef.current?.blur();
+        selAnchor.current = null;
+        if (showKeys) setShowKeys(false);
+        else if (hasSel) setSelection(EMPTY); else if (panel) setPanel(null); else typeRef.current?.blur();
         break;
       default: return;   // printable keys arrive through onInput
     }
@@ -561,7 +631,10 @@ export default function TileGrid({
   const onInput = (e) => {
     const value = e.target.value;
     e.target.value = '';
-    if (value && tool === 'text') typeChars(value);
+    if (!value) return;
+    // Typing with another tool picked switches to Text: the keys were meant as text.
+    if (tool !== 'text') setTool('text');
+    typeChars(value);
   };
 
   // ── Style: font and colour apply to the selection, or the cursor ───────────
@@ -703,8 +776,8 @@ export default function TileGrid({
   const hint = !isPixel && !['move', 'select'].includes(tool)
     ? 'Photo layer: drag it to move, drag a corner to resize, or flatten it to pixels to paint on it.'
     : {
-      text: 'Click a tile and type. Drag to select tiles; typing then fills them.',
-      select: 'Drag to select. Shift adds, Alt removes. Drag a selection to move it.',
+      text: 'Click a tile and type. Drag, or Shift+arrows, to select tiles; typing then fills them. ⌘/ lists the shortcuts.',
+      select: 'Drag, or use the arrows and Shift+arrows, to select. Shift adds, Alt removes. Drag a selection to move it.',
       move: 'Drag to move the selection, or the whole layer. Arrow keys nudge.',
       pixel: 'Paint single pixels.', tile: 'Paint whole tiles.', erase: 'Erase to transparent.',
       fill: 'Click a tile, or the selection, to fill it.',
@@ -749,16 +822,16 @@ export default function TileGrid({
       )}
 
       {editing && (
-        <div className="tg-panel">
+        <div className="tg-panel" onMouseDown={keepTypingFocus}>
           <div className="tg-main">
             <div className="tg-group" aria-label="Tools">
-              <Tile icon="text" label="Text: type on tiles" on={tool === 'text'} onClick={() => setTool('text')} />
-              <Tile icon="select" label="Select tiles" on={tool === 'select'} onClick={() => setTool('select')} />
-              <Tile icon="move" label="Move" on={tool === 'move'} onClick={() => setTool('move')} />
-              <Tile icon="pixel" label="Paint pixels" on={tool === 'pixel'} onClick={() => setTool('pixel')} />
-              <Tile icon="tile" label="Paint tiles" on={tool === 'tile'} onClick={() => setTool('tile')} />
-              <Tile icon="erase" label="Erase" on={tool === 'erase'} onClick={() => setTool('erase')} />
-              <Tile icon="fill" label="Fill" on={tool === 'fill'} onClick={() => setTool('fill')} />
+              <Tile icon="text" label="Text: type on tiles (⌥T)" on={tool === 'text'} onClick={() => setTool('text')} />
+              <Tile icon="select" label="Select tiles (⌥S)" on={tool === 'select'} onClick={() => setTool('select')} />
+              <Tile icon="move" label="Move (⌥M)" on={tool === 'move'} onClick={() => setTool('move')} />
+              <Tile icon="pixel" label="Paint pixels (⌥P)" on={tool === 'pixel'} onClick={() => setTool('pixel')} />
+              <Tile icon="tile" label="Paint tiles (⌥B)" on={tool === 'tile'} onClick={() => setTool('tile')} />
+              <Tile icon="erase" label="Erase (⌥E)" on={tool === 'erase'} onClick={() => setTool('erase')} />
+              <Tile icon="fill" label="Fill (⌥F)" on={tool === 'fill'} onClick={() => setTool('fill')} />
               <label className="tg-swatch" title="Colour" style={{ background: colour }}>
                 <input type="color" value={colour} onChange={e => chooseColour(e.target.value)} aria-label="Colour" />
               </label>
@@ -792,6 +865,7 @@ export default function TileGrid({
               <span className="tg-gap" />
               <Tile icon="fontPixel" label={`${FONT_NAMES.pixel} font — for the selection or cursor`} on={font === 'pixel'} onClick={() => chooseFont('pixel')} />
               <Tile icon="fontSmooth" label={`${FONT_NAMES.smooth} font — for the selection or cursor`} on={font === 'smooth'} onClick={() => chooseFont('smooth')} />
+              <Tile icon="skip" label={`Skip filled slots while typing (Insert): ${skipFilled ? 'on' : 'off'}`} on={skipFilled} onClick={() => setSkipFilled(v => !v)} />
               <span className="tg-gap" />
               <DirectionPad value={direction} onChange={setDirection} />
               <span className="tg-gap" />
@@ -827,9 +901,27 @@ export default function TileGrid({
               </div>
             )}
 
+            {showKeys && (
+              <div className="tg-keys" role="region" aria-label="Keyboard shortcuts">
+                {SHORTCUTS.map(([group, keys]) => (
+                  <div key={group} className="tg-keys-group">
+                    <h4 className="tg-keys-title">{group}</h4>
+                    <dl>
+                      {keys.map(([key, what]) => (
+                        <div key={key} className="tg-keys-row"><dt><kbd>{key}</kbd></dt><dd>{what}</dd></div>
+                      ))}
+                    </dl>
+                  </div>
+                ))}
+                <p className="tg-keys-note">On Windows and Linux, ⌘ is Ctrl and ⌥ is Alt.</p>
+              </div>
+            )}
+
             <div className="tg-status">
               <span className="tg-hint">{hint}</span>
               {hasSel && <span className="tg-badge">{selection.size} tile{selection.size === 1 ? '' : 's'}</span>}
+              {skipFilled && <span className="tg-badge">Skipping filled</span>}
+              <Tile icon="keys" label="Keyboard shortcuts (⌘/)" on={showKeys} onClick={() => setShowKeys(v => !v)} />
               <button type="button" className="tg-done" onClick={() => { setEditing(false); setSelection(EMPTY); setPanel(null); onDone?.(); }}>
                 Done
               </button>
@@ -851,16 +943,23 @@ export default function TileGrid({
                   onDragOver={e => e.preventDefault()}
                   onDrop={e => { e.preventDefault(); if (dragLayer !== null) reorderLayer(dragLayer, index); setDragLayer(null); }}
                   onDragEnd={() => setDragLayer(null)}
-                  onClick={() => setActiveId(l.id)}>
+                  onClick={() => { setActiveId(l.id); if (renaming !== l.id) typeRef.current?.focus(); }}
+                  onDoubleClick={() => setRenaming(l.id)}>
                   <span className="tg-layer-grip" aria-hidden="true"><PixelIcon name="grip" size={10} /></span>
                   <button type="button" className="tg-layer-eye" onClick={e => { e.stopPropagation(); toggleVisible(l.id); }}
                     title={l.visible ? 'Hide layer' : 'Show layer'} aria-label={l.visible ? `Hide ${l.name}` : `Show ${l.name}`}>
                     <PixelIcon name={l.visible ? 'eye' : 'eyeOff'} size={12} />
                   </button>
                   <span className="tg-layer-kind" aria-hidden="true"><PixelIcon name={l.kind === 'photo' ? 'photo' : 'tile'} size={10} /></span>
-                  <input className="tg-layer-name" value={l.name} aria-label="Layer name"
-                    onFocus={() => setActiveId(l.id)}
-                    onChange={e => onChange(withLayer(dataRef.current, l.id, x => ({ ...x, name: e.target.value.slice(0, 40) })))} />
+                  {renaming === l.id ? (
+                    <input className="tg-layer-name" value={l.name} aria-label="Layer name" autoFocus
+                      onFocus={e => e.target.select()}
+                      onBlur={() => setRenaming(null)}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); setRenaming(null); typeRef.current?.focus(); } }}
+                      onChange={e => onChange(withLayer(dataRef.current, l.id, x => ({ ...x, name: e.target.value.slice(0, 40) })))} />
+                  ) : (
+                    <span className="tg-layer-name" title="Double-click to rename">{l.name}</span>
+                  )}
                 </li>
               ))}
             </ol>

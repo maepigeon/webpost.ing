@@ -217,6 +217,33 @@
   .tg-photo-handle--ne, .tg-photo-handle--se { right: -10px; }
 }
 
+/* The keyboard shortcuts list (⌘/). */
+.tg-keys {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px 16px;
+  padding: 10px;
+  border: 1px solid #333;
+  background: #161616;
+  font-size: 11px;
+}
+.tg-keys-group dl { margin: 0; }
+.tg-keys-title { margin: 0 0 4px; font-size: inherit; color: #9a9a9a; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+.tg-keys-row { display: flex; gap: 8px; align-items: baseline; padding: 2px 0; }
+.tg-keys-row dt { flex: 0 0 78px; }
+.tg-keys-row dd { margin: 0; color: #d6d6d6; }
+.tg-keys kbd {
+  font: inherit;
+  font-family: ui-monospace, Menlo, monospace;
+  color: #fff;
+  border: 1px solid #555;
+  border-bottom-width: 2px;
+  padding: 0 4px;
+}
+.tg-keys-note { grid-column: 1 / -1; margin: 0; color: #8c8c8c; }
+
+span.tg-layer-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: default; }
+
 .tg-status { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
 .tg-hint { color: #8c8c8c; font-size: 11px; flex: 1; min-width: 0; }
 .tg-badge { padding: 2px 6px; border-radius: 3px; background: #1f3a5c; color: #cfe3ff; font-size: 11px; }
