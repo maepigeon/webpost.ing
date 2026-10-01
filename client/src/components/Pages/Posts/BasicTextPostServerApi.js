@@ -86,6 +86,16 @@ export function GET_PAGE_THEME(username) {
   return axios.get(baseUrl + `/api/users/${encodeURIComponent(username)}/theme`).then(r => r.data);
 }
 
+/** A post's own theme: {theme: {...}} or {theme: null} for the site default. */
+export function GET_POST_THEME(postId) {
+  return axios.get(baseUrl + `/api/posts/${postId}/theme`, { withCredentials: true }).then(r => r.data);
+}
+
+/** Saves a post's theme (its author only); null for the site default. */
+export function SET_POST_THEME(postId, theme) {
+  return axios.put(baseUrl + `/api/posts/${postId}/theme`, { theme }, { withCredentials: true }).then(r => r.data);
+}
+
 /** Saves the signed-in user's page theme; pass null to go back to Newspaper Life. */
 export function SET_PAGE_THEME(username, theme) {
   return axios.put(baseUrl + `/api/users/${encodeURIComponent(username)}/theme`, { theme }, { withCredentials: true })

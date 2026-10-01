@@ -77,6 +77,74 @@ public class PageThemeController {
         return ResponseEntity.ok(result);
     }
 
+    // ── A post's own theme ───────────────────────────────────────────────────
+    // Each post keeps a theme of its own (V009): it starts as a copy of the
+    // author's profile theme and is changed from the post's editor.
+
+    /** The post's author and whether it is published, or null if there is no such post. */
+    private Map<String, Object> postRow(long postId) {
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+                SELECT p.page_theme, p.published, u.username AS author
+                  FROM posts p
+                  JOIN users_posts_junctions j ON j.post_id = p.id
+                  JOIN users u ON u.id = j.user_id
+                 WHERE p.id = ?
+                """, postId);
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    /** Signed in as this author, with a valid token (the cookie name alone proves nothing). */
+    private boolean isAuthor(Object author, String authUsername, String token) {
+        return author != null && author.equals(authUsername) && authorize(authUsername, token) != null;
+    }
+
+    /** Public for a published post; a draft's only to its author, like the draft itself. */
+    @GetMapping("/posts/{id}/theme")
+    public ResponseEntity<?> getPostTheme(
+            @PathVariable long id,
+            @CookieValue(name = "username", required = false) String authUsername,
+            @CookieValue(name = "authToken", required = false) String token) {
+        Map<String, Object> row = postRow(id);
+        if (row == null) return ResponseEntity.notFound().build();
+        if (!Boolean.TRUE.equals(row.get("published")) && !isAuthor(row.get("author"), authUsername, token))
+            return ResponseEntity.notFound().build();
+        Map<String, Object> body = new HashMap<>();
+        Object stored = row.get("page_theme");
+        body.put("theme", stored == null ? null : parseOrNull((String) stored));
+        return ResponseEntity.ok(body);
+    }
+
+    /** Body: {"theme": {...}} to save, or {"theme": null} for the site default. Author only. */
+    @PutMapping("/posts/{id}/theme")
+    public ResponseEntity<?> setPostTheme(
+            @PathVariable long id,
+            @RequestBody Map<String, Object> body,
+            @CookieValue(name = "username", required = false) String authUsername,
+            @CookieValue(name = "authToken", required = false) String token) {
+        Map<String, Object> row = postRow(id);
+        if (row == null) return ResponseEntity.notFound().build();
+        if (authorize(authUsername, token) == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        if (!authUsername.equals(row.get("author"))) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+
+        Object theme = body == null ? null : body.get("theme");
+        String canonical = null;
+        if (theme != null) {
+            try {
+                canonical = ThemeValidator.normalise(MAPPER.writeValueAsString(theme));
+            } catch (ThemeValidator.InvalidThemeException e) {
+                return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+            } catch (Exception e) {
+                return ResponseEntity.badRequest().body(Map.of("message", "That theme could not be read."));
+            }
+        }
+        jdbc.update("UPDATE posts SET page_theme = ? WHERE id = ?", canonical, id);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("theme", canonical == null ? null : parseOrNull(canonical));
+        result.put("message", canonical == null ? "This post uses the site default now." : "Post theme saved.");
+        return ResponseEntity.ok(result);
+    }
+
     private static Object parseOrNull(String json) {
         try { return ThemeValidator.parse(json); } catch (Exception e) { return null; }
     }

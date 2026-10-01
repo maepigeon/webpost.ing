@@ -179,9 +179,11 @@ export default function CustomizePage() {
         <section className="settings-section">
           <h2 className="settings-section-title">Page theme</h2>
           <p className="settings-section-hint">
-            How your profile and posts look to everyone who visits. Start from a
-            theme, change anything about it, and save it as your own. Newspaper
-            Life is the site default, and you can always go back to it.
+            How your profile looks to everyone who visits. Start from a theme,
+            change anything about it, and save it as your own. Each post keeps a
+            theme of its own: a new post starts with this one, and you can change
+            it from the post editor&rsquo;s Page menu. Changing this one doesn&rsquo;t
+            restyle posts you&rsquo;ve already written.
           </p>
           <ThemeEditor username={username} />
         </section>

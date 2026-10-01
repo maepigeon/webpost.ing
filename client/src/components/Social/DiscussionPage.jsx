@@ -9,7 +9,7 @@ import { useBodyWallpaper } from '../TileArt/wallpaper.js';
 import './Social.css';
 import { postPath } from '../../utils/postUrl.js';
 import { useResolvedPostId } from '../../utils/useResolvedPostId.js';
-import { useAuthorTheme } from '../PageTheme/PageTheme.jsx';
+import { usePostTheme } from '../PageTheme/PageTheme.jsx';
 import { useDialog } from '../Dialog/Dialog.jsx';
 
 function flattenTree(comments) {
@@ -24,7 +24,7 @@ function DiscussionPageBody({ id }) {
   // The route segment is "{id}-{slug}"; the slug is cosmetic and a stale or
   // hand-edited one still resolves to the right post.
   const { username } = useParams();
-  useAuthorTheme(username);
+  usePostTheme(id);
   const navigate = useNavigate();
 
   const [postTitle, setPostTitle] = useState('');

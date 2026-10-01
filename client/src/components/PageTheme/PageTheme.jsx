@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { defaultTheme, sanitiseTheme, applyThemeToDocument, themeVariables } from './theme.js';
 import { wallpaperStyle, renderGridImage, useWallpaperStyle } from '../TileArt/wallpaper.js';
 import { TILE } from '../Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
-import { GET_PAGE_THEME } from '../Pages/Posts/BasicTextPostServerApi.js';
+import { GET_PAGE_THEME, GET_POST_THEME } from '../Pages/Posts/BasicTextPostServerApi.js';
 import './themes.css';
 
 /** CSS pixels per grid pixel for a card's sticker. */
@@ -23,33 +23,49 @@ const subscribe = (l) => { listeners.add(l); return () => listeners.delete(l); }
 const getCurrent = () => current;
 
 /**
- * Shows `username`'s theme while the calling page is mounted: their profile or
- * one of their posts. Anything else goes back to Newspaper Life.
+ * Shows a theme on the document while the calling page is mounted, loaded by
+ * `load` and kept up to date by `eventName` events that `matches`. Anything
+ * else goes back to Newspaper Life.
  */
-export function useAuthorTheme(username) {
+function useLoadedTheme(key, load, eventName, matches) {
   const [theme, setTheme] = useState(null);
 
   useEffect(() => {
-    if (!username) return;
+    if (key == null) return;
     let cancelled = false;
-    GET_PAGE_THEME(username)
+    load()
       .then(data => { if (!cancelled) setTheme(data?.theme || null); })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [username]);
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Settings announces a save so the owner sees it without reloading.
+  // The editor announces a save so its author sees it without reloading.
   useEffect(() => {
-    const onSaved = (e) => { if (e.detail?.username === username) setTheme(e.detail.theme); };
-    window.addEventListener('page-theme-changed', onSaved);
-    return () => window.removeEventListener('page-theme-changed', onSaved);
-  }, [username]);
+    const onSaved = (e) => { if (matches(e.detail)) setTheme(e.detail.theme); };
+    window.addEventListener(eventName, onSaved);
+    return () => window.removeEventListener(eventName, onSaved);
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!theme) return;
     setDocumentTheme(theme);
     return () => setDocumentTheme(null);
   }, [theme]);
+}
+
+/** `username`'s profile theme, while their profile is open. */
+export function useAuthorTheme(username) {
+  useLoadedTheme(username || null, () => GET_PAGE_THEME(username),
+    'page-theme-changed', d => d?.username === username);
+}
+
+/**
+ * A post's own theme, while the post (or its discussion) is open. Posts keep
+ * their own theme, so changing the profile theme does not restyle them.
+ */
+export function usePostTheme(postId) {
+  useLoadedTheme(postId == null ? null : String(postId), () => GET_POST_THEME(postId),
+    'post-theme-changed', d => String(d?.postId) === String(postId));
 }
 
 // ── Pictures ──────────────────────────────────────────────────────────────────

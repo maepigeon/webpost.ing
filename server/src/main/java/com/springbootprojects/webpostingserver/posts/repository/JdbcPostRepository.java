@@ -129,6 +129,12 @@ public class JdbcPostRepository implements PostRepository {
             "INSERT INTO users_posts_junctions (\"post_id\", \"user_id\") VALUES(?,?);",
             post.getId(), userId);
 
+        // A new post starts in its author's current theme, then keeps its own:
+        // changing the profile theme later does not restyle it (V009).
+        jdbcTemplate.update(
+            "UPDATE posts SET page_theme = (SELECT page_theme FROM users WHERE id = ?) WHERE id = ?",
+            userId, post.getId());
+
         return (int) post.getId();
     }
 

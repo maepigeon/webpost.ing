@@ -6,7 +6,7 @@ import { ThemePreview } from './PageTheme.jsx';
 import WallpaperEditor from '../TileArt/WallpaperEditor.jsx';
 import TileGrid from '../Pages/Posts/PostRenderer/RichTextPost/TileGrid/TileGrid.jsx';
 import { STICKERS } from '../TileArt/stickers.js';
-import { GET_PAGE_THEME, SET_PAGE_THEME } from '../Pages/Posts/BasicTextPostServerApi.js';
+import { GET_PAGE_THEME, SET_PAGE_THEME, GET_POST_THEME, SET_POST_THEME } from '../Pages/Posts/BasicTextPostServerApi.js';
 import './ThemeEditor.css';
 import { errorMessage } from '../../utils/errorMessage.js';
 
@@ -103,7 +103,13 @@ function StickerPicker({ value, onChange }) {
  * only a starting point: the same controls edit every one of them, and its
  * pictures open in the grid designer.
  */
-export default function ThemeEditor({ username }) {
+/**
+ * @param username  whose theme: the profile's, unless postId is given
+ * @param postId    edit this post's own theme instead
+ */
+export default function ThemeEditor({ username, postId = null }) {
+  const load = () => (postId != null ? GET_POST_THEME(postId) : GET_PAGE_THEME(username));
+  const store = (theme) => (postId != null ? SET_POST_THEME(postId, theme) : SET_PAGE_THEME(username, theme));
   const presets = useMemo(() => getPresets(), []);
   const [saved, setSaved] = useState(null);          // what is stored; null = Newspaper Life
   const [draft, setDraft] = useState(() => defaultTheme());
@@ -112,7 +118,7 @@ export default function ThemeEditor({ username }) {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    GET_PAGE_THEME(username)
+    load()
       .then(d => {
         const t = d?.theme ? sanitiseTheme(d.theme) : null;
         setSaved(t);
@@ -120,7 +126,18 @@ export default function ThemeEditor({ username }) {
       })
       .catch(() => {})
       .finally(() => setLoaded(true));
-  }, [username]);
+  }, [username, postId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** A post can start again from the author's current profile theme. */
+  const startFromProfileTheme = async () => {
+    try {
+      const d = await GET_PAGE_THEME(username);
+      setDraft(d?.theme ? sanitiseTheme(d.theme) : defaultTheme());
+      setStatus({ ok: true, msg: 'Your profile theme, ready to save for this post.' });
+    } catch {
+      setStatus({ ok: false, msg: 'Could not load your profile theme.' });
+    }
+  };
 
   const set = (group, key) => (value) => setDraft(d => ({
     ...d,
@@ -132,12 +149,14 @@ export default function ThemeEditor({ username }) {
     setBusy(true);
     setStatus(null);
     try {
-      const res = await SET_PAGE_THEME(username, theme ? sanitiseTheme(theme) : null);
+      const res = await store(theme ? sanitiseTheme(theme) : null);
       const t = res?.theme ? sanitiseTheme(res.theme) : null;
       setSaved(t);
       setDraft(t || defaultTheme());
       setStatus({ ok: true, msg: res?.message || 'Saved.' });
-      window.dispatchEvent(new CustomEvent('page-theme-changed', { detail: { username, theme: t } }));
+      window.dispatchEvent(postId != null
+        ? new CustomEvent('post-theme-changed', { detail: { postId, theme: t } })
+        : new CustomEvent('page-theme-changed', { detail: { username, theme: t } }));
     } catch (err) {
       setStatus({ ok: false, msg: errorMessage(err, 'Could not save the theme.') });
     } finally {
@@ -148,7 +167,7 @@ export default function ThemeEditor({ username }) {
   const t = sanitiseTheme(draft);
   const dirty = JSON.stringify(t) !== JSON.stringify(sanitiseTheme(saved || defaultTheme()));
 
-  if (!loaded) return <p className="settings-section-hint">Loading your theme…</p>;
+  if (!loaded) return <p className="settings-section-hint">{postId != null ? 'Loading this post’s theme…' : 'Loading your theme…'}</p>;
 
   return (
     <div className="theme-editor">
@@ -240,6 +259,12 @@ export default function ThemeEditor({ username }) {
           title="Go back to the site's default look">
           Restore Newspaper Life
         </button>
+        {postId != null && (
+          <button type="button" className="settings-btn" disabled={busy} onClick={startFromProfileTheme}
+            title="Copy your profile's current theme to start from">
+            Start from my profile theme
+          </button>
+        )}
         {status && <span className={`theme-status${status.ok ? '' : ' theme-status--error'}`} role="status">{status.msg}</span>}
       </div>
     </div>

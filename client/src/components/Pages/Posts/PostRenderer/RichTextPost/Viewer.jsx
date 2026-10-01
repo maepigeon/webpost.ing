@@ -33,7 +33,7 @@ import { ClickableLinkPlugin } from '@lexical/react/LexicalClickableLinkPlugin';
 import { postPath } from '../../../../../utils/postUrl.js';
 import { useResolvedPostId } from '../../../../../utils/useResolvedPostId.js';
 import ReportDialog from '../../../../Social/ReportDialog.jsx';
-import { useAuthorTheme } from '../../../../PageTheme/PageTheme.jsx';
+import { usePostTheme } from '../../../../PageTheme/PageTheme.jsx';
 import Icon from '../../../../Icon/Icon.jsx';
 
 const VIEWER_NODES = [HeadingNode, ListNode, ListItemNode, CustomCodeNode, CodeHighlightNode, ImageNode, MathNode, TileGridNode, LinkNode];
@@ -147,7 +147,7 @@ function RichTextViewerBody({ id }) {
   const [postDate, setPostDate] = useState('');
   const [postPublished, setPostPublished] = useState(false);
   const [postAuthor, setPostAuthor] = useState('');
-  useAuthorTheme(postAuthor || username);
+  usePostTheme(id);
   const [backgroundPattern, setBackgroundPattern] = useState('');
   const [dataReady, setDataReady] = useState(false);
   const [postLoaded, setPostLoaded] = useState(false);

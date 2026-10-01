@@ -31,6 +31,7 @@ import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
 import { READ_POST, CREATE_POST, UPDATE_POST, GET_USER_FROM_POST, GET_POST_FEATURES, SET_REACTIONS_ENABLED, SET_DISCUSSION_ENABLED, SET_VOTES_ENABLED, SEARCH_POSTS } from '../../BasicTextPostServerApi.js';
 import { errorMessage } from '../../../../../utils/errorMessage.js';
 import { useDialog } from '../../../../Dialog/Dialog.jsx';
+import ThemeEditor from '../../../../PageTheme/ThemeEditor.jsx';
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ImageNode, $createImageNode } from './ImageNode.jsx';
 import { MathNode, $createMathNode } from './MathNode.jsx';
@@ -1632,6 +1633,10 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
   const [openMenu, setOpenMenu] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const panelRef = useRef(null);
+  // The post-theme editor: opened from the Page menu, but owned here, so
+  // working in it (outside the menu) does not close the menu under it.
+  const [themeOpen, setThemeOpen] = useState(false);
+  const savedPost = postid && postid > 0;
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -1694,6 +1699,12 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
                      openId={openMenu} setOpenId={setOpenMenu}>
           <BackgroundToolbarPlugin pattern={backgroundPattern} onPatternChange={onPatternChange} />
           <FeatureTogglePlugin postid={postid} features={features} onFeaturesChange={onFeaturesChange} />
+          {/* Each post has its own theme; it starts as a copy of the profile's. */}
+          <button type="button" className="toolbar-theme-btn" disabled={!savedPost}
+            title={savedPost ? "This post's own theme" : 'Save the post first: it starts with your profile theme'}
+            onClick={() => { setOpenMenu(null); setThemeOpen(true); }}>
+            Post theme…
+          </button>
         </ToolbarMenu>
       ),
     },
@@ -1702,6 +1713,22 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
 
   return (
     <>
+      {themeOpen && createPortal(
+        <div className="post-theme-overlay" role="dialog" aria-modal="true" aria-label="Theme for this post">
+          <div className="post-theme-panel">
+            <div className="post-theme-head">
+              <h2>Theme for this post</h2>
+              <button type="button" className="post-theme-close" onClick={() => setThemeOpen(false)}>Done</button>
+            </div>
+            <p className="post-theme-hint">
+              This post keeps its own theme: changing your profile theme won&rsquo;t change it, and
+              this won&rsquo;t change your profile.
+            </p>
+            <ThemeEditor username={username} postId={postid} />
+          </div>
+        </div>,
+        document.body,
+      )}
       {/* One toolbar at every width: it fills the line and overflows the rest. */}
       <ResponsiveToolbar items={toolbarItems}>
         <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} titleRef={titleRef} onSaved={onSaved} username={username} folder={folder} onFolderChange={onFolderChange} features={features} slug={slug} />
