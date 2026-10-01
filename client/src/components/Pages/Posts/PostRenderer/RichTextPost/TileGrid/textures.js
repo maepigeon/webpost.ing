@@ -251,9 +251,14 @@ export const TEXTURES = {
     label: 'Paws',
     // Pawprints on black in an even, staggered pattern; see pawLayout and
     // pawColours for the colouring options.
+    // options.background: the colour behind the paws, or null to leave it
+    // transparent, so a wallpaper's own "Behind" colour shows.
     draw(ctx, w, h, options) {
-      ctx.fillStyle = '#000000';
-      ctx.fillRect(0, 0, w, h);
+      const background = options?.background === undefined ? '#000000' : options.background;
+      if (background) {
+        ctx.fillStyle = background;
+        ctx.fillRect(0, 0, w, h);
+      }
       const layout = pawLayout(w, h);
       const colours = pawColours(options, layout.rows, layout.cols);
       for (const { row, col, x, y } of layout.paws) {

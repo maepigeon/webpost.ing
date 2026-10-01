@@ -117,6 +117,23 @@ function HashtagLinkerPlugin({ contentRef, navigate }) {
   return null;
 }
 
+/**
+ * For a post that doesn't exist, has moved, or is someone else's draft: the
+ * server answers all three the same way, so a draft's existence isn't given
+ * away here either.
+ */
+function PostNotFound({ username }) {
+  return (
+    <div className="editor-centered" style={{ minHeight: '60vh' }}>
+      <div className="editor-post-card viewer-post-card viewer-not-found">
+        <h1>Post not found</h1>
+        <p>It may have been deleted or moved, or it isn&rsquo;t public.</p>
+        <p>{username ? <Link to={`/${username}`}>Back to {username}&rsquo;s profile</Link> : <Link to="/">Home</Link>}</p>
+      </div>
+    </div>
+  );
+}
+
 function RichTextViewerBody({ id }) {
   // The route segment is "{id}-{slug}"; the slug is cosmetic and a stale or
   // hand-edited one still resolves to the right post.
@@ -134,6 +151,9 @@ function RichTextViewerBody({ id }) {
   const [backgroundPattern, setBackgroundPattern] = useState('');
   const [dataReady, setDataReady] = useState(false);
   const [postLoaded, setPostLoaded] = useState(false);
+  // The post doesn't exist, or is someone else's draft (the server answers
+  // 404 for both, so a draft's existence isn't given away).
+  const [notFound, setNotFound] = useState(false);
   const [features, setFeatures] = useState({ reactionsEnabled: false, discussionEnabled: false, votesEnabled: false });
   // The author's chosen URL slug, if they set one.
   const [postSlug, setPostSlug] = useState(null);
@@ -225,8 +245,8 @@ function RichTextViewerBody({ id }) {
       GET_USER_FROM_POST(id).then(author => {
         setPostAuthor(author);
         setPostLoaded(true);
-      });
-    });
+      }).catch(() => setPostLoaded(true));
+    }).catch(() => setNotFound(true));
     GET_POST_FEATURES(id)
       .then(d => setFeatures({ reactionsEnabled: d.reactionsEnabled, discussionEnabled: d.discussionEnabled, votesEnabled: !!d.votesEnabled }))
       .catch(() => {});
@@ -328,6 +348,10 @@ function RichTextViewerBody({ id }) {
   // Hashtag linkification is handled by HashtagLinkerPlugin inside LexicalComposer (see below)
 
   const authorUsername = username || postAuthor;
+
+  // Used to render an empty card reading "Draft — only you can see it", with
+  // Report and Share buttons, and leave an unhandled error in the console.
+  if (notFound) return <PostNotFound username={username} />;
 
   return (
     <div style={{ minHeight: '100vh' }}>
@@ -559,7 +583,7 @@ function RichTextViewerBody({ id }) {
 export default function RichTextViewer() {
   const { id: segment, username } = useParams();
   const { id, missing } = useResolvedPostId(username, segment);
-  if (missing) return <p className="post-not-found">This post doesn&apos;t exist, or its address has changed.</p>;
+  if (missing) return <PostNotFound username={username} />;
   if (id == null) return null;
   return <RichTextViewerBody key={id} id={id} />;
 }

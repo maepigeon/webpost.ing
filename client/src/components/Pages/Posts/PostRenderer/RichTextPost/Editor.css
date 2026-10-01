@@ -1384,3 +1384,20 @@
 .toolbar-item { display: inline-flex; align-items: center; flex-shrink: 0; }
 
 
+
+/* "Post not found": a plain card. */
+.viewer-not-found { padding: 28px 32px; text-align: left; }
+.viewer-not-found h1 { margin: 0 0 8px; font-size: 1.6rem; }
+.viewer-not-found p { margin: 6px 0; }
+
+/* Room above the post page's card for the theme's sticker, which sits half
+   above the card: on a phone the padding was smaller than half a pin, so the
+   navbar cut off its head. Only the post page's card has a sticker. */
+.editor-centered:has(> .viewer-post-card) {
+  padding-top: max(40px, calc(10px + var(--th-sticker-h, 0px) / 2));
+}
+@media (max-width: 600px) {
+  .editor-centered:has(> .viewer-post-card) {
+    padding-top: max(12px, calc(10px + var(--th-sticker-h, 0px) / 2));
+  }
+}

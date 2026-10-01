@@ -14,7 +14,7 @@ import { useEffect, useState } from 'react';
 import {
   TILE, normaliseGrid, pixelLayer, renderGrid, pixelatePhoto,
 } from '../Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
-import { TEXTURES } from '../Pages/Posts/PostRenderer/RichTextPost/TileGrid/textures.js';
+import { TEXTURES, PAW_COLOURINGS, DEFAULT_PAW_OPTIONS, MAX_PAW_STOPS } from '../Pages/Posts/PostRenderer/RichTextPost/TileGrid/textures.js';
 import { IMAGES_BASE_URL } from '../../config.js';
 
 /** Largest wallpaper tile, in grid tiles on a side. */
@@ -49,6 +49,27 @@ export function sanitiseWallpaper(raw) {
     tiling: Object.hasOwn(TILINGS, w.tiling) ? w.tiling : 'repeat',
     scale: Number.isFinite(scale) ? Math.min(8, Math.max(1, scale)) : 2,
     bg: typeof w.bg === 'string' && HEX.test(w.bg) ? w.bg.toLowerCase() : '#eeede9',
+    ...(cleanSource(w.source) ? { source: cleanSource(w.source) } : {}),
+  };
+}
+
+/**
+ * Which texture a wallpaper was made from, and Paws' colours, so the editor
+ * can show those options again after a reload. Only a label for the editor;
+ * the tile is what is drawn. Mirrors WallpaperValidator.source on the server.
+ */
+function cleanSource(s) {
+  if (!s || typeof s !== 'object' || !Object.hasOwn(TEXTURES, s.texture)) return null;
+  if (s.texture !== 'paws') return { texture: s.texture };
+  const o = s.options && typeof s.options === 'object' ? s.options : {};
+  const hex = (c) => typeof c === 'string' && HEX.test(c);
+  return {
+    texture: 'paws',
+    options: {
+      colouring: Object.hasOwn(PAW_COLOURINGS, o.colouring) ? o.colouring : 'random',
+      colour: hex(o.colour) ? o.colour.toLowerCase() : DEFAULT_PAW_OPTIONS.colour,
+      stops: (Array.isArray(o.stops) ? o.stops : []).filter(hex).slice(0, MAX_PAW_STOPS).map(c => c.toLowerCase()),
+    },
   };
 }
 
@@ -80,7 +101,11 @@ export function textureTile(kind, cols = 4, rows = 4, options) {
 
 /** A wallpaper that tiles a texture; `options` are the texture's own (paw colours). */
 export function textureWallpaper(kind, { cols = 4, rows = 4, tiling = 'repeat', scale = 2, bg = '#eeede9', options } = {}) {
-  return { v: 3, tile: textureTile(kind, cols, rows, options), tiling, scale, bg };
+  const { background, ...kept } = options || {};   // drawing only, not remembered
+  return {
+    v: 3, tile: textureTile(kind, cols, rows, options), tiling, scale, bg,
+    source: kind === 'paws' ? { texture: kind, options: { ...DEFAULT_PAW_OPTIONS, ...kept } } : { texture: kind },
+  };
 }
 
 /** A tile drawn by a function(ctx, width, height) — for stickers and one-off presets. */

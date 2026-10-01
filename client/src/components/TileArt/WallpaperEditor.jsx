@@ -37,15 +37,21 @@ export default function WallpaperEditor({ value, onChange, allowNone = true }) {
   // The texture the wallpaper was last made from. Its options (paw colours)
   // show while it is; drawing on the tile ends that, since changing them
   // remakes the tile from scratch.
-  const [texture, setTexture] = useState(null);
-  const [pawOptions, setPawOptions] = useState(DEFAULT_PAW_OPTIONS);
+  // Remembered on the wallpaper itself (source), so its options come back
+  // after a reload; they used to vanish once it was saved.
+  const [texture, setTexture] = useState(() => w?.source?.texture || null);
+  const [pawOptions, setPawOptions] = useState(() => w?.source?.options || DEFAULT_PAW_OPTIONS);
 
   const fromTexture = (k, options) => {
+    // Paws are drawn on nothing, so "Behind" is the colour between them. It
+    // starts black, as the texture always was, unless they were already paws.
+    const bg = k === 'paws' && texture !== 'paws' ? '#000000' : w?.bg;
     setTexture(k);
     // A rainbow or gradient repeats with the tile, so give it the tallest one
     // allowed: eight rows of paws from top colour back round to top colour.
     const rows = ['rainbow', 'gradient'].includes(options?.colouring) ? MAX_TILE_TILES : undefined;
-    onChange(textureWallpaper(k, { tiling: w?.tiling, scale: w?.scale || 2, bg: w?.bg, options, rows }));
+    const drawOptions = k === 'paws' ? { ...options, background: null } : options;
+    onChange(textureWallpaper(k, { tiling: w?.tiling, scale: w?.scale || 2, bg, options: drawOptions, rows }));
   };
   const previews = useMemo(() => Object.fromEntries(Object.keys(TEXTURES).map(k => [k, texturePreview(k, 28)])), []);
 
@@ -108,7 +114,8 @@ export default function WallpaperEditor({ value, onChange, allowNone = true }) {
           {drawing && (
             <TileGrid
               data={w.tile}
-              onChange={tile => set({ tile })}
+              // Drawn by hand now, so no longer a texture to re-make from options.
+              onChange={tile => set({ tile, source: undefined })}
               editable
               startEditing
               maxCols={MAX_TILE_TILES}

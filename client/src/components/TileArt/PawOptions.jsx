@@ -2,6 +2,12 @@ import { PAW_COLOURINGS, DEFAULT_PAW_OPTIONS, MAX_PAW_STOPS } from '../Pages/Pos
 import Icon from '../Icon/Icon.jsx';
 import './PawOptions.css';
 
+/** A colour for a new gradient stop: one not used yet, so adding one shows. */
+const SUGGESTED = ['#ff5e8a', '#ffa45c', '#f5d547', '#6ee29c', '#5ec8ff', '#a98bff', '#ffffff'];
+function nextColour(stops) {
+  return SUGGESTED.find(c => !stops.includes(c)) || '#ffffff';
+}
+
 /**
  * How the Paws texture is coloured: a dropdown, then a colour for "One
  * colour", or a row of colour stops for "My gradient" (top to bottom, two to
@@ -47,7 +53,7 @@ export default function PawOptions({ value, onChange }) {
           ))}
           {o.stops.length < MAX_PAW_STOPS && (
             <button type="button" className="paw-stop-add" aria-label="Add a colour"
-              onClick={() => set({ stops: [...o.stops, o.stops[o.stops.length - 1]] })}>
+              onClick={() => set({ stops: [...o.stops, nextColour(o.stops)] })}>
               <Icon name="plus" size={12} />
             </button>
           )}

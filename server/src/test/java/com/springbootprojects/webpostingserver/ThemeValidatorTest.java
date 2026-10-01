@@ -100,4 +100,26 @@ class ThemeValidatorTest {
         assertThatThrownBy(() -> ThemeValidator.normalise("{\"page\":{\"wallpaper\":{\"v\":2}}}"))
                 .isInstanceOf(ThemeValidator.InvalidThemeException.class);
     }
+
+    // ── A wallpaper's texture source ──
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void pawOptionsAreKeptAndCleaned() throws Exception {
+        String w = WALLPAPER.substring(0, WALLPAPER.lastIndexOf('}'))
+                + ",\"source\":{\"texture\":\"paws\",\"options\":{\"colouring\":\"gradient\",\"colour\":\"javascript:x\","
+                + "\"stops\":[\"#FF0000\",\"url(x)\",\"#0000ff\",\"#111111\",\"#222222\",\"#333333\",\"#444444\",\"#555555\"],\"extra\":1}}}";
+        Map<String, Object> out = ThemeValidator.parse(WallpaperValidator.normalise(w));
+        @SuppressWarnings("unchecked") Map<String, Object> source = (Map<String, Object>) out.get("source");
+        @SuppressWarnings("unchecked") Map<String, Object> options = (Map<String, Object>) source.get("options");
+        assertThat(source.get("texture")).isEqualTo("paws");
+        assertThat(options).containsEntry("colouring", "gradient").containsEntry("colour", "#ff5e8a").doesNotContainKey("extra");
+        assertThat((java.util.List<Object>) options.get("stops")).containsExactly("#ff0000", "#0000ff", "#111111", "#222222", "#333333", "#444444");
+    }
+
+    @Test
+    void anUnreadableSourceIsDropped() throws Exception {
+        String w = WALLPAPER.substring(0, WALLPAPER.lastIndexOf('}')) + ",\"source\":{\"texture\":\"<script>\"}}";
+        assertThat(ThemeValidator.parse(WallpaperValidator.normalise(w))).doesNotContainKey("source");
+    }
 }

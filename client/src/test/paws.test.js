@@ -50,3 +50,20 @@ describe('pawColours', () => {
     expect(g.map(line => line[0])).toEqual(['#ff0000', '#0000ff']);
   });
 });
+
+describe('a Paws wallpaper remembers its options', () => {
+  it('keeps the texture and paw colours through sanitising, and drops anything else', async () => {
+    const { sanitiseWallpaper } = await import('../components/TileArt/wallpaper.js');
+    const w = sanitiseWallpaper({
+      v: 3, tile: { cols: 2, rows: 2, layers: [] }, tiling: 'repeat', scale: 2, bg: '#000000',
+      source: { texture: 'paws', options: { colouring: 'gradient', colour: 'red', stops: ['#FF0000', 'x', '#00ff00'], evil: 1 } },
+    });
+    expect(w.source).toEqual({ texture: 'paws', options: { colouring: 'gradient', colour: '#ff5e8a', stops: ['#ff0000', '#00ff00'] } });
+  });
+
+  it('forgets a source it does not know', async () => {
+    const { sanitiseWallpaper } = await import('../components/TileArt/wallpaper.js');
+    const w = sanitiseWallpaper({ v: 3, tile: { cols: 2, rows: 2, layers: [] }, source: { texture: 'nope' } });
+    expect(w.source).toBeUndefined();
+  });
+});
