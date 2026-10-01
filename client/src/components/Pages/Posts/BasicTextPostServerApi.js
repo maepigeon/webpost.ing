@@ -388,8 +388,9 @@ export function DELETE_ACCOUNT(username) {
 // ── Pinned posts ──────────────────────────────────────────────────────────────
 
 export function GET_PINNED_POST(username) {
+  // 204 (nothing pinned) has an empty body: null, not "".
   return axios.get(baseUrl + `/api/users/${username}/pinned-post`, { withCredentials: true })
-    .then(r => r.data);
+    .then(r => r.data || null);
 }
 
 export function SET_PINNED_POST(username, postId) {

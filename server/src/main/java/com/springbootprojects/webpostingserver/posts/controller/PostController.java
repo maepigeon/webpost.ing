@@ -492,13 +492,18 @@ public class PostController {
             @PathVariable("username") String username,
             @CookieValue(name = "username", required = false) String authUsername,
             @CookieValue(name = "authToken", required = false) String authToken) {
+        // Nothing pinned is an ordinary answer, 204, not an error: as a 404 it
+        // logged a console error on every profile without a pinned post.
         List<Integer> ids = jdbc.queryForList(
                 "SELECT pinned_post_id FROM users WHERE username=?", Integer.class, username);
-        if (ids.isEmpty() || ids.get(0) == null) return ResponseEntity.notFound().build();
+        if (ids.isEmpty() || ids.get(0) == null) return ResponseEntity.noContent().build();
         Post post = postRepository.findById(ids.get(0).longValue());
-        if (post == null) return ResponseEntity.notFound().build();
-        if (!post.isPublished() && (authUsername == null || !authUsername.equals(username)))
-            return ResponseEntity.notFound().build();
+        if (post == null) return ResponseEntity.noContent().build();
+        // A pinned draft is the author's alone. This used to compare the
+        // username cookie without checking its token, so setting the cookie to
+        // the author's name showed anyone their pinned draft.
+        if (!canSee(post.isPublished(), username, authUsername, authToken))
+            return ResponseEntity.noContent().build();
         return ResponseEntity.ok(post);
     }
 

@@ -237,4 +237,28 @@ class PostControllerTest {
 
         assertThat(postController.getUserByPostID(13L, null, null).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
+
+    // ── Pinned post ───────────────────────────────────────────────────────────
+
+    @Test
+    void pinnedPost_noneIsNoContentNotAnError() {
+        when(jdbc.queryForList(contains("pinned_post_id"), eq(Integer.class), eq("kittycat")))
+                .thenReturn(new java.util.ArrayList<>(java.util.Collections.singletonList(null)));
+
+        assertThat(postController.getPinnedPost("kittycat", null, null).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+    }
+
+    @Test
+    void pinnedPost_aDraftIsNotShownForAForgedUsernameCookie() throws Exception {
+        when(jdbc.queryForList(contains("pinned_post_id"), eq(Integer.class), eq("kittycat"))).thenReturn(java.util.List.of(13));
+        Post draft = new Post();
+        draft.setId(13);
+        draft.setPublished(false);
+        when(postRepository.findById(13L)).thenReturn(draft);
+        when(loginRepository.authorize("kittycat", "forged")).thenReturn(null);
+        when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
+
+        assertThat(postController.getPinnedPost("kittycat", "kittycat", "forged").getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(postController.getPinnedPost("kittycat", "kittycat", "tok").getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
 }

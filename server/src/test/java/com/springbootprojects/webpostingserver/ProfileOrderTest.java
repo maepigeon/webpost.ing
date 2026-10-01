@@ -130,6 +130,19 @@ class ProfileOrderTest {
         assertThat(order().subList(1, 6)).containsExactly(p.get(0), p.get(1), p.get(2), p.get(3), p.get(4));
     }
 
+    @Test
+    void aFoldersPostsComeTogetherAtItsFirstPostsPlace() {
+        // Arranged: p4, p0 (Travel), p3, p1 (Travel), p2.
+        Map<Integer, String> folders = noFolders();
+        folders.put(p.get(0), "Travel");
+        folders.put(p.get(1), "Travel");
+        posts.reorder(authorId, List.of(p.get(4), p.get(0), p.get(3), p.get(1), p.get(2)), folders);
+
+        // Travel sits where its first post is, with both its posts together, so
+        // a page boundary can never put one of them far from the other.
+        assertThat(order()).containsExactly(p.get(4), p.get(0), p.get(1), p.get(3), p.get(2));
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private List<Integer> order() {
