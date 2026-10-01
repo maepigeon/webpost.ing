@@ -29,15 +29,11 @@ export default function NotificationBell() {
   }, [location.pathname]);
 
   const active = location.pathname.startsWith('/inbox');
+  // A link styled as a button, exactly as Navbutton renders one.
   return (
-    // A plain link, exactly as Navbutton renders one: styled as inline-flex,
-    // the menu's padding rule applied to the link itself and squeezed the
-    // button narrower than its neighbours.
-    <Link to="/inbox">
-      <button className={`navButton navButton--purple${active ? ' navButton--active' : ''}`}>
-        Notifications
-        {count > 0 && <span className="notif-badge">{count > 99 ? '99+' : count}</span>}
-      </button>
+    <Link to="/inbox" className={`navButton navButton--purple${active ? ' navButton--active' : ''}`}>
+      Notifications
+      {count > 0 && <span className="notif-badge">{count > 99 ? '99+' : count}</span>}
     </Link>
   );
 }

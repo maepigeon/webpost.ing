@@ -1407,6 +1407,7 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
   const [editor] = useLexicalComposerContext();
   const [saveStatus, setSaveStatus] = useState('');
   const [savedId, setSavedId] = useState(null);
+  const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
   // After first creation, use savedId as effective ID so repeat saves update instead of creating
   const effectiveId = postid > 0 ? postid : savedId;
@@ -1494,9 +1495,7 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
         {saving ? '…' : 'Upload'}
       </button>
       {viewUrl && (
-        <Link to={viewUrl} className="toolbar-view-link">
-          <button className="toolbar-btn-view">View post →</button>
-        </Link>
+        <button type="button" className="toolbar-btn-view" onClick={() => navigate(viewUrl)}>View post →</button>
       )}
     </>
   );

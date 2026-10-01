@@ -423,9 +423,7 @@ function RichTextViewerBody({ id }) {
               )}
               {isAuthor && (
                 <div className="post-author-controls">
-                  <Link to={`/editor/${id}`}>
-                    <button className="viewer-edit-btn">Edit post</button>
-                  </Link>
+                  <button type="button" className="viewer-edit-btn" onClick={() => navigate(`/editor/${id}`)}>Edit post</button>
                   {postPublished && (
                     <button type="button" className="viewer-edit-btn" onClick={togglePin}
                       title={isPinned ? 'Take this post off the top of your profile' : 'Show this post at the top of your profile'}>

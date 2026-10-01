@@ -30,8 +30,28 @@ export function DELETE_POST(id) {
  * redirect, so a user whose session had died was bounced back to the same page
  * still looking signed out.
  */
+/**
+ * Asks the server whether the session is still good. A 401 makes the axios
+ * interceptor sign the user out, which is what this is for.
+ *
+ * One request serves every caller for 30 seconds: the navbar and the profile
+ * page call this on every render, and a single profile load used to send it
+ * eleven times. A failed check is not reused, so the next caller asks again.
+ */
+let sessionCheck = null;
+let sessionCheckedAt = 0;
+const SESSION_CHECK_MS = 30_000;
+
 export function AUTHORIZE_SESSION() {
-  return axios.post(baseUrl + "/api/authorizeSession").then((response) => response.data);
+  const now = Date.now();
+  if (sessionCheck && now - sessionCheckedAt < SESSION_CHECK_MS) return sessionCheck;
+  sessionCheckedAt = now;
+  const check = axios.post(baseUrl + "/api/authorizeSession").then((response) => response.data);
+  // Handled here, so a caller that ignores the result never leaves an
+  // unhandled rejection behind.
+  check.catch(() => { if (sessionCheck === check) sessionCheck = null; });
+  sessionCheck = check;
+  return check;
 };
 
 //get posts created by a specified user

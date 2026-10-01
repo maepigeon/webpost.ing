@@ -297,3 +297,15 @@ on :8082) and preview PID 19698 (`vite preview` on :5176). Both ports are
 free. Dropped `webposting_uireview` (confirmed gone). Did not touch ports
 8080/8081/5174/5175, or `webposting_test`, git, client/ or server/. The one
 exception is the read-only catalog query on `testdb` noted in #4.
+
+---
+
+## Status (2026-10-01, after fixes)
+
+Fixed and re-checked in a browser: #1, #2, #3, #4 (V008), #5, #6, #7, #8
+(server orders folders as blocks), #9, #10 (sliders are buttons now), #11,
+#12, #13, #14, #15, #16, #17, #18, #19, #20 (204), #21 (2 session checks per
+load instead of 11), #22 (no buttons inside links).
+
+Found while fixing #20: a pinned draft was shown to anyone with the author's
+name in a username cookie (token never checked). Fixed.

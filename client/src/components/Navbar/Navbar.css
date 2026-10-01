@@ -166,14 +166,11 @@
     min-width: 0;
 }
 
-/* The link is a plain full-width box; the button inside carries the padding.
-   Padding both pushed every button past the panel's right edge. */
-.nav-mobile-popup-items a {
-    display: block;
-    width: 100%;
-    padding: 0;
-}
+/* Each item is the link itself, full width. (When a button sat inside a link,
+   padding on both pushed every button past the panel's right edge.) */
 .nav-mobile-popup-items .navButton {
+    display: flex;
+    margin: 0;
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
@@ -203,7 +200,6 @@
     .navBar { padding: 4px 8px; }
 
     /* Thumb-sized buttons; whatever does not fit goes in the menu. */
-    .nav-items .navButton,
-    .nav-items a .navButton { padding: 8px 12px; font-size: 13px; min-height: 36px; }
+    .nav-items .navButton { padding: 8px 12px; font-size: 13px; min-height: 36px; }
 }
 

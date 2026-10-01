@@ -1,6 +1,6 @@
 import {UPDATE_POST, DELETE_POST} from '../../BasicTextPostServerApi.js'
 import {useState, useRef, useMemo} from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import './BasicTextPost.css'
 import ContentEditable from 'react-contenteditable';
 import { useDialog } from '../../../../Dialog/Dialog.jsx';
@@ -24,6 +24,7 @@ function BasicTextPost(props) {
     });
 
     const [currentPostMode, setCurrentPostMode] = useState(editMode ? Modes.EDIT : Modes.VIEW);
+    const navigate = useNavigate();
     // A post that is just a grid shows the grid itself on the card.
     const grid = useMemo(() => gridOfPost(postdata.description), [postdata.description]);
 
@@ -109,9 +110,9 @@ function BasicTextPost(props) {
         }
         if (postMode == Modes.VIEW) {
             return(
-                <Link to={`/editor/${postdata.id}`} state={{postID: postdata.id}}>
-                    <button> Edit </button>
-                </Link>
+                // A button that navigates, not a button inside a link (invalid
+                // HTML, and two tab stops for one control).
+                <button type="button" onClick={() => navigate(`/editor/${postdata.id}`, { state: { postID: postdata.id } })}>Edit</button>
             );
         }
         else if (postMode == Modes.EDIT) {

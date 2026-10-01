@@ -11,11 +11,9 @@ function Navbutton(props) {
         props.variant ? `navButton--${props.variant}` : '',
         isActive ? 'navButton--active' : '',
     ].filter(Boolean).join(' ');
-    return (
-        <Link to={props.route}>
-            <button className={cls}>{props.label}</button>
-        </Link>
-    );
+    // A link styled as a button, not a button inside a link: nested, they
+    // were two tab stops and confused screen readers (and are invalid HTML).
+    return <Link to={props.route} className={cls}>{props.label}</Link>;
 }
 
 export default Navbutton;

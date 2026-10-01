@@ -26,12 +26,10 @@ function MessagesBell({ className }) {
   }, []);
   if (!authorize()) return null;
   return (
-    <Link to="/messages" className={className}>
-      <button className="navButton navButton--purple">
-        Messages
-        {/* Inline after the label, the same badge the Notifications button uses. */}
-        {unread > 0 && <span className="notif-badge">{unread > 99 ? '99+' : unread}</span>}
-      </button>
+    <Link to="/messages" className={`navButton navButton--purple${className ? ` ${className}` : ''}`}>
+      Messages
+      {/* Inline after the label, the same badge the Notifications button uses. */}
+      {unread > 0 && <span className="notif-badge">{unread > 99 ? '99+' : unread}</span>}
     </Link>
   );
 }
