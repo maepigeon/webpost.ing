@@ -575,10 +575,10 @@ function PostsViewer() {
           </div>
           {canEdit && <NewGridPost />}
           {pinnedPost && (
-            <div className="PostContainer" style={{ position: 'relative' }}>
-              <div style={{ position: 'absolute', top: '8px', left: '12px', zIndex: 1, fontSize: '11px', fontWeight: 700, color: '#888', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                📌 Pinned
-              </div>
+            <div className="PostContainer profile-pinned">
+              {/* A label above the card, not laid over it: on the card it
+                  covered the date and the title. */}
+              <div className="profile-pinned-label">📌 Pinned</div>
               <BasicTextPost postdata={pinnedPost} updatePostsFlagCallback={() => loadPosts(true)}
                 uploaded={true} hasModifyPermissions={canEdit} ownerUsername={username}/>
             </div>
