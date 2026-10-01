@@ -325,7 +325,8 @@ function PostsViewer() {
                       src={IMAGES_BASE_URL + avatar}
                       alt={username}
                       onClick={() => setShowAvatarPopup(true)}
-                      style={{ width: 96, height: 96, borderRadius: '50%', objectFit: 'cover',
+                      className="squircle"
+                      style={{ width: 96, height: 96, objectFit: 'cover',
                                border: '3px solid rgba(255,255,255,0.9)',
                                boxShadow: '0 4px 18px rgba(0,0,0,0.16), inset 0 2px 0 rgba(255,255,255,0.6)',
                                cursor: 'pointer', display: 'block',
@@ -336,7 +337,8 @@ function PostsViewer() {
                   : (
                     <div
                       onClick={() => setShowAvatarPopup(true)}
-                      style={{ width: 96, height: 96, borderRadius: '50%',
+                      className="squircle"
+                      style={{ width: 96, height: 96,
                                 background: '#919191',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 fontSize: 36, fontWeight: 800, color: '#fff',

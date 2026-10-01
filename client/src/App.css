@@ -2,6 +2,19 @@
   --navbar-height: 48px;
 }
 
+/* ── Avatars are squircles, everywhere ────────────────────────────────────────
+   A true squircle where the browser can draw one (corner-shape), and the
+   nearest rounded square elsewhere. Every avatar uses .squircle, or these two
+   declarations, so the shape is defined once. */
+:root { --avatar-radius: 30%; }
+@supports (corner-shape: squircle) {
+  :root { --avatar-radius: 50%; }
+}
+.squircle {
+  border-radius: var(--avatar-radius) !important;
+  corner-shape: squircle;
+}
+
 @media (max-width: 500px) {
   :root { --navbar-height: 88px; }
 }

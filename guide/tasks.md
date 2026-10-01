@@ -1,6 +1,89 @@
 # Priority Task List
 
-Last updated: 2026-09-08
+Last updated: 2026-10-01
+
+---
+
+## Session — 2026-10-01 — Backlog from Mae's requests
+
+Status: [x] done (branch named), [~] in progress, [ ] to do.
+**[needs decision]** = Mae's answer changes the build. See also
+guide/HANDOFF-2026-09-30.txt for production state and open server work.
+
+### P0 — Security and shipping
+- [x] **Drafts readable by anyone through address lookups**: `/posts/{id}/canonical`,
+      `/users/{u}/resolve/{slug}` and `/UserFromPostID/{id}` returned a draft's title,
+      slug and author to anyone; ids are sequential, so every draft title was
+      listable. Fixed on `claude/hotfix-draft-privacy` (branched from main;
+      deploy first). Remaining, low: `/posts/{id}/discussion|features|reactions|views|vote`
+      still answer for drafts with settings and counts (no content).
+- [ ] **Deploying is easy for Mae**: one local `tools/release.sh` (test, build,
+      upload) plus one server script she runs with sudo (back up, swap, restart,
+      health-check, roll back). Health endpoint `/api/health`. Rewrite
+      guide/DEPLOYMENT.md around it. Never build on the server.
+- [ ] **Vulnerability review**: X-Forwarded-For trust (getClientIp/clientIp), upload
+      500 → 400/401, upload orphan on failure, CSRF review, read-endpoint rate limits,
+      draft metadata endpoints above.
+- [ ] **Review tests for faked tests** (assertions that cannot fail, mocks
+      asserting themselves, tests that skip the code they name).
+
+### P1 — Bugs and quick fixes
+- [x] **Profile arrangement**: order never stuck, posts repeated across pages, folders
+      could not be moved past posts, posts could not leave folders.
+      `claude/profile-drag-arrange` (arrange mode, keyboard dragging).
+- [ ] **Arrange mode "i" button** listing keyboard commands.
+- [ ] **Notifications button** goes to the notifications page; the sidebar one is
+      smaller than the other buttons.
+- [ ] **Terminal theme**: remove the scanline overlay.
+- [ ] **Stickers cut off on posts** (pushpin, tape, heart, star).
+- [ ] **Avatars are squircles everywhere.**
+- [ ] **Theme editor Cards section** overflows its container; restyle its controls in
+      the grid editor's pixel style (Colour, Opacity, Border, Border colour,
+      Corners, Shadow, Texture).
+- [ ] **Pawprint texture**: tile in an ordered pattern, not scattered; paw colour
+      options: one colour, random, downward rainbow, custom gradient with
+      several colour stops.
+- [ ] **Water title** burns CPU while idle; see HANDOFF §4.
+
+### P2 — Grid editor
+- [ ] **Per-tile width** (single/double characters change only at the cursor or
+      selection). Done in grid-fixes.patch on the server; needs the patch copied here.
+- [ ] **Typing lost after clicking a toolbar button or layer** (focus bug, HANDOFF §3b).
+- [ ] **Cursor in select mode**: arrows move it, Shift+arrows extend the selection.
+- [ ] **Keyboard shortcuts** for tools, undo/redo/copy/cut/paste, and a
+      "Show shortcuts" panel.
+- [ ] **Organise the panel**: Draw / Text / Image groups.
+- [ ] **Save grid as image** (PNG).
+- [ ] **Antialiasing option** (for smooth fonts and photos).
+- [ ] **Bake a photo layer** at the grid's pixel resolution.
+- [ ] **Links in grids**: a run of tiles can carry a link; external links ask first.
+- [ ] Fewer sliders: buttons and dropdowns instead, across the UI.
+
+### P2 — Post editor
+- [ ] **Toolbar as a tidy grid**: headings in one "Heading" dropdown (H1/H2/H3),
+      OL UL Link Image Code Math Grid, Post link, Style, Page grouped.
+- [ ] **Image resize by handles** on the image, not a percentage.
+
+### P3 — Features **[needs decision]** before building
+- [ ] **Per-post themes**: posts keep their own theme; changing the profile theme
+      no longer restyles every post; posts themed with the same tool.
+      *Decide:* existing posts keep today's look (copy the current profile theme
+      onto each) or start plain?
+- [ ] **Profile customisation page**, separate from Settings, opened from a button
+      on your own profile.
+- [ ] **Profile banner as a grid**: rows 1–4 fixed (user: name / n followers k
+      following / joined date / public posts), avatar on the right spanning those
+      rows, the rest editable with the grid editor.
+- [ ] **First grid shown on profile cards** for any post containing one, up to
+      50% of the card's width in height, with a per-post switch to turn it off.
+- [ ] **Stickies, stickers and pixel fonts made with the grid editor**; place
+      stickies anywhere on a profile or post; react to comments with stickers;
+      save a post as a sticky; turn a sticky into a sticker.
+      *Decide:* is a "sticky" a note pinned on a page and a "sticker" a reaction
+      image, or the same thing in two sizes? Who may place stickies on whose page?
+- [ ] **Forward/share grid posts**. *Decide:* forward = send in a DM, share = a link
+      or copy onto your own profile?
+- [ ] **More UI customisation built from grid mechanisms.**
 
 ---
 

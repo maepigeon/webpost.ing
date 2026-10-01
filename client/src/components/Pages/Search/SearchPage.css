@@ -258,7 +258,8 @@
 .search-user-avatar {
   width: 44px;
   height: 44px;
-  border-radius: 50%;
+  border-radius: var(--avatar-radius);
+  corner-shape: squircle;
   background: #656565;
   display: flex;
   align-items: center;

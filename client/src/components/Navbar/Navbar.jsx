@@ -26,7 +26,7 @@ function MessagesBell({ className }) {
   }, []);
   if (!authorize()) return null;
   return (
-    <Link to="/messages" style={{ display: 'inline-flex', textDecoration: 'none' }} className={className}>
+    <Link to="/messages" className={className}>
       <button className="navButton navButton--purple">
         Messages
         {/* Inline after the label, the same badge the Notifications button uses. */}

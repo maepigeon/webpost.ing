@@ -143,7 +143,7 @@ function buildPresets() {
         page: { wallpaper: textureWallpaper('neon', { cols: 2, rows: 2, scale: 2, bg: '#04060a' }), useProfileWallpaper: false },
         type: { heading: 'terminal', body: 'terminal', ink: '#39ff14', headingInk: '#00f0ff', accent: '#ff2bd6', headingCase: 'upper', headingScale: 1.35 },
         card: { bg: '#060c10', opacity: 0.88, border: 'glow', borderColor: '#39ff14', radius: 4, shadow: 'glow', texture: null, sticker: null },
-        fx: { glow: true, scanlines: true, flicker: true, rainbow: false },
+        fx: { glow: true, scanlines: false, flicker: true, rainbow: false },
       },
     },
     paw: {
@@ -220,7 +220,11 @@ export function sanitiseTheme(raw) {
       texture: sanitiseWallpaper(card.texture),
       sticker: cleanSticker(card.sticker),
     },
-    fx: Object.fromEntries(Object.keys(EFFECTS).map(k => [k, fx[k] === true])),
+    fx: Object.fromEntries(Object.keys(EFFECTS).map(k => [k, fx[k] === true
+      // Neon Terminal no longer has scanlines (Mae, 2026-10-01). A theme still
+      // saved as the untouched preset drops them too; editing a theme makes it
+      // 'custom', so one that asks for scanlines on purpose keeps them.
+      && !(k === 'scanlines' && t.preset === 'neon')])),
   };
 }
 

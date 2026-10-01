@@ -66,7 +66,8 @@
 .avatar-popup-img {
   width: min(180px, 55vw);
   height: min(180px, 55vw);
-  border-radius: 50%;
+  border-radius: var(--avatar-radius);
+  corner-shape: squircle;
   object-fit: cover;
   border: 3px solid rgba(255,255,255,0.9);
   box-shadow:
@@ -77,7 +78,8 @@
 .avatar-popup-letter {
   width: min(180px, 55vw);
   height: min(180px, 55vw);
-  border-radius: 50%;
+  border-radius: var(--avatar-radius);
+  corner-shape: squircle;
   background: #656565;
   display: flex;
   align-items: center;

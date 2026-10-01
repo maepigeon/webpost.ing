@@ -339,7 +339,7 @@ function RichTextViewerBody({ id }) {
         <LoadEditorStatePlugin ready={dataReady} />
         <HashtagLinkerPlugin contentRef={contentRef} navigate={navigate} />
         <div className="editor-centered">
-          <div className="editor-post-card">
+          <div className="editor-post-card viewer-post-card">
             <TitleBar
               postdata={{ id, title: postTitle, published: postPublished, date: postDate, author: postAuthor }}
               updatePostsFlagCallback={() => {}}

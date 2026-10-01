@@ -131,8 +131,10 @@ html[data-th-hide-wallpaper] body { background-image: none !important; }
   transform: translateY(-2px);
 }
 
-/* The sticker: a small grid pinned to the top centre of every card. */
-#appBody :is(.profile-header-card, .basicTextPost):not(.editor-post-card .basicTextPost)::before,
+/* The sticker: a small grid pinned to the top centre of every card, the
+   post page's card included (not the editor's, where it would sit on the
+   toolbar). */
+#appBody :is(.profile-header-card, .basicTextPost, .viewer-post-card):not(.editor-post-card .basicTextPost)::before,
 .theme-preview .theme-card::before {
   content: '';
   display: var(--th-sticker-display, none);

@@ -21,7 +21,7 @@ function UserMiniCard({ username }) {
     <Link to={`/${username}`} className="search-user-card">
       <div className="search-user-avatar">
         {avatarSrc
-          ? <img src={avatarSrc} alt={username} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+          ? <img src={avatarSrc} alt={username} className="squircle" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           : username?.[0]?.toUpperCase()
         }
       </div>
