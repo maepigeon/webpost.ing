@@ -21,7 +21,7 @@ public final class ReservedUsernames {
     private static final Set<String> RESERVED = Set.of(
             // Application routes
             "users", "user", "routes", "editor", "inbox", "messages", "search",
-            "activity", "settings", "login", "logout", "register", "signup",
+            "activity", "settings", "customize", "login", "logout", "register", "signup",
             "signin", "verify-email", "unsubscribe", "reset-password",
             "forgot-password", "admin", "adminpanel", "posts", "post",
 

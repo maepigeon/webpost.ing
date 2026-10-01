@@ -533,10 +533,10 @@ function PostsViewer() {
                 <div className="profile-owner-divider" />
                 {/* Group 2: appearance + export */}
                 <div className="profile-owner-group">
-                  {/* Appearance is configured in Settings; the profile is
-                      where the result is seen. */}
-                  <Link to="/settings" className="edit-bio-btn profile-appearance-link">
-                    Appearance
+                  {/* Header, wallpaper, theme and fonts have a page of
+                      their own, apart from account settings. */}
+                  <Link to="/customize" className="edit-bio-btn profile-appearance-link">
+                    Customize
                   </Link>
                   <button
                     type="button"

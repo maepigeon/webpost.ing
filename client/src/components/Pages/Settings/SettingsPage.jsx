@@ -1,29 +1,25 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   GET_SETTINGS, UPDATE_EMAIL_PREFERENCES, UPDATE_EMAIL_ADDRESS, RESEND_VERIFICATION,
   UPDATE_SITE_BACKGROUND, UPDATE_CODE_DISPLAY,
-  GET_USER_BACKGROUND, UPDATE_USER_BACKGROUND,
-  GET_PROFILE_HEADER, UPLOAD_PROFILE_HEADER, UPDATE_PROFILE_HEADER,
 } from '../Posts/BasicTextPostServerApi.js';
-import WallpaperEditor, { WallpaperSwatch } from '../../TileArt/WallpaperEditor.jsx';
-import { serialiseWallpaper } from '../../TileArt/wallpaper.js';
-import { IMAGES_BASE_URL } from '../../../config.js';
-import { describeUploadError } from '../../../utils/responsiveImage.js';
+import { WallpaperSwatch } from '../../TileArt/WallpaperEditor.jsx';
 import {
   CODE_FONTS, MIN_CODE_SIZE, MAX_CODE_SIZE, DEFAULT_CODE_SIZE, applyCodeDisplay,
 } from '../../../utils/codeDisplay.js';
 import { usePageTitle } from '../../../utils/usePageTitle.js';
-import ThemeEditor, { Steps } from '../../PageTheme/ThemeEditor.jsx';
+import { Steps } from '../../PageTheme/ThemeEditor.jsx';
 
 /** Code text sizes offered as buttons (it used to be a slider). */
 const CODE_SIZE_STEPS = [11, 12, 13, 14, 16, 18, 20].filter(n => n >= MIN_CODE_SIZE && n <= MAX_CODE_SIZE);
-import PixelFontsSection from './PixelFontsSection.jsx';
 import './SettingsPage.css';
 import { errorMessage } from '../../../utils/errorMessage.js';
 
 /**
- * Account settings — currently the email address and what it is used for.
+ * Account settings: the email address and what it is used for, the site
+ * background you see, and how code blocks look to you. How your profile looks
+ * to others is on CustomizePage.
  *
  * Email is optional both for the user and for the deployment. When the server
  * reports mailEnabled: false the page says so rather than offering a
@@ -75,12 +71,6 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Appearance lives here rather than on the profile page: these are settings,
-  // and the profile is where the result is seen, not where it is configured.
-  const [profileWallpaper, setProfileWallpaper] = useState('');
-  const [header, setHeader] = useState({ headerPath: null, headerInk: 'auto' });
-  const [headerBusy, setHeaderBusy] = useState(false);
-  const headerFileRef = useRef(null);
 
   useEffect(() => {
     if (!username) { navigate('/routes/Login'); return; }
@@ -88,10 +78,6 @@ export default function SettingsPage() {
       .then(data => { setSettings(data); setEmailInput(data.email || data.pendingEmail || ''); })
       .catch(() => setError('Could not load your settings. Try reloading the page.'))
       .finally(() => setLoading(false));
-    GET_USER_BACKGROUND(username).then(p => setProfileWallpaper(p || '')).catch(() => {});
-    GET_PROFILE_HEADER(username)
-      .then(d => setHeader({ headerPath: d.headerPath || null, headerInk: d.headerInk || 'auto' }))
-      .catch(() => {});
   }, [username, navigate]);
 
   const togglePreference = useCallback(async (key, value) => {
@@ -168,53 +154,6 @@ export default function SettingsPage() {
       applyCodeDisplay(previous);
       setError('Could not save that.');
     }
-  };
-
-  // Edited freely, saved on request: a wallpaper carries its pixels, so
-  // saving on every stroke would upload the whole tile each time.
-  const [wallpaperDraft, setWallpaperDraft] = useState('');
-  useEffect(() => { setWallpaperDraft(profileWallpaper); }, [profileWallpaper]);
-
-  const saveWallpaper = async (pattern) => {
-    const previous = profileWallpaper;
-    setProfileWallpaper(pattern);
-    try {
-      await UPDATE_USER_BACKGROUND(username, pattern);
-      setStatus('Wallpaper saved.');
-    } catch (err) {
-      setProfileWallpaper(previous);
-      setError(errorMessage(err, 'Could not save that wallpaper.'));
-    }
-  };
-
-  const uploadHeader = async (file) => {
-    if (!file) return;
-    setHeaderBusy(true);
-    setError('');
-    try {
-      const result = await UPLOAD_PROFILE_HEADER(username, file);
-      setHeader(h => ({ ...h, headerPath: result.headerPath }));
-      setStatus(result.message);
-    } catch (err) {
-      setError(describeUploadError(err));
-    } finally {
-      setHeaderBusy(false);
-    }
-  };
-
-  const removeHeader = async () => {
-    try {
-      await UPDATE_PROFILE_HEADER(username, { remove: true });
-      setHeader(h => ({ ...h, headerPath: null }));
-      setStatus('Header image removed.');
-    } catch { setError('Could not remove the header image.'); }
-  };
-
-  const changeHeaderInk = async (choice) => {
-    const previous = header.headerInk;
-    setHeader(h => ({ ...h, headerInk: choice }));
-    try { await UPDATE_PROFILE_HEADER(username, { headerInk: choice }); }
-    catch { setHeader(h => ({ ...h, headerInk: previous })); }
   };
 
   const resend = async () => {
@@ -312,86 +251,15 @@ export default function SettingsPage() {
           )}
         </section>
 
-        {/* ── Profile appearance ──────────────────────────────────────────── */}
+        {/* ── Profile appearance lives on its own page now ─────────────────── */}
         <section className="settings-section">
-          <h2 className="settings-section-title">Your profile</h2>
+          <h2 className="settings-section-title">Your profile&rsquo;s look</h2>
           <p className="settings-section-hint">
-            How your profile looks to everyone who visits it. Your bio, links and
-            avatar are still edited on <Link className="settings-link" to={`/${username}`}>your profile</Link>,
-            where you can see them in place.
+            Header image, wallpaper, page theme and pixel fonts are on{' '}
+            <Link className="settings-link" to="/customize">Customize your profile</Link>,
+            which your profile links to as well.
           </p>
-
-          <h3 className="settings-subheading">Header image</h3>
-          <p className="settings-section-hint">
-            Sits behind your avatar, name and links, replacing the plain panel.
-          </p>
-
-          {header.headerPath && (
-            <div
-              className="settings-header-preview"
-              style={{ backgroundImage: `url(${IMAGES_BASE_URL}${header.headerPath})` }}
-            >
-              <span className={`settings-header-preview-scrim settings-header-preview-scrim--${header.headerInk}`} />
-              <span className={`settings-header-preview-text settings-header-preview-text--${header.headerInk}`}>
-                {username}
-              </span>
-            </div>
-          )}
-
-          <div className="settings-header-controls">
-            <input
-              type="file"
-              ref={headerFileRef}
-              accept="image/*"
-              style={{ display: 'none' }}
-              onChange={e => { const f = e.target.files[0]; e.target.value = ''; uploadHeader(f); }}
-            />
-            <button type="button" className="settings-btn settings-btn--primary"
-                    disabled={headerBusy} onClick={() => headerFileRef.current?.click()}>
-              {headerBusy ? 'Uploading…' : header.headerPath ? 'Change image' : 'Choose an image'}
-            </button>
-            {header.headerPath && (
-              <>
-                <button type="button" className="settings-btn settings-btn--ghost" onClick={removeHeader}>
-                  Remove
-                </button>
-                <span className="settings-ink-group" role="group" aria-label="Text colour over the header">
-                  <span className="settings-ink-label">Text</span>
-                  {[['auto', 'Auto'], ['light', 'Light'], ['dark', 'Dark']].map(([v, l]) => (
-                    <button key={v} type="button"
-                            className={`settings-ink-btn${header.headerInk === v ? ' settings-ink-btn--active' : ''}`}
-                            onClick={() => changeHeaderInk(v)}>{l}</button>
-                  ))}
-                </span>
-              </>
-            )}
-          </div>
-
-          <h3 className="settings-subheading">Wallpaper</h3>
-          <p className="settings-section-hint">
-            The background of your profile page, shown to everyone who visits.
-          </p>
-          <div className="settings-wallpaper-panel">
-            <WallpaperEditor value={wallpaperDraft} onChange={w => setWallpaperDraft(serialiseWallpaper(w))} />
-            <button type="button" className="settings-btn settings-btn--primary"
-              disabled={wallpaperDraft === profileWallpaper} onClick={() => saveWallpaper(wallpaperDraft)}>
-              Save wallpaper
-            </button>
-          </div>
         </section>
-
-        {/* ── Page theme ─────────────────────────────────────────────────── */}
-        <section className="settings-section">
-          <h2 className="settings-section-title">Page theme</h2>
-          <p className="settings-section-hint">
-            How your profile and posts look to everyone who visits. Start from a
-            theme, change anything about it, and save it as your own. Newspaper
-            Life is the site default, and you can always go back to it.
-          </p>
-          <ThemeEditor username={username} />
-        </section>
-
-        <PixelFontsSection username={username} />
 
         {/* ── Site background ─────────────────────────────────────────────── */}
         <section className="settings-section">

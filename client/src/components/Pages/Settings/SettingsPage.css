@@ -334,3 +334,12 @@
 .settings-font-list li { display: flex; align-items: center; gap: 12px; }
 .settings-font-name { font-weight: 700; }
 .settings-font-glyphs { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-soft); }
+
+/* Title with a link back beside it (Customize your profile). */
+.settings-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
