@@ -162,7 +162,10 @@ export default function TileGrid({
   const [colour, setColour] = useState('#ffffff');
   const [font, setFont] = useState('pixel');
   const [direction, setDirection] = useState('right');
-  const [activeId, setActiveId] = useState(() => data.layers[data.layers.length - 1].id);
+  const [activeId, setActiveIdState] = useState(() => data.layers[data.layers.length - 1].id);
+  // Read by key handlers, which can run twice before a re-render.
+  const activeIdRef = useRef(activeId);
+  const setActiveId = (id) => { activeIdRef.current = id; setActiveIdState(id); };
   const cursorRef = useRef({ r: 0, s: 0 });
   const [cursor, setCursorState] = useState({ r: 0, s: 0 });
   const setCursor = (c) => { cursorRef.current = c; setCursorState(c); };
@@ -247,7 +250,7 @@ export default function TileGrid({
 
   const activeLayer = () => {
     const d = dataRef.current;
-    return d.layers.find(l => l.id === activeId) || d.layers[d.layers.length - 1];
+    return d.layers.find(l => l.id === activeIdRef.current) || d.layers[d.layers.length - 1];
   };
   const withLayer = (d, id, fn) => ({ ...d, layers: d.layers.map(l => (l.id === id ? fn(l) : l)) });
   const paintCanvas = (id) => paints.current[id]?.canvas;
@@ -535,10 +538,28 @@ export default function TileGrid({
     return layer.visible && layer.kind === 'pixel' && (rowChars(d, layer, r)[s] || ' ') !== ' ';
   });
 
-  const typeChars = (str) => {
+  /**
+   * The layer typing goes on. Text can't go on a photo, so with one picked it
+   * goes on the nearest layer above it, or a new "Text" layer put there (keys
+   * used to be dropped, and with a photo on top a grid took no typing at all).
+   */
+  const textLayerFor = (d) => {
     const layer = activeLayer();
-    if (layer.kind !== 'pixel') return;
-    const d = dataRef.current;
+    if (layer.kind === 'pixel') return { d, layer };
+    const at = d.layers.findIndex(l => l.id === layer.id);
+    const above = d.layers.slice(at + 1).find(l => l.kind === 'pixel' && l.visible);
+    if (above) { setActiveId(above.id); return { d, layer: above }; }
+    if (d.layers.length >= LIMITS.maxLayers) return { d, layer: null };
+    const text = pixelLayer('Text');
+    const layers = d.layers.slice();
+    layers.splice(at + 1, 0, text);
+    setActiveId(text.id);
+    return { d: { ...d, layers }, layer: text };
+  };
+
+  const typeChars = (str) => {
+    const { d, layer } = textLayerFor(dataRef.current);
+    if (!layer) return;
     const order = typingOrder();
     let i = Math.max(0, order.findIndex(p => p.r === cursorRef.current.r && p.s === cursorRef.current.s));
     let l = layer;
