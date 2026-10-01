@@ -26,7 +26,7 @@ chmod 600 deploy.env
 $EDITOR deploy.env
 ```
 
-`deploy.sh` and `server-start.sh` source it automatically. To run the JAR by
+`server-start.sh` sources it automatically. To run the JAR by
 hand with the same settings:
 
 ```bash
@@ -109,7 +109,7 @@ these are set to. Persisting them is tracked in [tasks.md](tasks.md).
 
 ### Deployment paths
 
-Read by `deploy.sh` and `server-start.sh`, not by the application:
+Read by `tools/install-release.sh` (on the server) and `server-start.sh`, not by the application:
 
 | Variable | Example | Notes |
 |---|---|---|
@@ -133,26 +133,9 @@ neither may ever contain a secret.
 
 ## Migrating an existing server to this layout
 
-Before this change, production credentials lived in an untracked
-`application.properties` on the server. That file is now committed and
-secret-free, so a `git pull` will refuse to overwrite the local copy:
-
-```bash
-# 1. Capture the values currently in use
-grep -E 'datasource|profiles' server/src/main/resources/application.properties
-
-# 2. Move the old file aside so the pull can land
-mv server/src/main/resources/application.properties /root/application.properties.bak
-
-# 3. Pull, then write the values into deploy.env instead
-git pull
-cp config/deploy.env.example deploy.env && chmod 600 deploy.env && $EDITOR deploy.env
-
-# 4. Rebuild — the JAR embeds the properties file
-cd server && ./mvnw package -DskipTests
-```
-
-Verify before restarting: `./deploy.sh --dry-run`.
+Done on production on 2026-09-30 (settings moved from an untracked
+`application.properties` into `deploy.env`). Releases are built on your own
+computer; see [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ---
 

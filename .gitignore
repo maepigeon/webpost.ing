@@ -77,3 +77,6 @@ nbbuild/
 nbdist/
 .nb-gradle/
 config/dev-test-account.local
+
+# Release archives made by tools/release.sh
+release/
