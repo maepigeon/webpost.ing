@@ -73,32 +73,62 @@ function ListToolbarPlugin() {
     }
     editor.dispatchCommand(INSERT_UNORDERED_LIST_COMMAND, undefined);
   };
-  return <>{['ol', 'ul'].map((tag) => (
-    <button key={tag} onClick={() => onClick(tag)}>{tag.toUpperCase()}</button>
-  ))}</>;
+  return (
+    <>
+      <button type="button" onClick={() => onClick('ul')} title="Bulleted list">• List</button>
+      <button type="button" onClick={() => onClick('ol')} title="Numbered list">1. List</button>
+    </>
+  );
 }
 
-function BlockTypePlugin() {
-  const [editor] = useLexicalComposerContext();
+const BLOCK_TYPES = [
+  { tag: 'paragraph', label: 'Normal' },
+  { tag: 'h1', label: 'Heading 1' },
+  { tag: 'h2', label: 'Heading 2' },
+  { tag: 'h3', label: 'Heading 3' },
+];
 
-  const setBlock = (createNode) => {
+/**
+ * One "Heading" dropdown for the block type: Normal, Heading 1, 2, 3. Its
+ * button names the block the caret is in. It used to be four buttons on the
+ * toolbar, which pushed everything else into the overflow menu.
+ */
+function HeadingMenu({ openId, setOpenId }) {
+  const [editor] = useLexicalComposerContext();
+  const [current, setCurrent] = useState('paragraph');
+
+  useEffect(() => editor.registerUpdateListener(({ editorState }) => {
+    editorState.read(() => {
+      const selection = $getSelection();
+      if (!$isRangeSelection(selection)) return;
+      const anchor = selection.anchor.getNode();
+      const block = anchor.getKey() === 'root' ? anchor : anchor.getTopLevelElement();
+      setCurrent($isHeadingNode(block) ? block.getTag() : 'paragraph');
+    });
+  }), [editor]);
+
+  const choose = (tag) => {
     editor.update(() => {
       const selection = $getSelection();
       if ($isRangeSelection(selection)) {
-        $setBlocksType(selection, createNode);
+        $setBlocksType(selection, () => (tag === 'paragraph' ? $createParagraphNode() : $createHeadingNode(tag)));
       }
     });
+    setOpenId(null);
   };
 
+  const label = BLOCK_TYPES.find(b => b.tag === current)?.label || 'Normal';
   return (
-    <>
-      <button onClick={() => setBlock(() => $createParagraphNode())}>Normal</button>
-      {['h1', 'h2', 'h3'].map((tag) => (
-        <button onClick={() => setBlock(() => $createHeadingNode(tag))} key={tag}>
-          {tag.toUpperCase()}
-        </button>
-      ))}
-    </>
+    <ToolbarMenu id="heading" label={label} panelLabel="Text style" hint="Normal text or a heading"
+                 openId={openId} setOpenId={setOpenId}>
+      <span className="toolbar-heading-options" role="menu">
+        {BLOCK_TYPES.map(b => (
+          <button key={b.tag} type="button" role="menuitemradio" aria-checked={current === b.tag}
+            className={`toolbar-heading-option toolbar-heading-option--${b.tag}${current === b.tag ? ' is-on' : ''}`}
+            onClick={() => choose(b.tag)}>{b.label}</button>
+        ))}
+      </span>
+    </ToolbarMenu>
   );
 }
 
@@ -1499,7 +1529,7 @@ function UndoRedoPlugin() {
  * Only one is open at a time — the parent owns `openId`, since two open panels
  * would overlap and there is never a reason to want both.
  */
-function ToolbarMenu({ id, label, hint, openId, setOpenId, children }) {
+function ToolbarMenu({ id, label, panelLabel = label, hint, openId, setOpenId, children }) {
   const open = openId === id;
   const ref = useRef(null);
 
@@ -1528,8 +1558,8 @@ function ToolbarMenu({ id, label, hint, openId, setOpenId, children }) {
         <span className="toolbar-menu-caret" aria-hidden="true">▾</span>
       </button>
       {open && (
-        <span className="toolbar-menu-panel" role="group" aria-label={label}>
-          <span className="toolbar-menu-panel-label">{label}</span>
+        <span className={`toolbar-menu-panel toolbar-menu-panel--${id}`} role="group" aria-label={panelLabel}>
+          <span className="toolbar-menu-panel-label">{panelLabel}</span>
           <span className="toolbar-menu-panel-body">{children}</span>
         </span>
       )}
@@ -1577,124 +1607,26 @@ function FormatToolbarPlugin() {
 
 
 /**
- * A toolbar that shows as many controls as fit on one line and moves the rest
- * into an overflow menu.
+ * The toolbar: the tools on one row, wrapping onto a second where the post is
+ * narrow, then the save actions on their own row.
  *
- * The previous arrangement had a fixed split: a set of controls always inline,
- * and a hamburger below a breakpoint. That wastes a wide window and crowds a
- * narrow one, because the breakpoint cannot know how wide the controls actually
- * are. Measuring instead means the line is always as full as it can be.
- *
- * How it works: every item is rendered into a hidden measuring row once, its
- * width recorded, and then only the ones that fit are rendered for real. A
- * ResizeObserver re-runs the sum when the window changes. Widths are measured,
- * never guessed, because a language name or a font list changes them.
+ * It used to measure every tool and hide whatever did not fit in an
+ * unlabelled overflow menu; at the post's width that was most of them, in a
+ * jumble. With headings and inserts in their own menus everything fits, and
+ * wrapping never hides anything.
  */
 function ResponsiveToolbar({ items, children }) {
-  const containerRef = useRef(null);
-  const measureRef = useRef(null);
-  const [visibleCount, setVisibleCount] = useState(items.length);
-  const [overflowOpen, setOverflowOpen] = useState(false);
-  const overflowRef = useRef(null);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    const measure = measureRef.current;
-    if (!container || !measure) return;
-
-    const recompute = () => {
-      const widths = Array.from(measure.children).map(c => c.getBoundingClientRect().width);
-      // The save controls are on their own row now, so the tools get the full
-      // width; only the overflow trigger has to be accounted for.
-      const available = container.getBoundingClientRect().width
-        - OVERFLOW_TRIGGER_WIDTH
-        - TOOLBAR_BREATHING_ROOM;
-
-      let used = 0;
-      let fit = 0;
-      for (const width of widths) {
-        if (used + width > available) break;
-        used += width + TOOLBAR_GAP;
-        fit += 1;
-      }
-      // Showing everything but one is worse than showing everything: the
-      // trigger costs about as much as the item it would hide.
-      setVisibleCount(fit >= items.length - 1 ? items.length : fit);
-    };
-
-    recompute();
-    const observer = new ResizeObserver(recompute);
-    observer.observe(container);
-    return () => observer.disconnect();
-  }, [items.length]);
-
-  useEffect(() => {
-    if (!overflowOpen) return;
-    const onDown = (e) => {
-      if (overflowRef.current && !overflowRef.current.contains(e.target)) setOverflowOpen(false);
-    };
-    const onKey = (e) => { if (e.key === 'Escape') setOverflowOpen(false); };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [overflowOpen]);
-
-  const hidden = items.slice(visibleCount);
-
   return (
     <div className="toolbar-sticky toolbar-stack">
-      {/* Row one: the tools, filling the line. */}
-      <div className="toolbar-responsive" ref={containerRef}>
-        {/* Measured once, never shown. aria-hidden so it is invisible to
-            assistive technology and to the tab order. */}
-        <div className="toolbar-measure" ref={measureRef} aria-hidden="true">
-          {items.map(item => <span key={`m-${item.key}`}>{item.node}</span>)}
-        </div>
-
-        {items.slice(0, visibleCount).map(item => (
-          <span className="toolbar-item" key={item.key}>{item.node}</span>
-        ))}
-
-        {hidden.length > 0 && (
-          <span className="toolbar-overflow" ref={overflowRef}>
-            <button
-              type="button"
-              className={`toolbar-overflow-trigger${overflowOpen ? ' toolbar-overflow-trigger--open' : ''}`}
-              onClick={() => setOverflowOpen(o => !o)}
-              aria-expanded={overflowOpen}
-              title={`${hidden.length} more ${hidden.length === 1 ? 'tool' : 'tools'}`}
-            >
-              <span className="toolbar-overflow-icon" aria-hidden="true"><span /><span /><span /></span>
-            </button>
-            {overflowOpen && (
-              <span className="toolbar-overflow-panel">
-                {hidden.map(item => (
-                  <span className="toolbar-overflow-item" key={`o-${item.key}`}>{item.node}</span>
-                ))}
-              </span>
-            )}
-          </span>
-        )}
+      <div className="toolbar-responsive" role="toolbar" aria-label="Formatting">
+        {items.map(item => <span className="toolbar-item" key={item.key}>{item.node}</span>)}
       </div>
-
-      {/* Row two: Save draft, Upload, View post.
-          These were on the tools row, where three word-labelled buttons plus a
-          status message ran past the edge of the post area. They are the
-          actions people look for deliberately rather than reach for mid-word,
-          so a line of their own costs nothing. */}
+      {/* Save draft, Upload, View post: on a row of their own, so they never
+          crowd the tools. */}
       <div className="toolbar-actions">{children}</div>
     </div>
   );
 }
-
-/** Width reserved for the overflow trigger, in pixels. */
-const OVERFLOW_TRIGGER_WIDTH = 42;
-/** Slack so the last item never sits flush against the edge. */
-const TOOLBAR_BREATHING_ROOM = 12;
-const TOOLBAR_GAP = 4;
 
 function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, postPublished, onPublishedChange, features, onFeaturesChange, titleRef, onSaved, folder, onFolderChange, slug }) {
   // Only one popover open at a time; two would overlap.
@@ -1726,16 +1658,27 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
    */
   const toolbarItems = [
     { key: 'history', node: <UndoRedoPlugin /> },
-    { key: 'block',   node: <BlockTypePlugin /> },
+    { key: 'heading', node: <HeadingMenu openId={openMenu} setOpenId={setOpenMenu} /> },
     { key: 'format',  node: <FormatToolbarPlugin /> },
-    { key: 'list',    node: <ListToolbarPlugin /> },
-
-    { key: 'link',   node: <LinkToolbarPlugin /> },
-    { key: 'image',  node: <ImageToolbarPlugin /> },
-    { key: 'code',   node: <CodeToolbarPlugin /> },
-    { key: 'math',   node: <MathToolbarPlugin /> },
-    { key: 'grid',   node: <TileGridToolbarPlugin /> },
-    { key: 'postlink', node: <PostLinkToolbarPlugin /> },
+    // Link stays out of the Insert menu: its pop-up for editing an existing
+    // link belongs to this button and would vanish with a closed menu.
+    { key: 'link',    node: <LinkToolbarPlugin /> },
+    {
+      key: 'insert',
+      node: (
+        <ToolbarMenu id="insert" label="Insert" hint="Lists, images, code, maths, grids and post links"
+                     openId={openMenu} setOpenId={setOpenMenu}>
+          <span className="toolbar-insert-grid">
+            <ListToolbarPlugin />
+            <ImageToolbarPlugin />
+            <CodeToolbarPlugin />
+            <MathToolbarPlugin />
+            <TileGridToolbarPlugin />
+            <PostLinkToolbarPlugin />
+          </span>
+        </ToolbarMenu>
+      ),
+    },
     {
       key: 'style',
       node: (
