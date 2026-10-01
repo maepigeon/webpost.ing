@@ -36,6 +36,19 @@ import './ProfileArrange.css';
 /** How far one level of indent is, in pixels: also how far to drag sideways. */
 const INDENT = 28;
 
+/**
+ * Keyboard moves while a row is lifted. Up and down go to the next row, as
+ * dnd-kit's sortable default does; left and right move the row one indent
+ * sideways, which is how a post goes into or out of the folder above, the
+ * same as dragging it sideways with the pointer.
+ */
+function arrangeKeyboardCoordinates(event, args) {
+  const { currentCoordinates } = args;
+  if (event.code === 'ArrowRight') return { ...currentCoordinates, x: currentCoordinates.x + INDENT };
+  if (event.code === 'ArrowLeft') return { ...currentCoordinates, x: currentCoordinates.x - INDENT };
+  return sortableKeyboardCoordinates(event, args);
+}
+
 const CSS_ESCAPE = (value) => (window.CSS?.escape ? window.CSS.escape(value) : value);
 
 const INDENT_TRANSITION = 'margin-left 180ms cubic-bezier(0.34, 1.56, 0.64, 1)';
@@ -153,8 +166,30 @@ export default function ProfileArrange({ posts, pinnedId, onChange, onDone, stat
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     // Touch waits a moment so a swipe over the list still scrolls the page.
     useSensor(TouchSensor, { activationConstraint: { delay: 160, tolerance: 6 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, { coordinateGetter: arrangeKeyboardCoordinates }),
   );
+
+  const [showKeys, setShowKeys] = useState(false);
+
+  /** How a row is named to a screen reader: its title, not its internal id. */
+  const nameOf = (id) => {
+    const row = rows.find(r => r.id === id);
+    if (!row) return 'the item';
+    return row.type === 'folder' ? `folder ${row.name}` : `post ${row.post.title || 'Untitled'}`;
+  };
+  const accessibility = {
+    screenReaderInstructions: {
+      draggable: 'To move this, press Space or Enter. Up and down arrows move it; right and left put a post '
+        + 'into or out of the folder above; Space or Enter drops it; Escape cancels.',
+    },
+    announcements: {
+      onDragStart: ({ active }) => `Picked up ${nameOf(active.id)}.`,
+      onDragOver: ({ active, over }) => (over && over.id !== active.id
+        ? `${nameOf(active.id)} is at ${nameOf(over.id)}.` : `${nameOf(active.id)} is back where it started.`),
+      onDragEnd: ({ active }) => `Dropped ${nameOf(active.id)}.`,
+      onDragCancel: ({ active }) => `Cancelled. ${nameOf(active.id)} is back where it was.`,
+    },
+  };
 
   const reset = () => { setActiveId(null); setOverId(null); setDx(0); setFolderSlotHeight(0); };
 
@@ -201,14 +236,30 @@ export default function ProfileArrange({ posts, pinnedId, onChange, onDone, stat
           <p className="arrange-hint">
             Drag the grip to move a post or a folder. Drop a post among a folder&rsquo;s posts to
             put it in; drop it outside to take it out. Below a folder&rsquo;s last post, drag right
-            to add it to the end. Keyboard: Space to lift, arrows to move, Space to drop.
+            to add it to the end.
           </p>
         </div>
         <div className="arrange-head-side">
           <span className={`arrange-status arrange-status--${status.state}`} role="status">{status.text}</span>
+          <button type="button" className={`arrange-info${showKeys ? ' is-on' : ''}`}
+            aria-expanded={showKeys} aria-controls="arrange-keys" title="Keyboard keys"
+            onClick={() => setShowKeys(v => !v)}>
+            <span aria-hidden="true">i</span><span className="visually-hidden">Keyboard keys</span>
+          </button>
           <button type="button" className="arrange-done" onClick={onDone}>Done</button>
         </div>
       </header>
+
+      {showKeys && (
+        <dl id="arrange-keys" className="arrange-keys">
+          <dt><kbd>Tab</kbd></dt><dd>go to the next grip</dd>
+          <dt><kbd>Space</kbd> / <kbd>Enter</kbd></dt><dd>pick up, and drop</dd>
+          <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>move up or down</dd>
+          <dt><kbd>→</kbd></dt><dd>into the folder above (below its last post)</dd>
+          <dt><kbd>←</kbd></dt><dd>out of the folder</dd>
+          <dt><kbd>Esc</kbd></dt><dd>cancel: put it back</dd>
+        </dl>
+      )}
 
       <DndContext
         sensors={sensors}
@@ -218,6 +269,7 @@ export default function ProfileArrange({ posts, pinnedId, onChange, onDone, stat
         // (a fifth of the window) scrolled the list away while aiming at rows
         // near the top or bottom.
         autoScroll={{ threshold: { x: 0, y: 0.08 } }}
+        accessibility={accessibility}
         onDragStart={handleDragStart}
         onDragMove={({ delta }) => setDx(delta.x)}
         onDragOver={({ over }) => setOverId(over?.id ?? null)}
