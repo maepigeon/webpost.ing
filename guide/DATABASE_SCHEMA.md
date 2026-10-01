@@ -14,7 +14,7 @@ sudo apt install postgresql
 
 sudo -u postgres psql <<EOF
 CREATE USER yourname WITH PASSWORD 'yourpassword';
-CREATE DATABASE webpostingdb OWNER yourname;
+CREATE DATABASE your_database OWNER yourname;
 EOF
 ```
 
@@ -23,7 +23,7 @@ start, from `server/src/main/resources/db/migrations/V001__schema.sql`.
 
 **3. Update credentials** in `server/src/main/resources/application.properties`:
 ```properties
-spring.datasource.url=jdbc:postgresql://localhost:5432/webpostingdb
+spring.datasource.url=jdbc:postgresql://localhost:5432/your_database
 spring.datasource.username=yourname
 spring.datasource.password=yourpassword
 ```
@@ -34,7 +34,7 @@ spring.datasource.password=yourpassword
 python3 -c "import bcrypt; print(bcrypt.hashpw(b'yourpassword', bcrypt.gensalt(10)).decode())"
 
 # Insert the admin user (replace hash with output above)
-psql -U yourname -d webpostingdb -c \
+psql -U yourname -d your_database -c \
   "INSERT INTO users (username, password, is_admin, role) VALUES ('yourusername', '\$2b\$10\$...', TRUE, 'admin');"
 ```
 

@@ -38,16 +38,18 @@ public class ProductionConfigCheck {
     @Value("${app.base-url:}")                 private String baseUrl;
     @Value("${app.mail.enabled:false}")        private boolean mailEnabled;
     @Value("${spring.mail.host:}")             private String mailHost;
+    @Value("${app.db.socket:}")                private String dbSocket;
 
     @PostConstruct
     public void verify() {
         List<String> fatal = new ArrayList<>();
         List<String> warnings = new ArrayList<>();
 
-        // The development default password. Its presence in production means
-        // deploy.env was not sourced.
-        if (datasourcePassword.isBlank() || datasourcePassword.equals("password"))
-            fatal.add("DB_PASSWORD is unset or still the development default. Did you source deploy.env?");
+        // No password is fine over the local socket (peer authentication):
+        // there is then no password anywhere to leak. Over TCP one is needed,
+        // and "password" is the old development default.
+        if (dbSocket.isBlank() && (datasourcePassword.isBlank() || datasourcePassword.equals("password")))
+            fatal.add("No database password, and no DB_SOCKET. Set DB_SOCKET for passwordless local access, or DB_PASSWORD. Did you source deploy.env?");
 
         if (datasourceUrl.contains("/testdb"))
             fatal.add("DB_NAME is still 'testdb', the development database. Set DB_NAME in deploy.env.");

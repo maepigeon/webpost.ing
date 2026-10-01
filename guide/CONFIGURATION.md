@@ -54,9 +54,10 @@ to a version where the profile was baked into the properties file.)
 |---|---|---|
 | `DB_HOST` | `localhost` | |
 | `DB_PORT` | `5432` | |
-| `DB_NAME` | `testdb` | Production is `webpostingdb`. |
-| `DB_USER` | `mae` | |
-| `DB_PASSWORD` | `password` | **The only secret.** The dev default is deliberately worthless. |
+| `DB_NAME` | `testdb` | The development database locally; set it on a server. |
+| `DB_USER` | your login name | |
+| `DB_SOCKET` | *(unset)* | Directory of PostgreSQL's Unix socket (e.g. `/var/run/postgresql`). When set, the app connects through it with peer authentication and **needs no password**. Recommended on a server; `tools/server/use-passwordless-db.sh` sets it up. |
+| `DB_PASSWORD` | *(empty)* | Only for a TCP connection. Locally a PostgreSQL usually lets you in as yourself without one. On a server prefer `DB_SOCKET`, so no password exists. |
 | `DB_POOL_SIZE` | `10` | HikariCP maximum pool size. |
 | `DB_CONNECTION_TIMEOUT` | `20000` | Milliseconds. |
 
@@ -84,7 +85,7 @@ the backend), so this list only needs entries for genuinely separate frontends.
 
 | Variable | Default | Notes |
 |---|---|---|
-| `UPLOAD_DIR` | `uploads` (dev) / `/var/www/webposting/uploads` (prod) | Must exist and be writable by the server user. Absolute in production, so it does not depend on the working directory the JVM was launched from. |
+| `UPLOAD_DIR` | `uploads` (dev) / `/srv/webposting/uploads` (prod) | Must exist and be writable by the server user. Absolute in production, so it does not depend on the working directory the JVM was launched from. |
 | `UPLOAD_MAX_SIZE` | `50MB` | Parsed by Spring's multipart resolver. |
 | `UPLOAD_MAX_BYTES` | `52428800` | Enforced by the application. Keep the two in agreement. |
 
@@ -113,9 +114,9 @@ Read by `tools/install-release.sh` (on the server) and `server-start.sh`, not by
 
 | Variable | Example | Notes |
 |---|---|---|
-| `WEB_ROOT` | `/var/www/webpost.ing/html` | Where nginx serves the built frontend. |
-| `APP_HOME` | `/home/webpost.ing` | Runtime tree; the JAR goes to `$APP_HOME/server/target/`. |
-| `SERVICE_NAME` | `start-servers.service` | systemd unit restarted after publishing. |
+| `WEB_ROOT` | `/srv/webposting/html` | Where nginx serves the built frontend. |
+| `APP_HOME` | `/srv/webposting/app` | Runtime tree; the JAR goes to `$APP_HOME/server/target/`. |
+| `SERVICE_NAME` | `webposting.service` | systemd unit restarted after publishing. |
 | `JAR_PATH` | *(derived)* | Override only if the JAR lives outside `$APP_HOME/server/target/`. |
 
 ### Frontend build
