@@ -136,9 +136,9 @@ class PostControllerTest {
                         java.util.Map.of("id", 12, "title", "Something else"),
                         java.util.Map.of("id", 209, "title", "My First Post")));
         when(jdbc.queryForList(contains("WHERE p.id = ?"), eq(209)))
-                .thenReturn(java.util.List.of(java.util.Map.of("id", 209, "author", "strky")));
+                .thenReturn(java.util.List.of(java.util.Map.of("id", 209, "author", "strky", "published", true)));
 
-        ResponseEntity<?> resp = postController.resolvePost("strky", "my-first-post");
+        ResponseEntity<?> resp = postController.resolvePost("strky", "my-first-post", null, null);
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(((java.util.Map<?, ?>) resp.getBody()).get("id")).isEqualTo(209);
@@ -187,5 +187,54 @@ class PostControllerTest {
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         verifyNoInteractions(postRepository);
+    }
+
+    // ── Drafts stay private through every address lookup ─────────────────────
+
+    private static java.util.Map<String, Object> draftRow() {
+        return java.util.Map.of("id", 13, "title", "Secret plans", "slug", "secret-plans",
+                "published", false, "author", "kittycat");
+    }
+
+    @Test
+    void canonical_hidesADraftFromEveryoneButItsAuthor() throws Exception {
+        when(jdbc.queryForList(contains("WHERE p.id = ?"), eq(13L))).thenReturn(java.util.List.of(draftRow()));
+        // Another signed-in user is turned away before their session is even checked.
+        when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
+
+        assertThat(postController.canonicalPath(13L, null, null).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(postController.canonicalPath(13L, "mittens", "tok").getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(postController.canonicalPath(13L, "kittycat", "tok").getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    void canonical_claimingTheAuthorsNameWithoutTheirTokenGetsNothing() throws Exception {
+        when(jdbc.queryForList(contains("WHERE p.id = ?"), eq(13L))).thenReturn(java.util.List.of(draftRow()));
+        when(loginRepository.authorize("kittycat", "forged")).thenReturn(null);
+
+        assertThat(postController.canonicalPath(13L, "kittycat", "forged").getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void resolve_hidesADraftFromOthers() {
+        when(jdbc.queryForList(contains("lower(p.slug)"), eq(Integer.class), eq("kittycat"), eq("secret-plans")))
+                .thenReturn(java.util.List.of(13));
+        when(jdbc.queryForList(contains("WHERE p.id = ?"), eq(13))).thenReturn(java.util.List.of(draftRow()));
+
+        assertThat(postController.resolvePost("kittycat", "secret-plans", null, null).getStatusCode())
+                .isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void userFromPostId_hidesADraftsAuthor() {
+        Post draft = new Post();
+        draft.setId(13);
+        draft.setPublished(false);
+        when(postRepository.findById(13L)).thenReturn(draft);
+        LoginInfo owner = new LoginInfo();
+        owner.setUsername("kittycat");
+        when(postRepository.getUsernameFromPostId(13)).thenReturn(owner);
+
+        assertThat(postController.getUserByPostID(13L, null, null).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 }

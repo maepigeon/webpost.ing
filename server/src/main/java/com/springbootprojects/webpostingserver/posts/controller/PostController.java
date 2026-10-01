@@ -45,7 +45,9 @@ public class PostController {
      * post rather than alternating.
      */
     @GetMapping("/users/{username}/resolve/{segment}")
-    public ResponseEntity<?> resolvePost(@PathVariable String username, @PathVariable String segment) {
+    public ResponseEntity<?> resolvePost(@PathVariable String username, @PathVariable String segment,
+            @CookieValue(name = "username", required = false) String authUsername,
+            @CookieValue(name = "authToken", required = false) String token) {
         java.util.regex.Matcher leadingId = java.util.regex.Pattern.compile("^(\\d+)$").matcher(segment);
 
         Integer postId = null;
@@ -75,8 +77,30 @@ public class PostController {
                  WHERE p.id = ?
                 """, postId);
         if (rows.isEmpty()) return ResponseEntity.notFound().build();
+        Map<String, Object> row = rows.get(0);
+        if (!canSee(Boolean.TRUE.equals(row.get("published")), (String) row.get("author"), authUsername, token))
+            return ResponseEntity.notFound().build();
 
-        return ResponseEntity.ok(rows.get(0));
+        return ResponseEntity.ok(row);
+    }
+
+    /**
+     * Whether the requester may learn anything about a post: anyone for a
+     * published post, only its signed-in author for a draft.
+     *
+     * Every lookup that answers with a post's title, slug or author goes
+     * through this. The address lookups used to answer for drafts too, so
+     * counting through post ids listed the title and author of every draft on
+     * the site.
+     */
+    private boolean canSee(boolean published, String author, String authUsername, String token) {
+        if (published) return true;
+        if (authUsername == null || token == null || author == null || !author.equals(authUsername)) return false;
+        try {
+            return loginRepository.authorize(authUsername, token) != null;
+        } catch (JdbcLoginRepository.TokenExpiredException e) {
+            return false;
+        }
     }
 
     /**
@@ -129,9 +153,11 @@ public class PostController {
      * on to the post's real address.
      */
     @GetMapping("/posts/{id}/canonical")
-    public ResponseEntity<?> canonicalPath(@PathVariable long id) {
+    public ResponseEntity<?> canonicalPath(@PathVariable long id,
+            @CookieValue(name = "username", required = false) String authUsername,
+            @CookieValue(name = "authToken", required = false) String token) {
         List<Map<String, Object>> rows = jdbc.queryForList("""
-                SELECT p.id, p.title, p.slug, COALESCE(u.username, '') AS author
+                SELECT p.id, p.title, p.slug, p.published, COALESCE(u.username, '') AS author
                   FROM posts p
                   LEFT JOIN users_posts_junctions j ON j.post_id = p.id
                   LEFT JOIN users u ON u.id = j.user_id
@@ -139,7 +165,10 @@ public class PostController {
                 """, id);
         if (rows.isEmpty() || String.valueOf(rows.get(0).get("author")).isEmpty())
             return ResponseEntity.notFound().build();
-        return ResponseEntity.ok(rows.get(0));
+        Map<String, Object> row = rows.get(0);
+        if (!canSee(Boolean.TRUE.equals(row.get("published")), (String) row.get("author"), authUsername, token))
+            return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(row);
     }
 
     /**
@@ -241,10 +270,13 @@ public class PostController {
     }
 
     @GetMapping("/UserFromPostID/{id}")
-    public ResponseEntity<String> getUserByPostID(@PathVariable("id") long id) {
-        LoginInfo userLogin = postRepository.getUsernameFromPostId((int)id);
+    public ResponseEntity<String> getUserByPostID(@PathVariable("id") long id,
+            @CookieValue(name = "username", required = false) String authUsername,
+            @CookieValue(name = "authToken", required = false) String token) {
+        Post post = postRepository.findById(id);
+        LoginInfo userLogin = post == null ? null : postRepository.getUsernameFromPostId((int) id);
 
-        if (userLogin != null) {
+        if (userLogin != null && canSee(post.isPublished(), userLogin.getUsername(), authUsername, token)) {
             return new ResponseEntity<>(userLogin.getUsername(), HttpStatus.OK);
         } else {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
