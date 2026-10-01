@@ -75,7 +75,8 @@ CREATE TABLE users (
   bio                VARCHAR(500),             -- max 500 chars, HTML-stripped on write
   bio_links          TEXT,                     -- JSON array of {url, label} objects (max 3)
   pattern_presets    TEXT          DEFAULT '{}',  -- JSON map of saved wallpaper presets
-  pinned_post_id     INTEGER       DEFAULT NULL   -- post pinned to top of profile
+  pinned_post_id     INTEGER       DEFAULT NULL,  -- post pinned to top of profile
+  banner_grid        TEXT                         -- the owner's rows of the profile banner, a grid (V011)
 );
 ```
 

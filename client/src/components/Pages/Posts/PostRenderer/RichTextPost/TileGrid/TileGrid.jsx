@@ -146,6 +146,8 @@ export default function TileGrid({
   maxCols = LIMITS.maxCols, maxRows = LIMITS.maxRows, onDone,
   // Off where the grid sits inside another link (a post's card on a profile).
   linksActive = true,
+  // A width that may not change (a profile banner's rows match its site rows).
+  lockCols = false,
 }) {
   const data = useMemo(() => normaliseGrid(rawData), [rawData]);
 
@@ -1077,7 +1079,7 @@ export default function TileGrid({
             <div className="tg-group" role="group" aria-label="Size">
               <span className="tg-group-label">Size</span>
               <label className="tg-size" title="Width in tiles">W
-                <input type="number" min={LIMITS.minCols} max={maxCols} value={data.cols}
+                <input type="number" min={LIMITS.minCols} max={maxCols} value={data.cols} disabled={lockCols}
                   onChange={e => setSize(parseInt(e.target.value, 10), data.rows)} />
               </label>
               <label className="tg-size" title="Height in tiles">H

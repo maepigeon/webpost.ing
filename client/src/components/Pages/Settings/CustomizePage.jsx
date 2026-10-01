@@ -3,7 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   GET_USER_BACKGROUND, UPDATE_USER_BACKGROUND,
   GET_PROFILE_HEADER, UPLOAD_PROFILE_HEADER, UPDATE_PROFILE_HEADER,
+  GET_PROFILE_BANNER, SET_PROFILE_BANNER, GET_FOLLOWERS, GET_FOLLOWING, GET_USER_AVATAR,
 } from '../Posts/BasicTextPostServerApi.js';
+import ProfileBanner from '../Posts/PostsViewer/ProfileBanner.jsx';
+import TileGrid from '../Posts/PostRenderer/RichTextPost/TileGrid/TileGrid.jsx';
+import { defaultGrid } from '../Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
+import { BANNER_COLS } from '../Posts/PostsViewer/bannerGrid.js';
 import WallpaperEditor from '../../TileArt/WallpaperEditor.jsx';
 import { serialiseWallpaper } from '../../TileArt/wallpaper.js';
 import { IMAGES_BASE_URL } from '../../../config.js';
@@ -36,9 +41,25 @@ export default function CustomizePage() {
   const [headerBusy, setHeaderBusy] = useState(false);
   const headerFileRef = useRef(null);
 
+  // The banner: the site's rows are shown as they are; the owner's rows are
+  // edited here and saved on request, like the wallpaper.
+  const [bannerInfo, setBannerInfo] = useState({ joined: null, publicPosts: 0, followers: 0, following: 0, avatar: '' });
+  const [bannerSaved, setBannerSaved] = useState(null);
+  const [bannerDraft, setBannerDraft] = useState(null);
+  const [bannerBusy, setBannerBusy] = useState(false);
+
   useEffect(() => {
     if (!username) { navigate('/routes/Login'); return; }
     GET_USER_BACKGROUND(username).then(p => setProfileWallpaper(p || '')).catch(() => {});
+    GET_PROFILE_BANNER(username).then(d => {
+      setBannerInfo(i => ({ ...i, joined: d.joined || null, publicPosts: d.publicPosts || 0 }));
+      setBannerSaved(d.grid || null);
+      setBannerDraft(d.grid || null);
+    }).catch(() => {});
+    Promise.all([GET_FOLLOWERS(username), GET_FOLLOWING(username)])
+      .then(([a, b]) => setBannerInfo(i => ({ ...i, followers: a.length, following: b.length })))
+      .catch(() => {});
+    GET_USER_AVATAR(username).then(d => setBannerInfo(i => ({ ...i, avatar: d?.avatarPath || '' }))).catch(() => {});
     GET_PROFILE_HEADER(username)
       .then(d => setHeader({ headerPath: d.headerPath || null, headerInk: d.headerInk || 'auto' }))
       .catch(() => {});
@@ -60,6 +81,23 @@ export default function CustomizePage() {
       setError(errorMessage(err, 'Could not save that wallpaper.'));
     }
   };
+
+  const saveBanner = async (grid) => {
+    setBannerBusy(true);
+    setError('');
+    try {
+      const result = await SET_PROFILE_BANNER(username, grid);
+      const stored = grid ? result.grid : null;
+      setBannerSaved(stored);
+      setBannerDraft(stored);
+      setStatus(grid ? 'Banner saved.' : 'Your banner rows are removed.');
+    } catch (err) {
+      setError(errorMessage(err, 'Could not save the banner.'));
+    } finally {
+      setBannerBusy(false);
+    }
+  };
+  const bannerChanged = JSON.stringify(bannerDraft) !== JSON.stringify(bannerSaved);
 
   const uploadHeader = async (file) => {
     if (!file) return;
@@ -111,11 +149,57 @@ export default function CustomizePage() {
           <p className={error ? 'settings-error' : 'settings-status'} role="status">{error || status}</p>
         )}
 
-        {/* ── Header image ─────────────────────────────────────────────────── */}
+        {/* ── Banner ───────────────────────────────────────────────────────── */}
         <section className="settings-section">
-          <h2 className="settings-section-title">Header image</h2>
+          <h2 className="settings-section-title">Banner</h2>
           <p className="settings-section-hint">
-            Sits behind your avatar, name and links, replacing the plain panel.
+            The top of your profile is a tile grid. Its first four rows are filled
+            in for you (your name, follows, when you joined, your public posts)
+            beside your profile picture. Under them you can draw rows of your own,
+            {` ${BANNER_COLS}`} tiles wide, with everything the grid editor does.
+          </p>
+          <div className="settings-banner-preview">
+            <ProfileBanner username={username} followers={bannerInfo.followers} following={bannerInfo.following}
+              joined={bannerInfo.joined} publicPosts={bannerInfo.publicPosts} grid={bannerDraft}
+              avatarSrc={bannerInfo.avatar ? IMAGES_BASE_URL + bannerInfo.avatar : null}
+              onAvatarClick={() => {}} onFollowers={() => {}} onFollowing={() => {}} />
+          </div>
+          {bannerDraft ? (
+            <div className="settings-banner-editor">
+              <TileGrid data={bannerDraft} onChange={setBannerDraft} editable startEditing lockCols
+                maxCols={BANNER_COLS} maxRows={12} />
+            </div>
+          ) : (
+            <p className="settings-section-hint">No rows of your own yet.</p>
+          )}
+          <div className="settings-header-controls">
+            {!bannerDraft && (
+              <button type="button" className="settings-btn settings-btn--primary"
+                onClick={() => setBannerDraft(defaultGrid(BANNER_COLS, 4))}>Add rows under it</button>
+            )}
+            {bannerDraft && (
+              <button type="button" className="settings-btn settings-btn--primary"
+                disabled={bannerBusy || !bannerChanged} onClick={() => saveBanner(bannerDraft)}>
+                {bannerBusy ? 'Saving…' : 'Save banner'}
+              </button>
+            )}
+            {bannerChanged && (
+              <button type="button" className="settings-btn settings-btn--ghost" onClick={() => setBannerDraft(bannerSaved)}>
+                Undo changes
+              </button>
+            )}
+            {bannerSaved && (
+              <button type="button" className="settings-btn settings-btn--ghost" disabled={bannerBusy}
+                onClick={() => saveBanner(null)}>Remove my rows</button>
+            )}
+          </div>
+        </section>
+
+        {/* ── Card background image ────────────────────────────────────────── */}
+        <section className="settings-section">
+          <h2 className="settings-section-title">Card background image</h2>
+          <p className="settings-section-hint">
+            A photo behind your bio, links and buttons, under the banner.
           </p>
 
           {header.headerPath && (

@@ -262,6 +262,17 @@ export function SET_VOTES_ENABLED(postId, enabled) {
     .then(r => r.data);
 }
 
+/** The profile banner: join date, public posts and the owner's rows (grid or null). */
+export function GET_PROFILE_BANNER(username) {
+  return axios.get(baseUrl + `/api/users/${encodeURIComponent(username)}/banner`).then(r => r.data);
+}
+
+/** Saves the owner's banner rows, or removes them with null. */
+export function SET_PROFILE_BANNER(username, grid) {
+  return axios.put(baseUrl + `/api/users/${encodeURIComponent(username)}/banner`, { grid }, { withCredentials: true })
+    .then(r => r.data);
+}
+
 /** Whether the post's profile card previews its first grid. */
 export function SET_CARD_GRID(postId, enabled) {
   return axios.put(baseUrl + `/api/posts/${postId}/card-grid`, { enabled }, { withCredentials: true })

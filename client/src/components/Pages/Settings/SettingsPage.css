@@ -343,3 +343,8 @@
   flex-wrap: wrap;
   gap: 8px 16px;
 }
+
+/* The banner preview and its editor (Customize). */
+.settings-banner-preview { margin: 8px 0 12px; }
+.settings-banner-preview .profile-banner { margin: 0; }
+.settings-banner-editor { margin-bottom: 10px; }

@@ -1,0 +1,73 @@
+/* The profile banner: the site's four rows on black, the owner's rows under
+   them, one grid's width. Tiles are drawn by TileGrid; this places the
+   avatar and the click targets over them. */
+
+.profile-banner {
+  width: 100%;
+  margin-bottom: 12px;
+  background: #000;
+  overflow: hidden;
+}
+.profile-banner .tilegrid { margin: 0; }
+
+.profile-banner-info { position: relative; }
+
+.profile-banner-hit {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+}
+.profile-banner-hit:hover { background: rgba(255, 255, 255, 0.12); filter: none; }
+.profile-banner-hit:active,
+.profile-banner-avatar:active { transform: none !important; }
+.profile-banner-hit:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+
+.profile-banner-avatar {
+  /* Four tiles wide (set inline) and the four rows tall: a square. */
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+}
+.profile-banner-avatar img,
+.profile-banner-initial {
+  position: absolute;
+  inset: 6%;
+  display: block;
+  width: 88%;
+  height: 88%;
+  object-fit: cover;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.profile-banner-avatar:hover img,
+.profile-banner-avatar:hover .profile-banner-initial { transform: scale(1.05); }
+.profile-banner-avatar:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+.profile-banner-initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #919191;
+  color: #fff;
+  font-weight: 800;
+  font-size: clamp(18px, 5vw, 36px);
+}
+.profile-banner-online {
+  position: absolute;
+  right: 8%;
+  bottom: 8%;
+  width: 14%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #2ecc71;
+  border: 2px solid #000;
+}

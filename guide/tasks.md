@@ -87,9 +87,10 @@ guide/HANDOFF-2026-09-30.txt for production state and open server work.
       tool. Existing posts kept today's look (the profile theme was copied onto each).
 - [x] **Profile customisation page** (`/customize`), separate from Settings, opened from a button
       on your own profile.
-- [ ] **Profile banner as a grid**: rows 1–4 fixed (user: name / n followers k
-      following / joined date / public posts), avatar on the right spanning those
-      rows, the rest editable with the grid editor.
+- [x] **Profile banner as a grid** (V011, `users.banner_grid`): rows 1–4 fixed (user:
+      name / n followers k following / joined date / public posts), avatar on the
+      right spanning those rows, the rest editable with the grid editor on Customize.
+      The header image stays, renamed "Card background image" (behind the bio).
 - [x] **First grid shown on profile cards** (V010) for any post containing one, up to
       50% of the card's width in height (a taller grid shows its top above a dashed
       cut line), with a per-post switch in the editor's Page menu, "Grid on card".

@@ -14,19 +14,12 @@ import '../PostWindow.css';
 import {useParams, Link, useNavigate} from "react-router-dom";
 import { usePageTitle } from '../../../../utils/usePageTitle.js';
 import { describeUploadError } from '../../../../utils/responsiveImage.js';
-import { GET_PROFILE_HEADER } from '../BasicTextPostServerApi.js';
+import { GET_PROFILE_HEADER, GET_PROFILE_BANNER } from '../BasicTextPostServerApi.js';
+import ProfileBanner from './ProfileBanner.jsx';
 import { useAuthorTheme } from '../../../PageTheme/PageTheme.jsx';
 import Icon from '../../../Icon/Icon.jsx';
 import NewGridPost from '../../../TileArt/NewGridPost.jsx';
 import { errorMessage } from '../../../../utils/errorMessage.js';
-
-function Heading(props) {
- if (props.username != null && props.username != "") {
-  return (<h1 className="windowHeader">{props.username}</h1>);
- } else {
-  return (<h1 className="windowHeader">Invalid username in URL: "{props.username}"</h1>);
- }
-}
 
 function fmtBytes(n) {
   if (!n || n === 0) return '0 B';
@@ -124,6 +117,8 @@ function PostsViewer() {
     const [followModal, setFollowModal] = useState(null); // 'followers' | 'following' | null
     const [followList, setFollowList] = useState([]);
     const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 });
+    // The banner's join date, public post count and the owner's own rows.
+    const [banner, setBanner] = useState({ joined: null, publicPosts: 0, grid: null });
     const [dmBlocked, setDmBlocked] = useState(false);
     const [dmBlockedByThem, setDmBlockedByThem] = useState(false);
     const [followsMe, setFollowsMe] = useState(false);
@@ -216,6 +211,10 @@ function PostsViewer() {
       GET_USER_BACKGROUND(username).then(p => setBgPattern(p || '')).catch(() => {});
       GET_PROFILE_HEADER(username)
         .then(d => setHeader({ headerPath: d.headerPath || null, headerInk: d.headerInk || 'auto' }))
+        .catch(() => {});
+      setBanner({ joined: null, publicPosts: 0, grid: null });
+      GET_PROFILE_BANNER(username)
+        .then(d => setBanner({ joined: d.joined || null, publicPosts: d.publicPosts || 0, grid: d.grid || null }))
         .catch(() => {});
       GET_USER_BIO(username).then(b => setBio(b || '')).catch(() => {});
       GET_USER_BIO_LINKS(username).then(d => {
@@ -328,55 +327,22 @@ function PostsViewer() {
                 the photo legible while guaranteeing the name and bio stay
                 readable whatever the image behind them. */}
             {header.headerPath && <span className="profile-header-scrim" aria-hidden="true" />}
-            {/* Avatar */}
+            {/* The banner: the site's rows (who, counts, joined, posts) beside the
+                avatar, then the owner's own rows. */}
+            <ProfileBanner
+              username={username}
+              followers={followCounts.followers}
+              following={followCounts.following}
+              joined={banner.joined}
+              publicPosts={banner.publicPosts}
+              grid={banner.grid}
+              avatarSrc={avatar ? IMAGES_BASE_URL + avatar : null}
+              online={Boolean(onlineStatus?.online)}
+              onAvatarClick={() => setShowAvatarPopup(true)}
+              onFollowers={() => openFollowModal('followers')}
+              onFollowing={() => openFollowModal('following')}
+            />
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 8 }}>
-              <div style={{ position: 'relative', display: 'inline-block' }}>
-                {avatar
-                  ? <img
-                      src={IMAGES_BASE_URL + avatar}
-                      alt={username}
-                      onClick={() => setShowAvatarPopup(true)}
-                      className="squircle"
-                      style={{ width: 96, height: 96, objectFit: 'cover',
-                               border: '3px solid rgba(255,255,255,0.9)',
-                               boxShadow: '0 4px 18px rgba(0,0,0,0.16), inset 0 2px 0 rgba(255,255,255,0.6)',
-                               cursor: 'pointer', display: 'block',
-                               transition: 'transform 0.18s cubic-bezier(0.34,1.56,0.64,1)' }}
-                      onMouseOver={e => e.currentTarget.style.transform='scale(1.05)'}
-                      onMouseOut={e => e.currentTarget.style.transform='scale(1)'}
-                    />
-                  : (
-                    <div
-                      onClick={() => setShowAvatarPopup(true)}
-                      className="squircle"
-                      style={{ width: 96, height: 96,
-                                background: '#919191',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: 36, fontWeight: 800, color: '#fff',
-                                border: '3px solid rgba(255,255,255,0.9)',
-                                boxShadow: 'inset 0 3px 0 rgba(255,255,255,0.55), 0 4px 18px rgba(50,30,110,0.24)',
-                                cursor: 'pointer',
-                                transition: 'transform 0.18s cubic-bezier(0.34,1.56,0.64,1)' }}
-                      onMouseOver={e => e.currentTarget.style.transform='scale(1.05)'}
-                      onMouseOut={e => e.currentTarget.style.transform='scale(1)'}
-                    >
-                      {username?.[0]?.toUpperCase()}
-                    </div>
-                  )
-                }
-                {/* Online dot */}
-                {onlineStatus?.online && (
-                  <span style={{
-                    position: 'absolute', bottom: 4, right: 4,
-                    width: 16, height: 16, borderRadius: '50%',
-                    background: '#2ecc71',
-                    border: '2.5px solid #fff',
-                    boxShadow: '0 0 0 3px rgba(46,204,113,0.35), 0 0 10px rgba(46,204,113,0.6)',
-                    display: 'block',
-                    animation: 'online-pulse 2.2s ease-in-out infinite',
-                  }} />
-                )}
-              </div>
               {/* Online status text */}
               {onlineStatus && (
                 <span style={{ fontSize: 12, marginTop: 6, color: onlineStatus.online ? '#2ecc71' : '#999', display: 'flex', alignItems: 'center', gap: 4, fontWeight: onlineStatus.online ? 600 : 400 }}>
@@ -421,7 +387,6 @@ function PostsViewer() {
             )}
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
-              <Heading username={username}/>
               <FollowButton username={username} onFollowChange={delta => setFollowCounts(c => ({ ...c, followers: c.followers + delta }))} />
               {!canEdit && followsMe && <span style={{ fontSize: '12px', color: '#333', fontStyle: 'italic' }}>follows you</span>}
             </div>
@@ -555,12 +520,6 @@ function PostsViewer() {
 
             {/* Followers / Following + Message / Block DMs — combined row */}
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '14px', flexWrap: 'wrap', alignItems: 'center' }}>
-              <button type="button" className="follow-count-btn" onClick={() => openFollowModal('followers')}>
-                <span className="follow-count-num">{followCounts.followers}</span>&nbsp;followers
-              </button>
-              <button type="button" className="follow-count-btn" onClick={() => openFollowModal('following')}>
-                <span className="follow-count-num">{followCounts.following}</span>&nbsp;following
-              </button>
               {!canEdit && loggedIn && (
                 <>
                   {!dmBlockedByThem && (

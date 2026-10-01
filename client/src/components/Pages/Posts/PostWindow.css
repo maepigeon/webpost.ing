@@ -145,7 +145,7 @@
 .btn-unblock-dm { color: #484848; }
 
 /* ── Neoskeuomorphic profile action buttons ──────────────────────────────── */
-.profile-header-card button:not(.follow-count-btn):not(.reaction-btn):not(.comment-reaction-btn):not(.follow-btn) {
+.profile-header-card button:not(.follow-count-btn):not(.reaction-btn):not(.comment-reaction-btn):not(.follow-btn):not(.profile-banner *) {
     background: var(--neo-bg);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
@@ -155,12 +155,12 @@
     transition: box-shadow 0.15s, transform 0.12s;
 }
 
-.profile-header-card button:not(.follow-count-btn):not(.reaction-btn):not(.comment-reaction-btn):not(.follow-btn):hover {
+.profile-header-card button:not(.follow-count-btn):not(.reaction-btn):not(.comment-reaction-btn):not(.follow-btn):not(.profile-banner *):hover {
     box-shadow: var(--neo-shadow-hover);
     transform: translateY(-1px);
 }
 
-.profile-header-card button:not(.follow-count-btn):not(.reaction-btn):not(.comment-reaction-btn):not(.follow-btn):active {
+.profile-header-card button:not(.follow-count-btn):not(.reaction-btn):not(.comment-reaction-btn):not(.follow-btn):not(.profile-banner *):active {
     transform: translateY(0);
     box-shadow: var(--neo-shadow-active);
 }
