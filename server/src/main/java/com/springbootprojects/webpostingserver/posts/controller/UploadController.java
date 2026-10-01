@@ -58,9 +58,11 @@ public class UploadController {
 
     @PostMapping("/upload")
     public ResponseEntity<?> uploadFile(
-            @RequestParam("file") MultipartFile file,
+            // The cookies come first: Spring resolves parameters in order, so a
+            // signed-out request is told 401 before anything looks at the file.
             @CookieValue(name = "username") String username,
-            @CookieValue(name = "authToken") String token) {
+            @CookieValue(name = "authToken") String token,
+            @RequestParam("file") MultipartFile file) {
 
         AuthSession loginResult;
         try {

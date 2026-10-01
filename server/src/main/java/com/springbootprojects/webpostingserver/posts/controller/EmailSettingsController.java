@@ -75,9 +75,17 @@ public class EmailSettingsController {
         return ids.isEmpty() ? null : ids.get(0);
     }
 
+    /**
+     * The client's address, for rate limits.
+     *
+     * Never read X-Forwarded-For here: anyone can send it, and taking its first
+     * entry let "X-Forwarded-For: 127.0.0.1" pass as local, which skipped the
+     * sign-up limit and fooled the email limiters. server.forward-headers-strategy
+     * (application.properties) makes Tomcat take the header only from a proxy on
+     * this machine or a private network, nginx in production, so
+     * getRemoteAddr() is already the real client.
+     */
     private static String clientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) return forwarded.split(",")[0].trim();
         return request.getRemoteAddr();
     }
 
