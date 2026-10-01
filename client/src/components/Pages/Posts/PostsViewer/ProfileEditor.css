@@ -336,3 +336,9 @@
 .profile-link-add:disabled { opacity: 0.45; cursor: default; }
 
 .profile-links-count { font-size: 11.5px; color: var(--ink-soft, #505050); }
+
+/* When the owner's buttons wrap onto two lines, the divider between the two
+   groups was left dangling at the end of the first; the gap does its job. */
+@media (max-width: 520px) {
+  .profile-owner-divider { display: none; }
+}

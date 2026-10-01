@@ -123,9 +123,7 @@
     right: 0;
     width: min(280px, 85vw);
     height: 100dvh;
-    background: rgba(21, 21, 21, 0.72);
-    backdrop-filter: blur(28px) saturate(160%);
-    -webkit-backdrop-filter: blur(28px) saturate(160%);
+    background: #181818;   /* solid, not glass */
     border-left: 1px solid rgba(255,255,255,0.14);
     z-index: 400;
     display: flex;
@@ -168,9 +166,14 @@
     min-width: 0;
 }
 
-.nav-mobile-popup-items .navButton,
-.nav-mobile-popup-items a .navButton,
+/* The link is a plain full-width box; the button inside carries the padding.
+   Padding both pushed every button past the panel's right edge. */
 .nav-mobile-popup-items a {
+    display: block;
+    width: 100%;
+    padding: 0;
+}
+.nav-mobile-popup-items .navButton {
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
@@ -199,8 +202,8 @@
 @media (max-width: 860px) {
     .navBar { padding: 4px 8px; }
 
-    /* Compact buttons so more of them fit before overflowing. */
+    /* Thumb-sized buttons; whatever does not fit goes in the menu. */
     .nav-items .navButton,
-    .nav-items a .navButton { padding: 5px 10px; font-size: 12px; }
+    .nav-items a .navButton { padding: 8px 12px; font-size: 13px; min-height: 36px; }
 }
 

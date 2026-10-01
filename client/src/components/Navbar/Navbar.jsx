@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import Navbutton from './Navbutton/Navbutton';
 import '../Social/Social.css';
 import { useOverflowItems } from '../../utils/useOverflowItems.js';
@@ -54,8 +54,10 @@ function Navbar() {
     return () => document.removeEventListener('mousedown', handler);
   }, [menuOpen]);
 
-  // Close popup on route change
-  useEffect(() => { setMenuOpen(false); }, []);
+  // Close the menu when the page changes: the Navbar stays mounted across
+  // pages, so closing it only on mount left it open over the new page.
+  const { pathname } = useLocation();
+  useEffect(() => { setMenuOpen(false); }, [pathname]);
 
   /**
    * Ordered most-used first, because that is the order they survive in as the

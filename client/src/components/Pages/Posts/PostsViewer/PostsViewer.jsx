@@ -298,6 +298,17 @@ function PostsViewer() {
 
     const visiblePosts = postsArray;
 
+    // Drawn by the post list, under its owner bar and above the other posts.
+    const pinnedBlock = pinnedPost ? (
+      <div className="PostContainer profile-pinned">
+        {/* A label above the card, not laid over it: on the card it covered
+            the date and the title. */}
+        <div className="profile-pinned-label">📌 Pinned</div>
+        <BasicTextPost postdata={pinnedPost} updatePostsFlagCallback={() => loadPosts(true)}
+          uploaded={true} hasModifyPermissions={canEdit} ownerUsername={username}/>
+      </div>
+    ) : null;
+
     return (
       <div className="window" style={{ minHeight: '100vh' }}>
         {followModal && (
@@ -573,16 +584,9 @@ function PostsViewer() {
 
             {storage && <StorageBar storage={storage} />}
           </div>
-          {canEdit && <NewGridPost />}
-          {pinnedPost && (
-            <div className="PostContainer profile-pinned">
-              {/* A label above the card, not laid over it: on the card it
-                  covered the date and the title. */}
-              <div className="profile-pinned-label">📌 Pinned</div>
-              <BasicTextPost postdata={pinnedPost} updatePostsFlagCallback={() => loadPosts(true)}
-                uploaded={true} hasModifyPermissions={canEdit} ownerUsername={username}/>
-            </div>
-          )}
+          {/* With posts, the button lives in the list's owner bar beside
+              "Arrange posts"; without, on its own. */}
+          {canEdit && (!Array.isArray(visiblePosts) || !visiblePosts.length) && <NewGridPost />}
           {(!Array.isArray(visiblePosts) || !visiblePosts.length) && !loadingMore
             ? <p>There are no posts, yet. Create one to get started.</p>
             : <ProfilePostList
@@ -594,6 +598,8 @@ function PostsViewer() {
                 onArrange={arrangePosts}
                 hasMore={hasMore}
                 loadAll={loadAllPosts}
+                leading={canEdit ? <NewGridPost /> : null}
+                pinned={pinnedBlock}
               />
           }
           <div ref={sentinelRef} style={{ height: '1px' }} />

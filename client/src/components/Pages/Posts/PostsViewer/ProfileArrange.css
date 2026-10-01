@@ -48,7 +48,8 @@
   gap: 10px;
 }
 
-.arrange-status { font-size: 12px; min-width: 4em; text-align: right; }
+.arrange-status { font-size: 12px; text-align: right; }
+.arrange-status:empty { display: none; }
 .arrange-status--saving { color: #666; }
 .arrange-status--saved { color: #2b8a52; }
 .arrange-status--error { color: #a01515; text-align: left; }
@@ -194,8 +195,10 @@
   box-shadow: none;
   color: #7a7a7a;
   cursor: grab;
-  /* The page must not scroll when a finger starts a drag here. */
-  touch-action: none;
+  /* A swipe that starts here still scrolls the page; a finger resting on the
+     grip lifts the row (the touch sensor's delay), and only then does the
+     drag take over. */
+  touch-action: manipulation;
 }
 .arrange-grip:hover { color: #2c2c2c; background: rgba(0, 0, 0, 0.06); filter: none; }
 /* A ring for keyboard focus only; after a mouse drag the grip keeps focus,
@@ -247,6 +250,9 @@
 
 @media (max-width: 520px) {
   .arrange { padding: 12px; }
+  /* The status takes what is left of the row; the buttons stay at its end. */
+  .arrange-head-side { width: 100%; justify-content: flex-end; }
+  .arrange-status { flex: 1; text-align: left; }
   /* Dates crowd the title on a phone; the order is what matters here. */
   .arrange-row-date { display: none; }
 }
@@ -256,3 +262,6 @@
   .arrange-drop-note { animation: none; }
   .arrange-row { transition: none !important; }
 }
+
+/* While arranging, the page's scroll-to-top button stays out of the way. */
+body.is-arranging .scroll-to-top { display: none; }

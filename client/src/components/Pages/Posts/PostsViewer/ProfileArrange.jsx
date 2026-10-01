@@ -1,7 +1,7 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  DndContext, DragOverlay, KeyboardSensor, MeasuringStrategy, PointerSensor, TouchSensor,
+  DndContext, DragOverlay, KeyboardSensor, MeasuringStrategy, MouseSensor, TouchSensor,
   closestCenter, defaultDropAnimationSideEffects, useSensor, useSensors,
 } from '@dnd-kit/core';
 import {
@@ -163,13 +163,22 @@ export default function ProfileArrange({ posts, pinnedId, onChange, onDone, stat
   }, [movingFolder, activeId]);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    // Touch waits a moment so a swipe over the list still scrolls the page.
-    useSensor(TouchSensor, { activationConstraint: { delay: 160, tolerance: 6 } }),
+    // Mouse and touch separately: a pointer sensor also takes touches and
+    // starts at once, so a quick swipe over a grip reordered posts instead of
+    // scrolling. A finger has to rest on the grip a moment to lift the row.
+    useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: arrangeKeyboardCoordinates }),
   );
 
   const [showKeys, setShowKeys] = useState(false);
+
+  // While arranging, the page's scroll-to-top button would sit over the
+  // last rows, exactly where a thumb needs to drop.
+  useEffect(() => {
+    document.body.classList.add('is-arranging');
+    return () => document.body.classList.remove('is-arranging');
+  }, []);
 
   /** How a row is named to a screen reader: its title, not its internal id. */
   const nameOf = (id) => {
@@ -268,7 +277,9 @@ export default function ProfileArrange({ posts, pinnedId, onChange, onDone, stat
         // Scroll only with the pointer right at the window's edge. The default
         // (a fifth of the window) scrolled the list away while aiming at rows
         // near the top or bottom.
-        autoScroll={{ threshold: { x: 0, y: 0.08 } }}
+        // Gentle: near an edge the list creeps rather than racing past the
+        // row being aimed at, which matters most for a thumb at the bottom.
+        autoScroll={{ threshold: { x: 0, y: 0.08 }, acceleration: 4 }}
         accessibility={accessibility}
         onDragStart={handleDragStart}
         onDragMove={({ delta }) => setDx(delta.x)}

@@ -93,7 +93,9 @@ function ProfilePost({ post, canEdit, username, onRefresh, folderNames, onMoveTo
           ownerUsername={username}
         />
         {canEdit && (
-          <div className="profile-post-folder-btn-wrap" ref={menuRef}>
+          // Raised while its menu is open: every post's button sits at the same
+          // level, and the next post's would otherwise paint over this menu.
+          <div className={`profile-post-folder-btn-wrap${showFolderMenu ? ' is-open' : ''}`} ref={menuRef}>
             <button
               type="button"
               className="profile-post-folder-btn"
@@ -162,9 +164,11 @@ function ProfilePost({ post, canEdit, username, onRefresh, folderNames, onMoveTo
  *                  it keeps its place in the order for when it is unpinned
  * @param onArrange takes changed posts and shows them at once
  * @param loadAll   loads the posts not yet shown, before arranging
+ * @param leading   shown at the start of the owner bar (the New grid post button)
+ * @param pinned    the pinned post's block, drawn under the bar, above the rest
  */
 export default function ProfilePostList({
-  posts, pinnedId, canEdit, username, onRefresh, onArrange, hasMore, loadAll,
+  posts, pinnedId, canEdit, username, onRefresh, onArrange, hasMore, loadAll, leading = null, pinned = null,
 }) {
   const [collapsedFolders, setCollapsedFolders] = useState(new Set());
   const [arranging, setArranging] = useState(false);
@@ -258,16 +262,19 @@ export default function ProfilePostList({
 
   return (
     <>
-      {(canArrange || status.state === 'error') && (
+      {(leading || canArrange || status.state === 'error') && (
         <div className="profile-list-bar">
+          {leading}
           {status.state === 'error' && <span className="profile-list-error" role="alert">{status.text}</span>}
+          <span className="profile-list-bar-gap" />
           {canArrange && (
-            <button type="button" className="profile-arrange-btn" onClick={startArranging}>
+            <button type="button" className="profile-owner-btn" onClick={startArranging}>
               <Icon name="grip" size={14} /> Arrange posts
             </button>
           )}
         </div>
       )}
+      {pinned}
       {blocks.map(block => (block.type === 'post'
         ? renderPost(block.post)
         : (
