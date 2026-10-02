@@ -1,4 +1,5 @@
 import PixelText from './PixelText.jsx';
+import './tips.css';
 
 /**
  * A button in the grid editor's style: a real button (so it can be focused,
@@ -15,7 +16,7 @@ export default function GridButton({
   const tile = symbol && !showLabel;
   return (
     <button type="button" className={`${tile ? 'tg-tile' : 'tg-text-btn'} gb${on ? ' is-on' : ''} ${className}`.trim()}
-      aria-label={label} title={title || label} aria-pressed={on === undefined ? undefined : Boolean(on)}
+      aria-label={label} data-tip={title || label} aria-pressed={on === undefined ? undefined : Boolean(on)}
       disabled={disabled} onClick={onClick} {...rest}>
       {symbol && <PixelText symbol={symbol} px={tile ? 1.75 : px} />}
       {showLabel && <PixelText text={text ?? label} px={px} />}

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import './tips.css';
 import { useDialog } from '../../../../../Dialog/Dialog.jsx';
 import axios from 'axios';
 import { BASE_URL, IMAGES_BASE_URL } from '../../../../../../config.js';
@@ -80,7 +81,7 @@ const allTiles = (d) => orderedTiles(new Set(rectTiles({ r: 0, c: 0 }, { r: d.ro
 function Tile({ icon, label, on, disabled, onClick }) {
   return (
     <button type="button" className={`tg-tile${on ? ' is-on' : ''}`}
-      onClick={onClick} disabled={disabled} title={label} aria-label={label} aria-pressed={on || undefined}>
+      onClick={onClick} disabled={disabled} data-tip={label} aria-label={label} aria-pressed={on || undefined}>
       <PixelIcon name={icon} size={14} />
     </button>
   );
@@ -999,11 +1000,11 @@ export default function TileGrid({
               <Tile icon="tile" label="Paint tiles (⌥B)" on={tool === 'tile'} onClick={() => setTool('tile')} />
               <Tile icon="erase" label="Erase (⌥E)" on={tool === 'erase'} onClick={() => setTool('erase')} />
               <Tile icon="fill" label="Fill (⌥F)" on={tool === 'fill'} onClick={() => setTool('fill')} />
-              <label className={`tg-swatch${clear ? ' is-clear' : ''}`} title="Colour" style={clear ? undefined : { background: colour }}>
+              <label className={`tg-swatch${clear ? ' is-clear' : ''}`} data-tip="Colour" style={clear ? undefined : { background: colour }}>
                 <input type="color" value={colour} onChange={e => chooseColour(e.target.value)} aria-label="Colour" />
               </label>
               <button type="button" className={`tg-tile tg-clear${clear ? ' is-on' : ''}`} aria-pressed={clear}
-                title="Clear: painting and filling make tiles transparent" aria-label="Clear (transparent)"
+                data-tip="Clear: painting and filling make tiles transparent" aria-label="Clear (transparent)"
                 onClick={() => setClear(v => !v)} />
               <Tile icon="texture" label="Fill with a texture" on={panel === 'texture'} disabled={!isPixel}
                 onClick={() => setPanel(p => (p === 'texture' ? null : 'texture'))} />
