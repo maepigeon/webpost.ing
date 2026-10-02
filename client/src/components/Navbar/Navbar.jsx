@@ -65,6 +65,7 @@ function Navbar() {
     ? [
         { key: 'home',     node: <Navbutton label="Home" route="/" variant="yellow" /> },
         { key: 'new',      node: <Navbutton label="New Post" route="/editor" variant="green" /> },
+        { key: 'following', node: <Navbutton label="Following" route="/following" variant="teal" /> },
         { key: 'search',   node: <Navbutton label="Search" route="/search" variant="teal" /> },
         { key: 'messages', node: <MessagesBell /> },
         { key: 'notifs',   node: <NotificationBell /> },

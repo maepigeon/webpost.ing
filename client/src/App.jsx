@@ -16,6 +16,7 @@ import Home from './components/Pages/Home/Home';
 import ScrollToTop from './components/ScrollToTop/ScrollToTop';
 import CursorGlow from './components/CursorGlow/CursorGlow.jsx';
 import InboxPage from './components/Social/InboxPage.jsx';
+import FollowingPage from './components/Social/FollowingPage.jsx';
 import MessagesPage from './components/Social/MessagesPage.jsx';
 import DiscussionPage from './components/Social/DiscussionPage.jsx';
 import SearchPage from './components/Pages/Search/SearchPage.jsx';
@@ -90,6 +91,7 @@ function App() {
         <Route path="/routes/AdminPanel" element={<AdminPanel />} />
         <Route path="/routes/NewAccount" element={<Registration />} />
         <Route path="/inbox" element={<InboxPage />} />
+        <Route path="/following" element={<FollowingPage />} />
         <Route path="/messages" element={<MessagesPage />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/activity/:username" element={<Fresh><ActivityPage /></Fresh>} />

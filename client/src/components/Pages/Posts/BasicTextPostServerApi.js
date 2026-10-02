@@ -254,6 +254,12 @@ export function SET_VOTES_ENABLED(postId, enabled) {
     .then(r => r.data);
 }
 
+/** Recent posts from the people you follow: { posts, hasMore }. */
+export function GET_FOLLOWING_FEED(limit = 20, offset = 0) {
+  return axios.get(baseUrl + '/api/feed/following', { params: { limit, offset }, withCredentials: true })
+    .then(r => r.data);
+}
+
 /** The profile banner: join date, public posts and the owner's rows (grid or null). */
 export function GET_PROFILE_BANNER(username) {
   return axios.get(baseUrl + `/api/users/${encodeURIComponent(username)}/banner`).then(r => r.data);
