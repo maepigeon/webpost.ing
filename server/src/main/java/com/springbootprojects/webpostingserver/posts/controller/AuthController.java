@@ -43,7 +43,12 @@ public class AuthController {
     private String uploadDir;
 
     private static final Set<String> AVATAR_EXTENSIONS = Set.of(".jpg", ".jpeg", ".png", ".gif", ".webp");
-    private static final long AVATAR_MAX_BYTES = 2 * 1024 * 1024; // 2 MB
+    /** What a picture may be as uploaded; it is compressed to a small square afterwards. */
+    private static final long AVATAR_MAX_BYTES = 25 * 1024 * 1024;
+    /** A profile picture is stored at most this many pixels on a side. */
+    private static final int AVATAR_SIDE = 512;
+    /** Where an image we cannot re-encode (WebP) must already fit. */
+    private static final long AVATAR_UNCOMPRESSED_MAX = 2 * 1024 * 1024;
 
     // Registration rate limiter: IP → blocked-until epoch ms (1 attempt then 1-hour block)
     private static final java.util.concurrent.ConcurrentHashMap<String, Long> REG_BLOCK = new java.util.concurrent.ConcurrentHashMap<>();
@@ -59,6 +64,9 @@ public class AuthController {
                 && h[8] == 'W' && h[9] == 'E' && h[10] == 'B' && h[11] == 'P') return true;
         return false;
     }
+
+    @Autowired
+    private com.springbootprojects.webpostingserver.posts.service.ImageProcessingService imageService;
 
     @Autowired
     LoginRepository loginRepository;
@@ -612,7 +620,7 @@ public class AuthController {
 
         if (file.isEmpty()) return ResponseEntity.badRequest().body("No file provided");
         if (file.getSize() > AVATAR_MAX_BYTES)
-            return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body("Avatar must be under 2 MB");
+            return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body("That picture is over 25 MB. Try a smaller one.");
 
         String original = file.getOriginalFilename() != null ? file.getOriginalFilename().toLowerCase() : "";
         String ext = original.contains(".") ? original.substring(original.lastIndexOf('.')) : "";
@@ -627,9 +635,27 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to read file");
         }
 
+        // Shrink it: a profile picture is small however big the upload was.
+        byte[] stored;
+        try {
+            stored = file.getBytes();
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to read file");
+        }
+        if (!imageService.isWithinPixelBudget(imageService.readDimensions(stored)))
+            return ResponseEntity.badRequest().body("That picture has too many pixels. Try a smaller one.");
+        var compressed = imageService.compressSquare(stored, AVATAR_SIDE);
+        if (compressed != null) {
+            stored = compressed.bytes();
+            ext = compressed.extension();
+        } else if (stored.length > AVATAR_UNCOMPRESSED_MAX) {
+            return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body("That picture can't be shrunk here. Save it as a JPG or PNG, or use one under 2 MB.");
+        }
+
         // Check storage quota: avatar counts like a regular upload
         int userId = jdbc.queryForObject("SELECT id FROM users WHERE username=?", Integer.class, username);
-        long fileSize = file.getSize();
+        long fileSize = stored.length;
 
         // Find existing avatar upload record (to subtract its size from current usage)
         List<Map<String, Object>> existingAvatarRows = jdbc.queryForList(
@@ -655,7 +681,7 @@ public class AuthController {
             Path avatarDir = Paths.get(uploadDir, "avatars");
             Files.createDirectories(avatarDir);
             String filename = UUID.randomUUID() + ext;
-            Files.copy(file.getInputStream(), avatarDir.resolve(filename));
+            Files.write(avatarDir.resolve(filename), stored);
             String avatarPath = "/uploads/avatars/" + filename;
             jdbc.update("UPDATE users SET avatar_path=? WHERE username=?", avatarPath, username);
 

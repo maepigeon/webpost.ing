@@ -65,6 +65,33 @@ class ImageProcessingServiceTest {
         assertThat(service.readDimensions("hello".getBytes(StandardCharsets.UTF_8))).isNull();
     }
 
+    // ── Profile pictures ──────────────────────────────────────────────────────
+
+    @Test
+    void compressesABigPhotoToASmallSquareJpeg() throws IOException {
+        byte[] big = image(3000, 2000, "png");
+        var out = service.compressSquare(big, 512);
+        assertThat(out).isNotNull();
+        assertThat(out.extension()).isEqualTo(".jpg");
+        assertThat(service.readDimensions(out.bytes())).isEqualTo(new ImageProcessingService.Dimensions(512, 512));
+        assertThat(out.bytes().length).isLessThan(big.length);
+    }
+
+    @Test
+    void keepsASmallPictureItsSizeAndTransparencyAsPng() throws IOException {
+        BufferedImage img = new BufferedImage(100, 80, BufferedImage.TYPE_INT_ARGB);   // all transparent
+        ByteArrayOutputStream png = new ByteArrayOutputStream();
+        ImageIO.write(img, "png", png);
+        var out = service.compressSquare(png.toByteArray(), 512);
+        assertThat(out.extension()).isEqualTo(".png");
+        assertThat(service.readDimensions(out.bytes())).isEqualTo(new ImageProcessingService.Dimensions(80, 80));
+    }
+
+    @Test
+    void cannotCompressWhatItCannotDecode() {
+        assertThat(service.compressSquare("hello".getBytes(StandardCharsets.UTF_8), 512)).isNull();
+    }
+
     // ── Pixel budget ──────────────────────────────────────────────────────────
 
     @Test

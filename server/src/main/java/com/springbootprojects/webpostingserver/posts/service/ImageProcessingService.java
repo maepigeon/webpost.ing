@@ -124,6 +124,68 @@ public class ImageProcessingService {
         }
     }
 
+    /** An image re-encoded for a profile picture. */
+    public record Compressed(byte[] bytes, String extension) {}
+
+    /**
+     * Shrinks an image into a square profile picture: cropped to its middle
+     * square, scaled down to at most {@code maxSide} pixels, and saved as JPEG
+     * (PNG when it has transparency). The upload's own size no longer matters,
+     * only what comes out. An animated GIF becomes its first frame.
+     *
+     * @return the result, or null if the image cannot be decoded here (WebP)
+     */
+    public Compressed compressSquare(byte[] data, int maxSide) {
+        try {
+            BufferedImage src = ImageIO.read(new ByteArrayInputStream(data));
+            if (src == null || src.getWidth() <= 0 || src.getHeight() <= 0) return null;
+            int side = Math.min(src.getWidth(), src.getHeight());
+            BufferedImage square = src.getSubimage((src.getWidth() - side) / 2, (src.getHeight() - side) / 2, side, side);
+            int target = Math.min(side, maxSide);
+            boolean alpha = src.getColorModel().hasAlpha();
+            // Halve repeatedly rather than in one jump: a single big reduction aliases.
+            BufferedImage out = square;
+            int w = side;
+            while (w > target) {
+                int next = Math.max(target, w / 2);
+                BufferedImage scaled = new BufferedImage(next, next, alpha ? BufferedImage.TYPE_INT_ARGB : BufferedImage.TYPE_INT_RGB);
+                java.awt.Graphics2D g = scaled.createGraphics();
+                g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                g.setRenderingHint(java.awt.RenderingHints.KEY_RENDERING, java.awt.RenderingHints.VALUE_RENDER_QUALITY);
+                g.drawImage(out, 0, 0, next, next, null);
+                g.dispose();
+                out = scaled;
+                w = next;
+            }
+            if (out == square && !alpha && square.getType() != BufferedImage.TYPE_INT_RGB) {
+                BufferedImage rgb = new BufferedImage(side, side, BufferedImage.TYPE_INT_RGB);
+                java.awt.Graphics2D g = rgb.createGraphics();
+                g.drawImage(square, 0, 0, null);
+                g.dispose();
+                out = rgb;
+            }
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            if (alpha) {
+                ImageIO.write(out, "png", bytes);
+                return new Compressed(bytes.toByteArray(), ".png");
+            }
+            javax.imageio.ImageWriter writer = ImageIO.getImageWritersByFormatName("jpeg").next();
+            javax.imageio.ImageWriteParam param = writer.getDefaultWriteParam();
+            param.setCompressionMode(javax.imageio.ImageWriteParam.MODE_EXPLICIT);
+            param.setCompressionQuality(0.88f);
+            try (javax.imageio.stream.ImageOutputStream ios = ImageIO.createImageOutputStream(bytes)) {
+                writer.setOutput(ios);
+                writer.write(null, new javax.imageio.IIOImage(out, null, null), param);
+            } finally {
+                writer.dispose();
+            }
+            return new Compressed(bytes.toByteArray(), ".jpg");
+        } catch (IOException | RuntimeException e) {
+            log.debug("Could not compress image: {}", e.toString());
+            return null;
+        }
+    }
+
     /**
      * Writes downscaled copies of {@code data} next to the original, named
      * {@code <base>-<width>w.<ext>}.
