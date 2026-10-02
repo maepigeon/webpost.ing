@@ -85,11 +85,19 @@ the backend), so this list only needs entries for genuinely separate frontends.
 
 | Variable | Default | Notes |
 |---|---|---|
-| `UPLOAD_DIR` | `uploads` (dev) / `/srv/webposting/uploads` (prod) | Must exist and be writable by the server user. Absolute in production, so it does not depend on the working directory the JVM was launched from. |
+| `UPLOAD_DIR` | `uploads` (dev) / **none** (prod) | Must exist and be writable by the server user. In production there is no default and it must be absolute: the server refuses to start otherwise (`ProductionConfigCheck`). |
 | `UPLOAD_MAX_SIZE` | `50MB` | Parsed by Spring's multipart resolver. |
 | `UPLOAD_MAX_BYTES` | `52428800` | Enforced by the application. Keep the two in agreement. |
 
-Uploaded files live on disk, not in the database — back up `UPLOAD_DIR`
+Some uploads have their own, smaller ceilings in code, under the one above:
+audio 20 MB (`UploadController`), avatars 25 MB before compression
+(`AuthController`), header images 4 MB (`ProfileHeaderController`), fonts 2 MB
+(`FontController`). Keep `UPLOAD_MAX_SIZE` and nginx's `client_max_body_size`
+at 25 MB or more or avatars break.
+
+Uploaded files live on disk, not in the database. `UPLOAD_DIR` holds post
+images and their resized copies at the top level, plus `audio/`, `headers/`
+and avatars, all counted in each user's storage. Back up `UPLOAD_DIR`
 alongside `pg_dump`.
 
 ### Sessions
@@ -101,6 +109,20 @@ alongside `pg_dump`.
 
 Sessions are held in memory, so **a server restart ends every session** whatever
 these are set to. Persisting them is tracked in [tasks.md](tasks.md).
+
+### Behind a proxy
+
+| Variable | Default | Notes |
+|---|---|---|
+| `SERVER_FORWARD_HEADERS_STRATEGY` | `native` | Takes the client's address from `X-Forwarded-For`, trusting only a proxy on this machine or a private network. Rate limits depend on it. Leave it alone behind nginx. |
+
+### Email, and the public URL
+
+| Variable | Default | Notes |
+|---|---|---|
+| `APP_BASE_URL` | `http://localhost:5173` | Public address, used in links inside emails. Production warns if it says localhost. |
+| `MAIL_ENABLED` | `false` | Everything email is off unless `true`; then `MAIL_HOST` is required. |
+| `MAIL_FROM`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SMTP_AUTH`, `MAIL_SMTP_STARTTLS` | see [EMAIL.md](EMAIL.md) | `MAIL_PASSWORD` is a secret: `deploy.env` only. |
 
 ### Logging
 
@@ -118,6 +140,7 @@ Read by `tools/install-release.sh` (on the server) and `server-start.sh`, not by
 | `APP_HOME` | `/srv/webposting/app` | Runtime tree; the JAR goes to `$APP_HOME/server/target/`. |
 | `SERVICE_NAME` | `webposting.service` | systemd unit restarted after publishing. |
 | `JAR_PATH` | *(derived)* | Override only if the JAR lives outside `$APP_HOME/server/target/`. |
+| `SERVER_PORT` | `8080` | Spring's own port setting; the install script reads it too, for its health check. Only set it if 8080 is taken. |
 
 ### Frontend build
 
@@ -136,7 +159,8 @@ neither may ever contain a secret.
 
 Done on production on 2026-09-30 (settings moved from an untracked
 `application.properties` into `deploy.env`). Releases are built on your own
-computer; see [DEPLOYMENT.md](DEPLOYMENT.md).
+computer; see [DEPLOYMENT.md](DEPLOYMENT.md), which also lists what
+`deploy.env` must contain for the server to start in production.
 
 ---
 

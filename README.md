@@ -12,7 +12,7 @@ direct messages and image uploads.
 | Needed | Check with | Note |
 |---|---|---|
 | Java **JDK** 21 | `javac -version` | The JDK, not just a JRE — Maven compiles with `javac`. If `javac` and `java` disagree, set `JAVA_HOME` to the JDK. |
-| Node.js 18+ | `node -v` | |
+| Node.js 20.19+ | `node -v` | Vite needs it; `tools/release.sh` checks the same. |
 | PostgreSQL 14+ | `psql --version` | Must be running before the backend starts. |
 
 ---
@@ -25,14 +25,16 @@ default that matches the database created in step 1.
 **1. Create the database**
 
 ```bash
-sudo -u postgres psql -c "CREATE DATABASE testdb;"
-sudo -u postgres psql -c "CREATE USER mae WITH PASSWORD 'password';"
-sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE testdb TO your_db_user;"
-sudo -u postgres psql -d testdb -c "GRANT ALL ON SCHEMA public TO your_db_user;"
+createdb testdb          # as your own login; the app connects as you, no password
 ```
 
-The last line is not optional on PostgreSQL 15+, where `public` is no longer
-world-writable — without it every table creation fails with a permissions error.
+If your PostgreSQL does not let your login create databases, create one with
+a user of your own and set `DB_USER` (and `DB_PASSWORD`) in a `deploy.env`.
+On PostgreSQL 15+ that user also needs `GRANT ALL ON SCHEMA public` on the
+database, or every table creation fails with a permissions error.
+
+Tests use a separate database: `createdb webposting_test`
+(see [guide/MIGRATIONS.md](guide/MIGRATIONS.md#the-test-database)).
 
 **2. Start the backend**
 
@@ -83,7 +85,7 @@ What a production host must set:
 | Variable | Example |
 |---|---|
 | `APP_PROFILE` | `prod` — HTTPS-only cookies, absolute upload path, no stack traces |
-| `DB_NAME` / `DB_USER` / `DB_PASSWORD` | your production database and its password |
+| `DB_NAME` / `DB_USER` / `DB_SOCKET` | your production database, its user, and the PostgreSQL socket directory (no password; or `DB_PASSWORD` for TCP) |
 | `ALLOWED_ORIGINS` | `https://webpost.ing` — exact origins, comma-separated; `*` is rejected |
 | `UPLOAD_DIR` | `/srv/webposting/uploads` — absolute, writable by the server user |
 | `APP_BASE_URL` | `https://webpost.ing` — used for links inside emails |
@@ -91,8 +93,8 @@ What a production host must set:
 | `APP_HOME` | `/srv/webposting/app` — runtime tree; the JAR lands in `$APP_HOME/server/target/` |
 | `SERVICE_NAME` | `webposting.service` — the systemd unit to restart |
 
-Under `APP_PROFILE=prod` the server **refuses to start** if the database
-password is still the development default, `DB_NAME` is still `testdb`,
+Under `APP_PROFILE=prod` the server **refuses to start** if there is neither
+`DB_SOCKET` nor a real `DB_PASSWORD`, `DB_NAME` is still `testdb`,
 `ALLOWED_ORIGINS` points at localhost, or `UPLOAD_DIR` is relative. The error
 names the variable to fix.
 
@@ -105,27 +107,25 @@ Email (verification, notifications, password reset) is off until
 
 ### First time on a new host
 
-**1. Install** Java 21 JDK, Node 18+, PostgreSQL, nginx and git.
+The server only runs releases; it never builds. Install Java 21 (a JRE is
+enough), PostgreSQL and nginx. Do not install Node or Maven, and do not clone
+the repository there.
 
-**2. Create the production database** — same four commands as local step 1, with
-your real database name, user and password. The server builds the schema the
-first time it starts.
+**1. Create the production database** with your real name and user, as in
+[guide/MIGRATIONS.md](guide/MIGRATIONS.md#a-fresh-database). The server builds
+the schema the first time it starts.
 
-**3. Clone and configure**
+**2. Write `deploy.env`** on the server (`config/deploy.env.example` is the
+template; `chmod 600`, readable by the service's user only).
 
-```bash
-git clone https://github.com/maepigeon/webpost.ing.git && cd webpost.ing
-cp config/deploy.env.example deploy.env && chmod 600 deploy.env && $EDITOR deploy.env
-```
-
-**4. Create the uploads directory** from `UPLOAD_DIR`, owned by the user the
+**3. Create the uploads directory** from `UPLOAD_DIR`, owned by the user the
 service runs as:
 
 ```bash
 sudo mkdir -p /srv/webposting/uploads
 ```
 
-**5. Configure nginx.** The SPA owns routing, so paths that are not files must
+**4. Configure nginx.** The SPA owns routing, so paths that are not files must
 fall back to `index.html` — without it every `/{username}` profile link 404s.
 
 ```nginx
@@ -149,9 +149,10 @@ server {
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        client_max_body_size 50m;            # keep >= UPLOAD_MAX_SIZE
+        client_max_body_size 50m;            # keep >= UPLOAD_MAX_SIZE (avatars 25 MB, audio 20 MB)
     }
 
+    # Audio seeking needs range requests; nginx serves them for static files.
     location /uploads/ {
         alias /srv/webposting/uploads/;  # UPLOAD_DIR
     }
@@ -168,8 +169,9 @@ server {
 sudo nginx -t && sudo nginx -s reload
 ```
 
-**6. Install the systemd unit** at `/etc/systemd/system/webposting.service`,
-matching `SERVICE_NAME`:
+**5. Install the systemd unit** at `/etc/systemd/system/webposting.service`,
+matching `SERVICE_NAME`. Run it as its own unprivileged user, not root, and
+send the log to the journal (`journalctl -u webposting.service`):
 
 ```ini
 [Unit]
@@ -177,23 +179,26 @@ Description=webpost.ing backend
 After=network.target postgresql.service
 
 [Service]
+User=webposting
 WorkingDirectory=/srv/webposting/app
 ExecStart=/srv/webposting/app/server-start.sh
 Restart=on-failure
-StandardOutput=append:/tmp/webposting.log
-StandardError=append:/tmp/webposting.log
+NoNewPrivileges=true
+ProtectSystem=full
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-Copy `server-start.sh` and `deploy.env` into `APP_HOME`, then:
+Put `server-start.sh` and `deploy.env` into `APP_HOME`, and the first JAR in
+`$APP_HOME/server/target/server-0.0.1-SNAPSHOT.jar` (the install script needs
+one to exist), then:
 
 ```bash
 sudo systemctl daemon-reload && sudo systemctl enable webposting.service
 ```
 
-**7. Release.** On your own computer, never on the server:
+**6. Release.** On your own computer, never on the server:
 
 ```bash
 ./tools/release.sh
@@ -208,11 +213,12 @@ back if the new version doesn't come up. See
 
 | Flag | Effect |
 |---|---|
-| `--dry-run` | Print every step, change nothing |
-| `--no-build` | Publish existing artifacts and restart |
+| `--build-only` | Test and build the archive; upload nothing |
+| `--no-install` | Also upload it; install later on the server |
+| `--skip-tests` | Skip the test suites (emergencies only) |
 
-Building is not deploying: the build tree and the runtime tree are different
-directories, which is why the publish step exists.
+Before the first real release: [Before you release](guide/DEPLOYMENT.md#before-you-release)
+and the post-deploy smoke test, both in DEPLOYMENT.md.
 
 **After deploying:** hard-refresh the browser. Vite content-hashes filenames,
 but a cached `index.html` keeps pointing at the old bundle — the usual reason a
@@ -232,8 +238,8 @@ Host-specific details and the mistakes that have cost time:
 ./tools/backup.sh /mnt/backups   # or elsewhere
 ```
 
-`pg_dump` alone is not a backup of this application: images, avatars and fonts
-live on disk, so a database-only restore brings back every post with broken
+`pg_dump` alone is not a backup of this application: images, avatars, header
+images and audio live on disk, so a database-only restore brings back every post with broken
 images. The script takes both, reads them back, and prints the restore commands.
 
 **Migrations** — add `server/src/main/resources/db/migrations/V0NN__name.sql`
@@ -245,7 +251,7 @@ See [guide/MIGRATIONS.md](guide/MIGRATIONS.md).
 
 ```bash
 sudo systemctl restart webposting.service   # never kill the JVM by port
-tail -f /tmp/webposting.log
+sudo journalctl -u webposting.service -f
 ```
 
 ---

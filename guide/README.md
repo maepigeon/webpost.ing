@@ -86,24 +86,21 @@ Uploaded images are stored on disk (not in the database). The upload directory i
 ### Prerequisites
 
 - **Java 21 JDK** — the full JDK, not just the JRE (`javac` must be present and at version 21; check with `javac -version`, not `java -version`)
-- **Node.js 18+** and npm (check with `node -v`)
+- **Node.js 20.19+** and npm (check with `node -v`)
 - **PostgreSQL 14+** running locally
 - **Maven wrapper** (`./mvnw`) is included in the repo — no separate Maven install needed
 
 ### Step 1 — Set up the database
 
-On Ubuntu/Debian, PostgreSQL admin commands must run as the `postgres` system user:
+The simplest local setup is a database owned by your own login, which the app uses by default with no password:
 
 ```bash
-sudo -u postgres psql -c "CREATE DATABASE testdb;"
-sudo -u postgres psql -c "CREATE USER mae WITH PASSWORD 'password';"
-sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE testdb TO mae;"
-sudo -u postgres psql -d testdb -c "GRANT ALL ON SCHEMA public TO mae;"
+createdb testdb
 ```
 
-> **Note:** The database name, user, and password above are the development defaults. Change them to match your environment — update `application.properties` to match whatever you use here.
+To use another database or user, set `DB_NAME`, `DB_USER` and `DB_PASSWORD` in a `deploy.env` (see [CONFIGURATION.md](CONFIGURATION.md)); do not edit `application.properties`. On PostgreSQL 15+ a user other than the database owner also needs `GRANT ALL ON SCHEMA public`.
 
-The init script creates all tables and seeds the `role_limits` table. It does **not** create any users — see [Creating the first admin user](#creating-the-first-admin-user) below.
+The server creates all tables and seeds `role_limits` on first start. It does **not** create any users — see [Creating the first admin user](#creating-the-first-admin-user) below.
 
 #### Migrating an existing database
 
