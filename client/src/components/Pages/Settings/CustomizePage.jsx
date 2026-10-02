@@ -7,7 +7,7 @@ import {
 } from '../Posts/BasicTextPostServerApi.js';
 import ProfileBanner from '../Posts/PostsViewer/ProfileBanner.jsx';
 import TileGrid from '../Posts/PostRenderer/RichTextPost/TileGrid/TileGrid.jsx';
-import { defaultGrid } from '../Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
+import { normaliseGrid, pixelLayer } from '../Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
 import { BANNER_COLS } from '../Posts/PostsViewer/bannerGrid.js';
 import WallpaperEditor from '../../TileArt/WallpaperEditor.jsx';
 import { serialiseWallpaper } from '../../TileArt/wallpaper.js';
@@ -27,6 +27,12 @@ import './SettingsPage.css';
  * they are about how your page looks to visitors, not about your account, so
  * they have a page of their own next to the thing they change.
  */
+/** The page's text colour, a hex value, for drawing on the transparent banner. */
+function pageInk() {
+  const v = getComputedStyle(document.documentElement).getPropertyValue('--th-ink').trim();
+  return /^#[0-9a-f]{6}$/i.test(v) ? v : '#111111';
+}
+
 export default function CustomizePage() {
   usePageTitle('Customize your profile');
   const navigate = useNavigate();
@@ -166,7 +172,7 @@ export default function CustomizePage() {
           </div>
           {bannerDraft ? (
             <div className="settings-banner-editor">
-              <TileGrid data={bannerDraft} onChange={setBannerDraft} editable startEditing lockCols
+              <TileGrid data={bannerDraft} onChange={setBannerDraft} editable startEditing lockCols initialColour={pageInk()}
                 maxCols={BANNER_COLS} maxRows={12} />
             </div>
           ) : (
@@ -175,7 +181,11 @@ export default function CustomizePage() {
           <div className="settings-header-controls">
             {!bannerDraft && (
               <button type="button" className="settings-btn settings-btn--primary"
-                onClick={() => setBannerDraft(defaultGrid(BANNER_COLS, 4))}>Add rows under it</button>
+                onClick={() => setBannerDraft(normaliseGrid({
+                  v: 3, cols: BANNER_COLS, rows: 4,
+                  // Transparent, like the rows above: the profile card shows through.
+                  layers: [pixelLayer('Background'), pixelLayer('Text')],
+                }))}>Add rows under it</button>
             )}
             {bannerDraft && (
               <button type="button" className="settings-btn settings-btn--primary"

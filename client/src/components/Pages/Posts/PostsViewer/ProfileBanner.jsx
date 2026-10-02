@@ -22,16 +22,20 @@ export default function ProfileBanner({
   // one to a tile on a phone, where narrow ones would be too small.
   const ref = useRef(null);
   const [narrow, setNarrow] = useState(true);
+  // The page's ink, from the theme (a hex colour), for the banner's own text.
+  const [ink, setInk] = useState('#111111');
   useEffect(() => {
     const el = ref.current;
     if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const value = getComputedStyle(el).getPropertyValue('--th-ink').trim();
+    if (/^#[0-9a-f]{6}$/i.test(value)) setInk(value);
     const ro = new ResizeObserver(([entry]) => setNarrow(entry.contentRect.width >= NARROW_FROM));
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
   const info = useMemo(
-    () => bannerInfo({ username, followers, following, joined, publicPosts, narrow }),
-    [username, followers, following, joined, publicPosts, narrow]);
+    () => bannerInfo({ username, followers, following, joined, publicPosts, narrow, ink }),
+    [username, followers, following, joined, publicPosts, narrow, ink]);
   const at = (h) => ({ left: `${h.from * 100}%`, width: `${(h.to - h.from) * 100}%`, top: `${100 / INFO_ROWS}%`, height: `${100 / INFO_ROWS}%` });
 
   return (

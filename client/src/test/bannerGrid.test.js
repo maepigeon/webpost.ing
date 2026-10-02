@@ -35,6 +35,14 @@ describe('the profile banner\'s own rows', () => {
     expect(textOf(n.grid, 0)).toBe('user: mae');
   });
 
+  it('writes in the page\'s ink, labels lighter, small letters when narrow', () => {
+    const n = bannerInfo({ username: 'mae', narrow: true, ink: '#202020' });
+    const style = n.grid.layers[0].style;
+    expect(style['0,8']).toEqual({ color: '#202020', font: 'small' });   // the m of mae
+    expect(style['0,2'].color).not.toBe('#202020');                      // the u of user:
+    expect(bannerInfo({ username: 'mae' }).grid.layers[0].style['0,2'].font).toBe('pixel');
+  });
+
   it('marks where the counts are, left to right', () => {
     expect(info.hits.followers.from).toBeLessThan(info.hits.followers.to);
     expect(info.hits.followers.to).toBeLessThanOrEqual(info.hits.following.from);

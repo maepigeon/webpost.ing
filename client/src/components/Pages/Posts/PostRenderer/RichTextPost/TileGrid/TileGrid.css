@@ -133,6 +133,18 @@
 }
 .tg-seg { display: inline-flex; gap: 2px; }
 
+/* Clear, the transparent colour: a checkerboard, as transparency is shown. */
+.tg-tile.tg-clear,
+.tg-swatch.is-clear {
+  background-color: #d8d8d8;
+  background-image:
+    linear-gradient(45deg, #9a9a9a 25%, transparent 25%, transparent 75%, #9a9a9a 75%),
+    linear-gradient(45deg, #9a9a9a 25%, transparent 25%, transparent 75%, #9a9a9a 75%);
+  background-size: 8px 8px;
+  background-position: 0 0, 4px 4px;
+}
+.tg-tile.tg-clear.is-on { box-shadow: 0 0 0 2px #f2f2f2; }
+
 /* Linking the selected tiles. */
 .tg-link-panel { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .tg-link-label { display: inline-flex; align-items: center; gap: 6px; color: #9a9a9a; font: 700 11px var(--app-font); flex: 1 1 260px; min-width: 0; }

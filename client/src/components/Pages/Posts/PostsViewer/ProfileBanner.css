@@ -1,11 +1,10 @@
-/* The profile banner: the site's four rows on black, the owner's rows under
-   them, one grid's width. Tiles are drawn by TileGrid; this places the
-   avatar and the click targets over them. */
+/* The profile banner: the site's four rows, the owner's rows under them, one
+   grid's width, on nothing (the card shows through). Tiles are drawn by
+   TileGrid; this places the avatar and the click targets over them. */
 
 .profile-banner {
   width: 100%;
   margin-bottom: 12px;
-  background: #000;
   overflow: hidden;
 }
 .profile-banner .tilegrid { margin: 0; }
@@ -20,10 +19,10 @@
   box-shadow: none;
   cursor: pointer;
 }
-.profile-banner-hit:hover { background: rgba(255, 255, 255, 0.12); filter: none; }
+.profile-banner-hit:hover { background: rgba(128, 128, 128, 0.16); filter: none; }
 .profile-banner-hit:active,
 .profile-banner-avatar:active { transform: none !important; }
-.profile-banner-hit:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+.profile-banner-hit:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
 
 .profile-banner-avatar {
   /* Four tiles wide (set inline) and the four rows tall: a square. */
@@ -51,7 +50,7 @@
 }
 .profile-banner-avatar:hover img,
 .profile-banner-avatar:hover .profile-banner-initial { transform: scale(1.05); }
-.profile-banner-avatar:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+.profile-banner-avatar:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
 .profile-banner-initial {
   display: flex;
   align-items: center;
@@ -69,5 +68,5 @@
   aspect-ratio: 1;
   border-radius: 50%;
   background: #2ecc71;
-  border: 2px solid #000;
+  border: 2px solid var(--th-card-bg, #fff);
 }

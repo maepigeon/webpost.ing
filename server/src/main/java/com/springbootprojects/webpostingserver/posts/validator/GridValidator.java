@@ -196,7 +196,7 @@ public final class GridValidator {
                 if (!SLOT.matcher(e.getKey()).matches() || !e.getValue().isObject()) continue;
                 ObjectNode s = MAPPER.createObjectNode();
                 String font = e.getValue().path("font").asText("");
-                if (font.equals("pixel") || font.equals("smooth")) s.put("font", font);
+                if (font.equals("pixel") || font.equals("small") || font.equals("smooth")) s.put("font", font);
                 String color = e.getValue().path("color").asText("");
                 if (HEX.matcher(color).matches()) s.put("color", color.toLowerCase());
                 if (s.isEmpty()) continue;

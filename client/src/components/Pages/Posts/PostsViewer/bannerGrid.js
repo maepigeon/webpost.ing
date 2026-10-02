@@ -12,8 +12,12 @@ export const INFO_ROWS = 4;
 export const AVATAR_TILES = INFO_ROWS;
 const TEXT_TILES = BANNER_COLS - AVATAR_TILES - 1;   // one tile of margin on the left
 
-const LABEL = '#9a9a9a';
-const VALUE = '#ffffff';
+/** A colour halfway to grey: the labels, beside the values in full ink. */
+function muted(hex) {
+  const n = /^#[0-9a-f]{6}$/i.test(hex) ? parseInt(hex.slice(1), 16) : 0x111111;
+  const mix = (v) => Math.round((v + 0x88) / 2).toString(16).padStart(2, '0');
+  return `#${mix(n >> 16)}${mix((n >> 8) & 255)}${mix(n & 255)}`;
+}
 
 const joinedText = (iso) => {
   const d = iso ? new Date(iso) : null;
@@ -26,7 +30,13 @@ const joinedText = (iso) => {
  * The four lines, each as parts with a colour, and where the follow counts
  * fall so they can be clicked: { grid, label, hits }.
  */
-export function bannerInfo({ username = '', followers = 0, following = 0, joined = null, publicPosts = 0, narrow = false }) {
+export function bannerInfo({ username = '', followers = 0, following = 0, joined = null, publicPosts = 0, narrow = false, ink = '#111111' }) {
+  // The banner is transparent, so its text takes the page's ink.
+  const VALUE = /^#[0-9a-f]{6}$/i.test(ink) ? ink.toLowerCase() : '#111111';
+  const LABEL = muted(VALUE);
+  // Narrow letters in the small font, which leaves room between the rows;
+  // a phone's wide letters keep the full-height one to stay readable.
+  const font = narrow ? 'small' : 'pixel';
   const lines = [
     [['user: ', LABEL], [username, VALUE]],
     [[`${followers}`, VALUE], [followers === 1 ? ' follower ' : ' followers ', LABEL], [`${following}`, VALUE], [' following', LABEL]],
@@ -49,7 +59,7 @@ export function bannerInfo({ username = '', followers = 0, following = 0, joined
       const start = i;
       for (const ch of Array.from(part)) {
         if (i >= room) break;
-        if (ch !== ' ') text = writeChar(d, text, r, s, ch, { color }, wide ? 'full' : 'half');
+        if (ch !== ' ') text = writeChar(d, text, r, s, ch, { color, font }, wide ? 'full' : 'half');
         s += wide ? SLOTS_PER_TILE : 1;
         i += 1;
       }

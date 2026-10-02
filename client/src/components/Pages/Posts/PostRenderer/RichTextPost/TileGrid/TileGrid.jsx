@@ -148,6 +148,8 @@ export default function TileGrid({
   linksActive = true,
   // A width that may not change (a profile banner's rows match its site rows).
   lockCols = false,
+  // The colour picked at first (text on a light page wants a dark one).
+  initialColour = '#ffffff',
 }) {
   const data = useMemo(() => normaliseGrid(rawData), [rawData]);
 
@@ -195,7 +197,9 @@ export default function TileGrid({
 
   const [editing, setEditing] = useState(startEditing);
   const [tool, setTool] = useState('text');
-  const [colour, setColour] = useState('#ffffff');
+  const [colour, setColour] = useState(initialColour);
+  // Clear paints transparency: pixels, tiles and fills take away what is there.
+  const [clear, setClear] = useState(false);
   const [font, setFont] = useState('pixel');
   const [direction, setDirection] = useState('right');
   // Full: one wide character per tile; half: two narrow ones. It applies
@@ -329,7 +333,7 @@ export default function TileGrid({
     const [px, py, size] = tool === 'tile'
       ? [Math.floor(x / TILE) * TILE, Math.floor(y / TILE) * TILE, TILE]
       : [x, y, 1];
-    if (tool === 'erase') ctx.clearRect(px, py, size, size);
+    if (tool === 'erase' || clear) ctx.clearRect(px, py, size, size);
     else { ctx.fillStyle = colour; ctx.fillRect(px, py, size, size); }
   };
 
@@ -433,7 +437,10 @@ export default function TileGrid({
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     ctx.fillStyle = fillColour;
-    for (const { r, c } of tiles) ctx.fillRect(c * TILE, r * TILE, TILE, TILE);
+    for (const { r, c } of tiles) {
+      if (clear) ctx.clearRect(c * TILE, r * TILE, TILE, TILE);
+      else ctx.fillRect(c * TILE, r * TILE, TILE, TILE);
+    }
     commit(savePaint(dataRef.current, layer.id));
   };
 
@@ -744,7 +751,7 @@ export default function TileGrid({
   };
 
   const chooseFont = (f) => { setFont(f); restyle({ font: f }); };
-  const chooseColour = (c) => { setColour(c); if (tool === 'text') restyle({ color: c }); };
+  const chooseColour = (c) => { setColour(c); setClear(false); if (tool === 'text') restyle({ color: c }); };
 
   // ── Grid settings ──────────────────────────────────────────────────────────
 
@@ -992,9 +999,12 @@ export default function TileGrid({
               <Tile icon="tile" label="Paint tiles (⌥B)" on={tool === 'tile'} onClick={() => setTool('tile')} />
               <Tile icon="erase" label="Erase (⌥E)" on={tool === 'erase'} onClick={() => setTool('erase')} />
               <Tile icon="fill" label="Fill (⌥F)" on={tool === 'fill'} onClick={() => setTool('fill')} />
-              <label className="tg-swatch" title="Colour" style={{ background: colour }}>
+              <label className={`tg-swatch${clear ? ' is-clear' : ''}`} title="Colour" style={clear ? undefined : { background: colour }}>
                 <input type="color" value={colour} onChange={e => chooseColour(e.target.value)} aria-label="Colour" />
               </label>
+              <button type="button" className={`tg-tile tg-clear${clear ? ' is-on' : ''}`} aria-pressed={clear}
+                title="Clear: painting and filling make tiles transparent" aria-label="Clear (transparent)"
+                onClick={() => setClear(v => !v)} />
               <Tile icon="texture" label="Fill with a texture" on={panel === 'texture'} disabled={!isPixel}
                 onClick={() => setPanel(p => (p === 'texture' ? null : 'texture'))} />
             </div>
@@ -1006,6 +1016,7 @@ export default function TileGrid({
               <Tile icon="two" label="Two narrow characters per tile: for what you type next, or the selected tiles" on={width === 'half'} onClick={() => setWidth('half')} />
               <span className="tg-gap" />
               <Tile icon="fontPixel" label={`${FONT_NAMES.pixel} font — for the selection or cursor`} on={font === 'pixel'} onClick={() => chooseFont('pixel')} />
+              <Tile icon="fontSmall" label={`${FONT_NAMES.small} font, half a tile tall — for the selection or cursor`} on={font === 'small'} onClick={() => chooseFont('small')} />
               <Tile icon="fontSmooth" label={`${FONT_NAMES.smooth} font — for the selection or cursor`} on={font === 'smooth'} onClick={() => chooseFont('smooth')} />
               <Tile icon="glyph" label="Custom characters" on={panel === 'glyphs'}
                 onClick={() => setPanel(p => (p === 'glyphs' ? null : 'glyphs'))} />

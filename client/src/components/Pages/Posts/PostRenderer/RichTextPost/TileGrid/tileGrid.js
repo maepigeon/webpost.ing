@@ -23,7 +23,8 @@ export const SCALE = 4;
 export const LIMITS = { minCols: 1, maxCols: 64, minRows: 1, maxRows: 48, minLayers: 1, maxLayers: 10 };
 
 export const SMOOTH_FONT = '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
-export const FONT_NAMES = { pixel: 'Pixel', smooth: 'Smooth' };
+/** Small: the pixel letters at their own size, centred, leaving room above and below. */
+export const FONT_NAMES = { pixel: 'Pixel', small: 'Small pixel', smooth: 'Smooth' };
 
 const HEX_COLOUR = /^#[0-9a-fA-F]{6}$/;
 const GLYPH_HEX = /^([0-9a-f]{32}|[0-9a-f]{64})$/;
@@ -89,7 +90,7 @@ function cleanLayer(raw) {
     for (const [k, v] of Object.entries(raw.style)) {
       if (!/^\d+,\d+$/.test(k) || !v || typeof v !== 'object') continue;
       const s = {};
-      if (v.font === 'smooth' || v.font === 'pixel') s.font = v.font;
+      if (FONT_NAMES[v.font]) s.font = v.font;
       if (typeof v.color === 'string' && HEX_COLOUR.test(v.color)) s.color = v.color.toLowerCase();
       if (Object.keys(s).length) style[k] = s;
     }
@@ -628,6 +629,7 @@ function drawLayerText(ctx, d, layer) {
         const x = s * SLOT_W;
         const y = r * TILE;
         if (d.glyphs[ch]) drawCustomGlyph(ctx, d.glyphs[ch], x, y, sw);
+        else if (style.font === 'small' && pixelGlyph(ch)) drawSmallGlyph(ctx, pixelGlyph(ch), x, y, sw);
         else if (style.font !== 'smooth' && pixelGlyph(ch)) drawPixelGlyph(ctx, pixelGlyph(ch), x, y, sw);
         else if (d.edges === 'pixel') drawPixelatedChar(ctx, ch, x, y, sw);
         else drawSmoothChar(ctx, ch, x, y, sw);
@@ -644,6 +646,17 @@ function drawPixelGlyph(ctx, rows, x, y, sw) {
     const bits = rows[gy];
     if (!bits) continue;
     for (let gx = 0; gx < 8; gx++) if (bits & (0x80 >> gx)) ctx.fillRect(x + gx * px, y + gy * py, px, py);
+  }
+}
+
+/** 8×8 font bitmap at one grid pixel a dot, centred in the cell: half a tile tall. */
+function drawSmallGlyph(ctx, rows, x, y, sw) {
+  const ox = x + Math.floor((sw - 8) / 2);
+  const oy = y + (TILE - 8) / 2;
+  for (let gy = 0; gy < 8; gy++) {
+    const bits = rows[gy];
+    if (!bits) continue;
+    for (let gx = 0; gx < 8; gx++) if (bits & (0x80 >> gx)) ctx.fillRect(ox + gx, oy + gy, 1, 1);
   }
 }
 
