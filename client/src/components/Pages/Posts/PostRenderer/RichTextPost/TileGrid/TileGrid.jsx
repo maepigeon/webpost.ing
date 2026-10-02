@@ -15,6 +15,7 @@ import PawOptions from '../../../../../TileArt/PawOptions.jsx';
 import GlyphEditor from './GlyphEditor.jsx';
 import SymbolPalette from './SymbolPalette.jsx';
 import GridButton from './GridButton.jsx';
+import { PixelWords, GridSelect, GridStepper } from './GridUI.jsx';
 import PixelText from './PixelText.jsx';
 import PixelIcon from './PixelIcon.jsx';
 import './TileGrid.css';
@@ -1116,7 +1117,7 @@ export default function TileGrid({
   const hint = !isPixel && !['move', 'select'].includes(tool)
     ? 'Photo layer: drag it to move, drag a corner to resize, or flatten it to pixels to paint on it.'
     : {
-      text: 'Click a tile and type. Drag, or Shift+arrows, to select tiles; typing then fills them. ⌘/ lists the shortcuts.',
+      text: 'Click a tile and type. Drag, or Shift+arrows, to select tiles; typing then fills them. Cmd+/ lists the shortcuts.',
       wand: 'Click a tile to select the joined tiles that look the same. Shift adds, Alt takes away.',
       select: 'Drag, or use the arrows and Shift+arrows, to select. Shift adds, Alt removes. Drag a selection to move it.',
       move: 'Drag to move the selection, or the whole layer. Arrow keys nudge.',
@@ -1159,7 +1160,7 @@ export default function TileGrid({
         <div className="tilegrid-controls">
           {onMoveUp && <Tile icon="arrowUp" label="Move block up" onClick={onMoveUp} />}
           {onMoveDown && <Tile icon="arrowDown" label="Move block down" onClick={onMoveDown} />}
-          <button type="button" className="tg-text-btn" onClick={() => setEditing(true)}>Edit grid</button>
+          <GridButton symbol="pencil" showLabel label="Edit grid" onClick={() => setEditing(true)} />
           {onDelete && <Tile icon="trash" label="Delete block" onClick={onDelete} />}
         </div>
       )}
@@ -1168,12 +1169,12 @@ export default function TileGrid({
         <div className="tg-panel" onMouseDown={keepTypingFocus}>
           <div className="tg-main">
             <div className="tg-group" role="group" aria-label="Draw">
-              <span className="tg-group-label">Draw</span>
+              <span className="tg-group-label"><PixelText text="Draw" px={1.25} /></span>
               <Tile icon="select" label="Select tiles (⌥S)" on={tool === 'select'} onClick={() => setTool('select')} />
               <Tile icon="wand" label="Magic wand (⌥W): select the joined tiles that look the same. Shift adds, Alt takes away." on={tool === 'wand'} onClick={() => setTool('wand')} />
               <Tile icon="move" label="Move (⌥M)" on={tool === 'move'} onClick={() => setTool('move')} />
               <Tile icon="pixel" label="Paint pixels (⌥P)" on={tool === 'pixel'} onClick={() => setTool('pixel')} />
-              <GridButton symbol="pixel" label="Pixel perfect" on={pixelPerfect} onClick={() => setPixelPerfect(v => !v)}
+              <GridButton symbol="pixelPerfect" label="Pixel perfect" on={pixelPerfect} onClick={() => setPixelPerfect(v => !v)}
                 title="Pixel perfect: freehand pixel and erase strokes lose the extra corner pixels, leaving lines one pixel thick." />
               <Tile icon="tile" label="Paint tiles (⌥B)" on={tool === 'tile'} onClick={() => setTool('tile')} />
               <Tile icon="erase" label="Erase (⌥E)" on={tool === 'erase'} onClick={() => setTool('erase')} />
@@ -1187,18 +1188,14 @@ export default function TileGrid({
             </div>
 
             <div className="tg-group tg-group--type" role="group" aria-label="Text">
-              <span className="tg-group-label">Text</span>
+              <span className="tg-group-label"><PixelText text="Text" px={1.25} /></span>
               <Tile icon="text" label="Text: type on tiles (⌥T)" on={tool === 'text'} onClick={() => setTool('text')} />
               <Tile icon="one" label="One wide character per tile: for what you type next, or the selected tiles" on={width === 'full'} onClick={() => setWidth('full')} />
               <Tile icon="two" label="Two narrow characters per tile: for what you type next, or the selected tiles" on={width === 'half'} onClick={() => setWidth('half')} />
               <span className="tg-gap" />
-              <label className="tg-font" data-tip="Font: applies to the selection, or what you type next.">
-                <PixelText text="Font" px={1.25} />
-                <select value={font} onChange={e => chooseFont(e.target.value)} aria-label="Font">
-                  {/* One option per font the format knows (FONT_NAMES): a new font appears here by being added there. */}
-                  {Object.entries(FONT_NAMES).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-                </select>
-              </label>
+              {/* One option per font the format knows (FONT_NAMES): a new font appears here by being added there. */}
+              <GridSelect label="Font" tip="Font: applies to the selection, or what you type next."
+                value={font} options={Object.entries(FONT_NAMES)} onChange={chooseFont} />
               <span className="tg-gap" />
               <span className="tg-colours" role="group" aria-label="Text colour">
                 <ColourPicker value={colour} onChange={chooseColour} label="Text colour" tip="Text colour: any colour. Applies to the selection, or what you type next." className="tg-swatch" />
@@ -1218,7 +1215,7 @@ export default function TileGrid({
             </div>
 
             <div className="tg-group" role="group" aria-label="Image">
-              <span className="tg-group-label">Image</span>
+              <span className="tg-group-label"><PixelText text="Image" px={1.25} /></span>
               <label className={`tg-tile${uploading ? ' is-busy' : ''}`} title="Add a photo layer">
                 <PixelIcon name="photo" size={14} />
                 <input type="file" accept="image/*" disabled={uploading} aria-label="Add a photo layer"
@@ -1228,17 +1225,16 @@ export default function TileGrid({
                 <>
                   <Tile icon="minus" label="Smaller" onClick={() => commit(withLayer(dataRef.current, active.id, l => ({ ...l, ...zoomPhoto(l, 1 / 1.25) })))} />
                   <Tile icon="plus" label="Larger" onClick={() => commit(withLayer(dataRef.current, active.id, l => ({ ...l, ...zoomPhoto(l, 1.25) })))} />
-                  <button type="button" className="tg-text-btn" onClick={() => commit(withLayer(dataRef.current, active.id, l => ({ ...l, scale: 1, x: 0, y: 0 })))}>Fit</button>
-                  <button type="button" className="tg-text-btn" onClick={flattenPhoto}
-                    title="Turn the photo into the grid's own pixels, to paint on it tile by tile. Until then it stays a photo you can move and resize.">Flatten to pixels</button>
+                  <GridButton symbol="fit" showLabel label="Fit" title="Fit the photo to the grid" onClick={() => commit(withLayer(dataRef.current, active.id, l => ({ ...l, scale: 1, x: 0, y: 0 })))} />
+                  <GridButton symbol="flatten" showLabel label="Flatten" onClick={flattenPhoto}
+                    title="Flatten to pixels: turn the photo into the grid's own pixels, to paint on it tile by tile. Until then it stays a photo you can move and resize." />
                 </>
               )}
               <span className="tg-gap" />
               <span className="tg-seg" role="group" aria-label="Photo edges"
                 title="How photos are drawn. Smooth: at full resolution. Pixel: in the grid's own pixels, hard-edged. Text is always in the grid's pixels.">
                 {Object.entries(EDGES).map(([k, label]) => (
-                  <button key={k} type="button" className={`tg-text-btn${data.edges === k ? ' is-on' : ''}`}
-                    aria-pressed={data.edges === k} onClick={() => setEdges(k)}>{label}</button>
+                  <GridButton key={k} label={label} text={label.split(' ')[0]} px={1.25} on={data.edges === k} onClick={() => setEdges(k)} />
                 ))}
               </span>
               <span className="tg-gap" />
@@ -1247,7 +1243,7 @@ export default function TileGrid({
             </div>
 
             <div className="tg-group" role="group" aria-label="Edit">
-              <span className="tg-group-label">Edit</span>
+              <span className="tg-group-label"><PixelText text="Edit" px={1.25} /></span>
               <Tile icon="undo" label="Undo (⌘Z)" onClick={undo} disabled={!past.current.length} />
               <Tile icon="redo" label="Redo (⇧⌘Z)" onClick={redo} disabled={!future.current.length} />
               <span className="tg-gap" />
@@ -1263,7 +1259,7 @@ export default function TileGrid({
 
             {panel === 'link' && (
               <form className="tg-link-panel" onSubmit={e => { e.preventDefault(); applyLink(); }}>
-                <label className="tg-link-label">Link {selection.size} tile{selection.size === 1 ? '' : 's'} to
+                <label className="tg-link-label"><PixelWords text={`Link ${selection.size} tile${selection.size === 1 ? '' : 's'} to`} />
                   <input type="text" inputMode="url" value={linkDraft} autoFocus placeholder="https://… or /username"
                     onChange={e => { setLinkDraft(e.target.value); setLinkError(''); }}
                     onKeyDown={e => {
@@ -1273,22 +1269,18 @@ export default function TileGrid({
                       if (e.key === 'Escape') { e.preventDefault(); setPanel(null); typeRef.current?.focus(); }
                     }} />
                 </label>
-                <button type="submit" className="tg-text-btn">Link</button>
-                <button type="button" className="tg-text-btn" onClick={() => applyLink(true)}>Remove link</button>
+                <GridButton symbol="link" showLabel label="Link" onClick={() => applyLink()} />
+                <GridButton symbol="unlink" showLabel label="Remove link" onClick={() => applyLink(true)} />
                 {linkError && <span className="tg-error" role="alert">{linkError}</span>}
               </form>
             )}
 
             <div className="tg-group" role="group" aria-label="Size">
-              <span className="tg-group-label">Size</span>
-              <label className="tg-size" title="Width in tiles">W
-                <input type="number" min={LIMITS.minCols} max={maxCols} value={data.cols} disabled={lockCols}
-                  onChange={e => setSize(parseInt(e.target.value, 10), data.rows)} />
-              </label>
-              <label className="tg-size" title="Height in tiles">H
-                <input type="number" min={LIMITS.minRows} max={maxRows} value={data.rows}
-                  onChange={e => setSize(data.cols, parseInt(e.target.value, 10))} />
-              </label>
+              <span className="tg-group-label"><PixelText text="Size" px={1.25} /></span>
+              <GridStepper label="Width in tiles" short="W" value={data.cols} min={LIMITS.minCols} max={maxCols}
+                disabled={lockCols} onChange={v => setSize(v, data.rows)} />
+              <GridStepper label="Height in tiles" short="H" value={data.rows} min={LIMITS.minRows} max={maxRows}
+                onChange={v => setSize(data.cols, v)} />
             </div>
 
             {panel === 'texture' && (
@@ -1298,7 +1290,7 @@ export default function TileGrid({
                   <button key={k} type="button" className="tg-texture" onClick={() => fillWithTexture(k)}
                     title={`Fill ${hasSel ? 'the selection' : 'the layer'} with ${t.label.toLowerCase()}`}>
                     <img src={texturePreviews[k]} alt="" width="32" height="32" />
-                    <span>{t.label}</span>
+                    <PixelText text={t.label} px={1.25} />
                   </button>
                 ))}
               </div>
@@ -1308,33 +1300,32 @@ export default function TileGrid({
               <div className="tg-keys" role="region" aria-label="Keyboard shortcuts">
                 {SHORTCUTS.map(([group, keys]) => (
                   <div key={group} className="tg-keys-group">
-                    <h4 className="tg-keys-title">{group}</h4>
+                    <h4 className="tg-keys-title"><PixelText text={group} px={1.25} /></h4>
                     <dl>
                       {keys.map(([key, what]) => (
-                        <div key={key} className="tg-keys-row"><dt><kbd>{key}</kbd></dt><dd>{what}</dd></div>
+                        <div key={key} className="tg-keys-row"><dt><kbd>{key}</kbd></dt><dd><PixelWords text={what} px={1} /></dd></div>
                       ))}
                     </dl>
                   </div>
                 ))}
-                <p className="tg-keys-note">On Windows and Linux, ⌘ is Ctrl and ⌥ is Alt.</p>
+                <p className="tg-keys-note"><PixelWords text="On Windows and Linux, Cmd is Ctrl and Option is Alt." px={1} /></p>
               </div>
             )}
 
             <div className="tg-status">
-              <span className="tg-hint">{hint}</span>
-              {notice && <span className="tg-notice" role="status">{notice}</span>}
-              {hasSel && <span className="tg-badge">{selection.size} tile{selection.size === 1 ? '' : 's'}</span>}
-              {skipFilled && <span className="tg-badge">Avoiding overdraw</span>}
+              <span className="tg-hint"><PixelWords text={hint} px={1} /></span>
+              {notice && <span className="tg-notice" role="status"><PixelWords text={notice} px={1} /></span>}
+              {hasSel && <span className="tg-badge"><PixelText text={`${selection.size} tile${selection.size === 1 ? '' : 's'}`} px={1} /></span>}
+              {skipFilled && <span className="tg-badge"><PixelText text="No overdraw" px={1} /></span>}
               <Tile icon="keys" label="Keyboard shortcuts (⌘/)" on={showKeys} onClick={() => setShowKeys(v => !v)} />
-              <button type="button" className="tg-done" onClick={() => { setEditing(false); setSelection(EMPTY); setPanel(null); onDone?.(); }}>
-                Done
-              </button>
+              <GridButton symbol="check" showLabel label="Done" className="tg-done-btn"
+                onClick={() => { setEditing(false); setSelection(EMPTY); setPanel(null); onDone?.(); }} />
             </div>
           </div>
 
           <div className="tg-layers" aria-label="Layers">
             <div className="tg-layers-head">
-              <span>Layers</span>
+              <span><PixelText text="Layers" px={1.25} /></span>
               <Tile icon="plus" label="Add layer" onClick={addLayer} disabled={data.layers.length >= LIMITS.maxLayers} />
               <Tile icon="merge" label="Merge down: into the layer below" onClick={mergeDown}
                 disabled={data.layers.findIndex(l => l.id === active?.id) < 1} />
@@ -1364,12 +1355,14 @@ export default function TileGrid({
                       onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); setRenaming(null); typeRef.current?.focus(); } }}
                       onChange={e => onChange(withLayer(dataRef.current, l.id, x => ({ ...x, name: e.target.value.slice(0, 40) })))} />
                   ) : (
-                    <span className="tg-layer-name" title="Double-click to rename">{l.name}</span>
+                    <span className="tg-layer-name" title="Double-click to rename" aria-label={l.name}>
+                      {/^[\x20-\x7e]*$/.test(l.name) ? <PixelText text={l.name.slice(0, 18)} px={1.25} /> : l.name}
+                    </span>
                   )}
                 </li>
               ))}
             </ol>
-            <span className="tg-hint">Drag to reorder · top is in front</span>
+            <span className="tg-hint"><PixelWords text="Drag to reorder. Top is in front." px={1} /></span>
           </div>
         </div>
       )}

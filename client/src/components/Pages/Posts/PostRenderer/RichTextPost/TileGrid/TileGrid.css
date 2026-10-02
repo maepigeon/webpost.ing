@@ -454,3 +454,9 @@ span.tg-layer-name { overflow: hidden; text-overflow: ellipsis; white-space: now
 /* Inline blocks, not flex items, so copying gives one line of text per row. */
 .tilegrid-text-row span { display: inline-block; vertical-align: top; overflow: hidden; text-align: center; white-space: pre; }
 .tilegrid-text ::selection { background: rgba(94, 160, 255, 0.45); color: transparent; }
+
+/* Pixel-font labels and words in the panel take the panel's quieter grey. */
+.tg-group-label { display: inline-flex; align-items: center; flex: 0 0 58px; }
+.tg-hint .pixel-words, .tg-keys-note .pixel-words { color: #8c8c8c; }
+.tg-done-btn.gb { background: #f2f2f2; color: #111; }
+.tg-layer-name svg { display: block; }

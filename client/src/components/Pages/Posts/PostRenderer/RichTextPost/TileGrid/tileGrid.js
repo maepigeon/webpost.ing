@@ -34,7 +34,7 @@ export const SMOOTH_FONT = '"JetBrains Mono", ui-monospace, SFMono-Regular, Menl
  */
 export const XL_PARTS = ['tl', 'tr', 'bl', 'br'];
 export const FONT_NAMES = {
-  pixel: 'Pixel', small: 'Mini', smooth: 'Mono pixel', xl: 'XL 2×2',
+  pixel: 'Pixel', small: 'Mini', smooth: 'Mono pixel', xl: 'XL 2x2',
   // Variants of the pixel letters, made from them (see variantRows): no extra font data.
   bold: 'Pixel bold', italic: 'Pixel italic', outline: 'Pixel outline',
   // Typefaces turned into grid pixels: each letter is drawn into its cell at the

@@ -11,7 +11,7 @@ import './tips.css';
  * square tile.
  */
 export default function GridButton({
-  label, text, symbol = null, showLabel = !symbol, on, disabled, onClick, title, className = '', px = 1.5, ...rest
+  label, text, symbol = null, showLabel = !symbol, on, disabled, onClick, title, className = '', px = 1.25, ...rest
 }) {
   const tile = symbol && !showLabel;
   return (
