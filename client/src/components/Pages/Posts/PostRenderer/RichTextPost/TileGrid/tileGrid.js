@@ -23,14 +23,14 @@ export const SCALE = 4;
 export const LIMITS = { minCols: 1, maxCols: 64, minRows: 1, maxRows: 48, minLayers: 1, maxLayers: 10 };
 
 export const SMOOTH_FONT = '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
-/** Small: the pixel letters at their own size, centred, leaving room above and below. */
+/** Mini (id "small"): the pixel letters at their own size, centred, leaving room above and below. */
 /**
  * XL: the pixel letters four times the size, one character across 2 × 2 tiles
  * (32 × 32 grid pixels). It sits in its top-left tile, which is wide; the other
  * three tiles hold nothing, and typing in it moves two tiles at a time.
  */
 export const FONT_NAMES = {
-  pixel: 'Pixel', small: 'Small pixel', smooth: 'Smooth', xl: 'XL 2×2',
+  pixel: 'Pixel', small: 'Mini', smooth: 'Smooth', xl: 'XL 2×2',
   // Variants of the pixel letters, made from them (see variantRows): no extra font data.
   bold: 'Pixel bold', italic: 'Pixel italic', outline: 'Pixel outline',
 };

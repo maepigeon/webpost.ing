@@ -30,7 +30,7 @@ and **the two must agree**: both keep exactly the fields below and drop the rest
     { "id": "a1", "kind": "pixel", "name": "Text", "visible": true,
       "paint": "data:image/png;base64,…" | null,   // painted pixels, grid-sized PNG
       "text": ["row 0 chars", …],                    // slots, trailing spaces trimmed
-      "style": { "r,s": { "color": "#rrggbb", "font": "pixel" | "small" | "smooth" } },
+      "style": { "r,s": { "color": "#rrggbb", "font": "pixel" | "small" (Mini) | "smooth" | "xl" | "bold" | "italic" | "outline" } },
       "wide": ["r,c", …],
       "ext": { … } },
     { "id": "b2", "kind": "photo", "src": "/uploads/…", "scale": 1, "x": 0, "y": 0 }
@@ -58,7 +58,7 @@ it from `ext` to a real field and bump the version.
 | v | Change |
 |---|---|
 | 1–2 | One width for the whole grid (`mode`: `full` or `half`); text one slot per character. |
-| 3 | Width per tile (`wide`), text always two slots to a tile; `edges`, `links`, `ext`, the `small` font. |
+| 3 | Width per tile (`wide`), text always two slots to a tile; `edges`, `links`, `ext`, the `small` font (shown as "Mini"). |
 
 Older grids are upgraded on load, on the client and in `GridValidator`: a grid
 with no `v` or `v < 3` and `mode` other than `half` becomes narrow text with a
