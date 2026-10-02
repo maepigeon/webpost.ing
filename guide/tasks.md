@@ -4,6 +4,52 @@ Last updated: 2026-10-01
 
 ---
 
+## Session — 2026-10-02 — Toward deployment (Mae's list, in order of work)
+
+Goal: 100% ready to deploy and user-ready. Keep going across sessions until done.
+
+### Done today
+- [x] Profile pictures compressed on upload (any size up to 25 MB → ≤512 px square).
+- [x] One account of each user's storage (StorageAccountService), by section; header
+      images recorded and charged; quota checks unified.
+- [x] Empty profile: visitors no longer told to "create one".
+- [x] Magic wand and pixel-perfect in the grid editor.
+
+### Fonts
+- [ ] Choco Cooky, Comic Sans and Papyrus belong to the **post editor's** font list
+      (Style row), not the grid editor's. Give the grid editor its own pixel versions
+      instead, matching its design language.
+- [ ] All text in grids rendered at the grid's resolution (16×16 px a tile), never as
+      smooth vector text over it.
+
+### Grid editor: one design language, full featured
+- [ ] Every control in the grid editor as grid elements (pixel font labels, pixel
+      icons, tile buttons); no system-styled text buttons, selects or number fields.
+- [ ] Symbol packs: an on-screen keyboard to click or tap symbols in.
+- [ ] Full-featured: links (done), and audit for anything missing.
+
+### Stickers
+- [ ] Sticker board insertion in all three places: profile, posts in text mode (done
+      via Insert → Sticker), and on grid content.
+
+### Posts and messages
+- [ ] Audio (MP3) block in posts: upload, play/pause, restart, volume.
+- [ ] Send grid posts in DMs.
+
+### Settings
+- [ ] Collapse the Settings sections ("Your profile's look", "Site background", "Code
+      blocks").
+- [ ] Put email notifications and email sign-up together.
+- [ ] Rewrite the clumsy explanations (e.g. "These are saved, but nothing is sent while
+      email is off", "Turning this off silences everything below, whatever they are set
+      to"). Plain, short, kind.
+
+### UI quality (check regularly)
+- [ ] Iconography clear, affordances obvious, UI consistent across pages.
+
+### Deployment
+- [ ] Everything organized and user-ready; deploy checklist green (guide/DEPLOYMENT.md).
+
 ## Session — 2026-10-01 — Backlog from Mae's requests
 
 Status: [x] done (branch named), [~] in progress, [ ] to do.
