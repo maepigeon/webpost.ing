@@ -46,6 +46,8 @@ class DatabaseSchemaTest {
                 "invite_codes",
                 // hashtags (V008)
                 "hashtags", "post_hashtags",
+                // pixel fonts (V005), stickers and stickies (V012), shared packs (V013, V014)
+                "pixel_fonts", "stickers", "stickies", "shared_packs", "shared_pack_saves",
                 // migration tracking
                 "schema_migrations"
         );
@@ -74,6 +76,18 @@ class DatabaseSchemaTest {
         assertColumnExists("users", "avatar_path");
         assertColumnExists("users", "last_active_at");
         assertColumnExists("users", "email");
+    }
+
+    // ── Columns added after V001 ──────────────────────────────────────────────
+
+    @Test
+    void laterMigrations_addedTheirColumns() {
+        assertColumnExists("posts", "page_theme");      // V009
+        assertColumnExists("posts", "card_grid");       // V010
+        assertColumnExists("users", "banner_grid");     // V011
+        assertColumnExists("stickies", "post_id");      // V012
+        assertColumnExists("stickies", "sticker_id");
+        assertColumnExists("shared_packs", "body");     // V013
     }
 
     // ── conversations columns ─────────────────────────────────────────────────
