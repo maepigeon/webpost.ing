@@ -22,7 +22,6 @@ import {
   READ_POST, GET_USER_FROM_POST,
   GET_POST_FEATURES, GET_PINNED_POST, SET_PINNED_POST, UNPIN_POST,
   RECORD_POST_VIEW, GET_POST_VIEWS, GET_POST_VOTE, VOTE_POST,
-  GET_OR_CREATE_CONVERSATION, SEND_CONVERSATION_MESSAGE,
 } from '../../BasicTextPostServerApi.js';
 import { ImageNode } from './ImageNode.jsx';
 import { AudioNode } from './AudioNode.jsx';
@@ -34,6 +33,7 @@ import { ClickableLinkPlugin } from '@lexical/react/LexicalClickableLinkPlugin';
 import { postPath } from '../../../../../utils/postUrl.js';
 import { useResolvedPostId } from '../../../../../utils/useResolvedPostId.js';
 import ReportDialog from '../../../../Social/ReportDialog.jsx';
+import SharePostDialog from '../../../../Social/SharePostDialog.jsx';
 import { usePostTheme } from '../../../../PageTheme/PageTheme.jsx';
 import Icon from '../../../../Icon/Icon.jsx';
 
@@ -176,9 +176,7 @@ function RichTextViewerBody({ id }) {
   const [shareOpen, setShareOpen] = useState(false);
   const shareRef = useRef(null);
   const [showDmShare, setShowDmShare] = useState(false);
-  const [dmRecipient, setDmRecipient] = useState('');
-  const [dmSending, setDmSending] = useState(false);
-  const [dmFeedback, setDmFeedback] = useState(null); // { ok, msg }
+  const [dmSentTo, setDmSentTo] = useState('');
   const [isPinned, setIsPinned] = useState(false);
   const togglePin = async () => {
     try {
@@ -207,24 +205,6 @@ function RichTextViewerBody({ id }) {
       document.removeEventListener('keydown', handleKey);
     };
   }, [shareOpen]);
-
-  const sendViaDm = async () => {
-    const recipient = dmRecipient.trim();
-    if (!recipient) return;
-    setDmSending(true);
-    setDmFeedback(null);
-    try {
-      const conv = await GET_OR_CREATE_CONVERSATION(recipient);
-      const msg = `📎 Shared a post with you: "${postTitle}"\n${window.location.href}`;
-      await SEND_CONVERSATION_MESSAGE(conv.id, msg);
-      setDmFeedback({ ok: true, msg: `Sent to @${recipient}!` });
-      setTimeout(() => { setShowDmShare(false); setDmRecipient(''); setDmFeedback(null); }, 1800);
-    } catch {
-      setDmFeedback({ ok: false, msg: 'Could not send — check the username.' });
-    } finally {
-      setDmSending(false);
-    }
-  };
 
   useEffect(() => {
     if (!postLoaded || !isAuthor) return;
@@ -492,13 +472,14 @@ function RichTextViewerBody({ id }) {
                           className="share-menu-item"
                           onClick={() => { setShowDmShare(true); setShareOpen(false); }}
                         >
-                          💬 Send via DM
+                          Send in a message
                         </button>
                       </>
                     )}
                   </div>
                 )}
               </div>
+              {dmSentTo && <span role="status" style={{ fontSize: '13px', color: '#555' }}>Sent to {dmSentTo}</span>}
               {features.discussionEnabled && (
                 <Link
                   to={`/${authorUsername}/${idParam}/discussion`}
@@ -517,55 +498,10 @@ function RichTextViewerBody({ id }) {
         </div>
       </LexicalComposer>
 
-      {/* DM share dialog */}
       {showDmShare && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 10001,
-          background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
-        }} onMouseDown={() => { setShowDmShare(false); setDmRecipient(''); setDmFeedback(null); }}>
-          <div style={{
-            position: 'relative',
-            background: 'rgba(243, 241, 238, 0.86)',
-            backdropFilter: 'blur(28px) saturate(180%)',
-            border: '1px solid rgba(255,255,255,0.8)',
-            borderRadius: 20, padding: '28px 24px 22px',
-            boxShadow: 'inset 0 2px 0 rgba(255,255,255,0.95), 0 20px 60px rgba(0,0,0,0.22)',
-            maxWidth: 380, width: '100%',
-            animation: 'dialog-pop-in 0.2s cubic-bezier(0.34,1.56,0.64,1)',
-          }} onMouseDown={e => e.stopPropagation()}>
-            <button onClick={() => { setShowDmShare(false); setDmRecipient(''); setDmFeedback(null); }}
-              style={{ position: 'absolute', top: 12, right: 14, background: 'rgba(0,0,0,0.07)', border: '1px solid rgba(0,0,0,0.12)', borderRadius: '50%', width: 28, height: 28, cursor: 'pointer', fontSize: 13, color: '#555', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }} aria-label="Close"><Icon name="close" size={13} /></button>
-            <div style={{ fontWeight: 700, fontSize: '1rem', marginBottom: 6 }}>💬 Send via DM</div>
-            <div style={{ fontSize: '0.82rem', color: '#666', marginBottom: 14 }}>
-              "{postTitle}"
-            </div>
-            <input
-              type="text"
-              placeholder="Recipient username"
-              value={dmRecipient}
-              onChange={e => setDmRecipient(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') sendViaDm(); }}
-              autoFocus
-              style={{ width: '100%', boxSizing: 'border-box', padding: '9px 12px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.18)', fontSize: '0.9rem', marginBottom: 12 }}
-            />
-            {dmFeedback && (
-              <div style={{ fontSize: '0.83rem', marginBottom: 10, color: dmFeedback.ok ? '#2ecc71' : '#e74c3c', fontWeight: 600 }}>
-                {dmFeedback.msg}
-              </div>
-            )}
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button onClick={() => { setShowDmShare(false); setDmRecipient(''); setDmFeedback(null); }}
-                style={{ padding: '7px 16px', borderRadius: 9, border: '1px solid rgba(0,0,0,0.15)', background: 'rgba(0,0,0,0.06)', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 600 }}>
-                Cancel
-              </button>
-              <button onClick={sendViaDm} disabled={dmSending || !dmRecipient.trim()}
-                style={{ padding: '7px 18px', borderRadius: 9, border: 'none', background: '#666666', color: '#fff', cursor: dmSending ? 'default' : 'pointer', fontSize: '0.875rem', fontWeight: 700, opacity: (!dmRecipient.trim() || dmSending) ? 0.6 : 1 }}>
-                {dmSending ? 'Sending…' : 'Send'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <SharePostDialog post={{ id: parseInt(id), title: postTitle }}
+          onSent={who => { setDmSentTo(who); setTimeout(() => setDmSentTo(''), 3000); }}
+          onClose={() => setShowDmShare(false)} />
       )}
       {showReport && (
         <ReportDialog postId={parseInt(id)} postTitle={postTitle} onClose={() => setShowReport(false)} />

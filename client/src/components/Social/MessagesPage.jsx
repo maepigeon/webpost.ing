@@ -16,6 +16,8 @@ import Icon from '../Icon/Icon.jsx';
 import { useDialog } from '../Dialog/Dialog.jsx';
 import { errorMessage } from '../../utils/errorMessage.js';
 import { splitPacks } from '../../utils/packMessage.js';
+import { splitPosts, plainMessageText } from '../../utils/postMessage.js';
+import PostMessageCard from './PostMessageCard.jsx';
 import PackCard from '../TileArt/PackCard.jsx';
 import SharePackDialog from '../TileArt/SharePackDialog.jsx';
 
@@ -199,7 +201,7 @@ export default function MessagesPage() {
     setError('');
     let content = input.trim();
     if (replyTo) {
-      content = `> @${replyTo.sender_username}: ${truncate(splitPacks(replyTo.content).text, 100)}\n\n${content}`;
+      content = `> @${replyTo.sender_username}: ${truncate(plainMessageText(replyTo.content), 100)}\n\n${content}`;
     }
     try {
       await postToThread(content);
@@ -482,7 +484,7 @@ export default function MessagesPage() {
                 {c.other_username}
                 {c.unread_count > 0 && <span className="messages-badge">{c.unread_count}</span>}
               </div>
-              <div className="messages-conv-preview">{splitPacks(c.last_message).text || 'No messages yet'}</div>
+              <div className="messages-conv-preview">{plainMessageText(c.last_message) || 'No messages yet'}</div>
             </div>
             <div className="messages-conv-time">{timeAgo(c.last_message_at)}</div>
           </button>
@@ -502,7 +504,7 @@ export default function MessagesPage() {
               {g.name}
               {g.unread_count > 0 && <span className="messages-badge">{g.unread_count}</span>}
             </div>
-            <div className="messages-conv-preview">{splitPacks(g.last_message).text || 'No messages yet'}</div>
+            <div className="messages-conv-preview">{plainMessageText(g.last_message) || 'No messages yet'}</div>
             <div className="messages-conv-time">{timeAgo(g.last_message_at)}</div>
           </button>
         ))}
@@ -616,7 +618,8 @@ export default function MessagesPage() {
               {messages.map(m => {
                 const isMine = m.sender_username === authUser;
                 const { quote, body: rawBody } = parseMessage(m.content);
-                const { text: body, packIds } = splitPacks(rawBody);
+                const { text: packFree, packIds } = splitPacks(rawBody);
+                const { text: body, postIds } = splitPosts(packFree);
                 const reactionMap = isGroup ? groupReactions : dmReactions;
                 const msgReactions = reactionMap[m.id] || { counts: {}, userReactions: [] };
                 const hasReactions = Object.keys(msgReactions.counts).length > 0;
@@ -657,8 +660,9 @@ export default function MessagesPage() {
                     )}
                     <div className={`messages-bubble${isMine ? ' messages-bubble--mine' : ''}`}>
                       {quote && <div className="messages-bubble-quote">{quote}</div>}
-                      <span className={`messages-bubble-text${quote ? ' messages-bubble-text--has-quote' : ''}`}>{linkifyText(body || (packIds.length ? '' : m.content))}</span>
+                      <span className={`messages-bubble-text${quote ? ' messages-bubble-text--has-quote' : ''}`}>{linkifyText(body || (packIds.length || postIds.length ? '' : m.content))}</span>
                       {packIds.map(id => <PackCard key={id} id={id} mine={isMine} />)}
+                      {postIds.map(id => <PostMessageCard key={id} id={id} />)}
                       <span className="messages-bubble-time">{timeAgo(m.created_at)}</span>
                       {hasReactions && (
                         <div className="messages-reaction-chips">
@@ -682,7 +686,7 @@ export default function MessagesPage() {
               <div className="messages-reply-preview">
                 <div className="messages-reply-preview-inner">
                   <span className="messages-reply-preview-label">↩ Replying to @{replyTo.sender_username}</span>
-                  <span className="messages-reply-preview-text">{truncate(splitPacks(replyTo.content).text, 60)}</span>
+                  <span className="messages-reply-preview-text">{truncate(plainMessageText(replyTo.content), 60)}</span>
                 </div>
                 <button className="messages-reply-preview-dismiss" onClick={() => setReplyTo(null)} aria-label="Cancel reply"><Icon name="close" size={12} /></button>
               </div>

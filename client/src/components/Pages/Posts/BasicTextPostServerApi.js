@@ -128,6 +128,10 @@ export function SHARE_PACK(pack) {
 export function GET_SHARED_PACK(id) {
   return axios.get(baseUrl + `/api/packs/${encodeURIComponent(id)}`).then(r => r.data);
 }
+/** What a post card in a message shows: {id, title, slug, username, published, description}. 404 when the reader may not see the post. */
+export function GET_POST_CARD(id) {
+  return axios.get(baseUrl + `/api/posts/${encodeURIComponent(id)}/card`, { withCredentials: true }).then(r => r.data);
+}
 /** Copies a shared pack into the signed-in user's stickers or pixel fonts → {saved} */
 export function SAVE_SHARED_PACK(id) {
   return axios.post(baseUrl + `/api/packs/${encodeURIComponent(id)}/save`, {}, { withCredentials: true }).then(r => r.data);

@@ -182,7 +182,7 @@ class PostControllerTest {
         ResponseEntity<?> resp = postController.resolvePost("strky", "my-first-post", null, null);
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(((java.util.Map<?, ?>) resp.getBody()).get("id")).isEqualTo(209);
+        assertThat(((java.util.Map<Object, Object>) resp.getBody()).get("id")).isEqualTo(209);
     }
 
     // ── Saving a profile's arrangement ───────────────────────────────────────
@@ -254,6 +254,42 @@ class PostControllerTest {
         when(loginRepository.authorize("kittycat", "forged")).thenReturn(null);
 
         assertThat(postController.canonicalPath(13L, "kittycat", "forged").getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    // A post card in a message answers by the same rule: a draft reaches nobody but its author.
+
+    private static java.util.Map<String, Object> cardRow(boolean published) {
+        return java.util.Map.of("id", 13, "title", "Secret plans", "slug", "secret-plans",
+                "published", published, "description", "{}", "username", "kittycat");
+    }
+
+    @Test
+    void card_hidesADraftFromEveryoneButItsAuthor() throws Exception {
+        when(jdbc.queryForList(contains("WHERE p.id = ?"), eq(13L))).thenReturn(java.util.List.of(cardRow(false)));
+        when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
+        when(loginRepository.authorize("kittycat", "forged")).thenReturn(null);
+
+        assertThat(postController.postCard(13L, null, null).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(postController.postCard(13L, "mittens", "tok").getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(postController.postCard(13L, "kittycat", "forged").getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(postController.postCard(13L, "kittycat", "tok").getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void card_ofAPublishedPostIsOpenToAnyone() {
+        when(jdbc.queryForList(contains("WHERE p.id = ?"), eq(13L))).thenReturn(java.util.List.of(cardRow(true)));
+
+        ResponseEntity<?> resp = postController.postCard(13L, null, null);
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat((java.util.Map<Object, Object>) resp.getBody()).containsEntry("username", "kittycat");
+    }
+
+    @Test
+    void card_ofAMissingPostIsNotFound() {
+        when(jdbc.queryForList(contains("WHERE p.id = ?"), eq(99L))).thenReturn(java.util.List.of());
+
+        assertThat(postController.postCard(99L, null, null).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 
     @Test
