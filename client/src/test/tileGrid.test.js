@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   normaliseGrid, pixelLayer, rowChars, writeSlot, writeChar, setTileWidths, isWide, restyleSlots, resizeLayerText,
   orderSlots, slotsIn, containRect, bitsFromHex, hexFromBits, seedBits, slotsPerRow, LIMITS,
-  photoRect, resizePhoto, zoomPhoto, PHOTO_SCALE, cleanHref, isExternalHref, setLink, linkAt, cleanExt, GRID_VERSION, mergeText, writeXl, xlTiles, variantRows, FONT_NAMES, TYPEFACES,
+  photoRect, resizePhoto, zoomPhoto, PHOTO_SCALE, cleanHref, isExternalHref, setLink, linkAt, cleanExt, GRID_VERSION, mergeText, writeXl, xlTiles, variantRows, FONT_NAMES, TYPEFACES, readableText,
 } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
 import { pixelGlyph } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileFont.js';
 import { bitmapGlyph, SYMBOL_CHARS } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/bitmapFonts.js';
@@ -411,5 +411,19 @@ describe('serif, sans-serif and symbols bitmap fonts', () => {
     }
     expect(bitmapGlyph('symbols', 'A', true)).toBeNull();
     expect(bitmapGlyph('pixel', 'A', true)).toBeNull();
+  });
+});
+
+describe('text for readers to select', () => {
+  it('lists each row\'s visible letters with their slots and widths, the top layer winning', () => {
+    const d = normaliseGrid({ v: 3, cols: 4, rows: 2, layers: [
+      { id: 'lo', kind: 'pixel', text: ['a b', 'z'], wide: ['0,0'] },
+      { id: 'hi', kind: 'pixel', text: ['  X'], wide: [] },
+      { id: 'hidden', kind: 'pixel', visible: false, text: ['Q'] },
+    ] });
+    const rows = readableText(d);
+    // lower layer: wide 'a' in tile 0 (slot 0), 'b' narrow at slot 2; upper 'X' at slot 2 wins over 'b'
+    expect(rows[0].map(p => [p.text, p.slot, p.width])).toEqual([['a', 0, 2], ['X', 2, 1]]);
+    expect(rows[1].map(p => p.text)).toEqual(['z']);
   });
 });

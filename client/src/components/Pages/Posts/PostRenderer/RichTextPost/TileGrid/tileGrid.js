@@ -465,6 +465,36 @@ export function mergeText(d, lower, upper) {
   return { text: merged.text, style: merged.style, wide: merged.wide };
 }
 
+/**
+ * The grid's visible text as rows of pieces for readers to select and copy:
+ * { text, slot, width } with width 1 (a narrow letter) or 2 (a wide one), where the
+ * topmost visible layer with a character in a tile supplies it. A tile's
+ * empty half is left out; trailing blanks too.
+ */
+export function readableText(d) {
+  const rows = [];
+  for (let r = 0; r < d.rows; r++) {
+    const pieces = [];
+    for (let c = 0; c < d.cols; c++) {
+      for (let i = d.layers.length - 1; i >= 0; i--) {
+        const layer = d.layers[i];
+        if (!layer.visible || layer.kind !== 'pixel') continue;
+        const chars = rowChars(d, layer, r);
+        const first = c * SLOTS_PER_TILE;
+        if (isWide(layer, r, c)) {
+          if (chars[first] !== ' ') { pieces.push({ text: chars[first], slot: first, width: 2 }); break; }
+        } else if (chars[first] !== ' ' || chars[first + 1] !== ' ') {
+          if (chars[first] !== ' ') pieces.push({ text: chars[first], slot: first, width: 1 });
+          if (chars[first + 1] !== ' ') pieces.push({ text: chars[first + 1], slot: first + 1, width: 1 });
+          break;
+        }
+      }
+    }
+    rows.push(pieces);
+  }
+  return rows;
+}
+
 /** Cuts a layer's text to a new size; paint is resized separately, anchored top-left. */
 export function resizeLayerText(d, layer, cols, rows) {
   if (layer.kind !== 'pixel') return layer;

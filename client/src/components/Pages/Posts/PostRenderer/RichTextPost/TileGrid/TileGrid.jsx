@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo, Fragment } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './tips.css';
 import { useDialog } from '../../../../../Dialog/Dialog.jsx';
@@ -8,7 +8,7 @@ import { normaliseUploadResponse, describeUploadError } from '../../../../../../
 import {
   TILE, SCALE, LIMITS, FONT_NAMES, DIRECTIONS, normaliseGrid, pixelLayer, photoLayer,
   SLOTS_PER_TILE, SLOT_W, slotsPerRow, rowChars, writeSlot, writeChar, writeXl, xlTiles, setTileWidths, isWide, restyleSlots, resizeLayerText,
-  EDGES, mergeText, cleanHref, isExternalHref, setLink, linkAt, orderSlots, slotsIn, renderGrid, pixelatePhoto, photoRect, resizePhoto, zoomPhoto, tileKey, rectTiles, combineSelection, orderedTiles,
+  EDGES, readableText, mergeText, cleanHref, isExternalHref, setLink, linkAt, orderSlots, slotsIn, renderGrid, pixelatePhoto, photoRect, resizePhoto, zoomPhoto, tileKey, rectTiles, combineSelection, orderedTiles,
 } from './tileGrid.js';
 import { TEXTURES, fillTexture, texturePreview, DEFAULT_PAW_OPTIONS } from './textures.js';
 import PawOptions from '../../../../../TileArt/PawOptions.jsx';
@@ -146,6 +146,36 @@ function GridLinks({ data }) {
         onClick={e => open(e, link.href)} />
     );
   }));
+}
+
+/**
+ * A reader's copy of a grid's text: invisible letters laid exactly over the
+ * picture, so it can be highlighted and copied like any text on the page (and
+ * found, and read aloud). Each row is a line; letters sit at their slots.
+ */
+function SelectableText({ data }) {
+  const rows = useMemo(() => readableText(data), [data]);
+  const slots = data.cols * SLOTS_PER_TILE;
+  if (!rows.some(r => r.length)) return null;
+  return (
+    <div className="tilegrid-text" style={{ '--slots': slots }}>
+      {rows.map((pieces, r) => (
+        <div key={r} className="tilegrid-text-row" style={{ height: `${100 / data.rows}%` }}>
+          {pieces.map((p, i) => {
+            // A gap before a letter is one space, so words stay apart when copied.
+            const from = i ? pieces[i - 1].slot + pieces[i - 1].width : 0;
+            const gap = p.slot - from;
+            return (
+              <Fragment key={p.slot}>
+                {gap > 0 && <span style={{ width: `${(gap / slots) * 100}%` }}>{' '}</span>}
+                <span style={{ width: `${(p.width / slots) * 100}%` }}>{p.text}</span>
+              </Fragment>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export default function TileGrid({
@@ -1057,6 +1087,7 @@ export default function TileGrid({
           role="img"
           aria-label={data.layers.flatMap(l => l.text || []).join(' ').trim() || 'Tile grid'}
         />
+        {!editable && <SelectableText data={data} />}
         {!editable && linksActive && data.links && <GridLinks data={data} />}
         {photoBox && (
           <div className="tg-photo-box" style={photoBox.style} aria-hidden="true">
