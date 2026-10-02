@@ -24,7 +24,37 @@ export const LIMITS = { minCols: 1, maxCols: 64, minRows: 1, maxRows: 48, minLay
 
 export const SMOOTH_FONT = '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
 /** Small: the pixel letters at their own size, centred, leaving room above and below. */
-export const FONT_NAMES = { pixel: 'Pixel', small: 'Small pixel', smooth: 'Smooth' };
+/**
+ * XL: the pixel letters four times the size, one character across 2 × 2 tiles
+ * (32 × 32 grid pixels). It sits in its top-left tile, which is wide; the other
+ * three tiles hold nothing, and typing in it moves two tiles at a time.
+ */
+export const FONT_NAMES = {
+  pixel: 'Pixel', small: 'Small pixel', smooth: 'Smooth', xl: 'XL 2×2',
+  // Variants of the pixel letters, made from them (see variantRows): no extra font data.
+  bold: 'Pixel bold', italic: 'Pixel italic', outline: 'Pixel outline',
+};
+
+/**
+ * The pixel font's letters in a variant: bold thickens each stroke by a dot,
+ * italic leans the top right and the bottom left, outline keeps only the
+ * edge of each stroke. Rows are bytes, most significant bit on the left.
+ */
+export function variantRows(font, rows) {
+  if (font === 'bold') return rows.map(b => (b | (b >> 1)) & 0xff);
+  if (font === 'italic') return rows.map((b, y) => (y < 3 ? b >> 1 : y > 4 ? (b << 1) & 0xff : b));
+  if (font === 'outline') {
+    const on = (y, x) => y >= 0 && y < 8 && x >= 0 && x < 8 && (rows[y] & (0x80 >> x)) !== 0;
+    return rows.map((_, y) => {
+      let out = 0;
+      for (let x = 0; x < 8; x++) {
+        if (on(y, x) && !(on(y - 1, x) && on(y + 1, x) && on(y, x - 1) && on(y, x + 1))) out |= 0x80 >> x;
+      }
+      return out;
+    });
+  }
+  return rows;
+}
 
 // ── Extensions ────────────────────────────────────────────────────────────────
 // `ext` on a grid or a layer holds data this file does not know about:
@@ -159,7 +189,7 @@ export function cleanGlyphs(raw) {
  * text. Pixel: both snapped to the grid's own pixels, hard-edged. A grid
  * without the setting keeps the original look: photos in grid pixels, soft text.
  */
-export const EDGES = { smooth: 'Smooth', pixel: 'Pixel' };
+export const EDGES = { smooth: 'Soft edges', pixel: 'Pixel edges' };
 
 export function normaliseGrid(raw) {
   const r = raw && typeof raw === 'object' ? raw : {};
@@ -310,6 +340,20 @@ export function writeChar(d, layer, r, s, ch, style, width = 'half') {
   return l;
 }
 
+/**
+ * Types one XL character (font "xl") at a tile: it covers that tile, the one
+ * to its right and the two under them, whose text is cleared. Unchanged where
+ * it would not fit (last column or row).
+ */
+export function writeXl(d, layer, r, c, ch, style) {
+  if (r + 1 >= d.rows || c + 1 >= d.cols) return layer;
+  let l = layer;
+  for (const [rr, cc] of [[r, c + 1], [r + 1, c], [r + 1, c + 1]]) {
+    l = writeChar(d, l, rr, cc * SLOTS_PER_TILE, ' ', undefined, 'full');
+  }
+  return writeChar(d, l, r, c * SLOTS_PER_TILE, ch, { ...style, font: 'xl' }, 'full');
+}
+
 /** Sets the width of whole tiles, keeping each tile's first character. */
 export function setTileWidths(d, layer, tiles, width) {
   if (layer.kind !== 'pixel') return layer;
@@ -353,6 +397,33 @@ export function restyleSlots(layer, slots, style) {
   const next = { ...layer.style };
   for (const { r, s } of slots) next[slotKey(r, s)] = { ...next[slotKey(r, s)], ...style };
   return { ...layer, style: next };
+}
+
+/**
+ * The text of two pixel layers as one: wherever the upper layer has a
+ * character it wins, and the tile takes the upper layer's width; elsewhere the
+ * lower layer shows through. Returns { text, style, wide }.
+ */
+export function mergeText(d, lower, upper) {
+  let merged = { ...lower, text: lower.text.slice(), style: { ...lower.style }, wide: [...(lower.wide || [])] };
+  for (let r = 0; r < d.rows; r++) {
+    const chars = rowChars(d, upper, r);
+    for (let c = 0; c < d.cols; c++) {
+      const first = c * SLOTS_PER_TILE;
+      const slots = [first, first + 1].filter(s => chars[s] !== ' ');
+      if (!slots.length) continue;
+      const wide = isWide(upper, r, c);
+      // The upper tile replaces the lower one outright, so nothing of the old tile pokes through.
+      merged = writeChar(d, merged, r, first, ' ', undefined, 'half');
+      merged = writeChar(d, merged, r, first + 1, ' ', undefined, 'half');
+      if (wide) {
+        merged = writeChar(d, merged, r, first, chars[first], upper.style[slotKey(r, first)], 'full');
+      } else {
+        for (const s of slots) merged = writeChar(d, merged, r, s, chars[s], upper.style[slotKey(r, s)], 'half');
+      }
+    }
+  }
+  return { text: merged.text, style: merged.style, wide: merged.wide };
 }
 
 /** Cuts a layer's text to a new size; paint is resized separately, anchored top-left. */
@@ -669,6 +740,8 @@ function drawLayerText(ctx, d, layer) {
         const x = s * SLOT_W;
         const y = r * TILE;
         if (d.glyphs[ch]) drawCustomGlyph(ctx, d.glyphs[ch], x, y, sw);
+        else if (style.font === 'xl' && wide && pixelGlyph(ch)) drawXlGlyph(ctx, pixelGlyph(ch), x, y);
+        else if (['bold', 'italic', 'outline'].includes(style.font) && pixelGlyph(ch)) drawPixelGlyph(ctx, variantRows(style.font, pixelGlyph(ch)), x, y, sw);
         else if (style.font === 'small' && pixelGlyph(ch)) drawSmallGlyph(ctx, pixelGlyph(ch), x, y, sw);
         else if (style.font !== 'smooth' && pixelGlyph(ch)) drawPixelGlyph(ctx, pixelGlyph(ch), x, y, sw);
         else if (d.edges === 'pixel') drawPixelatedChar(ctx, ch, x, y, sw);
@@ -686,6 +759,15 @@ function drawPixelGlyph(ctx, rows, x, y, sw) {
     const bits = rows[gy];
     if (!bits) continue;
     for (let gx = 0; gx < 8; gx++) if (bits & (0x80 >> gx)) ctx.fillRect(x + gx * px, y + gy * py, px, py);
+  }
+}
+
+/** 8×8 font bitmap four grid pixels a dot: 32 × 32, across 2 × 2 tiles. */
+function drawXlGlyph(ctx, rows, x, y) {
+  for (let gy = 0; gy < 8; gy++) {
+    const bits = rows[gy];
+    if (!bits) continue;
+    for (let gx = 0; gx < 8; gx++) if (bits & (0x80 >> gx)) ctx.fillRect(x + gx * 4, y + gy * 4, 4, 4);
   }
 }
 

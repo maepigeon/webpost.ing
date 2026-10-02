@@ -7,12 +7,13 @@ import { BASE_URL, IMAGES_BASE_URL } from '../../../../../../config.js';
 import { normaliseUploadResponse, describeUploadError } from '../../../../../../utils/responsiveImage.js';
 import {
   TILE, SCALE, LIMITS, FONT_NAMES, DIRECTIONS, normaliseGrid, pixelLayer, photoLayer,
-  SLOTS_PER_TILE, SLOT_W, slotsPerRow, rowChars, writeSlot, writeChar, setTileWidths, isWide, restyleSlots, resizeLayerText,
-  EDGES, cleanHref, isExternalHref, setLink, linkAt, orderSlots, slotsIn, renderGrid, pixelatePhoto, photoRect, resizePhoto, zoomPhoto, tileKey, rectTiles, combineSelection, orderedTiles,
+  SLOTS_PER_TILE, SLOT_W, slotsPerRow, rowChars, writeSlot, writeChar, writeXl, setTileWidths, isWide, restyleSlots, resizeLayerText,
+  EDGES, mergeText, cleanHref, isExternalHref, setLink, linkAt, orderSlots, slotsIn, renderGrid, pixelatePhoto, photoRect, resizePhoto, zoomPhoto, tileKey, rectTiles, combineSelection, orderedTiles,
 } from './tileGrid.js';
 import { TEXTURES, fillTexture, texturePreview, DEFAULT_PAW_OPTIONS } from './textures.js';
 import PawOptions from '../../../../../TileArt/PawOptions.jsx';
 import GlyphEditor from './GlyphEditor.jsx';
+import GridButton from './GridButton.jsx';
 import PixelIcon from './PixelIcon.jsx';
 import './TileGrid.css';
 
@@ -74,6 +75,9 @@ const SHORTCUTS = [
 function keepTypingFocus(e) {
   if (e.target.closest('button') && !e.target.closest('input, select, textarea, label')) e.preventDefault();
 }
+
+/** Quick colours beside the colour picker. */
+const PALETTE = ['#ffffff', '#000000', '#ff3b30', '#ff9500', '#ffd60a', '#34c759', '#00c7be', '#0a84ff', '#bf5af2', '#ff2d92'];
 
 const allTiles = (d) => orderedTiles(new Set(rectTiles({ r: 0, c: 0 }, { r: d.rows - 1, c: d.cols - 1 })));
 
@@ -216,7 +220,20 @@ export default function TileGrid({
   const setCursor = (c) => { cursorRef.current = c; setCursorState(c); };
   const selectionRef = useRef(EMPTY);
   const [selection, setSelectionState] = useState(EMPTY);
-  const setSelection = (s) => { selectionRef.current = s; setSelectionState(s); };
+  // An XL letter is four tiles, which are selected, copied, moved and cleared together.
+  const withXlTiles = (sel) => {
+    const layer = dataRef.current.layers.find(l => l.id === activeIdRef.current);
+    if (!layer || layer.kind !== 'pixel' || !sel.size) return sel;
+    let out = sel;
+    for (const key of sel) {
+      const [r, c] = key.split(',').map(Number);
+      if (layer.style[`${r},${c * SLOTS_PER_TILE}`]?.font !== 'xl' || !isWide(layer, r, c)) continue;
+      if (out === sel) out = new Set(sel);
+      for (const [rr, cc] of [[r, c + 1], [r + 1, c], [r + 1, c + 1]]) out.add(`${rr},${cc}`);
+    }
+    return out;
+  };
+  const setSelection = (s) => { const x = withXlTiles(s); selectionRef.current = x; setSelectionState(x); };
   const [moveBy, setMoveBy] = useState(null);
   // A photo corner being dragged: the scale and offset it would have now.
   const [photoResize, setPhotoResize] = useState(null);
@@ -630,9 +647,27 @@ export default function TileGrid({
     return { d: { ...d, layers }, layer: text };
   };
 
+  /** XL letters: each takes 2 × 2 tiles, so the cursor moves two tiles along and, at a line's end or Enter, two rows down. */
+  const typeXl = (str, d, layer) => {
+    const startC = Math.floor(cursorRef.current.s / SLOTS_PER_TILE);
+    let { r } = cursorRef.current;
+    let c = startC;
+    let l = layer;
+    for (const ch of Array.from(str)) {
+      if (ch === '\n' || ch === '\r') { r += 2; c = startC; continue; }
+      if (c + 1 >= d.cols) { r += 2; c = 0; }
+      if (r + 1 >= d.rows) break;
+      if (ch !== ' ') l = writeXl(d, l, r, c, ch, { color: colour });
+      c += 2;
+    }
+    commit(withLayer(d, layer.id, () => l));
+    setCursor({ r: Math.min(r, d.rows - 1), s: Math.min(c, d.cols - 1) * SLOTS_PER_TILE });
+  };
+
   const typeChars = (str) => {
     const { d, layer } = textLayerFor(dataRef.current);
     if (!layer) return;
+    if (font === 'xl') { typeXl(str, d, layer); return; }
     const order = typingOrder();
     let i = Math.max(0, order.findIndex(p => p.r === cursorRef.current.r && p.s === cursorRef.current.s));
     let l = layer;
@@ -751,8 +786,11 @@ export default function TileGrid({
     if (filled.length) commit(withLayer(d, layer.id, l => restyleSlots(l, filled, style)));
   };
 
-  const chooseFont = (f) => { setFont(f); restyle({ font: f }); };
-  const chooseColour = (c) => { setColour(c); setClear(false); if (tool === 'text') restyle({ color: c }); };
+  // Font and colour apply to what is selected, or the cursor's slot, whichever
+  // tool is picked for text or selecting; with a drawing tool they set the next
+  // thing painted (colour) or typed (font).
+  const chooseFont = (f) => { setFont(f); if (tool === 'text' || tool === 'select') restyle({ font: f }); };
+  const chooseColour = (c) => { setColour(c); setClear(false); if (tool === 'text' || tool === 'select') restyle({ color: c }); };
 
   // ── Grid settings ──────────────────────────────────────────────────────────
 
@@ -878,6 +916,63 @@ export default function TileGrid({
     const d = dataRef.current;
     if (d.edges === edges) return;
     commit({ ...d, edges });
+  };
+
+  const [notice, setNotice] = useState('');
+  useEffect(() => {
+    if (!notice) return undefined;
+    const t = setTimeout(() => setNotice(''), 10000);
+    return () => clearTimeout(t);
+  }, [notice]);
+  const { confirm } = useDialog();
+
+  /** A layer's picture as a grid-sized canvas: its paint, or a photo baked at the grid's pixels. */
+  const layerPicture = (d, layer) => {
+    const c = blankCanvas(d);
+    const ctx = c.getContext('2d');
+    if (layer.kind === 'pixel') {
+      const paint = paintCanvas(layer.id);
+      if (paint) ctx.drawImage(paint, 0, 0);
+    } else {
+      const photo = photos.current[layer.id]?.photo;
+      if (photo) {
+        ctx.imageSmoothingEnabled = d.edges !== 'pixel';
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(photo.canvas, photo.x + layer.x, photo.y + layer.y, photo.w, photo.h);
+      }
+    }
+    return c;
+  };
+
+  /**
+   * Merges the active layer into the one under it, after asking: the two
+   * become one pixel layer, painted pixels together, the upper layer's
+   * characters over the lower's. A photo is flattened to pixels on the way, so
+   * it can no longer be moved or resized. One undo puts both layers back.
+   */
+  const mergeDown = async () => {
+    const d = dataRef.current;
+    const layer = activeLayer();
+    const at = d.layers.findIndex(l => l.id === layer.id);
+    if (at < 1) return;
+    const below = d.layers[at - 1];
+    const hasPhoto = [layer, below].some(l => l.kind === 'photo');
+    const message = `Merge "${layer.name}" down into "${below.name}"?`
+      + (hasPhoto ? ' A photo in them is flattened to pixels, so it can no longer be moved or resized.' : '')
+      + ' Undo (⌘Z) puts both layers back.';
+    if (!(await confirm(message, 'Merge layers'))) { typeRef.current?.focus(); return; }
+    const picture = layerPicture(d, below);
+    picture.getContext('2d').drawImage(layerPicture(d, layer), 0, 0);
+    const lowerPixels = below.kind === 'pixel' ? below : pixelLayer(below.name);
+    const upperPixels = layer.kind === 'pixel' ? layer : pixelLayer(layer.name);
+    const text = mergeText(d, lowerPixels, upperPixels);
+    const merged = { ...lowerPixels, ...text, paint: picture.toDataURL('image/png') };
+    const layers = d.layers.filter(l => l.id !== layer.id).map(l => (l.id === below.id ? merged : l));
+    paints.current[merged.id] = { src: merged.paint, canvas: picture };
+    commit({ ...d, layers });
+    setActiveId(merged.id);
+    setNotice(`Merged "${layer.name}" down into "${below.name}". ⌘Z undoes it.`);
+    typeRef.current?.focus();
   };
 
   const flattenPhoto = () => {
@@ -1016,9 +1111,24 @@ export default function TileGrid({
               <Tile icon="one" label="One wide character per tile: for what you type next, or the selected tiles" on={width === 'full'} onClick={() => setWidth('full')} />
               <Tile icon="two" label="Two narrow characters per tile: for what you type next, or the selected tiles" on={width === 'half'} onClick={() => setWidth('half')} />
               <span className="tg-gap" />
-              <Tile icon="fontPixel" label={`${FONT_NAMES.pixel} font — for the selection or cursor`} on={font === 'pixel'} onClick={() => chooseFont('pixel')} />
-              <Tile icon="fontSmall" label={`${FONT_NAMES.small} font, half a tile tall — for the selection or cursor`} on={font === 'small'} onClick={() => chooseFont('small')} />
-              <Tile icon="fontSmooth" label={`${FONT_NAMES.smooth} font — for the selection or cursor`} on={font === 'smooth'} onClick={() => chooseFont('smooth')} />
+              <span className="tg-seg" role="group" aria-label="Font">
+                {/* One button per font the format knows (FONT_NAMES), so a new font appears here by being added there. */}
+                {Object.entries(FONT_NAMES).map(([id, name]) => (
+                  <GridButton key={id} label={name} on={font === id} onClick={() => chooseFont(id)}
+                    title={`${name} font. Applies to the selection, or what you type next.`} />
+                ))}
+              </span>
+              <span className="tg-gap" />
+              <span className="tg-colours" role="group" aria-label="Text colour">
+                <label className="tg-swatch" data-tip="Text colour: any colour. Applies to the selection, or what you type next." style={{ background: colour }}>
+                  <input type="color" value={colour} onChange={e => chooseColour(e.target.value)} aria-label="Text colour" />
+                </label>
+                {PALETTE.map(c => (
+                  <button key={c} type="button" className={`tg-chip${colour.toLowerCase() === c ? ' is-on' : ''}`} style={{ background: c }}
+                    aria-label={`Colour ${c}`} data-tip={c} aria-pressed={colour.toLowerCase() === c} onClick={() => chooseColour(c)} />
+                ))}
+              </span>
+              <span className="tg-gap" />
               <Tile icon="glyph" label="Custom characters" on={panel === 'glyphs'}
                 onClick={() => setPanel(p => (p === 'glyphs' ? null : 'glyphs'))} />
               <Tile icon="skip" label={`Skip filled slots while typing (Insert): ${skipFilled ? 'on' : 'off'}`} on={skipFilled} onClick={() => setSkipFilled(v => !v)} />
@@ -1039,7 +1149,7 @@ export default function TileGrid({
                   <Tile icon="plus" label="Larger" onClick={() => commit(withLayer(dataRef.current, active.id, l => ({ ...l, ...zoomPhoto(l, 1.25) })))} />
                   <button type="button" className="tg-text-btn" onClick={() => commit(withLayer(dataRef.current, active.id, l => ({ ...l, scale: 1, x: 0, y: 0 })))}>Fit</button>
                   <button type="button" className="tg-text-btn" onClick={flattenPhoto}
-                    title="Turn the photo into the grid's own pixels, to paint on it tile by tile">Bake to pixels</button>
+                    title="Turn the photo into the grid's own pixels, to paint on it tile by tile. Until then it stays a photo you can move and resize.">Flatten to pixels</button>
                 </>
               )}
               <span className="tg-gap" />
@@ -1131,6 +1241,7 @@ export default function TileGrid({
 
             <div className="tg-status">
               <span className="tg-hint">{hint}</span>
+              {notice && <span className="tg-notice" role="status">{notice}</span>}
               {hasSel && <span className="tg-badge">{selection.size} tile{selection.size === 1 ? '' : 's'}</span>}
               {skipFilled && <span className="tg-badge">Skipping filled</span>}
               <Tile icon="keys" label="Keyboard shortcuts (⌘/)" on={showKeys} onClick={() => setShowKeys(v => !v)} />
@@ -1144,6 +1255,8 @@ export default function TileGrid({
             <div className="tg-layers-head">
               <span>Layers</span>
               <Tile icon="plus" label="Add layer" onClick={addLayer} disabled={data.layers.length >= LIMITS.maxLayers} />
+              <Tile icon="merge" label="Merge down: into the layer below" onClick={mergeDown}
+                disabled={data.layers.findIndex(l => l.id === active?.id) < 1} />
               <Tile icon="trash" label="Delete layer" onClick={deleteLayer} disabled={data.layers.length <= LIMITS.minLayers} />
             </div>
             <ol className="tg-layer-list">

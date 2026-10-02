@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   normaliseGrid, pixelLayer, rowChars, writeSlot, writeChar, setTileWidths, isWide, restyleSlots, resizeLayerText,
   orderSlots, slotsIn, containRect, bitsFromHex, hexFromBits, seedBits, slotsPerRow, LIMITS,
-  photoRect, resizePhoto, zoomPhoto, PHOTO_SCALE, cleanHref, isExternalHref, setLink, linkAt, cleanExt, GRID_VERSION,
+  photoRect, resizePhoto, zoomPhoto, PHOTO_SCALE, cleanHref, isExternalHref, setLink, linkAt, cleanExt, GRID_VERSION, mergeText, writeXl, variantRows, FONT_NAMES,
 } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
 import { pixelGlyph } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileFont.js';
 
@@ -296,5 +296,68 @@ describe('extensions (ext)', () => {
 
   it('leaves ext out when there is none', () => {
     expect('ext' in normaliseGrid({})).toBe(false);
+  });
+});
+
+describe('merging two layers\' text', () => {
+  const d = normaliseGrid({ v: 3, cols: 4, rows: 1, layers: [pixelLayer('x')] });
+  it('lets the upper layer win where it has characters, and keeps the lower elsewhere', () => {
+    let lower = d.layers[0];
+    lower = writeChar(d, lower, 0, 0, 'a', { color: '#111111' }, 'full');   // wide tile 0
+    lower = writeChar(d, lower, 0, 2, 'b', { color: '#111111' }, 'half');   // narrow tile 1
+    lower = writeChar(d, lower, 0, 3, 'c', { color: '#111111' }, 'half');
+    let upper = pixelLayer('up');
+    upper = writeChar(d, upper, 0, 2, 'X', { color: '#ff0000' }, 'full');   // wide, over tile 1
+    const m = mergeText(d, lower, upper);
+    const layer = { ...lower, ...m };
+    expect(rowChars(d, layer, 0).join('')).toBe('a X     ');
+    expect(m.wide.sort()).toEqual(['0,0', '0,1']);
+    expect(m.style['0,2']).toEqual({ color: '#ff0000' });
+    expect(m.style['0,3']).toBeUndefined();   // the lower 'c' went with its tile
+  });
+
+  it('changes nothing when the upper layer has no text', () => {
+    const lower = writeChar(d, d.layers[0], 0, 0, 'a', null, 'half');
+    const m = mergeText(d, lower, pixelLayer('empty'));
+    expect(m.text).toEqual(lower.text);
+  });
+});
+
+describe('XL font (2×2 tiles)', () => {
+  const d = normaliseGrid({ v: 3, cols: 4, rows: 3, layers: [pixelLayer('x')] });
+  it('covers its tile and the three beside and under it, clearing what was there', () => {
+    let l = writeChar(d, d.layers[0], 0, 2, 'b', null, 'half');          // tile 1, row 0
+    l = writeChar(d, l, 1, 0, 'c', null, 'full');                         // tile 0, row 1
+    l = writeXl(d, l, 0, 0, 'A', { color: '#ff0000' });
+    expect(rowChars(d, l, 0).slice(0, 4)).toEqual(['A', ' ', ' ', ' ']);
+    expect(rowChars(d, l, 1).slice(0, 2)).toEqual([' ', ' ']);
+    expect(isWide(l, 0, 0)).toBe(true);
+    expect(l.style['0,0']).toEqual({ color: '#ff0000', font: 'xl' });
+  });
+  it('is left out where it would not fit', () => {
+    const l = d.layers[0];
+    expect(writeXl(d, l, 0, 3, 'A', null)).toBe(l);    // last column
+    expect(writeXl(d, l, 2, 0, 'A', null)).toBe(l);    // last row
+  });
+});
+
+describe('pixel font variants', () => {
+  const H = [0x66, 0x66, 0x66, 0x7e, 0x66, 0x66, 0x66, 0x00];
+  it('are named fonts the format keeps', () => {
+    for (const id of ['bold', 'italic', 'outline']) expect(FONT_NAMES[id]).toBeTruthy();
+    const d = normaliseGrid({ layers: [{ id: 'a', kind: 'pixel', style: { '0,0': { font: 'outline' }, '0,1': { font: 'nope' } } }] });
+    expect(d.layers[0].style).toEqual({ '0,0': { font: 'outline' } });
+  });
+  it('thicken, lean and hollow the letters, keeping eight rows', () => {
+    expect(variantRows('bold', H)[0]).toBe(0x66 | 0x33);
+    const lean = variantRows('italic', H);
+    expect(lean[0]).toBe(0x33);
+    expect(lean[3]).toBe(0x7e);
+    expect(lean[6]).toBe(0xcc);
+    const hollow = variantRows('outline', [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]);
+    expect(hollow[0]).toBe(0xff);
+    expect(hollow[3]).toBe(0x81);       // only the left and right edges of the middle rows
+    expect(variantRows('pixel', H)).toBe(H);
+    expect(H.every(b => b <= 0xff) && variantRows('bold', H)).toHaveLength(8);
   });
 });

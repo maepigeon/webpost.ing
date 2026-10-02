@@ -411,3 +411,15 @@ span.tg-layer-name { overflow: hidden; text-overflow: ellipsis; white-space: now
 
 /* Paw colours, above the texture buttons; they apply to the Paws fill. */
 .tg-texture-options { grid-column: 1 / -1; padding: 2px 0 6px; }
+
+/* What just happened (a merge), beside the hint. */
+.tg-notice { padding: 2px 8px; background: #1f3a5c; color: #cfe3ff; font-size: 11px; border-radius: 3px; }
+
+/* Quick text colours: small squares beside the picker. */
+.tg-colours { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 3px; }
+.tg-chip { width: 18px; height: 18px; padding: 0; margin: 0; border: 2px solid #333; border-radius: 0; box-shadow: none; }
+.tg-chip.is-on { border-color: #f2f2f2; }
+
+/* Grid buttons (GridButton) in the grid editor's panel. */
+.tg-panel .gb { display: inline-flex; align-items: center; gap: 6px; padding: 0 8px; color: #f2f2f2; }
+.tg-panel .gb.is-on { color: #111; }
