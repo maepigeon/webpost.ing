@@ -13,6 +13,7 @@ import {
 import { TEXTURES, fillTexture, texturePreview, DEFAULT_PAW_OPTIONS } from './textures.js';
 import PawOptions from '../../../../../TileArt/PawOptions.jsx';
 import GlyphEditor from './GlyphEditor.jsx';
+import SymbolPalette from './SymbolPalette.jsx';
 import GridButton from './GridButton.jsx';
 import PixelText from './PixelText.jsx';
 import PixelIcon from './PixelIcon.jsx';
@@ -692,10 +693,11 @@ export default function TileGrid({
     setCursor({ r: Math.min(r, d.rows - 1), s: Math.min(c, d.cols - 1) * SLOTS_PER_TILE });
   };
 
-  const typeChars = (str) => {
+  // useFont: the Symbols palette types in its own font, whatever is picked.
+  const typeChars = (str, useFont = font) => {
     const { d, layer } = textLayerFor(dataRef.current);
     if (!layer) return;
-    if (font === 'xl') { typeXl(str, d, layer); return; }
+    if (useFont === 'xl') { typeXl(str, d, layer); return; }
     const order = typingOrder();
     let i = Math.max(0, order.findIndex(p => p.r === cursorRef.current.r && p.s === cursorRef.current.s));
     let l = layer;
@@ -706,7 +708,7 @@ export default function TileGrid({
         if (slotFilled(d, l, order[i])) break;
       }
       const { r, s } = order[i];
-      l = writeChar(d, l, r, s, ch, { font, color: colour }, widthRef.current);
+      l = writeChar(d, l, r, s, ch, { font: useFont, color: colour }, widthRef.current);
       if (i < order.length - 1) i += 1;
     }
     commit(withLayer(d, layer.id, () => l));
@@ -1154,6 +1156,8 @@ export default function TileGrid({
                 ))}
               </span>
               <span className="tg-gap" />
+              <Tile icon="star" label="Symbols: type ★ ♥ ✓ → and more, in the Symbols font" on={panel === 'symbols'}
+                onClick={() => setPanel(p => (p === 'symbols' ? null : 'symbols'))} />
               <Tile icon="glyph" label="Custom characters" on={panel === 'glyphs'}
                 onClick={() => setPanel(p => (p === 'glyphs' ? null : 'glyphs'))} />
               <Tile icon="skip" label={`Avoid overdraw (Insert): ${skipFilled ? 'on' : 'off'}. Typing skips filled slots, and XL letters filled 2×2 spots, instead of drawing over them.`} on={skipFilled} onClick={() => setSkipFilled(v => !v)} />
@@ -1318,6 +1322,9 @@ export default function TileGrid({
         </div>
       )}
 
+      {editing && panel === 'symbols' && (
+        <SymbolPalette onInsert={ch => typeChars(ch, 'symbols')} onClose={() => setPanel(null)} />
+      )}
       {editing && panel === 'glyphs' && (
         <GlyphEditor width={width === 'half' ? 8 : 16} glyphs={data.glyphs}
           onChange={glyphs => commit({ ...dataRef.current, glyphs })} onClose={() => setPanel(null)} />
