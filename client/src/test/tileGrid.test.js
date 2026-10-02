@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   normaliseGrid, pixelLayer, rowChars, writeSlot, writeChar, setTileWidths, isWide, restyleSlots, resizeLayerText,
   orderSlots, slotsIn, containRect, bitsFromHex, hexFromBits, seedBits, slotsPerRow, LIMITS,
-  photoRect, resizePhoto, zoomPhoto, PHOTO_SCALE, cleanHref, isExternalHref, setLink, linkAt, cleanExt, GRID_VERSION, mergeText, writeXl, xlTiles, variantRows, FONT_NAMES, TYPEFACES, readableText,
+  photoRect, resizePhoto, zoomPhoto, PHOTO_SCALE, cleanHref, isExternalHref, setLink, linkAt, cleanExt, GRID_VERSION, mergeText, writeXl, xlTiles, variantRows, FONT_NAMES, TYPEFACES, readableText, floodTiles, isElbow,
 } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
 import { pixelGlyph } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileFont.js';
 import { bitmapGlyph, SYMBOL_CHARS } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/bitmapFonts.js';
@@ -425,5 +425,24 @@ describe('text for readers to select', () => {
     // lower layer: wide 'a' in tile 0 (slot 0), 'b' narrow at slot 2; upper 'X' at slot 2 wins over 'b'
     expect(rows[0].map(p => [p.text, p.slot, p.width])).toEqual([['a', 0, 2], ['X', 2, 1]]);
     expect(rows[1].map(p => p.text)).toEqual(['z']);
+  });
+});
+
+describe('magic wand and pixel perfect', () => {
+  // 4 × 3 tiles; 'x' marks tiles that look alike
+  const look = ['xx.x', '.x..', '.xx.'];
+  const sig = (r, c) => look[r][c];
+  it('selects joined tiles that look the same, across edges but not corners', () => {
+    expect(floodTiles(4, 3, sig, 0, 0).sort()).toEqual(['0,0', '0,1', '1,1', '2,1', '2,2']);
+    expect(floodTiles(4, 3, sig, 0, 3)).toEqual(['0,3']);          // its neighbours differ
+    expect(floodTiles(4, 3, sig, 1, 0).sort()).toEqual(['1,0', '2,0']);
+    expect(floodTiles(4, 3, sig, 9, 9)).toEqual([]);
+  });
+  it('finds the elbow of a diagonal step made of two straight ones', () => {
+    expect(isElbow({ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 })).toBe(true);
+    expect(isElbow({ x: 0, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 })).toBe(true);
+    expect(isElbow({ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 })).toBe(false);   // straight
+    expect(isElbow({ x: 0, y: 0 }, { x: 1, y: 1 }, { x: 2, y: 2 })).toBe(false);   // already diagonal
+    expect(isElbow({ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 2 })).toBe(false);   // a gap
   });
 });

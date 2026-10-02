@@ -663,6 +663,38 @@ export function rectTiles(a, b) {
   return out;
 }
 
+/**
+ * Magic wand: the tiles joined to (r, c) that look the same, found by
+ * flooding outwards across edges (not corners) while `sig(r, c)` stays equal.
+ */
+export function floodTiles(cols, rows, sig, r, c) {
+  if (r < 0 || c < 0 || r >= rows || c >= cols) return [];
+  const want = sig(r, c);
+  const seen = new Set([tileKey(r, c)]);
+  const queue = [[r, c]];
+  while (queue.length) {
+    const [cr, cc] = queue.pop();
+    for (const [nr, nc] of [[cr - 1, cc], [cr + 1, cc], [cr, cc - 1], [cr, cc + 1]]) {
+      if (nr < 0 || nc < 0 || nr >= rows || nc >= cols || seen.has(tileKey(nr, nc))) continue;
+      if (sig(nr, nc) !== want) continue;
+      seen.add(tileKey(nr, nc));
+      queue.push([nr, nc]);
+    }
+  }
+  return [...seen];
+}
+
+/**
+ * Pixel perfect: in a freehand stroke, whether the middle of three points
+ * is an elbow of an L (a diagonal step made of two straight ones). Dropping
+ * it leaves the line one pixel thick instead of bulging at every bend.
+ */
+export function isElbow(p0, p1, p2) {
+  const diagonal = Math.abs(p0.x - p2.x) === 1 && Math.abs(p0.y - p2.y) === 1;
+  const joins = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y) === 1;
+  return diagonal && joins(p0, p1) && joins(p1, p2);
+}
+
 /** Shift adds to a selection, Alt takes away, otherwise it is replaced. */
 export function combineSelection(base, rect, mode) {
   if (mode === 'add') return new Set([...base, ...rect]);

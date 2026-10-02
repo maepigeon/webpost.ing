@@ -8,7 +8,7 @@ import { normaliseUploadResponse, describeUploadError } from '../../../../../../
 import {
   TILE, SCALE, LIMITS, FONT_NAMES, DIRECTIONS, normaliseGrid, pixelLayer, photoLayer,
   SLOTS_PER_TILE, SLOT_W, slotsPerRow, rowChars, writeSlot, writeChar, writeXl, xlTiles, setTileWidths, isWide, restyleSlots, resizeLayerText,
-  EDGES, readableText, mergeText, cleanHref, isExternalHref, setLink, linkAt, orderSlots, slotsIn, renderGrid, pixelatePhoto, photoRect, resizePhoto, zoomPhoto, tileKey, rectTiles, combineSelection, orderedTiles,
+  EDGES, floodTiles, isElbow, readableText, mergeText, cleanHref, isExternalHref, setLink, linkAt, orderSlots, slotsIn, renderGrid, pixelatePhoto, photoRect, resizePhoto, zoomPhoto, tileKey, rectTiles, combineSelection, orderedTiles,
 } from './tileGrid.js';
 import { TEXTURES, fillTexture, texturePreview, DEFAULT_PAW_OPTIONS } from './textures.js';
 import PawOptions from '../../../../../TileArt/PawOptions.jsx';
@@ -47,12 +47,12 @@ function boundsOf(selection) {
 }
 
 /** Alt (Option) + a letter picks a tool. Keyed by KeyboardEvent.code. */
-const TOOL_KEYS = { KeyT: 'text', KeyS: 'select', KeyM: 'move', KeyP: 'pixel', KeyB: 'tile', KeyE: 'erase', KeyF: 'fill' };
+const TOOL_KEYS = { KeyT: 'text', KeyS: 'select', KeyW: 'wand', KeyM: 'move', KeyP: 'pixel', KeyB: 'tile', KeyE: 'erase', KeyF: 'fill' };
 
 /** The editor's keyboard shortcuts, as the shortcuts panel lists them. */
 const SHORTCUTS = [
   ['Tools', [
-    ['⌥T', 'Text'], ['⌥S', 'Select'], ['⌥M', 'Move'], ['⌥P', 'Paint pixels'],
+    ['⌥T', 'Text'], ['⌥S', 'Select'], ['⌥W', 'Magic wand'], ['⌥M', 'Move'], ['⌥P', 'Paint pixels'],
     ['⌥B', 'Paint tiles'], ['⌥E', 'Erase'], ['⌥F', 'Fill'],
   ]],
   ['Edit', [
@@ -365,8 +365,44 @@ export default function TileGrid({
 
   const gesture = useRef(null);
 
-  const paintAt = (canvas, x, y) => {
+  // Pixel perfect: freehand strokes lose the elbow pixels of their diagonal steps.
+  const [pixelPerfect, setPixelPerfect] = useState(false);
+
+  /**
+   * How a tile looks on a layer, as a string: its characters, their styles and
+   * width, and its painted pixels. Tiles that look alike have equal strings (what
+   * the magic wand matches on). A photo layer has no tiles to tell apart.
+   */
+  const tileLook = (layer) => {
+    const d = dataRef.current;
+    const ctx = layer.kind === 'pixel' ? paintCanvas(layer.id)?.getContext('2d') : null;
+    return (r, c) => {
+      if (layer.kind !== 'pixel') return '';
+      const n = SLOTS_PER_TILE;
+      const chars = rowChars(d, layer, r).slice(c * n, c * n + n).join('');
+      const styles = [0, 1].map(i => JSON.stringify(layer.style[`${r},${c * n + i}`] || null)).join('');
+      let hash = 2166136261;
+      if (ctx) {
+        const px = ctx.getImageData(c * TILE, r * TILE, TILE, TILE).data;
+        for (let i = 0; i < px.length; i++) hash = Math.imul(hash ^ px[i], 16777619);
+      }
+      return `${chars}|${styles}|${isWide(layer, r, c)}|${hash}`;
+    };
+  };
+
+  const paintAt = (canvas, x, y, stroke) => {
     const ctx = canvas.getContext('2d');
+    if (stroke) {
+      const last = stroke.pts[stroke.pts.length - 1];
+      if (last && last.x === x && last.y === y) return;
+      stroke.pts.push({ x, y, was: ctx.getImageData(x, y, 1, 1) });
+      const n = stroke.pts.length;
+      if (n >= 3 && isElbow(stroke.pts[n - 3], stroke.pts[n - 2], stroke.pts[n - 1])) {
+        const elbow = stroke.pts[n - 2];
+        ctx.putImageData(elbow.was, elbow.x, elbow.y);
+        stroke.pts.splice(n - 2, 1);
+      }
+    }
     const [px, py, size] = tool === 'tile'
       ? [Math.floor(x / TILE) * TILE, Math.floor(y / TILE) * TILE, TILE]
       : [x, y, 1];
@@ -381,7 +417,8 @@ export default function TileGrid({
     const from = g.last || { x, y };
     const steps = Math.max(Math.abs(x - from.x), Math.abs(y - from.y), 1);
     for (let i = 1; i <= steps; i++) {
-      paintAt(canvas, Math.round(from.x + ((x - from.x) * i) / steps), Math.round(from.y + ((y - from.y) * i) / steps));
+      paintAt(canvas, Math.round(from.x + ((x - from.x) * i) / steps), Math.round(from.y + ((y - from.y) * i) / steps),
+        g.stroke);
     }
     g.last = { x, y };
     bump();
@@ -414,12 +451,23 @@ export default function TileGrid({
       }
       return;
     }
+    if (tool === 'wand') {
+      // The tiles joined to this one that look the same on this layer; Shift adds, Alt takes away.
+      const found = floodTiles(dataRef.current.cols, dataRef.current.rows, tileLook(layer), p.tile.r, p.tile.c);
+      const mode = e.shiftKey ? 'add' : e.altKey ? 'remove' : 'replace';
+      setSelection(combineSelection(sel, found, mode));
+      selAnchor.current = p.tile;
+      setCursor({ r: p.tile.r, s: p.tile.c * SLOTS_PER_TILE });
+      return;
+    }
     if (tool === 'fill') {
       fillTiles(sel.size && sel.has(tileKey(p.tile.r, p.tile.c)) ? orderedTiles(sel) : [p.tile], colour);
       return;
     }
     if (layer.kind !== 'pixel') return;
-    gesture.current = { kind: 'paint', layerId: layer.id, last: null };
+    // Only one-pixel strokes can be pixel perfect; tiles are painted whole.
+    gesture.current = { kind: 'paint', layerId: layer.id, last: null,
+      stroke: pixelPerfect && (tool === 'pixel' || tool === 'erase') ? { pts: [] } : null };
     strokeTo(p.x, p.y);
   };
 
@@ -1067,6 +1115,7 @@ export default function TileGrid({
     ? 'Photo layer: drag it to move, drag a corner to resize, or flatten it to pixels to paint on it.'
     : {
       text: 'Click a tile and type. Drag, or Shift+arrows, to select tiles; typing then fills them. ⌘/ lists the shortcuts.',
+      wand: 'Click a tile to select the joined tiles that look the same. Shift adds, Alt takes away.',
       select: 'Drag, or use the arrows and Shift+arrows, to select. Shift adds, Alt removes. Drag a selection to move it.',
       move: 'Drag to move the selection, or the whole layer. Arrow keys nudge.',
       pixel: 'Paint single pixels.', tile: 'Paint whole tiles.', erase: 'Erase to transparent.',
@@ -1119,8 +1168,11 @@ export default function TileGrid({
             <div className="tg-group" role="group" aria-label="Draw">
               <span className="tg-group-label">Draw</span>
               <Tile icon="select" label="Select tiles (⌥S)" on={tool === 'select'} onClick={() => setTool('select')} />
+              <Tile icon="wand" label="Magic wand (⌥W): select the joined tiles that look the same. Shift adds, Alt takes away." on={tool === 'wand'} onClick={() => setTool('wand')} />
               <Tile icon="move" label="Move (⌥M)" on={tool === 'move'} onClick={() => setTool('move')} />
               <Tile icon="pixel" label="Paint pixels (⌥P)" on={tool === 'pixel'} onClick={() => setTool('pixel')} />
+              <GridButton symbol="pixel" label="Pixel perfect" on={pixelPerfect} onClick={() => setPixelPerfect(v => !v)}
+                title="Pixel perfect: freehand pixel and erase strokes lose the extra corner pixels, leaving lines one pixel thick." />
               <Tile icon="tile" label="Paint tiles (⌥B)" on={tool === 'tile'} onClick={() => setTool('tile')} />
               <Tile icon="erase" label="Erase (⌥E)" on={tool === 'erase'} onClick={() => setTool('erase')} />
               <Tile icon="fill" label="Fill (⌥F)" on={tool === 'fill'} onClick={() => setTool('fill')} />
