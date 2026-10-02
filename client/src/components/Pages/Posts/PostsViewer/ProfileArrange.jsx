@@ -33,6 +33,12 @@ import './ProfileArrange.css';
  * Every drop saves at once through onChange; nothing waits for "Done".
  */
 
+/** The keyboard keys for moving a post, shown as a grid of tiles. */
+const KEYS = [
+  ['Tab', 'next grip'], ['Space / Enter', 'pick up, drop'], ['↑ ↓', 'move up or down'],
+  ['→', 'into the folder above'], ['←', 'out of the folder'], ['Esc', 'cancel, put it back'],
+];
+
 /** How far one level of indent is, in pixels: also how far to drag sideways. */
 const INDENT = 28;
 
@@ -128,7 +134,21 @@ export default function ProfileArrange({ posts, pinnedId, onChange, onDone, stat
   // A lifted folder's slot keeps the height of the folder and its posts.
   const [folderSlotHeight, setFolderSlotHeight] = useState(0);
 
-  const blocks = useMemo(() => toBlocks(posts), [posts]);
+  // Folders made here that no post is in yet.
+  const [emptyFolders, setEmptyFolders] = useState([]);
+  const [naming, setNaming] = useState(false);
+  const [folderName, setFolderName] = useState('');
+  const takenNames = useMemo(() => new Set([...posts.map(p => p.folder).filter(Boolean), ...emptyFolders]), [posts, emptyFolders]);
+  const nameError = !folderName.trim() ? '' : takenNames.has(folderName.trim()) ? 'You already have a folder with that name.' : '';
+  const addFolder = () => {
+    const name = folderName.trim();
+    if (!name || takenNames.has(name)) return;
+    setEmptyFolders(list => [name, ...list]);
+    setFolderName('');
+    setNaming(false);
+  };
+
+  const blocks = useMemo(() => toBlocks(posts, emptyFolders), [posts, emptyFolders]);
   const rows = useMemo(() => toRows(blocks), [blocks]);
 
   const activeRow = activeId ? rows.find(r => r.id === activeId) : null;
@@ -242,14 +262,12 @@ export default function ProfileArrange({ posts, pinnedId, onChange, onDone, stat
       <header className="arrange-head">
         <div className="arrange-head-text">
           <h2 className="arrange-title">Arrange posts</h2>
-          <p className="arrange-hint">
-            Drag the grip to move a post or a folder. Drop a post among a folder&rsquo;s posts to
-            put it in; drop it outside to take it out. Below a folder&rsquo;s last post, drag right
-            to add it to the end.
-          </p>
         </div>
         <div className="arrange-head-side">
           <span className={`arrange-status arrange-status--${status.state}`} role="status">{status.text}</span>
+          <button type="button" className="arrange-new-folder" onClick={() => setNaming(v => !v)} aria-expanded={naming}>
+            <Icon name="plus" size={12} /> New folder
+          </button>
           <button type="button" className={`arrange-info${showKeys ? ' is-on' : ''}`}
             aria-expanded={showKeys} aria-controls="arrange-keys" title="Keyboard keys"
             onClick={() => setShowKeys(v => !v)}>
@@ -259,15 +277,22 @@ export default function ProfileArrange({ posts, pinnedId, onChange, onDone, stat
         </div>
       </header>
 
+      {naming && (
+        <form className="arrange-folder-form" onSubmit={e => { e.preventDefault(); addFolder(); }}>
+          <input type="text" value={folderName} onChange={e => setFolderName(e.target.value)} maxLength={60}
+            placeholder="Folder name" aria-label="Folder name" autoFocus
+            onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); setNaming(false); } }} />
+          <button type="submit" className="arrange-done" disabled={!folderName.trim() || Boolean(nameError)}>Add</button>
+          {nameError && <span className="arrange-folder-error" role="alert">{nameError}</span>}
+        </form>
+      )}
+
       {showKeys && (
-        <dl id="arrange-keys" className="arrange-keys">
-          <dt><kbd>Tab</kbd></dt><dd>go to the next grip</dd>
-          <dt><kbd>Space</kbd> / <kbd>Enter</kbd></dt><dd>pick up, and drop</dd>
-          <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>move up or down</dd>
-          <dt><kbd>→</kbd></dt><dd>into the folder above (below its last post)</dd>
-          <dt><kbd>←</kbd></dt><dd>out of the folder</dd>
-          <dt><kbd>Esc</kbd></dt><dd>cancel: put it back</dd>
-        </dl>
+        <div id="arrange-keys" className="arrange-keys" role="region" aria-label="Keyboard keys">
+          {KEYS.map(([key, what]) => (
+            <div key={key} className="arrange-key"><kbd>{key}</kbd><span>{what}</span></div>
+          ))}
+        </div>
       )}
 
       <DndContext

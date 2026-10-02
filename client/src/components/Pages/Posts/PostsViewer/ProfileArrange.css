@@ -35,13 +35,6 @@
   color: #1c1c1c;
 }
 
-.arrange-hint {
-  margin: 0;
-  font-size: 12.5px;
-  line-height: 1.45;
-  color: #555;
-}
-
 .arrange-head-side {
   display: flex;
   align-items: center;
@@ -83,28 +76,23 @@
 
 .arrange-keys {
   display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 6px 14px;
-  margin: 12px 0 0;
-  padding: 12px 14px;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  border-radius: 10px;
-  font-size: 13px;
-  animation: arrange-pop 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 8px;
+  background: #0d0d0d;
+  color: #f2f2f2;
+  font: 12px var(--app-font);
 }
-.arrange-keys dt { margin: 0; white-space: nowrap; }
-.arrange-keys dd { margin: 0; color: #444; }
+.arrange-key { display: flex; flex-direction: column; gap: 4px; padding: 8px; background: #1c1c1c; border-radius: 3px; }
+.arrange-key span { color: #bdbdbd; }
 .arrange-keys kbd {
-  display: inline-block;
-  min-width: 1.6em;
+  align-self: flex-start;
   padding: 1px 6px;
-  border: 1px solid rgba(0, 0, 0, 0.25);
-  border-bottom-width: 3px;
-  border-radius: 6px;
-  background: #f6f6f6;
-  font: 600 12px/1.5 ui-monospace, Menlo, monospace;
-  text-align: center;
+  border: 1px solid #555;
+  border-bottom-width: 2px;
+  color: #fff;
+  font: 700 12px ui-monospace, Menlo, monospace;
 }
 
 /* ── Rows ──────────────────────────────────────────────────────────────── */
@@ -265,3 +253,14 @@
 
 /* While arranging, the page's scroll-to-top button stays out of the way. */
 body.is-arranging .scroll-to-top { display: none; }
+
+.arrange-new-folder {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 13px;
+}
+.arrange-folder-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 10px; }
+.arrange-folder-form input { flex: 1 1 200px; min-width: 0; padding: 6px 8px; border: 1px solid #999; font: inherit; }
+.arrange-folder-error { color: #b3261e; font-size: 12px; }

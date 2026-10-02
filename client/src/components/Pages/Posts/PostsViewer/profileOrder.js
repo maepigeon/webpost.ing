@@ -61,9 +61,14 @@ export function applyChanges(posts, changed) {
 
 // ── Blocks: the profile view ──────────────────────────────────────────────────
 
-export function toBlocks(posts) {
+export function toBlocks(posts, emptyFolders = []) {
   const blocks = [];
   const folders = new Map();
+  // Folders just made hold no posts yet; they sit at the top until posts are put in.
+  const named = new Set(posts.map(p => p.folder).filter(Boolean));
+  for (const name of emptyFolders) {
+    if (!named.has(name)) blocks.push({ type: 'folder', id: folderKey(name), name, posts: [] });
+  }
   for (const post of sortPosts(posts)) {
     const name = post.folder || null;
     if (!name) {
@@ -146,7 +151,8 @@ export function projectPost(rows, activeId, overId, dx, indent) {
   const next = moved[at + 1];
 
   const maxDepth = prev && (prev.type === 'folder' || prev.depth === 1) ? 1 : 0;
-  const minDepth = next && next.type === 'post' && next.depth === 1 ? 1 : 0;
+  // Straight under a folder's header is inside it; that is how a post goes into an empty folder.
+  const minDepth = (next && next.type === 'post' && next.depth === 1) || (prev && prev.type === 'folder') ? 1 : 0;
   const sideways = dx >= indent / 2 ? 1 : dx <= -indent / 2 ? 0 : null;
   const wanted = sideways ?? (at === from ? rows[from].depth : 0);
   const depth = Math.min(maxDepth, Math.max(minDepth, wanted));
