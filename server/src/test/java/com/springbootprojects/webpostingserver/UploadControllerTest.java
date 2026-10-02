@@ -22,6 +22,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -30,6 +31,7 @@ class UploadControllerTest {
 
     @Mock LoginRepository loginRepository;
     @Mock JdbcTemplate jdbc;
+    @Mock com.springbootprojects.webpostingserver.posts.service.StorageAccountService storageAccount;
     @Spy  com.springbootprojects.webpostingserver.posts.service.ImageProcessingService imageService =
             new com.springbootprojects.webpostingserver.posts.service.ImageProcessingService();
 
@@ -64,6 +66,7 @@ class UploadControllerTest {
     void upload_validImage_returns200WithPath() throws Exception {
         when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
         when(jdbc.queryForList(anyString(), eq(Integer.class), any())).thenReturn(List.of(1));
+        when(storageAccount.fitsQuota(eq(1), anyLong(), eq(0L))).thenReturn(true);
         // A genuinely encoded JPEG. This used to be three magic bytes followed by
         // zeros, which the endpoint now rejects on purpose: uploads are verified
         // by decoding them, so a file that only *starts* like an image no longer
