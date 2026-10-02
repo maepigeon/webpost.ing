@@ -80,6 +80,19 @@ just before that happens.
 
 ---
 
+### Choco Cooky
+
+The Cute theme font and the grid's Cute typeface use Samsung's Choco Cooky,
+served with the site from `client/public/fonts/Chococooky.woff2`. The file is
+gitignored, because the repository is public, so each checkout that releases
+needs its own copy, and `release.sh` stops if it is missing. To make one from
+the TrueType file (`~/Library/Fonts/Chococooky.ttf` on the owner's Mac):
+
+```bash
+python3 -m venv /tmp/ft && /tmp/ft/bin/pip install fonttools brotli
+/tmp/ft/bin/python -c "from fontTools.ttLib import TTFont as T; f=T('$HOME/Library/Fonts/Chococooky.ttf'); f.flavor='woff2'; f.save('client/public/fonts/Chococooky.woff2')"
+```
+
 ## 2. When something goes wrong
 
 Every command below reads the server's settings from its `deploy.env`, so

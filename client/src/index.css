@@ -1,3 +1,11 @@
+/* Choco Cooky, served with the site from client/public/fonts (kept out of
+   git; see guide/DEPLOYMENT.md). The theme and grid "cute" stacks name it. */
+@font-face {
+  font-family: "Choco cooky";
+  src: url("/fonts/Chococooky.woff2") format("woff2");
+  font-display: swap;
+}
+
 :root {
   /* The app's one typeface, the top bar's. Profiles and posts use their
      theme's fonts instead, inside .th-scope (see themes.css). */
