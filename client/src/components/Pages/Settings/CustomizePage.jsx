@@ -12,6 +12,7 @@ import { usePageTitle } from '../../../utils/usePageTitle.js';
 import { errorMessage } from '../../../utils/errorMessage.js';
 import ThemeEditor from '../../PageTheme/ThemeEditor.jsx';
 import PixelFontsSection from './PixelFontsSection.jsx';
+import StickersSection from '../../TileArt/StickersSection.jsx';
 import './SettingsPage.css';
 
 /**
@@ -190,6 +191,7 @@ export default function CustomizePage() {
         </section>
 
         <PixelFontsSection username={username} />
+        <StickersSection username={username} />
       </div>
     </div>
   );

@@ -569,6 +569,10 @@ public class SocialRepository {
 
         out.put("pixel_fonts", jdbc.queryForList(
             "SELECT id, name, glyphs, created_at, updated_at FROM pixel_fonts WHERE user_id = ? ORDER BY id", userId));
+        out.put("stickers", jdbc.queryForList(
+            "SELECT id, name, grid, created_at, updated_at FROM stickers WHERE user_id = ? ORDER BY id", userId));
+        out.put("shared_packs", jdbc.queryForList(
+            "SELECT id, kind, name, body, created_at FROM shared_packs WHERE sender_id = ? ORDER BY created_at", userId));
         out.put("comments", getUserActivityComments(userId, 10000));
         out.put("post_reactions", getUserActivityPostReactions(userId, 10000));
         out.put("uploads", jdbc.queryForList(

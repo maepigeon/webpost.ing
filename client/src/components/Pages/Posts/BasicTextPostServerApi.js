@@ -79,6 +79,39 @@ export function DELETE_PIXEL_FONT(username, id) {
   return axios.delete(`${fontsUrl(username)}/${id}`, { withCredentials: true });
 }
 
+// ── Stickers ─────────────────────────────────────────────────────────────────
+
+const stickersUrl = (username) => baseUrl + `/api/users/${encodeURIComponent(username)}/stickers`;
+
+/** [{id, name, grid}] */
+export function GET_STICKERS(username) {
+  return axios.get(stickersUrl(username)).then(r => r.data);
+}
+export function CREATE_STICKER(username, name, grid) {
+  return axios.post(stickersUrl(username), JSON.stringify({ name, grid }), asJson).then(r => r.data);
+}
+export function UPDATE_STICKER(username, id, name, grid) {
+  return axios.put(`${stickersUrl(username)}/${id}`, JSON.stringify({ name, grid }), asJson).then(r => r.data);
+}
+export function DELETE_STICKER(username, id) {
+  return axios.delete(`${stickersUrl(username)}/${id}`, { withCredentials: true });
+}
+
+// ── Packs shared in messages ─────────────────────────────────────────────────
+
+/** {kind: 'symbols', fontId} or {kind: 'stickers', name, stickerIds} → {id} */
+export function SHARE_PACK(pack) {
+  return axios.post(baseUrl + '/api/packs', JSON.stringify(pack), asJson).then(r => r.data);
+}
+/** {id, kind, name, sender, body} */
+export function GET_SHARED_PACK(id) {
+  return axios.get(baseUrl + `/api/packs/${encodeURIComponent(id)}`).then(r => r.data);
+}
+/** Copies a shared pack into the signed-in user's stickers or pixel fonts → {saved} */
+export function SAVE_SHARED_PACK(id) {
+  return axios.post(baseUrl + `/api/packs/${encodeURIComponent(id)}/save`, {}, { withCredentials: true }).then(r => r.data);
+}
+
 /** A user's page theme: {theme: {...}} or {theme: null} for Newspaper Life. */
 export function GET_PAGE_THEME(username) {
   return axios.get(baseUrl + `/api/users/${encodeURIComponent(username)}/theme`).then(r => r.data);

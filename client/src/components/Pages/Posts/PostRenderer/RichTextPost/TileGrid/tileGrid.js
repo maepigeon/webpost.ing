@@ -15,6 +15,7 @@
  * and can be erased like any other.
  */
 import { pixelGlyph } from './tileFont.js';
+import { bitmapGlyph } from './bitmapFonts.js';
 
 export const TILE = 16;
 /** Canvas pixels per grid pixel. High enough for the smooth font to render crisply. */
@@ -38,6 +39,8 @@ export const FONT_NAMES = {
   bold: 'Pixel bold', italic: 'Pixel italic', outline: 'Pixel outline',
   // Typefaces drawn like Smooth, in a web font: soft-edged unless the grid's edges are Pixel.
   serif: 'Serif', script: 'Script', cute: 'Cute', comic: 'Comic',
+  // Bitmaps baked from Noto, half and full width (see bitmapFonts.js).
+  serifpx: 'Serif bitmap', sanspx: 'Sans bitmap', symbols: 'Symbols',
 };
 
 /**
@@ -776,6 +779,7 @@ function drawLayerText(ctx, d, layer) {
         const y = r * TILE;
         if (d.glyphs[ch]) drawCustomGlyph(ctx, d.glyphs[ch], x, y, sw);
         else if (style.font === 'xl' && wide && style.part && pixelGlyph(ch)) drawXlPart(ctx, pixelGlyph(ch), style.part, x, y);
+        else if (bitmapGlyph(style.font, ch, wide)) drawCustomGlyph(ctx, bitmapGlyph(style.font, ch, wide), x, y, sw);
         else if (['bold', 'italic', 'outline'].includes(style.font) && pixelGlyph(ch)) drawPixelGlyph(ctx, variantRows(style.font, pixelGlyph(ch)), x, y, sw);
         else if (style.font === 'small' && pixelGlyph(ch)) drawSmallGlyph(ctx, pixelGlyph(ch), x, y, sw);
         else if (style.font !== 'smooth' && !TYPEFACES[style.font] && pixelGlyph(ch)) drawPixelGlyph(ctx, pixelGlyph(ch), x, y, sw);

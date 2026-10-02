@@ -15,6 +15,9 @@ import './MessagesPage.css';
 import Icon from '../Icon/Icon.jsx';
 import { useDialog } from '../Dialog/Dialog.jsx';
 import { errorMessage } from '../../utils/errorMessage.js';
+import { splitPacks } from '../../utils/packMessage.js';
+import PackCard from '../TileArt/PackCard.jsx';
+import SharePackDialog from '../TileArt/SharePackDialog.jsx';
 
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🎉'];
 
@@ -51,6 +54,7 @@ export default function MessagesPage() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [mobileView, setMobileView]       = useState('list');
   const [replyTo, setReplyTo]             = useState(null);
+  const [sharingPack, setSharingPack]     = useState(false);
   const [hoveredMsg, setHoveredMsg]       = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(null); // msgId
   const [dmReactions, setDmReactions]     = useState({}); // { [msgId]: { counts, userReactions } }
@@ -195,26 +199,29 @@ export default function MessagesPage() {
     setError('');
     let content = input.trim();
     if (replyTo) {
-      content = `> @${replyTo.sender_username}: ${truncate(replyTo.content, 100)}\n\n${content}`;
+      content = `> @${replyTo.sender_username}: ${truncate(splitPacks(replyTo.content).text, 100)}\n\n${content}`;
     }
     try {
-      if (activeConvId) {
-        await SEND_CONVERSATION_MESSAGE(activeConvId, content);
-        const msgs = await GET_CONVERSATION_MESSAGES(activeConvId, 100, 0);
-        setMessages(msgs);
-      } else {
-        await SEND_GROUP_MESSAGE(activeGroupId, content);
-        const msgs = await GET_GROUP_MESSAGES(activeGroupId, 100, 0);
-        setMessages(msgs);
-      }
+      await postToThread(content);
       setInput('');
       setReplyTo(null);
-      loadAll();
     } catch (e) {
       setError(errorMessage(e, 'Failed to send.'));
     } finally {
       setSending(false);
     }
+  };
+
+  /** Sends a message to the open conversation or group and reloads the thread. */
+  const postToThread = async (content) => {
+    if (activeConvId) {
+      await SEND_CONVERSATION_MESSAGE(activeConvId, content);
+      setMessages(await GET_CONVERSATION_MESSAGES(activeConvId, 100, 0));
+    } else {
+      await SEND_GROUP_MESSAGE(activeGroupId, content);
+      setMessages(await GET_GROUP_MESSAGES(activeGroupId, 100, 0));
+    }
+    loadAll();
   };
 
   const startReply = (msg) => { setReplyTo(msg); inputRef.current?.focus(); };
@@ -475,7 +482,7 @@ export default function MessagesPage() {
                 {c.other_username}
                 {c.unread_count > 0 && <span className="messages-badge">{c.unread_count}</span>}
               </div>
-              <div className="messages-conv-preview">{c.last_message || 'No messages yet'}</div>
+              <div className="messages-conv-preview">{splitPacks(c.last_message).text || 'No messages yet'}</div>
             </div>
             <div className="messages-conv-time">{timeAgo(c.last_message_at)}</div>
           </button>
@@ -495,7 +502,7 @@ export default function MessagesPage() {
               {g.name}
               {g.unread_count > 0 && <span className="messages-badge">{g.unread_count}</span>}
             </div>
-            <div className="messages-conv-preview">{g.last_message || 'No messages yet'}</div>
+            <div className="messages-conv-preview">{splitPacks(g.last_message).text || 'No messages yet'}</div>
             <div className="messages-conv-time">{timeAgo(g.last_message_at)}</div>
           </button>
         ))}
@@ -608,7 +615,8 @@ export default function MessagesPage() {
             <div className="messages-thread-body" onClick={() => setShowEmojiPicker(null)}>
               {messages.map(m => {
                 const isMine = m.sender_username === authUser;
-                const { quote, body } = parseMessage(m.content);
+                const { quote, body: rawBody } = parseMessage(m.content);
+                const { text: body, packIds } = splitPacks(rawBody);
                 const reactionMap = isGroup ? groupReactions : dmReactions;
                 const msgReactions = reactionMap[m.id] || { counts: {}, userReactions: [] };
                 const hasReactions = Object.keys(msgReactions.counts).length > 0;
@@ -649,7 +657,8 @@ export default function MessagesPage() {
                     )}
                     <div className={`messages-bubble${isMine ? ' messages-bubble--mine' : ''}`}>
                       {quote && <div className="messages-bubble-quote">{quote}</div>}
-                      <span className={`messages-bubble-text${quote ? ' messages-bubble-text--has-quote' : ''}`}>{linkifyText(body || m.content)}</span>
+                      <span className={`messages-bubble-text${quote ? ' messages-bubble-text--has-quote' : ''}`}>{linkifyText(body || (packIds.length ? '' : m.content))}</span>
+                      {packIds.map(id => <PackCard key={id} id={id} mine={isMine} />)}
                       <span className="messages-bubble-time">{timeAgo(m.created_at)}</span>
                       {hasReactions && (
                         <div className="messages-reaction-chips">
@@ -673,7 +682,7 @@ export default function MessagesPage() {
               <div className="messages-reply-preview">
                 <div className="messages-reply-preview-inner">
                   <span className="messages-reply-preview-label">↩ Replying to @{replyTo.sender_username}</span>
-                  <span className="messages-reply-preview-text">{truncate(replyTo.content, 60)}</span>
+                  <span className="messages-reply-preview-text">{truncate(splitPacks(replyTo.content).text, 60)}</span>
                 </div>
                 <button className="messages-reply-preview-dismiss" onClick={() => setReplyTo(null)} aria-label="Cancel reply"><Icon name="close" size={12} /></button>
               </div>
@@ -686,11 +695,16 @@ export default function MessagesPage() {
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
                 maxLength={5000} rows={2} />
+              <button className="messages-pack-btn" onClick={() => setSharingPack(true)} disabled={sending}
+                title="Share a pack of stickers or symbols">Pack</button>
               <button className="messages-send-btn" onClick={sendMessage} disabled={sending || !input.trim()}>
                 {sending ? '…' : 'Send'}
               </button>
             </div>
             {error && <p className="messages-error">{error}</p>}
+            {sharingPack && (
+              <SharePackDialog username={authUser} onSend={postToThread} onClose={() => setSharingPack(false)} />
+            )}
           </>
         )}
       </div>

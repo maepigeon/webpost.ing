@@ -23,6 +23,7 @@ import SearchPage from './components/Pages/Search/SearchPage.jsx';
 import ActivityPage from './components/Pages/Activity/ActivityPage.jsx';
 import SettingsPage from './components/Pages/Settings/SettingsPage.jsx';
 import CustomizePage from './components/Pages/Settings/CustomizePage.jsx';
+import StickerCenterPage from './components/TileArt/StickerCenter.jsx';
 import EmailActionPage from './components/Pages/Settings/EmailActionPage.jsx';
 import ForgotPasswordPage from './components/Pages/Settings/ForgotPasswordPage.jsx';
 
@@ -97,6 +98,7 @@ function App() {
         <Route path="/activity/:username" element={<Fresh><ActivityPage /></Fresh>} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/customize" element={<CustomizePage />} />
+        <Route path="/stickers" element={<StickerCenterPage />} />
         {/* Opened from links in emails, so these must work while signed out. */}
         <Route path="/verify-email" element={<EmailActionPage mode="verify" />} />
         <Route path="/unsubscribe" element={<EmailActionPage mode="unsubscribe" />} />

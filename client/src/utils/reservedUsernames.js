@@ -12,7 +12,7 @@
  */
 export const RESERVED_USERNAMES = new Set([
   'users', 'user', 'routes', 'editor', 'inbox', 'messages', 'search',
-  'activity', 'settings', 'customize', 'following', 'login', 'logout', 'register', 'signup', 'signin',
+  'activity', 'settings', 'customize', 'following', 'stickers', 'login', 'logout', 'register', 'signup', 'signin',
   'verify-email', 'unsubscribe', 'reset-password', 'forgot-password',
   'admin', 'adminpanel', 'posts', 'post',
   'api', 'uploads', 'static', 'assets', 'public', 'fonts',

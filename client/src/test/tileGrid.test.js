@@ -5,6 +5,7 @@ import {
   photoRect, resizePhoto, zoomPhoto, PHOTO_SCALE, cleanHref, isExternalHref, setLink, linkAt, cleanExt, GRID_VERSION, mergeText, writeXl, xlTiles, variantRows, FONT_NAMES, TYPEFACES,
 } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
 import { pixelGlyph } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileFont.js';
+import { bitmapGlyph, SYMBOL_CHARS } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/bitmapFonts.js';
 
 const grid = (extra = {}) => normaliseGrid({ v: 3, cols: 4, rows: 3, layers: [pixelLayer('A')], ...extra });
 
@@ -382,5 +383,33 @@ describe('typefaces', () => {
       const d = normaliseGrid({ layers: [{ id: 'a', kind: 'pixel', style: { '0,0': { font: id } } }] });
       expect(d.layers[0].style['0,0'].font).toBe(id);
     }
+  });
+});
+
+describe('serif, sans-serif and symbols bitmap fonts', () => {
+  it('are named fonts the format keeps', () => {
+    for (const id of ['serifpx', 'sanspx', 'symbols']) {
+      expect(FONT_NAMES[id]).toBeTruthy();
+      const d = normaliseGrid({ layers: [{ id: 'a', kind: 'pixel', style: { '0,0': { font: id } } }] });
+      expect(d.layers[0].style).toEqual({ '0,0': { font: id } });
+    }
+  });
+  it('have every printable ASCII letter in both widths, as custom-glyph hex', () => {
+    for (const font of ['serifpx', 'sanspx']) {
+      for (let c = 0x21; c < 0x7f; c++) {
+        const ch = String.fromCharCode(c);
+        expect(bitmapGlyph(font, ch, false), `${font} half ${ch}`).toMatch(/^[0-9a-f]{32}$/);
+        expect(bitmapGlyph(font, ch, true), `${font} full ${ch}`).toMatch(/^[0-9a-f]{64}$/);
+      }
+    }
+  });
+  it('draws symbols, and nothing for characters a font lacks', () => {
+    expect(SYMBOL_CHARS).toContain('★');
+    for (const ch of SYMBOL_CHARS) {
+      expect(bitmapGlyph('symbols', ch, false)).toMatch(/^[0-9a-f]{32}$/);
+      expect(bitmapGlyph('symbols', ch, true)).toMatch(/^[0-9a-f]{64}$/);
+    }
+    expect(bitmapGlyph('symbols', 'A', true)).toBeNull();
+    expect(bitmapGlyph('pixel', 'A', true)).toBeNull();
   });
 });

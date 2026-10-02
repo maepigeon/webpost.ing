@@ -30,7 +30,8 @@ and **the two must agree**: both keep exactly the fields below and drop the rest
     { "id": "a1", "kind": "pixel", "name": "Text", "visible": true,
       "paint": "data:image/png;base64,…" | null,   // painted pixels, grid-sized PNG
       "text": ["row 0 chars", …],                    // slots, trailing spaces trimmed
-      "style": { "r,s": { "color": "#rrggbb", "part": "tl|tr|bl|br" /* XL only */, "font": "pixel" | "small" (Mini) | "smooth" | "xl" | "bold" | "italic" | "outline" } },
+      "style": { "r,s": { "color": "#rrggbb", "part": "tl|tr|bl|br" /* XL only */,
+                          "font": "pixel" | "small" (Mini) | "smooth" | "xl" | "bold" | "italic" | "outline" | "serif" | "script" | "cute" | "comic" | "serifpx" | "sanspx" | "symbols" } },
       "wide": ["r,c", …],
       "ext": { … } },
     { "id": "b2", "kind": "photo", "src": "/uploads/…", "scale": 1, "x": 0, "y": 0 }
@@ -71,7 +72,7 @@ to that upgrade; never rewrite stored grids in a migration.
 |---|---|
 | Model, normalise, render | `client/.../TileGrid/tileGrid.js` |
 | Editor | `TileGrid/TileGrid.jsx` |
-| Pixel font, symbols | `tileFont.js`, `symbols.js` (default pack "Basics"), `PixelText.jsx`, `GridButton.jsx` |
+| Pixel font, symbols | `tileFont.js`, `bitmapFonts.js` (serif, sans-serif, symbols), `symbols.js` (default pack "Basics"), `PixelText.jsx`, `GridButton.jsx` |
 | Text laid out as a grid | `client/src/utils/gridText.js` |
 | Server validation | `server/.../validator/GridValidator.java` |
 

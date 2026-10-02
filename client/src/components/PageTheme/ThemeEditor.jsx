@@ -6,6 +6,7 @@ import { ThemePreview } from './PageTheme.jsx';
 import WallpaperEditor from '../TileArt/WallpaperEditor.jsx';
 import TileGrid from '../Pages/Posts/PostRenderer/RichTextPost/TileGrid/TileGrid.jsx';
 import { STICKERS } from '../TileArt/stickers.js';
+import { StickerCenter } from '../TileArt/StickerCenter.jsx';
 import { GET_PAGE_THEME, SET_PAGE_THEME, GET_POST_THEME, SET_POST_THEME } from '../Pages/Posts/BasicTextPostServerApi.js';
 import './ThemeEditor.css';
 import { errorMessage } from '../../utils/errorMessage.js';
@@ -77,6 +78,7 @@ const pct = v => `${Math.round(v * 100)}%`;
 /** Pick a sticker to start from, or draw one, in the same designer as everything else. */
 function StickerPicker({ value, onChange }) {
   const [drawing, setDrawing] = useState(false);
+  const [browsing, setBrowsing] = useState(false);
   return (
     <div className="theme-sticker">
       <div className="theme-chips">
@@ -84,12 +86,18 @@ function StickerPicker({ value, onChange }) {
         {Object.entries(STICKERS).map(([k, s]) => (
           <button key={k} type="button" className="theme-chip" onClick={() => onChange(s.make())}>{s.label}</button>
         ))}
+        <button type="button" className={`theme-chip${browsing ? ' is-on' : ''}`}
+          onClick={() => { setDrawing(false); setBrowsing(b => !b); }}>Yours…</button>
         {value && (
           <button type="button" className={`theme-chip${drawing ? ' is-on' : ''}`} onClick={() => setDrawing(d => !d)}>
             {drawing ? 'Close designer' : 'Draw'}
           </button>
         )}
       </div>
+      {browsing && (
+        // A card's sticker is at most MAX_STICKER_TILES square; a bigger one is cropped.
+        <StickerCenter onPick={grid => { onChange(grid); setBrowsing(false); }} />
+      )}
       {value && drawing && (
         <TileGrid data={value} onChange={onChange} editable startEditing
           maxCols={MAX_STICKER_TILES} maxRows={MAX_STICKER_TILES} onDone={() => setDrawing(false)} />
