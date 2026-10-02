@@ -75,6 +75,9 @@ fi
 
 # ── 2. Build ──────────────────────────────────────────────────────────────────
 step "2/5 Build"
+# Choco Cooky is part of the site but not of git (see guide/DEPLOYMENT.md).
+[ -f client/public/fonts/Chococooky.woff2 ] \
+  || fail "client/public/fonts/Chococooky.woff2 is missing; see guide/DEPLOYMENT.md, Choco Cooky."
 (cd client && npm run build) || fail "website build failed."
 # `clean` matters: an incremental build can leave a stale class behind and
 # produce a JAR that fails at runtime.

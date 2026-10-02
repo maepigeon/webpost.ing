@@ -31,8 +31,8 @@ export const FONTS = {
   notebook:      { label: 'Notebook print',   css: '"Patrick Hand", "Comic Sans MS", cursive' },
   terminal:      { label: 'Terminal',         css: '"VT323", "Courier New", monospace' },
   mono:          { label: 'Modern mono',      css: '"JetBrains Mono", ui-monospace, Menlo, monospace' },
-  // Samsung's Choco Cooky where the device has it (it is not licensed for the
-  // web), otherwise Sniglet, a free font in the same round, bubbly spirit.
+  // Samsung's Choco Cooky, served with the site (index.css @font-face);
+  // Sniglet, in the same round, bubbly spirit, while it loads.
   cookie:        { label: 'Choco Cooky',      css: '"Choco cooky", "ChocoCooky", "Sniglet", "Arial Rounded MT Bold", sans-serif' },
   // Comic Sans and Papyrus are system fonts: shown where the device has them
   // (they are not licensed for the web), otherwise the closest free font.

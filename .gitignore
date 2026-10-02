@@ -78,5 +78,9 @@ nbdist/
 .nb-gradle/
 config/dev-test-account.local
 
+# Choco Cooky ships with the site (tools/release.sh checks for it) but is
+# Samsung's font, so it stays out of this public repository.
+client/public/fonts/Chococooky.woff2
+
 # Release archives made by tools/release.sh
 release/
