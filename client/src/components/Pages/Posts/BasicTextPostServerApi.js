@@ -90,6 +90,21 @@ export function DELETE_PIXEL_FONT(username, id) {
 const stickersUrl = (username) => baseUrl + `/api/users/${encodeURIComponent(username)}/stickers`;
 
 /** [{id, name, grid}] */
+/** Stickers placed on a profile: [{id, x, y, size, stickerId, name, grid}]. */
+const stickiesUrl = (username) => baseUrl + `/api/users/${encodeURIComponent(username)}/stickies`;
+export function GET_STICKIES(username) {
+  return axios.get(stickiesUrl(username)).then(r => r.data);
+}
+export function PLACE_STICKY(username, stickerId, x, y, size) {
+  return axios.post(stickiesUrl(username), { stickerId, x, y, size }, { withCredentials: true }).then(r => r.data);
+}
+export function MOVE_STICKY(username, id, changes) {
+  return axios.put(`${stickiesUrl(username)}/${id}`, changes, { withCredentials: true }).then(r => r.data);
+}
+export function REMOVE_STICKY(username, id) {
+  return axios.delete(`${stickiesUrl(username)}/${id}`, { withCredentials: true });
+}
+
 export function GET_STICKERS(username) {
   return axios.get(stickersUrl(username)).then(r => r.data);
 }

@@ -51,7 +51,7 @@ export function StickerCenter({ onPick, showSymbols = !onPick }) {
   const tile = (key, grid, name, action) => (
     <li key={key} className="center-item">
       {onPick ? (
-        <button type="button" className="pack-pick" onClick={() => onPick(grid)} title={`Use “${name}”`}>
+        <button type="button" className="pack-pick" onClick={() => onPick(grid, { id: typeof key === 'number' ? key : null, name })} title={`Use “${name}”`}>
           <StickerThumb grid={grid} name={name} />
         </button>
       ) : <span className="center-item-art"><StickerThumb grid={grid} name={name} /></span>}

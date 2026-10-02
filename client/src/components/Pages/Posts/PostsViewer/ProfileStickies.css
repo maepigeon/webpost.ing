@@ -1,0 +1,29 @@
+/* Stickers stuck on a profile: a layer over the whole profile column. */
+.stickies-layer { position: absolute; inset: 0; pointer-events: none; z-index: 40; }
+.sticky {
+  position: absolute;
+  transform: translateX(-50%);
+  pointer-events: auto;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.25));
+}
+.sticky img { display: block; image-rendering: pixelated; }
+.stickies-layer.is-editing .sticky { cursor: grab; outline: 1px dashed rgba(0, 0, 0, 0.45); outline-offset: 2px; touch-action: none; }
+.stickies-layer.is-editing .sticky:active { cursor: grabbing; }
+.sticky:focus-visible { outline: 2px solid #5ea0ff; outline-offset: 2px; }
+.sticky-tools {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  gap: 2px;
+  margin-top: 4px;
+  padding: 2px;
+  background: #0d0d0d;
+  color: #f2f2f2;
+  border-radius: 3px;
+}
+.stickies-bar { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; margin: 10px 0 0; }
+.stickies-bar .gb { color: #f2f2f2; background: #1c1c1c; }
+.stickies-bar .gb.is-on { background: #f2f2f2; color: #111; }

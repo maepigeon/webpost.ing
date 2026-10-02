@@ -17,6 +17,7 @@ import { describeUploadError } from '../../../../utils/responsiveImage.js';
 import { GET_PROFILE_HEADER, GET_PROFILE_BANNER } from '../BasicTextPostServerApi.js';
 import ProfileBanner from './ProfileBanner.jsx';
 import StorageSummary from './StorageSummary.jsx';
+import ProfileStickies from './ProfileStickies.jsx';
 import BannerEditor from './BannerEditor.jsx';
 import { useAuthorTheme } from '../../../PageTheme/PageTheme.jsx';
 import Icon from '../../../Icon/Icon.jsx';
@@ -92,6 +93,8 @@ function PostsViewer() {
     // The banner's join date, public post count and the owner's own rows.
     const [banner, setBanner] = useState({ joined: null, publicPosts: 0, grid: null });
     const [editingBanner, setEditingBanner] = useState(false);
+    const [arrangingStickies, setArrangingStickies] = useState(false);
+    const [stickiesSlot, setStickiesSlot] = useState(null);
     const [dmBlocked, setDmBlocked] = useState(false);
     const [dmBlockedByThem, setDmBlockedByThem] = useState(false);
     const [followsMe, setFollowsMe] = useState(false);
@@ -290,7 +293,9 @@ function PostsViewer() {
             onClose={() => setFollowModal(null)}
           />
         )}
-        <div className="postsViewerContainer">
+        <div className="postsViewerContainer" style={{ position: 'relative' }}>
+          <ProfileStickies username={username} canEdit={canEdit} editing={arrangingStickies}
+            onEditingChange={setArrangingStickies} barSlot={stickiesSlot} />
           <div
             className={`profile-header-card${header.headerPath ? ' profile-header-card--image' : ''}${
               header.headerPath ? ` profile-header-card--ink-${header.headerInk}` : ''}`}
@@ -520,6 +525,8 @@ function PostsViewer() {
               )}
             </div>
 
+            {/* The owner's sticker buttons (Add sticker, Arrange) go here. */}
+            {canEdit && <div ref={setStickiesSlot} />}
             {storage && <StorageSummary storage={storage} />}
           </div>
           {/* With posts, the button lives in the list's owner bar beside
