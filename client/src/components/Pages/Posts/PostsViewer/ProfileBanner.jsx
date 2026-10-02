@@ -17,6 +17,9 @@ const NARROW_FROM = 560;
 export default function ProfileBanner({
   username, followers, following, joined, publicPosts, grid,
   avatarSrc, online, onAvatarClick, onFollowers, onFollowing,
+  // Under the avatar (online status, "Set profile picture"), and under the
+  // site's rows in place of the owner's (the banner editor).
+  underAvatar = null, editor = null,
 }) {
   // Letters two to a tile while the banner is wide enough to read them so;
   // one to a tile on a phone, where narrow ones would be too small.
@@ -59,7 +62,9 @@ export default function ProfileBanner({
           {online && <span className="profile-banner-online" title="Online" />}
         </button>
       </div>
-      {grid && (
+      {underAvatar && <div className="profile-banner-under">{underAvatar}</div>}
+      {editor}
+      {grid && !editor && (
         <div className="profile-banner-rows">
           <TileGrid data={grid} editable={false} onChange={() => {}} />
         </div>

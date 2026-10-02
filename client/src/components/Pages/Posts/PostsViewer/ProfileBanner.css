@@ -70,3 +70,16 @@
   background: #2ecc71;
   border: 2px solid var(--th-card-bg, #fff);
 }
+
+/* Under the avatar: its status and "Set profile picture", right-aligned with it. */
+.profile-banner-under {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  padding: 0 1% 4px;
+  font-size: 12px;
+}
+.profile-banner-under .edit-bio-btn { white-space: nowrap; margin: 0; }
+.banner-editor { margin: 8px 0; }
+.banner-editor-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }

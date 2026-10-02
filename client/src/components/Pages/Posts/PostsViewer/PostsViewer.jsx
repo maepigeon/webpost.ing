@@ -16,6 +16,7 @@ import { usePageTitle } from '../../../../utils/usePageTitle.js';
 import { describeUploadError } from '../../../../utils/responsiveImage.js';
 import { GET_PROFILE_HEADER, GET_PROFILE_BANNER } from '../BasicTextPostServerApi.js';
 import ProfileBanner from './ProfileBanner.jsx';
+import BannerEditor from './BannerEditor.jsx';
 import { useAuthorTheme } from '../../../PageTheme/PageTheme.jsx';
 import Icon from '../../../Icon/Icon.jsx';
 import NewGridPost from '../../../TileArt/NewGridPost.jsx';
@@ -119,6 +120,7 @@ function PostsViewer() {
     const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 });
     // The banner's join date, public post count and the owner's own rows.
     const [banner, setBanner] = useState({ joined: null, publicPosts: 0, grid: null });
+    const [editingBanner, setEditingBanner] = useState(false);
     const [dmBlocked, setDmBlocked] = useState(false);
     const [dmBlockedByThem, setDmBlockedByThem] = useState(false);
     const [followsMe, setFollowsMe] = useState(false);
@@ -341,42 +343,45 @@ function PostsViewer() {
               onAvatarClick={() => setShowAvatarPopup(true)}
               onFollowers={() => openFollowModal('followers')}
               onFollowing={() => openFollowModal('following')}
+              underAvatar={(onlineStatus || canEdit) ? (
+                <>
+                  {onlineStatus && (
+                    <span style={{ color: onlineStatus.online ? '#2ecc71' : '#999', fontWeight: onlineStatus.online ? 600 : 400 }}>
+                      {onlineStatus.online
+                        ? 'Online'
+                        : onlineStatus.lastSeen ? `Last seen ${new Date(onlineStatus.lastSeen).toLocaleDateString()}` : null}
+                    </span>
+                  )}
+                  {canEdit && (
+                    <>
+                      <input type="file" accept="image/*" ref={avatarInputRef} style={{ display: 'none' }}
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const fd = new FormData();
+                          fd.append('file', file);
+                          try {
+                            const path = await POST_USER_AVATAR(username, fd);
+                            const relativePath = typeof path === 'string' ? path : path?.avatarPath || '';
+                            setAvatar(relativePath);
+                          } catch (err) {
+                            alert(describeUploadError(err), 'Upload failed');
+                          }
+                          e.target.value = '';
+                        }}
+                      />
+                      <button type="button" className="edit-bio-btn" onClick={() => avatarInputRef.current?.click()}>
+                        Set profile picture
+                      </button>
+                    </>
+                  )}
+                </>
+              ) : null}
+              editor={editingBanner ? (
+                <BannerEditor username={username} saved={banner.grid}
+                  onSaved={grid => setBanner(b => ({ ...b, grid }))} onClose={() => setEditingBanner(false)} />
+              ) : null}
             />
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 8 }}>
-              {/* Online status text */}
-              {onlineStatus && (
-                <span style={{ fontSize: 12, marginTop: 6, color: onlineStatus.online ? '#2ecc71' : '#999', display: 'flex', alignItems: 'center', gap: 4, fontWeight: onlineStatus.online ? 600 : 400 }}>
-                  {onlineStatus.online
-                    ? 'Online'
-                    : onlineStatus.lastSeen ? `Last seen ${new Date(onlineStatus.lastSeen).toLocaleDateString()}` : null
-                  }
-                </span>
-              )}
-              {/* Avatar upload — owner only */}
-              {canEdit && (
-                <div style={{ marginTop: 6 }}>
-                  <input type="file" accept="image/*" ref={avatarInputRef} style={{ display: 'none' }}
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      const fd = new FormData();
-                      fd.append('file', file);
-                      try {
-                        const path = await POST_USER_AVATAR(username, fd);
-                        const relativePath = typeof path === 'string' ? path : path?.avatarPath || '';
-                        setAvatar(relativePath);
-                      } catch (err) {
-                        alert(describeUploadError(err), 'Upload failed');
-                      }
-                      e.target.value = '';
-                    }}
-                  />
-                  <button type="button" className="edit-bio-btn" onClick={() => avatarInputRef.current?.click()}>
-                    Set profile picture
-                  </button>
-                </div>
-              )}
-            </div>
             {showAvatarPopup && (
               <AvatarPopup
                 src={avatar ? IMAGES_BASE_URL + avatar : undefined}
@@ -484,6 +489,9 @@ function PostsViewer() {
               <div className="profile-owner-actions">
                 {/* Group 1: content */}
                 <div className="profile-owner-group">
+                  <button type="button" className="edit-bio-btn" disabled={editingBanner} onClick={() => setEditingBanner(true)}>
+                    {banner.grid ? 'Edit banner' : '+ Banner'}
+                  </button>
                   <button type="button" className="edit-bio-btn" onClick={() => { setBioInput(bio); setEditingBio(true); }}>
                     {bio ? 'Edit bio' : '+ Bio'}
                   </button>
