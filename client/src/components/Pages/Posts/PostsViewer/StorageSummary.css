@@ -1,0 +1,24 @@
+/* A user's storage, under their profile card (owner and admins only). */
+.storage-summary {
+  margin-top: 12px;
+  font-size: 12px;
+  color: color-mix(in srgb, var(--th-ink, #222) 70%, transparent);
+  text-align: left;
+}
+.storage-quota { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; }
+.storage-meter {
+  display: inline-block;
+  width: 160px;
+  height: 4px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--th-ink, #222) 15%, transparent);
+  overflow: hidden;
+}
+.storage-meter-fill { display: block; height: 100%; background: var(--th-ink, #333); transition: width 0.3s; }
+.storage-meter-fill.is-high { background: #d32f2f; }
+.storage-details { max-width: 420px; margin: 8px auto 0; }
+.storage-details summary { cursor: pointer; text-align: center; }
+.storage-note { margin: 6px 0; }
+.storage-sections { margin: 0; display: grid; gap: 8px; }
+.storage-section dt { display: flex; justify-content: space-between; font-weight: 700; }
+.storage-section dd { display: flex; justify-content: space-between; margin: 0 0 0 12px; }

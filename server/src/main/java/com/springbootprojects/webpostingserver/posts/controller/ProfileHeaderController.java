@@ -50,6 +50,7 @@ public class ProfileHeaderController {
     @Autowired private LoginRepository loginRepository;
     @Autowired private JdbcTemplate jdbc;
     @Autowired private ImageProcessingService imageService;
+    @Autowired private com.springbootprojects.webpostingserver.posts.service.StorageAccountService storageAccount;
 
     private AuthSession authorize(String username, String token) {
         try { return loginRepository.authorize(username, token); }
@@ -111,6 +112,14 @@ public class ProfileHeaderController {
         Integer userId = jdbc.queryForObject("SELECT id FROM users WHERE username = ?", Integer.class, username);
         if (userId == null) return ResponseEntity.notFound().build();
 
+        // A header counts toward storage like any upload; the one it replaces is freed.
+        long previousBytes = jdbc.queryForObject(
+                "SELECT COALESCE(SUM(size_bytes), 0) FROM uploads WHERE user_id = ? AND filename LIKE 'header/%'",
+                Long.class, userId);
+        if (!storageAccount.fitsQuota(userId, data.length, previousBytes))
+            return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                    .body(Map.of("message", "Storage limit reached. Free up some space first."));
+
         try {
             Path dir = Paths.get(uploadDir, "headers");
             Files.createDirectories(dir);
@@ -124,6 +133,15 @@ public class ProfileHeaderController {
                     "SELECT header_path FROM users WHERE id = ?", String.class, userId);
             jdbc.update("UPDATE users SET header_path = ? WHERE id = ?", "/uploads/headers/" + filename, userId);
             deleteHeaderFiles(previous);
+            // Recorded as one upload: the image as stored, with its smaller copies.
+            long stored = data.length;
+            for (int width : ImageProcessingService.VARIANT_WIDTHS) {
+                Path variant = dir.resolve(base + "-" + width + "w" + ext);
+                if (Files.exists(variant)) stored += Files.size(variant);
+            }
+            jdbc.update("DELETE FROM uploads WHERE user_id = ? AND filename LIKE 'header/%'", userId);
+            jdbc.update("INSERT INTO uploads (filename, user_id, original_name, size_bytes) VALUES (?, ?, ?, ?)",
+                    "header/" + filename, userId, file.getOriginalFilename(), stored);
 
             log.info("Profile header updated for {}", username);
             return ResponseEntity.ok(Map.of(
@@ -156,6 +174,7 @@ public class ProfileHeaderController {
             String previous = jdbc.queryForObject(
                     "SELECT header_path FROM users WHERE id = ?", String.class, userId);
             jdbc.update("UPDATE users SET header_path = NULL WHERE id = ?", userId);
+            jdbc.update("DELETE FROM uploads WHERE user_id = ? AND filename LIKE 'header/%'", userId);
             deleteHeaderFiles(previous);
             return ResponseEntity.ok(Map.of("headerPath", "", "message", "Header image removed."));
         }

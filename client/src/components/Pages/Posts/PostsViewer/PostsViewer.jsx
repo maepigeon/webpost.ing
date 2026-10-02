@@ -16,42 +16,13 @@ import { usePageTitle } from '../../../../utils/usePageTitle.js';
 import { describeUploadError } from '../../../../utils/responsiveImage.js';
 import { GET_PROFILE_HEADER, GET_PROFILE_BANNER } from '../BasicTextPostServerApi.js';
 import ProfileBanner from './ProfileBanner.jsx';
+import StorageSummary from './StorageSummary.jsx';
 import BannerEditor from './BannerEditor.jsx';
 import { useAuthorTheme } from '../../../PageTheme/PageTheme.jsx';
 import Icon from '../../../Icon/Icon.jsx';
 import NewGridPost from '../../../TileArt/NewGridPost.jsx';
 import { errorMessage } from '../../../../utils/errorMessage.js';
 
-function fmtBytes(n) {
-  if (!n || n === 0) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB'];
-  let i = 0, v = n;
-  while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
-  return `${v.toFixed(1)} ${units[i]}`;
-}
-
-function StorageBar({ storage }) {
-  const uploadLimit = Number(storage.maxStorageBytes ?? -1);
-  const uploadUsed = Number(storage.uploadBytes ?? 0);
-  const pct = uploadLimit > 0 ? Math.min(100, (uploadUsed / uploadLimit) * 100) : null;
-  return (
-    <div style={{ marginTop: '12px', fontSize: '12px', color: 'color-mix(in srgb, var(--th-ink, #222) 65%, transparent)', textAlign: 'left' }}>
-      <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center', marginBottom: pct !== null ? '6px' : 0 }}>
-        <span>Uploads: <strong>{fmtBytes(uploadUsed)}</strong>{uploadLimit > 0 ? ` / ${fmtBytes(uploadLimit)}` : ''}</span>
-        <span>Post text: <strong>{fmtBytes(Number(storage.postTextBytes ?? 0))}</strong></span>
-        <span>Posts: <strong>{storage.postCount ?? 0}</strong></span>
-        {storage.commentBytes > 0 && <span>Comments: <strong>{fmtBytes(Number(storage.commentBytes ?? 0))}</strong></span>}
-        {storage.notificationBytes > 0 && <span>Inbox: <strong>{fmtBytes(Number(storage.notificationBytes ?? 0))}</strong></span>}
-        {storage.presetsBytes > 0 && <span>Presets: <strong>{fmtBytes(Number(storage.presetsBytes ?? 0))}</strong></span>}
-      </div>
-      {pct !== null && (
-        <div style={{ height: '4px', borderRadius: '2px', background: 'color-mix(in srgb, var(--th-ink, #222) 15%, transparent)', overflow: 'hidden', maxWidth: '320px', margin: '0 auto' }}>
-          <div style={{ height: '100%', width: `${pct}%`, background: pct > 85 ? '#d32f2f' : 'var(--th-ink, #333333)', borderRadius: '2px', transition: 'width 0.3s' }} />
-        </div>
-      )}
-    </div>
-  );
-}
 
 const URL_REGEX = /https?:\/\/[^\s<>"]+[^\s<>".,;:!?)/]/g;
 
@@ -549,7 +520,7 @@ function PostsViewer() {
               )}
             </div>
 
-            {storage && <StorageBar storage={storage} />}
+            {storage && <StorageSummary storage={storage} />}
           </div>
           {/* With posts, the button lives in the list's owner bar beside
               "Arrange posts"; without, on its own. */}

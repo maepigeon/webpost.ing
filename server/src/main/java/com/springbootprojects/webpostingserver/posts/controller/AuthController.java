@@ -66,6 +66,9 @@ public class AuthController {
     }
 
     @Autowired
+    private com.springbootprojects.webpostingserver.posts.service.StorageAccountService storageAccount;
+
+    @Autowired
     private com.springbootprojects.webpostingserver.posts.service.ImageProcessingService imageService;
 
     @Autowired
@@ -272,44 +275,23 @@ public class AuthController {
             if (!Boolean.TRUE.equals(isAdmin)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        Long uploadBytes = jdbc.queryForObject(
-            "SELECT COALESCE(SUM(up.size_bytes),0) FROM uploads up INNER JOIN users u ON u.id=up.user_id WHERE u.username=?",
-            Long.class, username);
-        Integer uploadCount = jdbc.queryForObject(
-            "SELECT COUNT(*) FROM uploads up INNER JOIN users u ON u.id=up.user_id WHERE u.username=?",
-            Integer.class, username);
-        Long postTextBytes = jdbc.queryForObject(
-            "SELECT COALESCE(SUM(octet_length(p.description)),0) FROM posts p INNER JOIN users_posts_junctions j ON j.post_id=p.id INNER JOIN users u ON u.id=j.user_id WHERE u.username=?",
-            Long.class, username);
-        Integer postCount = jdbc.queryForObject(
-            "SELECT COUNT(*) FROM users_posts_junctions j INNER JOIN users u ON u.id=j.user_id WHERE u.username=?",
-            Integer.class, username);
-
-        // Per-role limits
-        String role = jdbc.queryForObject("SELECT role FROM users WHERE username=?", String.class, username);
-        Map<String, Object> limits = null;
-        try {
-            limits = jdbc.queryForMap("SELECT max_storage_bytes, max_posts_per_day FROM role_limits WHERE role=?", role);
-        } catch (Exception ignored) {}
-
         int targetUserId = authUsername.equals(username) ? session.userId : social.getUserIdByUsername(username);
-        long notificationBytes = targetUserId > 0 ? social.getNotificationStorageBytes(targetUserId) : 0;
-        long commentBytes = targetUserId > 0 ? social.getUserCommentStorageBytes(targetUserId) : 0;
-        long presetsBytes = loginRepository.getPresetsStorageBytes(username);
+        if (targetUserId < 0) return ResponseEntity.notFound().build();
+        Map<String, Object> usage = storageAccount.usage(targetUserId);
 
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("uploadBytes", uploadBytes != null ? uploadBytes : 0L);
-        result.put("uploadCount", uploadCount != null ? uploadCount : 0);
-        result.put("postTextBytes", postTextBytes != null ? postTextBytes : 0L);
-        result.put("postCount", postCount != null ? postCount : 0);
-        result.put("notificationBytes", notificationBytes);
-        result.put("commentBytes", commentBytes);
-        result.put("presetsBytes", presetsBytes);
-        result.put("role", role);
-        if (limits != null) {
-            result.put("maxStorageBytes", limits.get("max_storage_bytes"));
-            result.put("maxPostsPerDay", limits.get("max_posts_per_day"));
-        }
+        // The breakdown, plus the flat figures the storage bar has always read.
+        @SuppressWarnings("unchecked") Map<String, Object> sections = (Map<String, Object>) usage.get("sections");
+        @SuppressWarnings("unchecked") Map<String, Object> quota = (Map<String, Object>) usage.get("quota");
+        Map<String, Object> result = new LinkedHashMap<>(usage);
+        result.put("uploadBytes", quota.get("usedBytes"));
+        result.put("postTextBytes", ((Map<?, ?>) ((Map<?, ?>) ((Map<?, ?>) sections.get("posts")).get("items")).get("content")).get("bytes"));
+        result.put("postCount", ((Map<?, ?>) ((Map<?, ?>) ((Map<?, ?>) sections.get("posts")).get("items")).get("content")).get("count"));
+        result.put("role", jdbc.queryForObject("SELECT role FROM users WHERE id=?", String.class, targetUserId));
+        result.put("maxStorageBytes", quota.get("limitBytes") == null ? -1L : quota.get("limitBytes"));
+        try {
+            result.put("maxPostsPerDay", jdbc.queryForObject(
+                "SELECT rl.max_posts_per_day FROM role_limits rl JOIN users u ON rl.role = u.role WHERE u.id = ?", Integer.class, targetUserId));
+        } catch (Exception ignored) {}
         return ResponseEntity.ok(result);
     }
 
@@ -662,20 +644,9 @@ public class AuthController {
             "SELECT id, filename, size_bytes FROM uploads WHERE user_id=? AND filename LIKE 'avatar/%'", userId);
         long oldAvatarBytes = existingAvatarRows.stream().mapToLong(r -> ((Number) r.get("size_bytes")).longValue()).sum();
 
-        String role = jdbc.queryForObject("SELECT role FROM users WHERE id=?", String.class, userId);
-        Long maxBytes = null;
-        try {
-            maxBytes = jdbc.queryForObject("SELECT max_storage_bytes FROM role_limits WHERE role=?", Long.class, role);
-        } catch (Exception ignored) {}
-        if (maxBytes != null && maxBytes >= 0) {
-            Long currentUsed = jdbc.queryForObject(
-                "SELECT COALESCE(SUM(size_bytes),0) FROM uploads WHERE user_id=?", Long.class, userId);
-            if (currentUsed == null) currentUsed = 0L;
-            long effectiveUsed = currentUsed - oldAvatarBytes + fileSize;
-            if (effectiveUsed > maxBytes)
-                return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
-                    .body("Storage limit exceeded. Free up space before uploading a new avatar.");
-        }
+        if (!storageAccount.fitsQuota(userId, fileSize, oldAvatarBytes))
+            return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body("Storage limit exceeded. Free up space before uploading a new avatar.");
 
         try {
             Path avatarDir = Paths.get(uploadDir, "avatars");

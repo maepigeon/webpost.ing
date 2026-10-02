@@ -36,6 +36,9 @@ public class UploadController {
     @Value("${app.upload-max-size:5242880}")
     private long maxFileSizeBytes;
 
+    @Autowired
+    private com.springbootprojects.webpostingserver.posts.service.StorageAccountService storageAccount;
+
     @Autowired LoginRepository loginRepository;
     @Autowired JdbcTemplate jdbc;
     @Autowired ImageProcessingService imageService;
@@ -118,25 +121,12 @@ public class UploadController {
         if (ids.isEmpty()) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not found");
         int userId = ids.get(0);
 
-        // Enforce role-based storage quota
-        try {
-            String role = jdbc.queryForObject("SELECT role FROM users WHERE id=?", String.class, userId);
-            if (role == null) role = "user";
-            Long maxStorage = jdbc.queryForObject(
-                "SELECT max_storage_bytes FROM role_limits WHERE role=?", Long.class, role);
-            if (maxStorage != null && maxStorage >= 0) {
-                Long currentUsage = jdbc.queryForObject(
-                    "SELECT COALESCE(SUM(size_bytes), 0) FROM uploads WHERE user_id=?", Long.class, userId);
-                long used = currentUsage != null ? currentUsage : 0L;
-                if (used + file.getSize() > maxStorage) {
-                    long usedMb = used / 1048576;
-                    long limitMb = maxStorage / 1048576;
-                    return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
-                        .body("Storage quota exceeded. Used " + usedMb + " MB of " + limitMb + " MB limit.");
-                }
-            }
-        } catch (Exception e) {
-            // If quota lookup fails for any reason, allow the upload rather than blocking it
+        // Enforce the storage quota (see StorageAccountService).
+        if (!storageAccount.fitsQuota(userId, file.getSize(), 0)) {
+            Long limit = storageAccount.fileLimitBytes(userId);
+            long usedMb = storageAccount.filesChargedBytes(userId) / 1048576;
+            return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body("Storage quota exceeded. Used " + usedMb + " MB of " + (limit == null ? 0 : limit / 1048576) + " MB limit.");
         }
 
         try {
