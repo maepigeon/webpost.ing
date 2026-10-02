@@ -304,3 +304,11 @@
 @media (max-width: 520px) {
   .profile-owner-divider { display: none; }
 }
+
+/* "No posts yet" is the site speaking, not the profile, so it uses the app's font. */
+.posts-viewer-empty {
+  font-family: var(--app-font);
+  font-size: 14px;
+  color: #555;
+  margin: 12px 0;
+}

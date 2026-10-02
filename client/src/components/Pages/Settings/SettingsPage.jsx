@@ -63,8 +63,21 @@ const OPEN_KEY = 'settingsOpen';
 
 /**
  * One section of Settings, folded under its title. Whether each is open is
- * remembered in this browser; only Email starts open.
+ * remembered in this browser; all start folded.
  */
+/** An "i" button that shows notes about a section, folded away until asked for. */
+function Info({ children }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="settings-info">
+      <button type="button" className={`settings-info-btn${open ? ' is-on' : ''}`} aria-expanded={open}
+        aria-label={open ? 'Hide notes' : 'About this'} title={open ? 'Hide notes' : 'About this'}
+        onClick={() => setOpen(o => !o)}>i</button>
+      {open && <div className="settings-info-body">{children}</div>}
+    </div>
+  );
+}
+
 function Section({ id, title, defaultOpen = false, children }) {
   const [open, setOpen] = useState(() => {
     try { const kept = JSON.parse(localStorage.getItem(OPEN_KEY)) || {}; return id in kept ? kept[id] : defaultOpen; }
@@ -209,27 +222,23 @@ export default function SettingsPage() {
   // Changed relative to whichever address is in play — the confirmed one, or
   // one already waiting to be confirmed.
   const addressChanged = emailInput.trim() !== (email || settings.pendingEmail || '');
-  const notificationsUsable = mailEnabled && emailVerified;
 
   return (
     <div className="settings-page">
       <div className="settings-card">
         <h1 className="settings-title">Settings</h1>
 
-        {!mailEnabled && (
-          <p className="settings-notice">
-            Email isn&rsquo;t set up on this site yet, so nothing is sent. Your choices
-            below are kept for when it is.
-          </p>
-        )}
 
         {/* ── Email: the address, and what to send to it ──────────────────── */}
-        <Section id="email" title="Email" defaultOpen>
-          <p className="settings-section-hint">
-            Optional. We use it for the emails you choose below and to help you
-            reset your password. Nobody else sees it. It&rsquo;s added once you click
-            the link we send to it. At most 3 emails a day; any more come together in one.
-          </p>
+        <Section id="email" title="Email">
+          <Info>
+            {!mailEnabled && <p>Email isn&rsquo;t set up on this site yet, so nothing is sent. Your choices here are kept for when it is.</p>}
+            <p>
+              Your address is optional. It&rsquo;s used for the emails you choose below and to help you
+              reset your password, and nobody else sees it. It&rsquo;s added once you click the link
+              we send to it. At most 3 emails a day; any more come together in one.
+            </p>
+          </Info>
 
           <form className="settings-email-form" onSubmit={saveEmail}>
             <input
@@ -274,12 +283,8 @@ export default function SettingsPage() {
           )}
 
           <h3 className="settings-subtitle">What to email you</h3>
-          {!notificationsUsable && (
-            <p className="settings-section-hint">
-              {mailEnabled
-                ? 'Confirm your address to get these.'
-                : 'Nothing is sent until email is set up on this site.'}
-            </p>
+          {mailEnabled && !emailVerified && (
+            <p className="settings-section-hint">Confirm your address to get these.</p>
           )}
 
           <label className="settings-toggle settings-toggle--master">
