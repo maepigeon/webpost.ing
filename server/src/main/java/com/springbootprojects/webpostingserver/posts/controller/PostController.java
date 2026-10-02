@@ -172,6 +172,32 @@ public class PostController {
     }
 
     /**
+     * What a post card in a message needs: title, address, author and the
+     * content (for the first grid). A post shared in a direct message is seen
+     * by whoever reads that conversation, so this answers by the same rule as
+     * the address lookups: a draft is the author's alone, and for anyone else
+     * it is indistinguishable from a post that does not exist.
+     */
+    @GetMapping("/posts/{id}/card")
+    public ResponseEntity<?> postCard(@PathVariable long id,
+            @CookieValue(name = "username", required = false) String authUsername,
+            @CookieValue(name = "authToken", required = false) String token) {
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+                SELECT p.id, p.title, p.slug, p.published, p.description, COALESCE(u.username, '') AS username
+                  FROM posts p
+                  LEFT JOIN users_posts_junctions j ON j.post_id = p.id
+                  LEFT JOIN users u ON u.id = j.user_id
+                 WHERE p.id = ?
+                """, id);
+        if (rows.isEmpty() || String.valueOf(rows.get(0).get("username")).isEmpty())
+            return ResponseEntity.notFound().build();
+        Map<String, Object> row = rows.get(0);
+        if (!canSee(Boolean.TRUE.equals(row.get("published")), (String) row.get("username"), authUsername, token))
+            return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(row);
+    }
+
+    /**
      * Makes a slug unique among the author's other posts by appending a counter.
      *
      * Posts are now reachable by slug alone, so a duplicate would make one of
