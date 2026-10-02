@@ -26,6 +26,44 @@ export const SMOOTH_FONT = '"JetBrains Mono", ui-monospace, SFMono-Regular, Menl
 /** Small: the pixel letters at their own size, centred, leaving room above and below. */
 export const FONT_NAMES = { pixel: 'Pixel', small: 'Small pixel', smooth: 'Smooth' };
 
+// ── Extensions ────────────────────────────────────────────────────────────────
+// `ext` on a grid or a layer holds data this file does not know about:
+// { "<namespace>": <JSON> }. It is kept through every load and save, so a new
+// feature can store what it needs (a sticker's anchor, a pack's credit, an
+// animation) without changing the validators, and a feature that is later
+// removed leaves its data harmless. Namespaces are lowercase words; each
+// value must be plain JSON, at most EXT_MAX_DEPTH deep, and the whole of one
+// ext at most EXT_MAX_CHARS once written out. Anything else is dropped.
+
+export const EXT_MAX_CHARS = 16000;
+export const EXT_MAX_DEPTH = 6;
+const EXT_NAMESPACE = /^[a-z][a-z0-9-]{0,23}$/;
+
+function plainJson(v, depth = 0) {
+  if (depth > EXT_MAX_DEPTH) return false;
+  if (v === null || ['string', 'boolean'].includes(typeof v)) return true;
+  if (typeof v === 'number') return Number.isFinite(v);
+  if (Array.isArray(v)) return v.every(x => plainJson(x, depth + 1));
+  if (typeof v === 'object' && Object.getPrototypeOf(v) === Object.prototype) {
+    return Object.entries(v).every(([k, x]) => k !== '__proto__' && plainJson(x, depth + 1));
+  }
+  return false;
+}
+
+/** The namespaces of a raw ext that are well-formed, or null if none (or too much) remain. */
+export function cleanExt(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const out = {};
+  for (const [ns, value] of Object.entries(raw)) {
+    if (EXT_NAMESPACE.test(ns) && plainJson(value)) out[ns] = value;
+  }
+  if (!Object.keys(out).length) return null;
+  return JSON.stringify(out).length <= EXT_MAX_CHARS ? out : null;
+}
+
+/** The grid format's current version (see guide/GRID-FORMAT.md). */
+export const GRID_VERSION = 3;
+
 const HEX_COLOUR = /^#[0-9a-fA-F]{6}$/;
 const GLYPH_HEX = /^([0-9a-f]{32}|[0-9a-f]{64})$/;
 const PNG_DATA = 'data:image/png;base64,';
@@ -75,6 +113,7 @@ function cleanLayer(raw) {
     id: typeof raw.id === 'string' && /^[a-z0-9]{1,32}$/i.test(raw.id) ? raw.id : newLayerId(),
     name: String(raw.name || 'Layer').slice(0, 40),
     visible: raw.visible !== false,
+    ...(cleanExt(raw.ext) ? { ext: cleanExt(raw.ext) } : {}),
   };
   if (raw.kind === 'photo') {
     // Only the app's own uploads: a grid must not make a reader's browser
@@ -125,7 +164,7 @@ export const EDGES = { smooth: 'Smooth', pixel: 'Pixel' };
 export function normaliseGrid(raw) {
   const r = raw && typeof raw === 'object' ? raw : {};
   const d = {
-    v: 3,
+    v: GRID_VERSION,
     cols: clampInt(r.cols, LIMITS.minCols, LIMITS.maxCols, 16),
     rows: clampInt(r.rows, LIMITS.minRows, LIMITS.maxRows, 6),
     glyphs: cleanGlyphs(r.glyphs),
@@ -140,6 +179,8 @@ export function normaliseGrid(raw) {
   if (EDGES[r.edges]) d.edges = r.edges;
   const links = cleanLinks(r.links, d);
   if (links.length) d.links = links;
+  const ext = cleanExt(r.ext);
+  if (ext) d.ext = ext;
   if (!d.layers.length) d.layers = [pixelLayer('Background')];
   const seen = new Set();
   for (const l of d.layers) { if (seen.has(l.id)) l.id = newLayerId(); seen.add(l.id); }

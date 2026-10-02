@@ -35,6 +35,11 @@ public final class GridValidator {
     // A link from tiles: a path on this site or a web address, nothing that runs.
     private static final Pattern LINK = Pattern.compile("^(/(?!/)\\S*|https?://[^\\s/$.?#]\\S*)$", Pattern.CASE_INSENSITIVE);
     private static final int MAX_LINKS = 64;
+    // `ext`: data this validator doesn't know about, kept as it came (see
+    // tileGrid.js): { "<namespace>": <JSON> }, plain JSON only, bounded.
+    private static final Pattern EXT_NAMESPACE = Pattern.compile("^[a-z][a-z0-9-]{0,23}$");
+    private static final int EXT_MAX_CHARS = 16000;
+    private static final int EXT_MAX_DEPTH = 6;
     private static final Pattern LAYER_ID = Pattern.compile("^[A-Za-z0-9]{1,32}$");
     private static final int MAX_LAYERS = 10;
     private static final int MAX_PAINT_CHARS = 700_000;
@@ -69,6 +74,8 @@ public final class GridValidator {
 
         ArrayNode links = cleanLinks(in.path("links"), rows, cols);
         if (!links.isEmpty()) out.set("links", links);
+        ObjectNode ext = cleanExt(in.path("ext"));
+        if (ext != null) out.set("ext", ext);
 
         ArrayNode layers = out.putArray("layers");
         JsonNode inLayers = in.path("layers");
@@ -91,6 +98,27 @@ public final class GridValidator {
      * Custom characters: one character each, mapped to an 8×16 or 16×16
      * bitmap as hex. Anything else is dropped. Shared with pixel font libraries.
      */
+    /** The well-formed namespaces of an ext, or null if none remain or it is too large. */
+    static ObjectNode cleanExt(JsonNode in) {
+        if (in == null || !in.isObject()) return null;
+        ObjectNode out = MAPPER.createObjectNode();
+        for (Iterator<Map.Entry<String, JsonNode>> it = in.fields(); it.hasNext(); ) {
+            Map.Entry<String, JsonNode> e = it.next();
+            if (EXT_NAMESPACE.matcher(e.getKey()).matches() && plainJson(e.getValue(), 0)) out.set(e.getKey(), e.getValue());
+        }
+        if (out.isEmpty()) return null;
+        return out.toString().length() <= EXT_MAX_CHARS ? out : null;
+    }
+
+    private static boolean plainJson(JsonNode v, int depth) {
+        if (depth > EXT_MAX_DEPTH) return false;
+        if (v.isContainerNode()) {
+            for (JsonNode child : v) if (!plainJson(child, depth + 1)) return false;
+            return true;
+        }
+        return v.isValueNode() && !v.isBinary() && !v.isPojo();
+    }
+
     /** Each link's address and tiles; a tile belongs to one link at most. */
     static ArrayNode cleanLinks(JsonNode in, int rows, int cols) {
         ArrayNode out = MAPPER.createArrayNode();
@@ -139,6 +167,8 @@ public final class GridValidator {
         String name = l.path("name").asText("Layer");
         out.put("name", name.length() > 40 ? name.substring(0, 40) : name);
         out.put("visible", !l.has("visible") || l.path("visible").asBoolean(true));
+        ObjectNode layerExt = cleanExt(l.path("ext"));
+        if (layerExt != null) out.set("ext", layerExt);
 
         if ("photo".equals(l.path("kind").asText())) {
             String src = l.path("src").asText("");

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   normaliseGrid, pixelLayer, rowChars, writeSlot, writeChar, setTileWidths, isWide, restyleSlots, resizeLayerText,
   orderSlots, slotsIn, containRect, bitsFromHex, hexFromBits, seedBits, slotsPerRow, LIMITS,
-  photoRect, resizePhoto, zoomPhoto, PHOTO_SCALE, cleanHref, isExternalHref, setLink, linkAt,
+  photoRect, resizePhoto, zoomPhoto, PHOTO_SCALE, cleanHref, isExternalHref, setLink, linkAt, cleanExt, GRID_VERSION,
 } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
 import { pixelGlyph } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileFont.js';
 
@@ -269,5 +269,32 @@ describe('links on tiles', () => {
     expect(d.links).toEqual([{ href: '/b', tiles: ['0,1', '0,2'] }]);
     const loaded = normaliseGrid({ ...d, links: [...d.links, { href: 'javascript:x', tiles: ['0,0'] }, { href: '/c', tiles: ['0,1', '5,5'] }] });
     expect(loaded.links).toEqual([{ href: '/b', tiles: ['0,1', '0,2'] }]);
+  });
+});
+
+describe('extensions (ext)', () => {
+  it('keeps well-formed namespaced JSON on the grid and on layers, through a reload', () => {
+    const d = normaliseGrid({ v: 3, cols: 2, rows: 1, ext: { sticker: { anchor: [1, 2], tags: ['a'] } },
+      layers: [{ id: 'a', kind: 'pixel', ext: { note: 'hi' } }, { id: 'b', kind: 'photo', src: '/uploads/x.png', ext: { credit: { by: 'mae' } } }] });
+    expect(d.ext).toEqual({ sticker: { anchor: [1, 2], tags: ['a'] } });
+    expect(d.layers[0].ext).toEqual({ note: 'hi' });
+    expect(d.layers[1].ext).toEqual({ credit: { by: 'mae' } });
+    expect(normaliseGrid(JSON.parse(JSON.stringify(d)))).toEqual(d);
+    expect(d.v).toBe(GRID_VERSION);
+  });
+
+  it('drops bad namespaces, non-JSON values, deep nesting and oversize data', () => {
+    expect(cleanExt({ Bad: 1, 'x y': 1, ok: 1 })).toEqual({ ok: 1 });
+    expect(cleanExt({ f: () => 1 })).toBeNull();
+    expect(cleanExt({ n: NaN })).toBeNull();
+    expect(cleanExt({ d: { a: { b: { c: { d: { e: { f: { g: 1 } } } } } } } })).toBeNull();
+    expect(cleanExt({ big: 'x'.repeat(20000) })).toBeNull();
+    expect(cleanExt([1, 2])).toBeNull();
+    expect(cleanExt(JSON.parse('{"__proto__": {"polluted": 1}, "ok": 1}'))).toEqual({ ok: 1 });
+    expect({}.polluted).toBeUndefined();
+  });
+
+  it('leaves ext out when there is none', () => {
+    expect('ext' in normaliseGrid({})).toBe(false);
   });
 });

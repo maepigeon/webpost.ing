@@ -57,6 +57,17 @@ class ThemeValidatorTest {
     }
 
     @Test
+    void gridKeepsWellFormedExtAndDropsTheRest() throws Exception {
+        String grid = "{\"v\":3,\"cols\":2,\"rows\":1,\"ext\":{\"sticker\":{\"anchor\":[1,2]},\"Bad\":1,\"deep\":{\"a\":{\"b\":{\"c\":{\"d\":{\"e\":{\"f\":{\"g\":1}}}}}}}},"
+            + "\"layers\":[{\"id\":\"a1\",\"kind\":\"pixel\",\"ext\":{\"note\":\"hi\"}}]}";
+        var out = GridValidator.normalise(new ObjectMapper().readTree(grid), 8, 8);
+        assertThat(out.path("ext").toString()).isEqualTo("{\"sticker\":{\"anchor\":[1,2]}}");
+        assertThat(out.path("layers").get(0).path("ext").toString()).isEqualTo("{\"note\":\"hi\"}");
+        String none = "{\"v\":3,\"cols\":2,\"rows\":1,\"layers\":[{\"id\":\"a1\",\"kind\":\"pixel\"}]}";
+        assertThat(GridValidator.normalise(new ObjectMapper().readTree(none), 8, 8).has("ext")).isFalse();
+    }
+
+    @Test
     void gridKeepsOnlyAKnownEdgesSetting() throws Exception {
         ObjectMapper json = new ObjectMapper();
         String layers = ",\"layers\":[{\"id\":\"a1\",\"kind\":\"pixel\"}]}";
