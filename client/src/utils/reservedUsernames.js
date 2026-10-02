@@ -22,12 +22,3 @@ export const RESERVED_USERNAMES = new Set([
   'moderator', 'moderators', 'staff', 'official', 'webpost', 'webposting',
   'system', 'root', 'null', 'undefined', 'me', 'new', 'edit', 'delete', 'create',
 ]);
-
-export function isReservedUsername(name) {
-  return typeof name === 'string' && RESERVED_USERNAMES.has(name.trim().toLowerCase());
-}
-
-/** The canonical path to a profile. */
-export function profilePath(username) {
-  return `/${username}`;
-}

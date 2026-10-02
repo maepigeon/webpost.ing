@@ -39,7 +39,6 @@
 }
 .wp-label--gap { margin-left: 10px; min-width: 0; }
 .wp-grow { flex: 1; }
-.wp-value { min-width: 24px; color: #e6e6e6; font-variant-numeric: tabular-nums; }
 
 .wp-editor .wp-chip {
   display: inline-flex;

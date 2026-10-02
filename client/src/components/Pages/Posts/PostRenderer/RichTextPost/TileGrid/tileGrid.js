@@ -238,7 +238,6 @@ export const slotsPerRow = (d) => d.cols * SLOTS_PER_TILE;
 /** Width of one slot in grid pixels. */
 export const SLOT_W = TILE / SLOTS_PER_TILE;
 export const slotKey = (r, s) => `${r},${s}`;
-export const tileOfSlot = ({ r, s }) => ({ r, c: Math.floor(s / SLOTS_PER_TILE) });
 export const isWide = (layer, r, c) => Boolean(layer.wide && layer.wide.includes(`${r},${c}`));
 
 /** The characters of a layer's row, padded with spaces to the full slot count. Code-point safe. */

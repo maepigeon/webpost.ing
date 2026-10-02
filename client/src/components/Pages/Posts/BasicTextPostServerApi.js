@@ -13,7 +13,6 @@ import { BASE_URL as baseUrl } from '../../../config.js';
  */
 const TEXT_GET = { withCredentials: true, transformResponse: [(d) => d] };
 
-
 //delete
 export function DELETE_POST(id) {
   const promise = axios.delete(baseUrl + "/api/posts/" + id);
@@ -59,7 +58,6 @@ export function READ_POSTS_BY_USER(username, limit = 20, offset = 0) {
   return axios.get(baseUrl + `/api/user/${username}`, { params: { limit, offset }, withCredentials: true })
     .then(r => r.data);
 };
-
 
 const asJson = { headers: { 'Content-Type': 'application/json' }, withCredentials: true };
 
@@ -119,7 +117,6 @@ export function GET_USER_FROM_POST(id) {
   return axios.get(baseUrl + "/api/UserFromPostID/" + id + "")
     .then((response) => response.data);
 }
-
 
 //create
 export function CREATE_POST(id, titleField, descriptionField, publishedField, backgroundPattern, folder, slug) {
@@ -191,11 +188,6 @@ export function UPDATE_USER_BIO_LINKS(username, links) {
 
 export function GET_USER_STORAGE(username) {
   return axios.get(baseUrl + "/api/users/" + username + "/storage", { withCredentials: true })
-    .then((response) => response.data);
-}
-
-export function GET_TOTAL_STORAGE() {
-  return axios.get(baseUrl + "/api/admin/storage", { withCredentials: true })
     .then((response) => response.data);
 }
 
@@ -291,11 +283,6 @@ export function SET_REACTION(postId, reaction) {
     .then(r => r.data);
 }
 
-export function REMOVE_REACTION(postId) {
-  return axios.delete(baseUrl + `/api/posts/${postId}/reactions`, { withCredentials: true })
-    .then(r => r.data);
-}
-
 // ── Social: follows ───────────────────────────────────────────────────────────
 
 export function GET_FOLLOW_STATUS(username) {
@@ -340,11 +327,6 @@ export function UNBLOCK_MESSAGES(username) {
 
 // ── Social: discussions & comments ───────────────────────────────────────────
 
-export function GET_DISCUSSION_STATUS(postId) {
-  return axios.get(baseUrl + `/api/posts/${postId}/discussion`, { withCredentials: true })
-    .then(r => r.data);
-}
-
 export function SET_DISCUSSION_ENABLED(postId, enabled) {
   return axios.put(baseUrl + `/api/posts/${postId}/discussion`, { enabled }, { withCredentials: true })
     .then(r => r.data);
@@ -385,11 +367,6 @@ export function SET_COMMENT_REACTION(commentId, reaction) {
     .then(r => r.data);
 }
 
-export function REMOVE_COMMENT_REACTION(commentId) {
-  return axios.delete(baseUrl + `/api/comments/${commentId}/reactions`, { withCredentials: true })
-    .then(r => r.data);
-}
-
 // ── Social: notifications ─────────────────────────────────────────────────────
 
 export function GET_NOTIFICATIONS(limit = 30, offset = 0) {
@@ -419,16 +396,6 @@ export function DELETE_NOTIFICATION(id) {
 
 export function CLEAR_NOTIFICATIONS() {
   return axios.delete(baseUrl + `/api/notifications`, { withCredentials: true })
-    .then(r => r.data);
-}
-
-export function SEND_MESSAGE(username, message) {
-  return axios.post(baseUrl + `/api/users/${username}/message`, { message }, { withCredentials: true })
-    .then(r => r.data);
-}
-
-export function DELETE_ACCOUNT(username) {
-  return axios.delete(baseUrl + `/api/users/${username}`, { withCredentials: true })
     .then(r => r.data);
 }
 
@@ -466,11 +433,6 @@ export function SEARCH_POSTS(q, from) {
 }
 
 // ── Follow counts ─────────────────────────────────────────────────────────────
-
-export function GET_FOLLOW_COUNTS(username) {
-  return axios.get(baseUrl + `/api/users/${username}/follow-counts`, { withCredentials: true })
-    .then(r => r.data);
-}
 
 // ── Activity ──────────────────────────────────────────────────────────────────
 

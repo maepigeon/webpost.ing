@@ -143,7 +143,6 @@
 .activity-score--neg { color: #a01515; }
 
 .activity-badge--draft { background: rgba(170, 170, 170, 0.15); color: #474747; }
-.activity-badge--orphan { background: rgba(180,0,0,0.1); color: #b71c1c; }
 
 .activity-reaction-emoji { font-size: 20px; }
 
@@ -175,13 +174,6 @@
   background: #fff;
   cursor: pointer;
   font-size: 14px;
-}
-
-.activity-edited {
-  font-size: 11px;
-  color: #aaa;
-  font-style: italic;
-  flex-shrink: 0;
 }
 
 .activity-comment-preview {

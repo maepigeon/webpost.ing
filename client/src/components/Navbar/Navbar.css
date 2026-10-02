@@ -16,24 +16,8 @@
 }
 
 /* Left-aligned button cluster (all breakpoints) */
-.nav-left-group {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-}
-
 
 /* Personal nav group — My Profile, Activity, Inbox, bell (desktop) */
-.navGroup {
-    display: inline-flex;
-    align-items: center;
-    gap: 0;
-    background: rgba(162, 162, 162, 0.15);
-    border: 1px solid rgba(162, 162, 162, 0.35);
-    border-radius: 8px;
-    padding: 2px 4px;
-    margin: 2px;
-}
 
 /* ── Overflow layout ────────────────────────────────────────────────────────
    The bar shows as many items as fit and moves the rest into the menu, at every
@@ -182,7 +166,6 @@
 
 /* Mobile log-in button — only shown on mobile when logged out */
 .nav-mobile-login { display: none; }
-
 
 /* ── Welcome line in mobile popup ─────────────────────────────────────────── */
 .nav-mobile-popup-welcome {

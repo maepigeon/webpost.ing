@@ -1,5 +1,5 @@
 /**
- * Grid posts: ordinary posts whose content is a single tile grid.
+ * Grid posts: ordinary posts whose content is a tile grid.
  *
  * Being posts, they get everything posts have — dragging into order, folders,
  * pinning, their own page, reactions — and the profile card draws the grid
@@ -8,19 +8,6 @@
 import { normaliseGrid, defaultGrid } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
 
 const emptyParagraph = { children: [], direction: null, format: '', indent: 0, type: 'paragraph', version: 1, textFormat: 0, textStyle: '' };
-
-/** The grid in a post's stored content, when that is all the post holds; otherwise null. */
-export function gridOfPost(description) {
-  if (!description || typeof description !== 'string' || !description.includes('"tilegrid"')) return null;
-  let state;
-  try { state = JSON.parse(description); } catch { return null; }
-  const children = state?.root?.children;
-  if (!Array.isArray(children)) return null;
-  const grids = children.filter(c => c?.type === 'tilegrid');
-  const others = children.filter(c => c?.type !== 'tilegrid'
-    && !(c?.type === 'paragraph' && (!c.children || c.children.length === 0)));
-  return grids.length === 1 && others.length === 0 ? normaliseGrid(grids[0].grid) : null;
-}
 
 /**
  * The first grid anywhere in a post's stored content, whatever else the post

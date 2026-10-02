@@ -65,15 +65,6 @@
   font-weight: 400;
 }
 
-.login-title {
-  font-size: 20px;
-  font-weight: 700;
-  color: #1c1c1c;
-  margin: 0 0 24px;
-  text-align: center;
-  letter-spacing: -0.02em;
-}
-
 .login-field {
   margin-bottom: 16px;
 }

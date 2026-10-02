@@ -156,7 +156,6 @@ html[data-th-hide-wallpaper] body { background-image: none !important; }
 }
 
 /* Buttons on a profile or post pick up the accent. */
-#appBody :is(.profile-header-card, .editor-post-card) :is(.edit-bio-btn, .follow-count-btn, .viewer-share-btn, .viewer-edit-btn, .post-discussion-btn),
 .theme-preview .theme-button {
   font-family: var(--th-font-body);
   background: transparent;
@@ -166,7 +165,6 @@ html[data-th-hide-wallpaper] body { background-image: none !important; }
   text-shadow: none;
 }
 /* The number inside takes the button's colour, so it shows on a dark card. */
-#appBody .profile-header-card .follow-count-btn .follow-count-num { color: inherit; }
 
 /* Small buttons on a card — a post's edit/delete, the folder button — are
    tinted from the ink too, instead of white plates that glare on dark themes. */
@@ -184,16 +182,6 @@ html[data-th-hide-wallpaper] body { background-image: none !important; }
 
 /* The owner's drag rail is tinted from the page's ink, not a fixed light grey,
    so it belongs on dark themes as well as light ones. */
-#appBody .profile-post-drag-handle {
-  color: var(--th-ink);
-  background: color-mix(in srgb, var(--th-ink) 7%, transparent);
-  border-right: 1px solid color-mix(in srgb, var(--th-ink) 18%, transparent);
-  box-shadow: none;
-}
-#appBody .profile-post-drag-handle:hover {
-  background: color-mix(in srgb, var(--th-ink) 14%, transparent);
-  box-shadow: none;
-}
 
 @keyframes th-rainbow-drift {
   from { background-position: 0% 50%; }

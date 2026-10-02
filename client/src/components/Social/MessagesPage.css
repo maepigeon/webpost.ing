@@ -332,7 +332,6 @@
   background: rgba(119, 119, 119, 0.12);
   transform: scale(1.1);
 }
-.messages-reply-btn--mine { color: #5c5c5c; }
 
 .messages-bubble {
   display: flex;

@@ -290,12 +290,6 @@
   color: var(--ink, #1c1c1c);
 }
 
-.settings-code-size {
-  font-weight: 400;
-  color: var(--ink-soft, #505050);
-  font-variant-numeric: tabular-nums;
-}
-
 .settings-select {
   padding: 8px 11px;
   font-size: 0.9rem;
@@ -309,8 +303,6 @@
 }
 
 .settings-select:focus { border-color: rgba(119, 119, 119, 0.6); box-shadow: var(--focus-ring); }
-
-.settings-range { width: 100%; accent-color: var(--accent-fill, #666666); cursor: pointer; }
 
 /* The sample uses the same custom properties as a real code block, so what is
    shown here is exactly what a post will render. */

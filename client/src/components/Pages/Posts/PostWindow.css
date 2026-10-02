@@ -1,6 +1,4 @@
-.windowHeader {
-    padding: 20px;
-}
+
 
 .window {
     width: 100%;
@@ -14,12 +12,6 @@
 }
 .postsViewerContainer {
     max-width: 1000px;
-}
-
-.newPostButton {
-    margin-bottom: 20px;
-    background-color: rgb(134, 134, 134);
-    color: black;
 }
 
 /* Liquid-glass profile header card — matches post card glass level */
@@ -106,64 +98,11 @@
         inset 0 0 0 1px rgba(255,255,255,0.35);
 }
 
-.follow-count-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 5px 13px;
-    border-radius: 20px;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 500;
-    color: #444;
-    background: var(--neo-bg);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: var(--neo-border);
-    box-shadow: var(--neo-shadow);
-    transition: box-shadow 0.15s, transform 0.12s, color 0.12s;
-}
-
-.follow-count-btn:hover {
-    color: #565656;
-    box-shadow: var(--neo-shadow-hover);
-    transform: translateY(-1px);
-}
-
-.follow-count-btn:active {
-    transform: translateY(0);
-    box-shadow: var(--neo-shadow-active);
-}
-
-.follow-count-num {
-    font-weight: 700;
-    color: #222;
-}
-
 /* ── DM block button ─────────────────────────────────────────────────────── */
 .btn-block-dm   { color: #686868; }
 .btn-unblock-dm { color: #484848; }
 
 /* ── Neoskeuomorphic profile action buttons ──────────────────────────────── */
-.profile-header-card button:not(.follow-count-btn):not(.reaction-btn):not(.comment-reaction-btn):not(.follow-btn):not(.profile-banner *) {
-    background: var(--neo-bg);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: var(--neo-border);
-    border-radius: 12px;
-    box-shadow: var(--neo-shadow);
-    transition: box-shadow 0.15s, transform 0.12s;
-}
-
-.profile-header-card button:not(.follow-count-btn):not(.reaction-btn):not(.comment-reaction-btn):not(.follow-btn):not(.profile-banner *):hover {
-    box-shadow: var(--neo-shadow-hover);
-    transform: translateY(-1px);
-}
-
-.profile-header-card button:not(.follow-count-btn):not(.reaction-btn):not(.comment-reaction-btn):not(.follow-btn):not(.profile-banner *):active {
-    transform: translateY(0);
-    box-shadow: var(--neo-shadow-active);
-}
 
 @keyframes online-pulse {
   0%, 100% { box-shadow: 0 0 0 3px rgba(146, 146, 146, 0.35), 0 0 8px rgba(146, 146, 146, 0.5); }

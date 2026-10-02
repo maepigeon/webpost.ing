@@ -77,30 +77,9 @@
   box-shadow: 1px 0 0 rgba(255, 255, 255, 0.7);
 }
 
-.profile-wallpaper-anchor { position: relative; display: inline-block; }
-
 /* ── Wallpaper panel ────────────────────────────────────────────────────────
    Was a flat white box with a grey hairline, which read as a browser dialog
    dropped onto the page rather than part of it. */
-
-.profile-wallpaper-panel {
-  margin-top: 10px;
-  padding: 16px 18px;
-  border-radius: 16px;
-  text-align: left;
-  background: rgba(255, 255, 255, 0.62);
-  backdrop-filter: blur(22px) saturate(165%);
-  -webkit-backdrop-filter: blur(22px) saturate(165%);
-  border: 1.5px solid rgba(255, 255, 255, 0.9);
-  box-shadow:
-    0 10px 34px rgba(28, 28, 28, 0.15),
-    0 2px 8px rgba(0, 0, 0, 0.07),
-    inset 0 2px 0 rgba(255, 255, 255, 0.95),
-    inset 0 -2px 0 rgba(0, 0, 0, 0.05),
-    inset 2px 0 0 rgba(255, 255, 255, 0.45),
-    inset -2px 0 0 rgba(255, 255, 255, 0.45);
-  animation: profile-panel-in 0.24s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
 
 @keyframes profile-panel-in {
   from { opacity: 0; transform: translateY(-8px) scale(0.98); }
@@ -136,7 +115,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .profile-wallpaper-panel { animation: none; }
+
   .profile-bio-link { transition: none; }
   .profile-bio-link:hover { transform: none; }
 }
@@ -214,29 +193,12 @@
 /* Chips and buttons inside the card keep their own surfaces, which already
    carry enough contrast; they should not inherit the banner ink. */
 .profile-header-card--image .profile-bio-link,
-.profile-header-card--image .edit-bio-btn,
-.profile-header-card--image .follow-count-btn {
+.profile-header-card--image .edit-bio-btn {
   color: var(--accent, #565656);
   text-shadow: none;
 }
 
 /* ── Banner ink control ─────────────────────────────────────────────────── */
-
-.profile-header-ink-group { display: inline-flex; gap: 3px; }
-
-.profile-header-ink-btn {
-  padding: 3px 9px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--ink-soft, #505050);
-  background: rgba(255, 255, 255, 0.86);
-  border: 1px solid var(--hairline, rgba(28, 28, 28, 0.13));
-  border-radius: var(--radius-pill, 999px);
-  cursor: pointer;
-  text-shadow: none;
-}
-
-.profile-header-ink-btn:hover { color: var(--ink, #1c1c1c); }
 
 .profile-header-ink-btn--active {
   color: #ffffff;

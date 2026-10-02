@@ -43,18 +43,11 @@ body {
     }
 }    
 
-
 .horizontalContentBox {
     display: flex;
     flex-direction: horizontal;
 }
 
-.horizontalContentBox .leftContent {
-    flex-basis: 70px;
-    padding-left: 10px;
-    padding-right: 10px;    
-    text-align: center;
-}
 .horizontalContentBox .rightContent {
     flex-grow: 1;
     margin-left: 10px;
