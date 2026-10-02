@@ -47,6 +47,7 @@ import ImageCropDialog from '../../../../ImageCrop/ImageCropDialog.jsx';
 import ImagePicker from '../../../../ImagePicker/ImagePicker.jsx';
 import { postPath, slugify } from '../../../../../utils/postUrl.js';
 import ColourPicker from '../../../../TileArt/ColourPicker.jsx';
+import { StickerCenter } from '../../../../TileArt/StickerCenter.jsx';
 
 const EDITOR_NODES = [HeadingNode, ListNode, ListItemNode, CustomCodeNode, CodeHighlightNode, ImageNode, MathNode, TileGridNode, LinkNode];
 
@@ -1193,6 +1194,48 @@ function TileGridToolbarPlugin() {
   );
 }
 
+/**
+ * Insert → Sticker: opens the sticker center as a chooser, and puts the one
+ * picked into the post as a small grid block (a sticker is a grid), which can
+ * then be edited, moved and linked like any other.
+ */
+function StickerToolbarPlugin() {
+  const [editor] = useLexicalComposerContext();
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const key = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('keydown', key);
+    return () => document.removeEventListener('keydown', key);
+  }, [open]);
+
+  const pick = (grid) => {
+    setOpen(false);
+    insertBlock(editor, () => $createTileGridNode(grid));
+  };
+
+  return (
+    <>
+      <GridButton symbol="heart" label="Sticker" title="Insert a sticker from your collection or the built-ins" onClick={() => setOpen(true)} />
+      {open && createPortal(
+        <div className="post-theme-overlay" role="dialog" aria-modal="true" aria-label="Choose a sticker"
+          onMouseDown={e => { if (e.target === e.currentTarget) setOpen(false); }}>
+          <div className="post-theme-panel">
+            <div className="post-theme-head">
+              <h2>Choose a sticker</h2>
+              <button type="button" className="post-theme-close" onClick={() => setOpen(false)}>Cancel</button>
+            </div>
+            <p className="post-theme-hint">It goes into your post as a grid you can edit, move and link.</p>
+            <StickerCenter onPick={pick} />
+          </div>
+        </div>,
+        document.body,
+      )}
+    </>
+  );
+}
+
 function PostLinkToolbarPlugin() {
   const [editor] = useLexicalComposerContext();
   const [showSearch, setShowSearch] = useState(false);
@@ -1617,6 +1660,7 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
           <CodeToolbarPlugin />
           <MathToolbarPlugin />
           <TileGridToolbarPlugin />
+          <StickerToolbarPlugin />
           <PostLinkToolbarPlugin />
         </>
       ),
