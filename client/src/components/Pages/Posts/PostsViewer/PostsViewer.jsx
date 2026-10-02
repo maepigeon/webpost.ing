@@ -555,7 +555,7 @@ function PostsViewer() {
               "Arrange posts"; without, on its own. */}
           {canEdit && (!Array.isArray(visiblePosts) || !visiblePosts.length) && <NewGridPost />}
           {(!Array.isArray(visiblePosts) || !visiblePosts.length) && !loadingMore
-            ? <p>There are no posts, yet. Create one to get started.</p>
+            ? <p>{canEdit ? 'There are no posts, yet. Create one to get started.' : `${username} hasn't posted anything yet.`}</p>
             : <ProfilePostList
                 posts={visiblePosts}
                 pinnedId={pinnedPost?.id ?? null}
