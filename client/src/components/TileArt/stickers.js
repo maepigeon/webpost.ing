@@ -31,23 +31,24 @@ const PIN = [
   '................',
 ];
 
+// Four round toes over a pad shaped like an upside-down heart, mirror-symmetric.
 const PAW = [
-  '................',
-  '...PP......PP...',
-  '..PPPP....PPPP..',
-  '..PPPP....PPPP..',
-  '...PP.PP.PP.PP..',
+  '....PP....PP....',
+  '...PPPP..PPPP...',
+  '...PPPP..PPPP...',
+  '....PP....PP....',
+  '.PP..........PP.',
+  'PPPP........PPPP',
+  'PPPP........PPPP',
+  '.PP..........PP.',
+  '.......PP.......',
   '.....PPPPPP.....',
   '....PPPPPPPP....',
   '...PPPPPPPPPP...',
-  '...PPPPPPPPPP...',
-  '...PPPPPPPPPP...',
-  '....PPPPPPPP....',
-  '.....PPPPPP.....',
-  '................',
-  '................',
-  '................',
-  '................',
+  '..PPPPPPPPPPPP..',
+  '..PPPPPPPPPPPP..',
+  '..PPPPP..PPPPP..',
+  '...PPP....PPP...',
 ];
 
 const STAR = [
