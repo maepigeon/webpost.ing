@@ -14,6 +14,9 @@ import { TEXTURES, fillTexture, texturePreview, DEFAULT_PAW_OPTIONS } from './te
 import PawOptions from '../../../../../TileArt/PawOptions.jsx';
 import GlyphEditor from './GlyphEditor.jsx';
 import SymbolPalette from './SymbolPalette.jsx';
+import { createPortal } from 'react-dom';
+import { StickerCenter } from '../../../../../TileArt/StickerCenter.jsx';
+import { renderGridImage } from '../../../../../TileArt/wallpaper.js';
 import GridButton from './GridButton.jsx';
 import { PixelWords, GridSelect, GridStepper } from './GridUI.jsx';
 import PixelText from './PixelText.jsx';
@@ -936,6 +939,28 @@ export default function TileGrid({
     setActiveId(layer.id);
   };
 
+  const [choosingSticker, setChoosingSticker] = useState(false);
+
+  /**
+   * Stamps a sticker onto the grid: drawn at the grid's own pixels on a new
+   * layer of its own, its top-left at the cursor's tile, so it can be moved,
+   * erased or merged down like anything else.
+   */
+  const stampSticker = async (grid, picked) => {
+    setChoosingSticker(false);
+    const d = dataRef.current;
+    if (d.layers.length >= LIMITS.maxLayers) { setNotice('A grid can have 10 layers; merge or delete one first.'); return; }
+    const art = await renderGridImage(grid, 1).catch(() => null);
+    if (!art) return;
+    const c = blankCanvas(d);
+    const { r } = cursorRef.current;
+    const col = Math.floor(cursorRef.current.s / SLOTS_PER_TILE);
+    c.getContext('2d').drawImage(art, col * TILE, r * TILE);
+    insertLayer(pixelLayer(picked?.name || 'Sticker', { paint: c.toDataURL('image/png') }));
+    setNotice(`Added ${picked?.name || 'a sticker'} on a layer of its own. Move it with the Move tool.`);
+    typeRef.current?.focus();
+  };
+
   const addLayer = () => {
     if (dataRef.current.layers.length < LIMITS.maxLayers) insertLayer(pixelLayer(`Layer ${dataRef.current.layers.length + 1}`));
   };
@@ -1255,6 +1280,7 @@ export default function TileGrid({
                 ))}
               </span>
               <span className="tg-gap" />
+              <GridButton symbol="heart" label="Sticker" title="Stamp a sticker at the cursor, on a layer of its own" onClick={() => setChoosingSticker(true)} />
               <Tile icon="save" label="Save the grid as a PNG image" onClick={savePng} />
               {saveError && <span className="tg-error" role="alert">{saveError}</span>}
             </div>
@@ -1384,6 +1410,20 @@ export default function TileGrid({
         </div>
       )}
 
+      {choosingSticker && createPortal(
+        <div className="post-theme-overlay" role="dialog" aria-modal="true" aria-label="Choose a sticker"
+          onMouseDown={e => { if (e.target === e.currentTarget) setChoosingSticker(false); }}
+          onKeyDown={e => { if (e.key === 'Escape') setChoosingSticker(false); }}>
+          <div className="post-theme-panel">
+            <div className="post-theme-head">
+              <h2>Stamp a sticker</h2>
+              <button type="button" className="post-theme-close" onClick={() => setChoosingSticker(false)}>Cancel</button>
+            </div>
+            <StickerCenter onPick={stampSticker} />
+          </div>
+        </div>,
+        document.body,
+      )}
       {editing && panel === 'symbols' && (
         <SymbolPalette onKey={keyboardKey} onClose={() => setPanel(null)} />
       )}
