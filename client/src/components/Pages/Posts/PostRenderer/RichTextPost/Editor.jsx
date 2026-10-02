@@ -12,6 +12,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import './Editor.css'
 import TitleBar from "./TitleBar"
+import PixelIcon from './TileGrid/PixelIcon.jsx';
 
 import { exampleTheme } from './exampleTheme';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
@@ -32,7 +33,7 @@ import { READ_POST, CREATE_POST, UPDATE_POST, GET_USER_FROM_POST, GET_POST_FEATU
 import { errorMessage } from '../../../../../utils/errorMessage.js';
 import { useDialog } from '../../../../Dialog/Dialog.jsx';
 import ThemeEditor from '../../../../PageTheme/ThemeEditor.jsx';
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { ImageNode, $createImageNode } from './ImageNode.jsx';
 import { MathNode, $createMathNode } from './MathNode.jsx';
 import { TileGridNode, $createTileGridNode } from './TileGrid/TileGridNode.jsx';
@@ -76,25 +77,24 @@ function ListToolbarPlugin() {
   };
   return (
     <>
-      <button type="button" onClick={() => onClick('ul')} title="Bulleted list">• List</button>
-      <button type="button" onClick={() => onClick('ol')} title="Numbered list">1. List</button>
+      <button type="button" className="tg-text-btn" onClick={() => onClick('ul')} title="Bulleted list">• List</button>
+      <button type="button" className="tg-text-btn" onClick={() => onClick('ol')} title="Numbered list">1. List</button>
     </>
   );
 }
 
 const BLOCK_TYPES = [
-  { tag: 'paragraph', label: 'Normal' },
-  { tag: 'h1', label: 'Heading 1' },
-  { tag: 'h2', label: 'Heading 2' },
-  { tag: 'h3', label: 'Heading 3' },
+  { tag: 'paragraph', label: 'Normal text', short: '¶' },
+  { tag: 'h1', label: 'Heading 1', short: 'H1' },
+  { tag: 'h2', label: 'Heading 2', short: 'H2' },
+  { tag: 'h3', label: 'Heading 3', short: 'H3' },
 ];
 
 /**
- * One "Heading" dropdown for the block type: Normal, Heading 1, 2, 3. Its
- * button names the block the caret is in. It used to be four buttons on the
- * toolbar, which pushed everything else into the overflow menu.
+ * The block type as four tiles (Normal, H1, H2, H3); the one the caret is in
+ * is lit. They were a dropdown, and four buttons before that.
  */
-function HeadingMenu({ openId, setOpenId }) {
+function BlockTypeTiles() {
   const [editor] = useLexicalComposerContext();
   const [current, setCurrent] = useState('paragraph');
 
@@ -115,21 +115,17 @@ function HeadingMenu({ openId, setOpenId }) {
         $setBlocksType(selection, () => (tag === 'paragraph' ? $createParagraphNode() : $createHeadingNode(tag)));
       }
     });
-    setOpenId(null);
   };
 
-  const label = BLOCK_TYPES.find(b => b.tag === current)?.label || 'Normal';
   return (
-    <ToolbarMenu id="heading" label={label} panelLabel="Text style" hint="Normal text or a heading"
-                 openId={openId} setOpenId={setOpenId}>
-      <span className="toolbar-heading-options" role="menu">
-        {BLOCK_TYPES.map(b => (
-          <button key={b.tag} type="button" role="menuitemradio" aria-checked={current === b.tag}
-            className={`toolbar-heading-option toolbar-heading-option--${b.tag}${current === b.tag ? ' is-on' : ''}`}
-            onClick={() => choose(b.tag)}>{b.label}</button>
-        ))}
-      </span>
-    </ToolbarMenu>
+    <span className="pe-seg" role="radiogroup" aria-label="Text style">
+      {BLOCK_TYPES.map(b => (
+        <button key={b.tag} type="button" role="radio" aria-checked={current === b.tag} title={b.label} aria-label={b.label}
+          className={`tg-tile pe-char${current === b.tag ? ' is-on' : ''}`} onClick={() => choose(b.tag)}>
+          {b.short}
+        </button>
+      ))}
+    </span>
   );
 }
 
@@ -223,15 +219,8 @@ function InlineStylePlugin() {
 
   return (
     <>
-      <label className="toolbar-label">
-        Color
-        <input
-          type="color"
-          value={color}
-          onChange={(e) => applyColor(e.target.value)}
-          className="toolbar-color-picker"
-          title="Text color"
-        />
+      <label className="tg-swatch" title="Text colour" style={{ background: color }}>
+        <input type="color" value={color} onChange={(e) => applyColor(e.target.value)} aria-label="Text colour" />
       </label>
       <label className="toolbar-label">
         Font
@@ -901,9 +890,10 @@ function ImageToolbarPlugin() {
         />
       )}
       <span className="image-btn-group" ref={infoRef}>
-        <button className="toolbar-btn-image" onClick={() => setPickerOpen(true)}>Image</button>
+        <button type="button" className="tg-text-btn" onClick={() => setPickerOpen(true)}>Image</button>
         <button
-          className="toolbar-btn-image-info"
+          type="button"
+          className="tg-tile pe-char"
           title="Image upload info"
           onClick={() => setInfoOpen(o => !o)}
           aria-label="Image upload limits"
@@ -1098,6 +1088,8 @@ function LinkToolbarPlugin() {
   return (
     <>
       <button
+        type="button"
+        className={`tg-text-btn${isLink ? ' is-on' : ''}`}
         title={isLink ? 'Edit link' : 'Insert link'}
         onClick={isLink ? editLink : addLink}
       >
@@ -1193,7 +1185,7 @@ function CodeToolbarPlugin() {
       insertBlockInner(() => $createCustomCodeNode());
     });
   };
-  return <button onClick={onClick}>Code</button>;
+  return <button type="button" className="tg-text-btn" onClick={onClick} title="Code block">Code</button>;
 }
 
 function MathToolbarPlugin() {
@@ -1203,13 +1195,13 @@ function MathToolbarPlugin() {
     if (equation === null) return;
     insertBlock(editor, () => $createMathNode(equation.trim()));
   };
-  return <button onClick={onClick} title="Insert LaTeX math block">∑ Math</button>;
+  return <button type="button" className="tg-text-btn" onClick={onClick} title="Insert LaTeX math block">∑ Math</button>;
 }
 
 function TileGridToolbarPlugin() {
   const [editor] = useLexicalComposerContext();
   return (
-    <button onClick={() => insertBlock(editor, () => $createTileGridNode())}
+    <button type="button" className="tg-text-btn" onClick={() => insertBlock(editor, () => $createTileGridNode())}
       title="Insert a tile grid: text on tiles, pixel painting and photos">▦ Grid</button>
   );
 }
@@ -1233,7 +1225,7 @@ function PostLinkToolbarPlugin() {
 
   return (
     <>
-      <button onClick={() => setShowSearch(true)} title="Insert link to another post on this site">Post link</button>
+      <button type="button" className="tg-text-btn" onClick={() => setShowSearch(true)} title="Insert link to another post on this site">Post link</button>
       {showSearch && <PostSearchModal onSelect={handleSelect} onCancel={() => setShowSearch(false)} />}
     </>
   );
@@ -1254,7 +1246,7 @@ function BackgroundToolbarPlugin({ pattern, onPatternChange }) {
 
   return (
     <div className="toolbar-bg-wrapper" ref={wrapperRef}>
-      <button type="button" onClick={() => setOpen(o => !o)} title="Post wallpaper">
+      <button type="button" className={`tg-text-btn${open ? ' is-on' : ''}`} onClick={() => setOpen(o => !o)} title="Post wallpaper">
         Wallpaper
       </button>
       {open && (
@@ -1301,40 +1293,19 @@ function FeatureTogglePlugin({ postid, features, onFeaturesChange }) {
     }
   };
 
+  const TOGGLES = [
+    ['reactionsEnabled', 'Reactions', 'Reactions on this post'],
+    ['discussionEnabled', 'Comments', 'Comments on this post'],
+    ['votesEnabled', 'Voting', 'Upvotes, downvotes and the score on this post'],
+    ['cardGrid', 'Grid on card', "Show this post's first grid on its card in your profile"],
+  ];
   return (
     <>
-      <button
-        className={`post-toggle-btn toolbar-fmt-btn${features.reactionsEnabled ? ' active' : ''}`}
-        onClick={() => toggle('reactionsEnabled')}
-        title="Toggle reactions on this post"
-        style={{ fontSize: '12px' }}
-      >
-        {features.reactionsEnabled ? 'Reactions: on' : 'Reactions: off'}
-      </button>
-      <button
-        className={`post-toggle-btn toolbar-fmt-btn${features.discussionEnabled ? ' active' : ''}`}
-        onClick={() => toggle('discussionEnabled')}
-        title="Toggle comments on this post"
-        style={{ fontSize: '12px' }}
-      >
-        {features.discussionEnabled ? 'Comments: on' : 'Comments: off'}
-      </button>
-      <button
-        className={`post-toggle-btn toolbar-fmt-btn${features.votesEnabled ? ' active' : ''}`}
-        onClick={() => toggle('votesEnabled')}
-        title="Toggle upvotes, downvotes and the score on this post"
-        style={{ fontSize: '12px' }}
-      >
-        {features.votesEnabled ? 'Voting: on' : 'Voting: off'}
-      </button>
-      <button
-        className={`post-toggle-btn toolbar-fmt-btn${features.cardGrid ? ' active' : ''}`}
-        onClick={() => toggle('cardGrid')}
-        title="Show this post's first grid on its card in your profile"
-        style={{ fontSize: '12px' }}
-      >
-        {features.cardGrid ? 'Grid on card: on' : 'Grid on card: off'}
-      </button>
+      {TOGGLES.map(([key, label, title]) => (
+        <button key={key} type="button" className={`tg-text-btn${features[key] ? ' is-on' : ''}`}
+          aria-pressed={Boolean(features[key])} title={`${title}: ${features[key] ? 'on' : 'off'}`}
+          onClick={() => toggle(key)}>{label}</button>
+      ))}
     </>
   );
 }
@@ -1532,61 +1503,16 @@ function UndoRedoPlugin() {
   }, [editor]);
   return (
     <>
-      <button title="Undo (⌘Z)" disabled={!canUndo} onClick={() => editor.dispatchCommand(UNDO_COMMAND, undefined)}>↩</button>
-      <button title="Redo (⌘⇧Z)" disabled={!canRedo} onClick={() => editor.dispatchCommand(REDO_COMMAND, undefined)}>↪</button>
+      <button type="button" className="tg-tile" title="Undo (⌘Z)" aria-label="Undo" disabled={!canUndo} onClick={() => editor.dispatchCommand(UNDO_COMMAND, undefined)}>
+        <PixelIcon name="undo" size={14} />
+      </button>
+      <button type="button" className="tg-tile" title="Redo (⌘⇧Z)" aria-label="Redo" disabled={!canRedo} onClick={() => editor.dispatchCommand(REDO_COMMAND, undefined)}>
+        <PixelIcon name="redo" size={14} />
+      </button>
     </>
   );
 }
 
-/**
- * A toolbar group that opens in a popover rather than expanding inline.
- *
- * The previous version expanded in place, so opening a section pushed every
- * other control sideways and the bar's layout changed as you worked. A popover
- * floats above the page, so the row of controls never moves.
- *
- * Only one is open at a time — the parent owns `openId`, since two open panels
- * would overlap and there is never a reason to want both.
- */
-function ToolbarMenu({ id, label, panelLabel = label, hint, openId, setOpenId, children }) {
-  const open = openId === id;
-  const ref = useRef(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpenId(null); };
-    const onKey = (e) => { if (e.key === 'Escape') setOpenId(null); };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open, setOpenId]);
-
-  return (
-    <span className="toolbar-menu" ref={ref}>
-      <button
-        type="button"
-        className={`toolbar-menu-trigger${open ? ' toolbar-menu-trigger--open' : ''}`}
-        aria-expanded={open}
-        title={hint}
-        onClick={() => setOpenId(open ? null : id)}
-      >
-        {label}
-        <span className="toolbar-menu-caret" aria-hidden="true">▾</span>
-      </button>
-      {open && (
-        <span className={`toolbar-menu-panel toolbar-menu-panel--${id}`} role="group" aria-label={panelLabel}>
-          <span className="toolbar-menu-panel-label">{panelLabel}</span>
-          <span className="toolbar-menu-panel-body">{children}</span>
-        </span>
-      )}
-    </span>
-  );
-}
-
-/** Kept for the mobile panel, which shows every group expanded at once. */
 
 function FormatToolbarPlugin() {
   const [editor] = useLexicalComposerContext();
@@ -1612,123 +1538,113 @@ function FormatToolbarPlugin() {
 
   const fmt = (type) => editor.dispatchCommand(FORMAT_TEXT_COMMAND, type);
 
+  const FORMATS = [
+    ['bold', 'Bold (⌘B)', <b key="b">B</b>], ['italic', 'Italic (⌘I)', <i key="i">I</i>],
+    ['underline', 'Underline (⌘U)', <u key="u">U</u>], ['strikethrough', 'Strikethrough', <s key="s">S</s>],
+    ['subscript', 'Subscript', <span key="sub">x<sub>2</sub></span>], ['superscript', 'Superscript', <span key="sup">x<sup>2</sup></span>],
+  ];
   return (
-    <>
-      <button className={`toolbar-fmt-btn${formats.bold ? ' active' : ''}`} title="Bold (⌘B)" onClick={() => fmt('bold')}><b>B</b></button>
-      <button className={`toolbar-fmt-btn${formats.italic ? ' active' : ''}`} title="Italic (⌘I)" onClick={() => fmt('italic')}><i>I</i></button>
-      <button className={`toolbar-fmt-btn${formats.underline ? ' active' : ''}`} title="Underline (⌘U)" onClick={() => fmt('underline')}><u>U</u></button>
-      <button className={`toolbar-fmt-btn${formats.strikethrough ? ' active' : ''}`} title="Strikethrough" onClick={() => fmt('strikethrough')}><s>S</s></button>
-      <button className={`toolbar-fmt-btn${formats.subscript ? ' active' : ''}`} title="Subscript" onClick={() => fmt('subscript')}>x<sub>2</sub></button>
-      <button className={`toolbar-fmt-btn${formats.superscript ? ' active' : ''}`} title="Superscript" onClick={() => fmt('superscript')}>x<sup>2</sup></button>
-    </>
+    <span className="pe-seg">
+      {FORMATS.map(([type, label, glyph]) => (
+        <button key={type} type="button" className={`tg-tile pe-char${formats[type] ? ' is-on' : ''}`}
+          title={label} aria-label={label} aria-pressed={Boolean(formats[type])} onClick={() => fmt(type)}>{glyph}</button>
+      ))}
+    </span>
   );
 }
 
 
 /**
- * The toolbar: the tools on one row, wrapping onto a second where the post is
- * narrow, then the save actions on their own row.
- *
- * It used to measure every tool and hide whatever did not fit in an
- * unlabelled overflow menu; at the post's width that was most of them, in a
- * jumble. With headings and inserts in their own menus everything fits, and
- * wrapping never hides anything.
+ * The tools, laid out like the grid editor's: a dark panel of named rows
+ * (Edit, Text, Style, Insert, Page) of tile buttons, then the save actions.
+ * "Fewer tools" folds it to the Edit and Text rows, remembered per browser.
  */
-function ResponsiveToolbar({ items, children }) {
+const TOOLS_FOLDED_KEY = 'editorToolsFolded';
+
+function ToolRow({ label, children }) {
+  return (
+    <div className="tg-group" role="group" aria-label={label}>
+      <span className="tg-group-label">{label}</span>
+      {children}
+    </div>
+  );
+}
+
+function ToolPanel({ rows, children }) {
+  // Folded on a phone until chosen otherwise: unfolded it fills most of the screen.
+  const [folded, setFolded] = useState(() => {
+    let kept = null;
+    try { kept = localStorage.getItem(TOOLS_FOLDED_KEY); } catch { /* none */ }
+    return kept === null ? window.matchMedia?.('(max-width: 600px)').matches ?? false : kept === '1';
+  });
+  const fold = (v) => {
+    setFolded(v);
+    try { localStorage.setItem(TOOLS_FOLDED_KEY, v ? '1' : '0'); } catch { /* not kept */ }
+  };
   return (
     <div className="toolbar-sticky toolbar-stack">
-      <div className="toolbar-responsive" role="toolbar" aria-label="Formatting">
-        {items.map(item => <span className="toolbar-item" key={item.key}>{item.node}</span>)}
+      <div className="pe-panel" role="toolbar" aria-label="Post tools">
+        {rows.filter(r => !folded || r.always).map(r => <ToolRow key={r.label} label={r.label}>{r.node}</ToolRow>)}
+        <button type="button" className="pe-fold" aria-expanded={!folded} onClick={() => fold(!folded)}>
+          {folded ? 'More tools ▾' : 'Fewer tools ▴'}
+        </button>
       </div>
-      {/* Save draft, Upload, View post: on a row of their own, so they never
-          crowd the tools. */}
+      {/* Save draft, Upload, View post: on a row of their own. */}
       <div className="toolbar-actions">{children}</div>
     </div>
   );
 }
 
 function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, postPublished, onPublishedChange, features, onFeaturesChange, titleRef, onSaved, folder, onFolderChange, slug }) {
-  // Only one popover open at a time; two would overlap.
-  const [openMenu, setOpenMenu] = useState(null);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const panelRef = useRef(null);
-  // The post-theme editor: opened from the Page menu, but owned here, so
-  // working in it (outside the menu) does not close the menu under it.
+  // The post-theme editor: opened from the Page row, and shown over the page.
   const [themeOpen, setThemeOpen] = useState(false);
   const savedPost = postid && postid > 0;
 
-  useEffect(() => {
-    if (!mobileOpen) return;
-    function handler(e) {
-      if (panelRef.current && !panelRef.current.contains(e.target)) setMobileOpen(false);
-    }
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [mobileOpen]);
-
-  /**
-   * Desktop toolbar.
-   *
-   * The controls people reach for constantly — undo, block type, bold/italic,
-   * lists, link — are always visible. Everything else lives in a popover menu.
-   * Previously all five groups were expanded by default, which produced a wall
-   * of around thirty buttons above every post and pushed the writing area down
-   * the page.
-   */
-  /**
-   * Ordered most-used first, because that is the order they survive in when the
-   * window is too narrow to show everything.
-   */
-  const toolbarItems = [
-    { key: 'history', node: <UndoRedoPlugin /> },
-    { key: 'heading', node: <HeadingMenu openId={openMenu} setOpenId={setOpenMenu} /> },
-    { key: 'format',  node: <FormatToolbarPlugin /> },
-    // Link stays out of the Insert menu: its pop-up for editing an existing
-    // link belongs to this button and would vanish with a closed menu.
-    { key: 'link',    node: <LinkToolbarPlugin /> },
+  const rows = [
+    { label: 'Edit', always: true, node: <UndoRedoPlugin /> },
     {
-      key: 'insert',
+      label: 'Text', always: true,
       node: (
-        <ToolbarMenu id="insert" label="Insert" hint="Lists, images, code, maths, grids and post links"
-                     openId={openMenu} setOpenId={setOpenMenu}>
-          <span className="toolbar-insert-grid">
-            <ListToolbarPlugin />
-            <ImageToolbarPlugin />
-            <CodeToolbarPlugin />
-            <MathToolbarPlugin />
-            <TileGridToolbarPlugin />
-            <PostLinkToolbarPlugin />
-          </span>
-        </ToolbarMenu>
+        <>
+          <BlockTypeTiles />
+          <span className="tg-gap" />
+          <FormatToolbarPlugin />
+          <span className="tg-gap" />
+          <LinkToolbarPlugin />
+        </>
+      ),
+    },
+    { label: 'Style', node: <InlineStylePlugin /> },
+    {
+      label: 'Insert',
+      node: (
+        <>
+          <ListToolbarPlugin />
+          <ImageToolbarPlugin />
+          <CodeToolbarPlugin />
+          <MathToolbarPlugin />
+          <TileGridToolbarPlugin />
+          <PostLinkToolbarPlugin />
+        </>
       ),
     },
     {
-      key: 'style',
+      label: 'Page',
       node: (
-        <ToolbarMenu id="style" label="Style" hint="Colour, highlight and alignment"
-                     openId={openMenu} setOpenId={setOpenMenu}>
-          <InlineStylePlugin />
-        </ToolbarMenu>
-      ),
-    },
-    {
-      key: 'page',
-      node: (
-        <ToolbarMenu id="page" label="Page" hint="Wallpaper, comments and reactions"
-                     openId={openMenu} setOpenId={setOpenMenu}>
+        <>
           <BackgroundToolbarPlugin pattern={backgroundPattern} onPatternChange={onPatternChange} />
-          <FeatureTogglePlugin postid={postid} features={features} onFeaturesChange={onFeaturesChange} />
           {/* Each post has its own theme; it starts as a copy of the profile's. */}
-          <button type="button" className="toolbar-theme-btn" disabled={!savedPost}
+          <button type="button" className="tg-text-btn" disabled={!savedPost}
             title={savedPost ? "This post's own theme" : 'Save the post first: it starts with your profile theme'}
-            onClick={() => { setOpenMenu(null); setThemeOpen(true); }}>
-            Post theme…
+            onClick={() => setThemeOpen(true)}>
+            Theme…
           </button>
-        </ToolbarMenu>
+          <span className="tg-gap" />
+          <FeatureTogglePlugin postid={postid} features={features} onFeaturesChange={onFeaturesChange} />
+        </>
       ),
     },
   ];
-
 
   return (
     <>
@@ -1748,10 +1664,9 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
         </div>,
         document.body,
       )}
-      {/* One toolbar at every width: it fills the line and overflows the rest. */}
-      <ResponsiveToolbar items={toolbarItems}>
+      <ToolPanel rows={rows}>
         <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} titleRef={titleRef} onSaved={onSaved} username={username} folder={folder} onFolderChange={onFolderChange} features={features} slug={slug} />
-      </ResponsiveToolbar>
+      </ToolPanel>
 
     </>
   );

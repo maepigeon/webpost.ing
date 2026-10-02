@@ -176,14 +176,14 @@ button:active {
 /* navbuttons, reactions, pattern swatches, and other special controls.     */
 /* Never reaches into the grid, wallpaper or theme editors, which draw     */
 /* their own controls.                                                       */
-.basicTextPost button:not(.reaction-btn):not(.comment-reaction-btn):not(.navButton):not(:is(.tilegrid, .wp-editor, .theme-editor, .toolbar-heading-options, .editor-image-controls) *),
-.inbox-page button:not(.reaction-btn):not(:is(.tilegrid, .wp-editor, .theme-editor, .toolbar-heading-options, .editor-image-controls) *),
-.activity-page button:not(:is(.tilegrid, .wp-editor, .theme-editor, .toolbar-heading-options, .editor-image-controls) *),
-.search-page button:not(:is(.tilegrid, .wp-editor, .theme-editor, .toolbar-heading-options, .editor-image-controls) *),
-.discussion-page button:not(.reaction-btn):not(.comment-reaction-btn):not(:is(.tilegrid, .wp-editor, .theme-editor, .toolbar-heading-options, .editor-image-controls) *),
-.editor-post-card button:not(.reaction-btn):not(.toolbar-fmt-btn):not(.toolbar-btn-save):not(.toolbar-btn-draft):not(.toolbar-btn-image):not(.toolbar-btn-image-info):not(.toolbar-btn-view):not(:is(.tilegrid, .wp-editor, .theme-editor, .toolbar-heading-options, .editor-image-controls) *),
-.admin-panel button:not(.admin-tab):not(:is(.tilegrid, .wp-editor, .theme-editor, .toolbar-heading-options, .editor-image-controls) *),
-.form-container button:not(:is(.tilegrid, .wp-editor, .theme-editor, .toolbar-heading-options, .editor-image-controls) *) {
+.basicTextPost button:not(.reaction-btn):not(.comment-reaction-btn):not(.navButton):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .pe-panel) *),
+.inbox-page button:not(.reaction-btn):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .pe-panel) *),
+.activity-page button:not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .pe-panel) *),
+.search-page button:not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .pe-panel) *),
+.discussion-page button:not(.reaction-btn):not(.comment-reaction-btn):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .pe-panel) *),
+.editor-post-card button:not(.reaction-btn):not(.toolbar-btn-save):not(.toolbar-btn-draft):not(.toolbar-btn-view):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .pe-panel) *),
+.admin-panel button:not(.admin-tab):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .pe-panel) *),
+.form-container button:not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .pe-panel) *) {
   background: rgba(255, 255, 255, 0.65);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -197,26 +197,26 @@ button:active {
   transition: box-shadow 0.18s ease, transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.12s ease;
   will-change: transform;
 }
-.basicTextPost button:not(.reaction-btn):not(.comment-reaction-btn):not(.navButton):not(:is(.tilegrid, .wp-editor, .theme-editor, .toolbar-heading-options, .editor-image-controls) *):hover,
-.inbox-page button:not(.reaction-btn):not(:is(.tilegrid, .wp-editor, .theme-editor, .toolbar-heading-options, .editor-image-controls) *):hover,
-.activity-page button:not(:is(.tilegrid, .wp-editor, .theme-editor, .toolbar-heading-options, .editor-image-controls) *):hover,
-.search-page button:not(:is(.tilegrid, .wp-editor, .theme-editor, .toolbar-heading-options, .editor-image-controls) *):hover,
-.discussion-page button:not(.reaction-btn):not(.comment-reaction-btn):not(:is(.tilegrid, .wp-editor, .theme-editor, .toolbar-heading-options, .editor-image-controls) *):hover,
-.editor-post-card button:not(.reaction-btn):not(.toolbar-fmt-btn):not(.toolbar-btn-save):not(.toolbar-btn-draft):not(.toolbar-btn-image):not(.toolbar-btn-view):not(:is(.tilegrid, .wp-editor, .theme-editor, .toolbar-heading-options, .editor-image-controls) *):hover,
-.admin-panel button:not(.admin-tab):not(:is(.tilegrid, .wp-editor, .theme-editor, .toolbar-heading-options, .editor-image-controls) *):hover,
-.form-container button:not(:is(.tilegrid, .wp-editor, .theme-editor, .toolbar-heading-options, .editor-image-controls) *):hover {
+.basicTextPost button:not(.reaction-btn):not(.comment-reaction-btn):not(.navButton):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .pe-panel) *):hover,
+.inbox-page button:not(.reaction-btn):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .pe-panel) *):hover,
+.activity-page button:not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .pe-panel) *):hover,
+.search-page button:not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .pe-panel) *):hover,
+.discussion-page button:not(.reaction-btn):not(.comment-reaction-btn):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .pe-panel) *):hover,
+.editor-post-card button:not(.reaction-btn):not(.toolbar-btn-save):not(.toolbar-btn-draft):not(.toolbar-btn-view):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .pe-panel) *):hover,
+.admin-panel button:not(.admin-tab):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .pe-panel) *):hover,
+.form-container button:not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .pe-panel) *):hover {
   filter: none;
   box-shadow: var(--neo-shadow-hover);
   transform: translateY(-2px) scale(1.015);
 }
-.basicTextPost button:not(.reaction-btn):not(.comment-reaction-btn):not(.navButton):not(:is(.tilegrid, .wp-editor, .theme-editor, .toolbar-heading-options, .editor-image-controls) *):active,
-.inbox-page button:not(.reaction-btn):not(:is(.tilegrid, .wp-editor, .theme-editor, .toolbar-heading-options, .editor-image-controls) *):active,
-.activity-page button:not(:is(.tilegrid, .wp-editor, .theme-editor, .toolbar-heading-options, .editor-image-controls) *):active,
-.search-page button:not(:is(.tilegrid, .wp-editor, .theme-editor, .toolbar-heading-options, .editor-image-controls) *):active,
-.discussion-page button:not(.reaction-btn):not(.comment-reaction-btn):not(:is(.tilegrid, .wp-editor, .theme-editor, .toolbar-heading-options, .editor-image-controls) *):active,
-.editor-post-card button:not(.reaction-btn):not(.toolbar-fmt-btn):not(.toolbar-btn-save):not(.toolbar-btn-draft):not(.toolbar-btn-image):not(.toolbar-btn-view):not(:is(.tilegrid, .wp-editor, .theme-editor, .toolbar-heading-options, .editor-image-controls) *):active,
-.admin-panel button:not(.admin-tab):not(:is(.tilegrid, .wp-editor, .theme-editor, .toolbar-heading-options, .editor-image-controls) *):active,
-.form-container button:not(:is(.tilegrid, .wp-editor, .theme-editor, .toolbar-heading-options, .editor-image-controls) *):active {
+.basicTextPost button:not(.reaction-btn):not(.comment-reaction-btn):not(.navButton):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .pe-panel) *):active,
+.inbox-page button:not(.reaction-btn):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .pe-panel) *):active,
+.activity-page button:not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .pe-panel) *):active,
+.search-page button:not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .pe-panel) *):active,
+.discussion-page button:not(.reaction-btn):not(.comment-reaction-btn):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .pe-panel) *):active,
+.editor-post-card button:not(.reaction-btn):not(.toolbar-btn-save):not(.toolbar-btn-draft):not(.toolbar-btn-view):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .pe-panel) *):active,
+.admin-panel button:not(.admin-tab):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .pe-panel) *):active,
+.form-container button:not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .pe-panel) *):active {
   filter: none;
   transform: translateY(1px) scale(0.97) !important;
   transition: transform 0.07s ease !important;

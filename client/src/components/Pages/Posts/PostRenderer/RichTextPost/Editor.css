@@ -52,12 +52,48 @@
   align-items: center;
   gap: 4px;
   padding: 6px 16px;
-  background: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(8px) saturate(140%);
-  -webkit-backdrop-filter: blur(8px) saturate(140%);
+  background: var(--th-card-bg, #fbfaf6);
   border-top: 1px solid rgba(0, 0, 0, 0.07);
   border-bottom: 1px solid rgba(0, 0, 0, 0.07);
 }
+
+/* The tools: the grid editor's panel, with Edit, Text, Style, Insert and
+   Page rows of tile buttons (.tg-tile, .tg-text-btn, .tg-group from
+   TileGrid.css), so the two editors look and work alike. */
+.pe-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: #0d0d0d;
+  color: #f2f2f2;
+  font: 12px var(--app-font);
+}
+.pe-panel { text-align: left; }
+.pe-seg,
+.pe-panel .image-btn-group { display: inline-flex; gap: 3px; border: 0; background: none; padding: 0; }
+.pe-panel .tg-tile.pe-char { font: 700 12px var(--app-font); color: #f2f2f2; }
+.pe-panel .tg-tile.pe-char.is-on { color: #111; }
+.pe-panel .tg-text-btn.is-on { background: #f2f2f2; color: #111; }
+.pe-panel button:disabled { opacity: 0.35; cursor: not-allowed; }
+.pe-panel .toolbar-label { color: #9a9a9a; font-weight: 700; font-size: 11px; }
+.pe-panel .toolbar-select {
+  height: 26px;
+  background: #1c1c1c;
+  color: #f2f2f2;
+  border: 1px solid #333;
+  font-size: 12px;
+}
+.pe-fold {
+  align-self: flex-start;
+  padding: 2px 4px;
+  border: 0;
+  background: none;
+  color: #8c8c8c;
+  font: 600 11px var(--app-font);
+  cursor: pointer;
+}
+.pe-fold:hover { color: #f2f2f2; }
 
 /* ── Editor / viewer content area ───────────────────────────────────────── */
 
@@ -97,29 +133,11 @@
   cursor: not-allowed;
 }
 
-.toolbar-divider {
-  display: inline-block;
-  width: 1px;
-  height: 20px;
-  background: #ccc;
-  margin: 0 4px;
-  vertical-align: middle;
-}
-
 .toolbar-label {
   display: flex;
   align-items: center;
   gap: 4px;
   font-size: 13px;
-}
-
-.toolbar-color-picker {
-  width: 28px;
-  height: 24px;
-  padding: 0;
-  border: 1px solid #ccc;
-  border-radius: 3px;
-  cursor: pointer;
 }
 
 .toolbar-select {
@@ -164,37 +182,8 @@
 }
 
 /* Image button — blue tint */
-.toolbar-btn-image {
-  background: transparent;
-  color: #4f4f4f;
-  border: none;
-  border-right: 1px solid #bcbcbc;
-  font-weight: 500;
-  border-radius: 5px 0 0 5px;
-}
-
-.toolbar-btn-image:hover {
-  background: #d7d7d7;
-}
 
 /* ⓘ info button */
-.toolbar-btn-image-info {
-  background: transparent;
-  color: #4f4f4f;
-  border: none;
-  border-radius: 0 5px 5px 0;
-  padding: 0 5px;
-  font-size: 13px;
-  cursor: pointer;
-  line-height: 1;
-  opacity: 0.7;
-  transition: opacity 0.12s;
-}
-
-.toolbar-btn-image-info:hover {
-  opacity: 1;
-  background: #d7d7d7;
-}
 
 /* Info popup */
 .image-info-popup {
@@ -285,137 +274,14 @@
    controls never reflows while you work. No decorative gradients here: the
    only gradients are the vertical ones that give a button its raised edge. */
 
-.toolbar-menu { position: relative; display: inline-flex; }
-
-.toolbar-menu-trigger {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #565656;
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(119, 119, 119, 0.26);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: color 0.13s, background 0.13s, border-color 0.13s;
-}
-
-.toolbar-menu-trigger:hover {
-  color: #373737;
-  background: rgba(255, 255, 255, 0.95);
-  border-color: rgba(119, 119, 119, 0.45);
-}
-
-.toolbar-menu-trigger--open {
-  color: #ffffff;
-  background: #565656;
-  border-color: transparent;
-}
-
-.toolbar-menu-caret { font-size: 9px; opacity: 0.75; }
-
-.toolbar-menu-panel {
-  position: absolute;
-  top: calc(100% + 7px);
-  left: 0;
-  z-index: 400;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 240px;
-  max-width: min(440px, 92vw);
-  padding: 12px 14px;
-  border-radius: 14px;
-  /* Solid, not glass. */
-  background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.14);
-  box-shadow:
-    0 12px 30px rgba(28, 28, 28, 0.18),
-    0 2px 6px rgba(0, 0, 0, 0.08),
-    inset 0 1.5px 0 rgba(255, 255, 255, 0.95);
-  animation: toolbar-menu-in 0.15s ease-out;
-}
-
 /* Insert: equal tiles in a tidy grid, two across. */
-.toolbar-insert-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(118px, 1fr));
-  gap: 6px;
-  width: 100%;
-}
-.toolbar-insert-grid > button,
-.toolbar-insert-grid > .image-btn-group {
-  width: 100%;
-  min-height: 34px;
-  justify-content: center;
-  margin: 0;
-}
-.toolbar-insert-grid > .image-btn-group { display: flex; gap: 4px; }
-.toolbar-insert-grid > .image-btn-group > .toolbar-btn-image { flex: 1; }
-.toolbar-menu-panel--insert { min-width: 0; }
 
 /* Heading: each choice shown at its own size. */
-.toolbar-heading-options { display: flex; flex-direction: column; gap: 4px; width: 100%; }
-.toolbar-heading-option {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 6px 10px;
-  border-radius: 8px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  background: #fff;
-  color: #1c1c1c;
-  line-height: 1.2;
-  box-shadow: inset 0 -1.5px 0 rgba(0, 0, 0, 0.06);
-}
-.toolbar-heading-option:hover { background: #f2f2f2; filter: none; }
-.toolbar-heading-option.is-on { background: #2c2c2c; color: #fff; }
 
 /* Image (and its ⓘ) are tiles like their neighbours inside the Insert grid,
    not the grey framed pair they are elsewhere. */
-.toolbar-insert-grid > .image-btn-group { background: none; border: none; }
-.toolbar-insert-grid .toolbar-btn-image,
-.toolbar-insert-grid .toolbar-btn-image-info {
-  min-height: 34px;
-  background: #fff;
-  color: #2a2a2a;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  border-radius: 8px;
-  font-weight: 400;
-  box-shadow: inset 0 -1.5px 0 rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.06);
-}
-.toolbar-insert-grid .toolbar-btn-image-info { width: 34px; flex-shrink: 0; }
-.toolbar-insert-grid .toolbar-btn-image { font-size: 14px; }
 
 /* A focus ring for the keyboard only, not after a click. */
-.toolbar-menu-trigger:focus:not(:focus-visible) { outline: none; }
-.toolbar-heading-option--paragraph { font-size: 14px; }
-.toolbar-heading-option--h1 { font-size: 22px; font-weight: 800; }
-.toolbar-heading-option--h2 { font-size: 18px; font-weight: 700; }
-.toolbar-heading-option--h3 { font-size: 15px; font-weight: 700; }
-.toolbar-menu-panel--heading { min-width: 180px; }
-
-@keyframes toolbar-menu-in {
-  from { opacity: 0; transform: translateY(-5px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-.toolbar-menu-panel-label {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.7px;
-  text-transform: uppercase;
-  color: #6a6a6a;
-}
-
-.toolbar-menu-panel-body {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-}
 
 /* Mobile panel: every group expanded, labelled, stacked. */
 .toolbar-group {
@@ -520,35 +386,7 @@
 
 .toolbar-view-link { text-decoration: none; }
 
-@media (prefers-reduced-motion: reduce) {
-  .toolbar-menu-panel { animation: none; }
-  .toolbar-menu-trigger { transition: none; }
-}
-
-
 /* ── Format buttons (bold/italic/underline/etc.) ─────────────────────────── */
-
-.toolbar-fmt-btn {
-  min-width: 26px;
-  height: 26px;
-  padding: 0 5px;
-  font-size: 13px;
-  background: transparent;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  cursor: pointer;
-  line-height: 1;
-}
-
-.toolbar-fmt-btn.active {
-  background: rgba(86, 86, 86, 0.15);
-  border-color: #565656;
-  color: #565656;
-}
-
-.toolbar-fmt-btn:hover {
-  background: rgba(0,0,0,0.06);
-}
 
 /* ── Math blocks (KaTeX) ─────────────────────────────────────────────────── */
 
@@ -727,10 +565,7 @@
 .editor-code.code-light .token-variable,
 .editor-code.code-light .token-attr       { color: #e36209; }
 
-
-
 /* Language label shown at the top of code blocks */
-
 
 /* Code block hover controls panel — positioned fixed over the code block via JS */
 .code-hover-controls {
@@ -994,9 +829,6 @@
   }
 
   /* A menu opens across the whole toolbar, so it never runs off the screen. */
-  .toolbar-responsive { position: relative; }
-  .toolbar-menu { position: static; }
-  .toolbar-menu-panel { left: 0; right: 0; max-width: none; }
 
   /* Section labels collapse to just the arrow */
   .toolbar-collapse-toggle {
@@ -1007,13 +839,6 @@
   .toolbar-collapsible-body {
     padding: 2px 3px;
     gap: 2px;
-  }
-
-  .toolbar-fmt-btn {
-    min-width: 22px;
-    height: 22px;
-    font-size: 11px;
-    padding: 0 3px;
   }
 
   .toolbar-select {
@@ -1295,7 +1120,6 @@
 }
 .editor-modal-btn--cancel:hover { background: rgba(0,0,0,0.11); }
 
-
 /* The language, always visible on the block itself.
    The hover bar carries the controls, but it is only there while the pointer
    is over the block — without this the language was shown nowhere the rest of
@@ -1394,15 +1218,6 @@
   gap: 6px;
 }
 
-.toolbar-responsive {
-  display: flex;
-  align-items: center;
-  gap: 6px 4px;
-  flex-wrap: wrap;   /* wraps rather than hiding tools */
-  overflow: visible;
-  min-width: 0;
-}
-
 .toolbar-actions {
   display: flex;
   align-items: center;
@@ -1411,10 +1226,6 @@
   padding-top: 6px;
   border-top: 1px solid var(--hairline, rgba(28, 28, 28, 0.13));
 }
-
-.toolbar-item { display: inline-flex; align-items: center; flex-shrink: 0; }
-
-
 
 /* "Post not found": a plain card. */
 .viewer-not-found { padding: 28px 32px; text-align: left; }
@@ -1464,4 +1275,4 @@
   color: #fff;
   font-weight: 700;
 }
-.toolbar-theme-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
