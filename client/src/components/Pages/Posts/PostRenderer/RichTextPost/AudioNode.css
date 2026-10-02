@@ -1,0 +1,44 @@
+/* The audio block: grid buttons and pixel text over a hidden <audio>, in the
+   grayscale of the grid editor. Seek and volume are native ranges, restyled
+   to match. */
+.audio-block {
+  margin: 10px 0;
+  padding: 8px;
+  max-width: 560px;
+  border-radius: 3px;
+  background: #111;
+  color: #f2f2f2;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.audio-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.audio-title-text { font: 600 12px var(--app-font); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.audio-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.audio-time { flex: none; display: inline-flex; }
+.audio-error { color: #ff8a8a; font: 600 11px var(--app-font); }
+
+.audio-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 26px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.audio-seek { flex: 1 1 140px; min-width: 100px; }
+.audio-volume { flex: 0 0 72px; width: 72px; }
+.audio-range:disabled { opacity: 0.3; cursor: default; }
+.audio-range::-webkit-slider-runnable-track { height: 6px; border-radius: 1px; background: #333; }
+.audio-range::-moz-range-track { height: 6px; border-radius: 1px; background: #333; }
+.audio-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 10px; height: 18px; margin-top: -6px;
+  border: none; border-radius: 2px; background: #f2f2f2;
+  transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.audio-range::-moz-range-thumb { width: 10px; height: 18px; border: none; border-radius: 2px; background: #f2f2f2; }
+.audio-range:hover:not(:disabled)::-webkit-slider-thumb { transform: scaleY(1.15); }
+.audio-range:focus-visible { outline: 2px solid #5ea0ff; outline-offset: 2px; }
+
+.audio-edit { padding-top: 6px; border-top: 1px solid #333; }

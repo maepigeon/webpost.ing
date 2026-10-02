@@ -25,6 +25,7 @@ import {
   GET_OR_CREATE_CONVERSATION, SEND_CONVERSATION_MESSAGE,
 } from '../../BasicTextPostServerApi.js';
 import { ImageNode } from './ImageNode.jsx';
+import { AudioNode } from './AudioNode.jsx';
 import { MathNode } from './MathNode.jsx';
 import { TileGridNode } from './TileGrid/TileGridNode.jsx';
 import { LinkNode } from '@lexical/link';
@@ -36,7 +37,7 @@ import ReportDialog from '../../../../Social/ReportDialog.jsx';
 import { usePostTheme } from '../../../../PageTheme/PageTheme.jsx';
 import Icon from '../../../../Icon/Icon.jsx';
 
-const VIEWER_NODES = [HeadingNode, ListNode, ListItemNode, CustomCodeNode, CodeHighlightNode, ImageNode, MathNode, TileGridNode, LinkNode];
+const VIEWER_NODES = [HeadingNode, ListNode, ListItemNode, CustomCodeNode, CodeHighlightNode, ImageNode, AudioNode, MathNode, TileGridNode, LinkNode];
 
 const initialConfig = {
   namespace: 'MyViewer',

@@ -16,8 +16,8 @@ import java.util.Map;
  * as stored: file sizes for uploads, octet_length for text kept in the
  * database.
  *
- * The quota covers files (the images a user uploads, their profile picture
- * and header image); the downscaled copies the site makes of an upload are
+ * The quota covers files (the images a user uploads, their audio, their profile
+ * picture and header image); the downscaled copies the site makes of an upload are
  * shown but not charged, being the site's choice. Text kept in the database
  * is shown by category and not charged.
  */
@@ -58,8 +58,9 @@ public class StorageAccountService {
                 "header/" + name, userId, name, bytes);
     }
 
-    /** Upload records by kind: avatars and headers are named "avatar/…" and "header/…". */
-    private static final String POST_IMAGES = "filename NOT LIKE 'avatar/%' AND filename NOT LIKE 'header/%'";
+    /** Upload records by kind: avatars, headers and audio are named "avatar/…", "header/…" and "audio/…". */
+    private static final String POST_IMAGES =
+            "filename NOT LIKE 'avatar/%' AND filename NOT LIKE 'header/%' AND filename NOT LIKE 'audio/%'";
 
     private long sum(String sql, Object... args) {
         Long v = jdbc.queryForObject(sql, Long.class, args);
@@ -122,6 +123,9 @@ public class StorageAccountService {
         files.put("headerImage", item(
                 count("SELECT COUNT(*) FROM uploads WHERE user_id = ? AND filename LIKE 'header/%'", userId),
                 sum("SELECT COALESCE(SUM(size_bytes), 0) FROM uploads WHERE user_id = ? AND filename LIKE 'header/%'", userId)));
+        files.put("audio", item(
+                count("SELECT COUNT(*) FROM uploads WHERE user_id = ? AND filename LIKE 'audio/%'", userId),
+                sum("SELECT COALESCE(SUM(size_bytes), 0) FROM uploads WHERE user_id = ? AND filename LIKE 'audio/%'", userId)));
         long charged = bytesOf(files);
         long renditions = sum("""
                 SELECT COALESCE(SUM(v.size_bytes), 0) FROM upload_variants v JOIN uploads u ON u.id = v.upload_id
