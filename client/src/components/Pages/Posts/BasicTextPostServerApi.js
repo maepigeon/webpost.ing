@@ -95,8 +95,8 @@ const stickiesUrl = (username) => baseUrl + `/api/users/${encodeURIComponent(use
 export function GET_STICKIES(username) {
   return axios.get(stickiesUrl(username)).then(r => r.data);
 }
-export function PLACE_STICKY(username, stickerId, x, y, size) {
-  return axios.post(stickiesUrl(username), { stickerId, x, y, size }, { withCredentials: true }).then(r => r.data);
+export function PLACE_STICKY(username, stickerId, x, y, size, postId = null) {
+  return axios.post(stickiesUrl(username), { stickerId, postId, x, y, size }, { withCredentials: true }).then(r => r.data);
 }
 export function MOVE_STICKY(username, id, changes) {
   return axios.put(`${stickiesUrl(username)}/${id}`, changes, { withCredentials: true }).then(r => r.data);

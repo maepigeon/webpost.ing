@@ -132,7 +132,7 @@ function BasicTextPost(props) {
     const dateline = postDateline(postdata.date);
 
     return (
-        <div className="post basicTextPost">
+        <div className="post basicTextPost" data-post-id={postdata.id}>
             {currentPostMode === Modes.VIEW && (
                 <Link to={viewPath} className="post-card-overlay" aria-label={postdata.title} tabIndex={-1} />
             )}

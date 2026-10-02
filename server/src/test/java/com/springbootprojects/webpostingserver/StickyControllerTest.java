@@ -89,6 +89,34 @@ class StickyControllerTest {
         assertThat(stickies.place(OWNER, at(otherSticker, 0.5, 10), OWNER, signIn(OWNER)).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
+    @Test
+    void aStickerSticksToTheOwnersPostAndHidesWhileThePostIsADraft() {
+        String tok = signIn(OWNER);
+        int owner = jdbc.queryForObject("SELECT id FROM users WHERE username = ?", Integer.class, OWNER);
+        int other = jdbc.queryForObject("SELECT id FROM users WHERE username = ?", Integer.class, OTHER);
+        int post = jdbc.queryForObject("INSERT INTO posts (title, description, published) VALUES ('p', '', true) RETURNING id", Integer.class);
+        jdbc.update("INSERT INTO users_posts_junctions (user_id, post_id) VALUES (?, ?)", owner, post);
+        int theirs = jdbc.queryForObject("INSERT INTO posts (title, description, published) VALUES ('q', '', true) RETURNING id", Integer.class);
+        jdbc.update("INSERT INTO users_posts_junctions (user_id, post_id) VALUES (?, ?)", other, theirs);
+        try {
+            Map<String, Object> onPost = at(ownerSticker, 0.5, 30);
+            onPost.put("postId", post);
+            assertThat(stickies.place(OWNER, onPost, OWNER, tok).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+            assertThat(((Map<?, ?>) ((List<?>) stickies.list(OWNER).getBody()).get(0)).get("postId")).isEqualTo(post);
+
+            Map<String, Object> onTheirs = at(ownerSticker, 0.5, 30);
+            onTheirs.put("postId", theirs);
+            assertThat(stickies.place(OWNER, onTheirs, OWNER, tok).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+
+            jdbc.update("UPDATE posts SET published = false WHERE id = ?", post);
+            assertThat((List<?>) stickies.list(OWNER).getBody()).isEmpty();
+        } finally {
+            jdbc.update("DELETE FROM stickies WHERE post_id IN (?, ?)", post, theirs);
+            jdbc.update("DELETE FROM users_posts_junctions WHERE post_id IN (?, ?)", post, theirs);
+            jdbc.update("DELETE FROM posts WHERE id IN (?, ?)", post, theirs);
+        }
+    }
+
     private String signIn(String username) {
         LoginInfo info = new LoginInfo();
         info.setUsername(username);

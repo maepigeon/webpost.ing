@@ -36,6 +36,7 @@ import ReportDialog from '../../../../Social/ReportDialog.jsx';
 import SharePostDialog from '../../../../Social/SharePostDialog.jsx';
 import { usePostTheme } from '../../../../PageTheme/PageTheme.jsx';
 import Icon from '../../../../Icon/Icon.jsx';
+import PostStickies from '../../PostsViewer/PostStickies.jsx';
 
 const VIEWER_NODES = [HeadingNode, ListNode, ListItemNode, CustomCodeNode, CodeHighlightNode, ImageNode, AudioNode, MathNode, TileGridNode, LinkNode];
 
@@ -345,6 +346,7 @@ function RichTextViewerBody({ id }) {
         <HashtagLinkerPlugin contentRef={contentRef} navigate={navigate} />
         <div className="editor-centered">
           <div className="editor-post-card viewer-post-card">
+            <PostStickies username={postAuthor} postId={id} />
             <TitleBar
               postdata={{ id, title: postTitle, published: postPublished, date: postDate, author: postAuthor }}
               updatePostsFlagCallback={() => {}}

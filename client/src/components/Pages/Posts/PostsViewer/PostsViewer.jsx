@@ -95,6 +95,7 @@ function PostsViewer() {
     const [editingBanner, setEditingBanner] = useState(false);
     const [arrangingStickies, setArrangingStickies] = useState(false);
     const [stickiesSlot, setStickiesSlot] = useState(null);
+    const [stickiesRoot, setStickiesRoot] = useState(null);
     const [dmBlocked, setDmBlocked] = useState(false);
     const [dmBlockedByThem, setDmBlockedByThem] = useState(false);
     const [followsMe, setFollowsMe] = useState(false);
@@ -293,9 +294,9 @@ function PostsViewer() {
             onClose={() => setFollowModal(null)}
           />
         )}
-        <div className="postsViewerContainer" style={{ position: 'relative' }}>
+        <div className="postsViewerContainer" ref={setStickiesRoot}>
           <ProfileStickies username={username} canEdit={canEdit} editing={arrangingStickies}
-            onEditingChange={setArrangingStickies} barSlot={stickiesSlot} />
+            onEditingChange={setArrangingStickies} barSlot={stickiesSlot} root={stickiesRoot} />
           <div
             className={`profile-header-card${header.headerPath ? ' profile-header-card--image' : ''}${
               header.headerPath ? ` profile-header-card--ink-${header.headerInk}` : ''}`}
