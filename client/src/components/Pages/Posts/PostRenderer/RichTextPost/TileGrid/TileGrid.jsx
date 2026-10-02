@@ -764,6 +764,35 @@ export default function TileGrid({
     setCursor(order[i]);
   };
 
+  /** Clears the character before the cursor and moves back to it (or clears the selection). */
+  const backspace = () => {
+    const d = dataRef.current;
+    const order = typingOrder();
+    const i = Math.max(0, order.findIndex(p => p.r === cursorRef.current.r && p.s === cursorRef.current.s));
+    const layer = activeLayer();
+    if (selectionRef.current.size && i === 0) { deleteSelection(); return; }
+    if (layer.kind !== 'pixel' || i === 0) return;
+    let prev = order[i - 1];
+    // The second half of a wide tile is part of its character: one press clears it.
+    if (prev.s % SLOTS_PER_TILE && isWide(layer, prev.r, Math.floor(prev.s / SLOTS_PER_TILE)) && i >= 2) prev = order[i - 2];
+    const wideTile = isWide(layer, prev.r, Math.floor(prev.s / SLOTS_PER_TILE));
+    commit(withLayer(d, layer.id, l => writeChar(d, l, prev.r, prev.s, ' ', undefined, wideTile ? 'full' : 'half')));
+    setCursor(prev);
+  };
+
+  /** A key pressed on the on-screen symbol keyboard. A custom character brings its drawing into the grid. */
+  const keyboardKey = (key) => {
+    if (key.kind === 'backspace') backspace();
+    else if (key.kind === 'enter') typeChars('\n');
+    else if (key.kind === 'space') typeChars(' ');
+    else if (key.hex) {
+      const d = dataRef.current;
+      if (d.glyphs[key.ch] !== key.hex) commit({ ...d, glyphs: { ...d.glyphs, [key.ch]: key.hex } });
+      typeChars(key.ch, 'pixel');
+    } else typeChars(key.ch, 'symbols');
+    typeRef.current?.focus();
+  };
+
   const onKeyDown = (e) => {
     const mod = e.metaKey || e.ctrlKey;
     const k = e.key.toLowerCase();
@@ -811,22 +840,10 @@ export default function TileGrid({
       e.preventDefault();
       return;
     }
-    const order = typingOrder();
-    const i = Math.max(0, order.findIndex(p => p.r === cursorRef.current.r && p.s === cursorRef.current.s));
     const layer = activeLayer();
     switch (e.key) {
       case 'Enter': typeChars('\n'); break;
-      case 'Backspace': {
-        if (hasSel && i === 0) { deleteSelection(); break; }
-        if (layer.kind !== 'pixel' || i === 0) break;
-        let prev = order[i - 1];
-        // The second half of a wide tile is part of its character: one press clears it.
-        if (prev.s % SLOTS_PER_TILE && isWide(layer, prev.r, Math.floor(prev.s / SLOTS_PER_TILE)) && i >= 2) prev = order[i - 2];
-        const wideTile = isWide(layer, prev.r, Math.floor(prev.s / SLOTS_PER_TILE));
-        commit(withLayer(d, layer.id, l => writeChar(d, l, prev.r, prev.s, ' ', undefined, wideTile ? 'full' : 'half')));
-        setCursor(prev);
-        break;
-      }
+      case 'Backspace': backspace(); break;
       case 'Delete':
         if (hasSel) deleteSelection();
         else if (layer.kind === 'pixel') {
@@ -1368,7 +1385,7 @@ export default function TileGrid({
       )}
 
       {editing && panel === 'symbols' && (
-        <SymbolPalette onInsert={ch => typeChars(ch, 'symbols')} onClose={() => setPanel(null)} />
+        <SymbolPalette onKey={keyboardKey} onClose={() => setPanel(null)} />
       )}
       {editing && panel === 'glyphs' && (
         <GlyphEditor width={width === 'half' ? 8 : 16} glyphs={data.glyphs}

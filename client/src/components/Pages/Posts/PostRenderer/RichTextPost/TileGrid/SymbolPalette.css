@@ -12,3 +12,12 @@
 @media (pointer: coarse) {
   .tg-symbol { width: 40px; height: 40px; }
 }
+.tg-symbols-tabs { display: flex; flex-wrap: wrap; gap: 3px; }
+.tg-symbols-keys { display: flex; align-items: center; gap: 4px; }
+.tg-symbols-space { flex: 0 1 220px; justify-content: center; }
+.tg-symbols-spacer { flex: 1; }
+.tg-symbols .gb { color: #f2f2f2; }
+.tg-symbols .gb.is-on { color: #111; }
+@media (pointer: coarse) {
+  .tg-symbols-keys .gb, .tg-symbols-space { height: 40px; min-width: 40px; }
+}

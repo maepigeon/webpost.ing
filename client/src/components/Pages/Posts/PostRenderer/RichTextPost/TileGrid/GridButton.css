@@ -1,0 +1,4 @@
+/* A grid button lays out its symbol and label in a row wherever it is used. */
+.gb { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.gb.tg-text-btn { padding: 0 8px; }
+.gb.tg-tile { padding: 0; }

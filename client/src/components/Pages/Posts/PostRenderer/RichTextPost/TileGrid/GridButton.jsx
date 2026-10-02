@@ -1,5 +1,6 @@
 import PixelText from './PixelText.jsx';
 import './tips.css';
+import './GridButton.css';
 
 /**
  * A button in the grid editor's style: a real button (so it can be focused,
