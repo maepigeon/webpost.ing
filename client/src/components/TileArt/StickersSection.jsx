@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { GET_STICKERS, CREATE_STICKER, UPDATE_STICKER, DELETE_STICKER } from '../Pages/Posts/BasicTextPostServerApi.js';
 import TileGrid from '../Pages/Posts/PostRenderer/RichTextPost/TileGrid/TileGrid.jsx';
 import { normaliseGrid, pixelLayer } from '../Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
@@ -49,7 +50,8 @@ export default function StickersSection({ username }) {
       <h2 className="settings-section-title">Stickers</h2>
       <p className="settings-section-hint">
         Small grids of your own, up to {MAX_TILES} × {MAX_TILES} tiles. Share them in Messages as a
-        pack; anyone you send one to can add a copy to their own stickers.
+        pack; anyone you send one to can add a copy to their own stickers. Everything you can use is
+        in the <Link className="settings-link" to="/stickers">sticker center</Link>.
       </p>
 
       {stickers && stickers.length > 0 && (

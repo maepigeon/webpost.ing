@@ -154,3 +154,32 @@
   white-space: nowrap;
 }
 .messages-pack-btn:disabled { opacity: 0.55; cursor: default; }
+
+/* ── Sticker center ────────────────────────────────────────────────────── */
+
+.sticker-center { display: flex; flex-direction: column; gap: 12px; }
+.center-heading { margin: 4px 0 0; font-size: 15px; font-weight: 800; color: var(--ink); }
+.center-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 10px;
+}
+.center-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 6px;
+  border-radius: 12px;
+  background: var(--surface-sunken);
+  text-align: center;
+  min-width: 0;
+}
+.center-item-art { line-height: 0; }
+.center-item-name { font-size: 13px; font-weight: 700; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.center-item .pack-btn { padding: 4px 10px; font-size: 12px; }
+.center-fonts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.center-fonts li { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 12px; background: var(--surface-sunken); }
