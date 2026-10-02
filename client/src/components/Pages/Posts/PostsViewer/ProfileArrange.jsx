@@ -75,11 +75,18 @@ function Badges({ post, pinnedId }) {
 }
 
 /** Make a post public or private, or delete it, from its row. Not shown on a lifted row. */
-function RowActions({ post, onVisibility, onDelete }) {
-  if (!onVisibility && !onDelete) return null;
+function RowActions({ post, pinned, onVisibility, onDelete, onPin }) {
+  if (!onVisibility && !onDelete && !onPin) return null;
   const name = post.title || 'untitled post';
   return (
     <span className="arrange-actions">
+      {onPin && post.published && (
+        <button type="button" className={`arrange-action${pinned ? ' is-on' : ''}`} onClick={() => onPin(post, !pinned)}
+          aria-pressed={pinned} aria-label={`${pinned ? 'Unpin' : 'Pin'}: ${name}`}
+          title={pinned ? 'Take it off the top of your profile' : 'Show it at the top of your profile'}>
+          {pinned ? 'Unpin' : 'Pin'}
+        </button>
+      )}
       {onVisibility && (
         <button type="button" className="arrange-action" onClick={() => onVisibility(post, !post.published)}
           aria-label={`${post.published ? 'Make private' : 'Make public'}: ${name}`}
@@ -121,7 +128,7 @@ function RowBody({ row, pinnedId, handle, actions }) {
   );
 }
 
-function SortableRow({ row, pinnedId, depth, isSlot, slotHeight, onVisibility, onDelete }) {
+function SortableRow({ row, pinnedId, depth, isSlot, slotHeight, onVisibility, onDelete, onPin }) {
   const {
     attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition,
   } = useSortable({ id: row.id });
@@ -147,12 +154,12 @@ function SortableRow({ row, pinnedId, depth, isSlot, slotHeight, onVisibility, o
         height: slotHeight || undefined,
       }}>
       <RowBody row={row} pinnedId={pinnedId} handle={handle}
-        actions={row.type === 'post' ? <RowActions post={row.post} onVisibility={onVisibility} onDelete={onDelete} /> : null} />
+        actions={row.type === 'post' ? <RowActions post={row.post} pinned={row.post.id === pinnedId} onVisibility={onVisibility} onDelete={onDelete} onPin={onPin} /> : null} />
     </li>
   );
 }
 
-export default function ProfileArrange({ posts, pinnedId, onChange, onDone, status, onVisibility, onDelete }) {
+export default function ProfileArrange({ posts, pinnedId, onChange, onDone, status, onVisibility, onDelete, onPin }) {
   const [activeId, setActiveId] = useState(null);
   const [overId, setOverId] = useState(null);
   const [dx, setDx] = useState(0);
@@ -345,7 +352,7 @@ export default function ProfileArrange({ posts, pinnedId, onChange, onDone, stat
               return (
                 <SortableRow key={row.id} row={row} pinnedId={pinnedId} depth={depth} isSlot={isSlot}
                   slotHeight={isSlot && movingFolder ? folderSlotHeight : 0}
-                  onVisibility={onVisibility} onDelete={onDelete} />
+                  onVisibility={onVisibility} onDelete={onDelete} onPin={onPin} />
               );
             })}
           </ol>

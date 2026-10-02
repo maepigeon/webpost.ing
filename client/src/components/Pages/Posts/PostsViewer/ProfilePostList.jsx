@@ -169,7 +169,7 @@ function ProfilePost({ post, canEdit, username, onRefresh, folderNames, onMoveTo
  * @param pinned    the pinned post's block, drawn under the bar, above the rest
  */
 export default function ProfilePostList({
-  posts, pinnedId, canEdit, username, onRefresh, onArrange, hasMore, loadAll, leading = null, pinned = null,
+  posts, pinnedId, canEdit, username, onRefresh, onArrange, hasMore, loadAll, leading = null, pinned = null, onPin,
 }) {
   const [collapsedFolders, setCollapsedFolders] = useState(new Set());
   const [arranging, setArranging] = useState(false);
@@ -281,7 +281,7 @@ export default function ProfilePostList({
       ? <p className="profile-arrange-loading" role="status">Loading all your posts…</p>
       : <ProfileArrange posts={posts} pinnedId={pinnedId} onChange={save}
           onDone={() => setArranging(false)} status={status}
-          onVisibility={setVisibility} onDelete={removePost} />;
+          onVisibility={setVisibility} onDelete={removePost} onPin={onPin} />;
   }
 
   const blocks = toBlocks(posts.filter(p => p.id !== pinnedId));

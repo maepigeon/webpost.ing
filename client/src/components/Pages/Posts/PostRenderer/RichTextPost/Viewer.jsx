@@ -20,7 +20,7 @@ import { usePageTitle } from '../../../../../utils/usePageTitle.js';
 import { useDialog } from '../../../../Dialog/Dialog.jsx';
 import {
   READ_POST, GET_USER_FROM_POST,
-  GET_POST_FEATURES, GET_PINNED_POST, SET_PINNED_POST, UNPIN_POST,
+  GET_POST_FEATURES,
   RECORD_POST_VIEW, GET_POST_VIEWS, GET_POST_VOTE, VOTE_POST,
 } from '../../BasicTextPostServerApi.js';
 import { ImageNode } from './ImageNode.jsx';
@@ -178,16 +178,6 @@ function RichTextViewerBody({ id }) {
   const shareRef = useRef(null);
   const [showDmShare, setShowDmShare] = useState(false);
   const [dmSentTo, setDmSentTo] = useState('');
-  const [isPinned, setIsPinned] = useState(false);
-  const togglePin = async () => {
-    try {
-      if (isPinned) await UNPIN_POST(postAuthor);
-      else await SET_PINNED_POST(postAuthor, parseInt(id, 10));
-      setIsPinned(p => !p);
-    } catch {
-      // The button keeps showing the old state, which is still the truth.
-    }
-  };
   const [viewCounts, setViewCounts] = useState(null); // { total_views, unique_views }
   const [postScore, setPostScore] = useState(0);
   const [userPostVote, setUserPostVote] = useState(0); // -1, 0, or 1
@@ -209,9 +199,6 @@ function RichTextViewerBody({ id }) {
 
   useEffect(() => {
     if (!postLoaded || !isAuthor) return;
-    GET_PINNED_POST(postAuthor)
-      .then(p => setIsPinned(p && p.id === parseInt(id)))
-      .catch(() => setIsPinned(false));
     GET_POST_VIEWS(id).then(setViewCounts).catch(() => {});
   }, [postLoaded, isAuthor, postAuthor, id]);
 
@@ -407,12 +394,6 @@ function RichTextViewerBody({ id }) {
               {isAuthor && (
                 <div className="post-author-controls">
                   <button type="button" className="viewer-edit-btn" onClick={() => navigate(`/editor/${id}`)}>Edit post</button>
-                  {postPublished && (
-                    <button type="button" className="viewer-edit-btn" onClick={togglePin}
-                      title={isPinned ? 'Take this post off the top of your profile' : 'Show this post at the top of your profile'}>
-                      {isPinned ? 'Unpin' : 'Pin to profile'}
-                    </button>
-                  )}
                 </div>
               )}
               {features.reactionsEnabled && <ReactionBar postId={parseInt(id)} isOwner={isAuthor} />}

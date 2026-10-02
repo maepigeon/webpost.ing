@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import {AUTHORIZE_SESSION, READ_POSTS_BY_USER, GET_USER_BACKGROUND, GET_USER_BIO, UPDATE_USER_BIO, GET_USER_BIO_LINKS, UPDATE_USER_BIO_LINKS, GET_USER_STORAGE, GET_FOLLOWERS, GET_FOLLOWING, GET_BLOCK_MESSAGE_STATUS, BLOCK_MESSAGES, UNBLOCK_MESSAGES, EXPORT_MY_DATA, GET_PINNED_POST, GET_USER_AVATAR, POST_USER_AVATAR, GET_USER_ONLINE} from '../BasicTextPostServerApi.js'
+import {AUTHORIZE_SESSION, READ_POSTS_BY_USER, GET_USER_BACKGROUND, GET_USER_BIO, UPDATE_USER_BIO, GET_USER_BIO_LINKS, UPDATE_USER_BIO_LINKS, GET_USER_STORAGE, GET_FOLLOWERS, GET_FOLLOWING, GET_BLOCK_MESSAGE_STATUS, BLOCK_MESSAGES, UNBLOCK_MESSAGES, EXPORT_MY_DATA, GET_PINNED_POST, SET_PINNED_POST, UNPIN_POST, GET_USER_AVATAR, POST_USER_AVATAR, GET_USER_ONLINE} from '../BasicTextPostServerApi.js'
 import ProfilePostList from './ProfilePostList.jsx';
 import { mergePosts, applyChanges } from './profileOrder.js';
 import { IMAGES_BASE_URL } from '../../../../config.js';
@@ -542,6 +542,13 @@ function PostsViewer() {
                 username={username}
                 onRefresh={() => loadPosts(true)}
                 onArrange={arrangePosts}
+                onPin={async (post, pin) => {
+                  // Pinning is done here, on the profile it changes, from Arrange posts.
+                  try {
+                    if (pin) { await SET_PINNED_POST(username, post.id); setPinnedPost(post); }
+                    else { await UNPIN_POST(username); setPinnedPost(null); }
+                  } catch { alert('Could not change the pinned post.', 'Pin'); }
+                }}
                 hasMore={hasMore}
                 loadAll={loadAllPosts}
                 leading={canEdit ? <NewGridPost /> : null}

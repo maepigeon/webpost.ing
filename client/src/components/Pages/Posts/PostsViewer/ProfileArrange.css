@@ -270,3 +270,4 @@ body.is-arranging .scroll-to-top { display: none; }
 .arrange-action { padding: 2px 8px; font-size: 12px; border-radius: 6px; white-space: nowrap; }
 .arrange-action--danger { color: #b3261e; border-color: currentColor; }
 @media (max-width: 600px) { .arrange-actions { flex-wrap: wrap; justify-content: flex-end; } }
+.arrange-action.is-on { background: #1c1c1c; color: #fff; }
