@@ -1,0 +1,396 @@
+WEBPOST.ING — HANDOFF FOR THE NEXT DEVELOPER AGENT
+Revised 2026-09-30 evening (local time), after the production deploy of aeba42b.
+====================================================================
+
+This file merges two handoffs: the one from the agent that deployed to
+production today (live setup, crashes, security fixes; Mae has the full
+text), and the one from the local development session (dev machine, profile
+ordering, grid typing, email, water title). Where they disagreed, this file
+says which is right.
+
+Read this, then guide/"notes to AI swe.txt" (Mae's standing rules),
+guide/DEPLOYMENT.md (parts are out of date; section 6), guide/MIGRATIONS.md,
+and guide/project-structure.md. guide/tasks.md was last updated 2026-09-08
+and is behind. Bring it up to date as part of your first task.
+
+
+--------------------------------------------------------------------
+0. RULES OF THE ROAD
+--------------------------------------------------------------------
+
+- Develop, build and test on Mae's laptop only. Production is one small
+  droplet (1 vCPU, ~2 GB RAM, host webpost.ing, user mae). Never build, run
+  tests, or start extra JVMs or Postgres instances there. Doing that caused
+  today's first crash (section 5).
+- Mae deploys; you prepare. Build locally, upload the artifacts, and give Mae
+  a script to run on the server as `sudo bash <script>`. Only she can run
+  sudo. Scripts must be idempotent, back up what they change, and roll back
+  on failure. Existing ones: /home/mae/deploy-20260930/ on the server.
+- Secrets never go in files, commits or chat. The production DB password is
+  only in /home/webpost.ing/deploy.env on the server. Locally, read only the
+  variable NAMES in deploy.env, never values:
+      sed -nE 's/^[[:space:]]*(export[[:space:]]+)?([A-Z_][A-Z0-9_]*)=.*/\2/p' deploy.env
+- Commits: NEVER add "Co-Authored-By" or "Generated with Claude Code" lines.
+- Your own notes go in the project's guide/ folder, not in agent memory.
+- UI style: grayscale chrome, tactile, springy controls. NO glass card
+  panels. NEVER rotate or tilt posts or cards. Older entries in tasks.md that
+  mention "liquid glass" are out of date.
+- Destructive database work: rename the database to <name>_before_<what>_<timestamp>
+  instead of dropping it, and say where the old copy is.
+
+
+--------------------------------------------------------------------
+1. WHAT TO DO NEXT, IN ORDER
+--------------------------------------------------------------------
+
+1) Server stability (Mae runs it): `sudo bash /home/mae/deploy-20260930/harden.sh`.
+   It adds swap, caps the JVM at 512 MB, protects the site and database from
+   the OOM killer, caps Mae's own session, and saves both crashes' logs to
+   /home/mae/crash-logs.txt. Afterwards, ask her for:
+       swapon --show
+       systemctl show start-servers user-1000.slice -p OOMScoreAdjust -p MemoryLow -p MemoryHigh -p MemoryMax
+       grep -iE 'out of memory|killed process' /home/mae/crash-logs.txt
+
+2) Grid fixes: apply them, add the focus fix, and test (section 3).
+   The patch is NOT on GitHub. It sits on the server, uncommitted:
+       scp mae@webpost.ing:/home/mae/deploy-20260930/grid-fixes.patch .
+       git checkout -b fix/grid-per-tile-width origin/main
+       git apply grid-fixes.patch
+   Then add the focus fix from section 3, run both test suites, and test in a
+   browser. Frontend and backend of this patch MUST go live together: the
+   deployed server's GridValidator would truncate the new grid format.
+
+3) Profile arrangement: review and merge branch claude/ui-fixes-2026-10-01-clean
+   (section 2). Ready, with 262/262 server and 94/94 client tests passing.
+   Either half can deploy first.
+
+4) Water title: stop it burning CPU while idle (section 4).
+
+5) Email: with Mae, choose an SMTP provider and set up DNS; then decide what
+   sign-up does with the address (section 7).
+
+6) Code fixes still open (section 8), roughly by priority.
+
+7) Mae rotates two credentials that were pasted into chat (neither is in
+   git): the admin account maepigeon's password (it also fails the site's
+   own password policy), and the Postgres password for user mae (in Postgres
+   AND in DB_PASSWORD in the server's deploy.env, then restart).
+
+8) Update guide/DEPLOYMENT.md (section 6 lists what's wrong in it) and
+   guide/tasks.md. Add a guide note: never build or develop on the
+   production box.
+
+
+--------------------------------------------------------------------
+2. PROFILE ARRANGEMENT (branch claude/ui-fixes-2026-10-01-clean)
+--------------------------------------------------------------------
+
+What was wrong on main (aeba42b):
+  - The server never returned sort_order, and paged profiles newest first.
+    The page drew posts in sort_order, which was always undefined, so every
+    reload showed folders first, then newest first. Drags appeared to work,
+    then vanished on reload.
+  - Saving an order numbered only the posts loaded so far (0..n). Their
+    numbers collided with posts further down, and pages sliced a different
+    order than the one shown, so posts repeated across pages and others were
+    skipped.
+  - The list kept its own copy of the posts and replaced it with stale data
+    whenever another page loaded, so the arrangement snapped back mid-session.
+  - The first page could load twice: the scroll observer fired while the
+    first request was still in flight.
+  - The drag preview (a 700 ms dwell that redrew the list) fought dnd-kit's
+    own shifting, and dragging a screen-tall post meant dragging and
+    scrolling at once.
+  - dnd-kit's overlay is position:fixed, and .window has a transform, so the
+    lifted row landed ~300 px away from the pointer and dnd-kit, which
+    measures the overlay, saw no row under it.
+
+What the branch does:
+  - Server: Post.sortOrder is returned. The profile is ordered by
+    (sort_order, date DESC, id DESC) in SQL, so every page is a slice of one
+    fixed order. PUT /api/users/{u}/posts/order takes the list top first;
+    positions come from list order (sortOrder in the body is ignored). The
+    author's posts left out go after it in their old order, all in one
+    transaction with the rows locked (PostRepository.reorder).
+  - Client: an "Arrange posts" button on your own profile opens a compact
+    arrange view (ProfileArrange.jsx). It loads every post first, shows each as
+    one row, and saves on every drop. A folder's posts are indented under it:
+    drag right to file a post into the folder above, left to take it out. The
+    lifted row says "into X" / "out of X". Dragging a folder moves it with
+    its posts. Keyboard: Space to lift, arrows to move, Space to drop. The
+    overlay renders in a portal on <body>.
+  - Saves are queued. If one fails, those queued behind it are dropped and the
+    list goes back to the last order the server confirmed.
+  - Paging: generation counter plus in-flight guard; merges de-duplicate by
+    id.
+  - Order rules are pure functions in profileOrder.js
+    (src/test/profileOrder.test.js, 24 tests). Server: ProfileOrderTest
+    (7, against webposting_test) and PostControllerTest (+3).
+  - Verified with real mouse drags in Chromium (Playwright, recorded): into a
+    folder, folder to top, out of a folder, back in. The order survives a
+    reload, and 26 posts load as 26 unique.
+
+Deploy notes: either half can go live first. The new client also sends
+sortOrder, which the old server reads. The old client reads p.sort_order,
+which neither server sends, so it behaves as before. No migration: saved
+positions finally show, so anyone who arranged before sees their last saved
+arrangement. Mae's own profile on the old dev data had 22 distinct positions
+over 23 posts; if it looks odd, one pass in the arrange view renumbers
+everything.
+
+
+--------------------------------------------------------------------
+3. GRID EDITOR: TWO SEPARATE TYPING BUGS
+--------------------------------------------------------------------
+
+Both handoffs found a "can't type in grid posts" bug. They are different
+bugs, and the patch fixes only the first.
+
+(a) Photo layer on top: FIXED IN grid-fixes.patch, not deployed.
+    The editor starts with the topmost layer active. After a photo is added,
+    that is the photo layer, and typeChars returns early for non-pixel
+    layers, so every key was dropped (post 8 on production). The patch
+    adds textLayerFor(): typing on a photo uses the pixel layer above it or
+    inserts a "Text" layer. The same patch adds per-tile width (grid v3:
+    half- and full-width text can coexist; legacy grids upgrade on load
+    client-side and in GridValidator).
+
+(b) Focus stolen by the toolbar: NOT FIXED ANYWHERE. Reproduced locally.
+    Commit feecee8 ("Grid editor v2") replaced buttons that used
+    onMouseDown + preventDefault (which kept focus in the hidden typing
+    textarea) with <Tile> buttons that use plain onClick. So:
+      - clicking any tool, including the Text tool, moves focus onto the
+        button; typing then does nothing, although the grid still shows its
+        cursor and the hint says "Click a tile and type";
+      - clicking a layer row focuses its name <input>, so typing renames the
+        layer ("Backgroundf" in Mae's dev post);
+      - with any tool but Text, keys are dropped silently.
+    Clicking the grid again restores typing, so it seems intermittent.
+    Fix, applied ON TOP of the patch (both touch TileGrid.jsx):
+      - <Tile>, DirectionPad and layer eye/Done buttons: onMouseDown={e => e.preventDefault()};
+      - after setTool('text') / chooseFont / chooseColour: refocus the textarea;
+      - layer rows: click selects and refocuses typing; rename only on
+        double-click;
+      - [ask Mae] a printable key with another tool active: switch to Text
+        automatically (recommended), or show a hint;
+      - vitest tests for each case; then a browser check.
+    TileGrid is also used by WallpaperEditor and ThemeEditor: check there too.
+
+Browser checklist (local, then production post 8 at /editor/8):
+  - photo layer on top, click a tile and type: a Text layer appears above
+    the photo and the text shows;
+  - pick another tool, then T, then type without clicking the grid: text
+    appears (the focus fix);
+  - type full width, switch to half, type more on the same row: both widths
+    coexist and nothing typed before changes;
+  - select tiles and press the other width: only those tiles change;
+  - copy, paste and move a full-width tile: it stays full width;
+  - undo each of the above;
+  - save and reload: everything persists; a wallpaper or theme grid saves too.
+Known quirks of the patch: at half width, Backspace over a full-width tile
+takes two presses; converting a 2-char tile to full width keeps the first
+character.
+
+
+--------------------------------------------------------------------
+4. HOME PAGE WATER TITLE (client/src/components/Pages/Home/WaterTitle.jsx)
+--------------------------------------------------------------------
+
+How it works: a height-field ripple (the classic "Hugo Elias" water
+effect). It is the linear 2D wave equation discretised with finite
+differences, not the shallow-water equations: there is one height field and
+no velocity or momentum, so no advection and no nonlinearity. Two buffers,
+cur and prev, hold heights on a grid of 3 px cells. Each frame:
+    next = (N + S + E + W) / 2 − prev,   then × 0.94 damping
+That is the leapfrog scheme at Courant number c²Δt²/Δx² = 1/2, where the
+centre term cancels. After it: a 7% four-neighbour diffusion (smoothing)
+pass, and a gradient pass (central differences). Rendering is on the CPU
+into an HTML <canvas> 2D context, with no WebGL and no shaders. Every canvas
+pixel is displaced by the bilinearly-interpolated height gradient, samples
+an off-screen canvas holding the text (bilinear), and fades black → gray →
+white as displacement grows. The result goes out with putImageData. Input:
+mouse moves drop height along the path (stronger when pressed), mousedown or
+touchstart adds a ring, edges are fixed at zero (they reflect).
+
+Problems:
+  - Burns CPU while idle: requestAnimationFrame runs forever and redraws
+    every pixel even when the water is flat. Measured headless with no
+    input: main thread 100% busy at 1440×900@2× (1280×216 canvas), 34% at
+    390×844@3×. Fix: track the wave's energy; stop the loop when it falls
+    below a threshold and draw the plain text once; restart on input.
+  - Allocates a new ImageData every frame (~1.1 MB per frame at 2×) instead
+    of reusing one: garbage-collector churn.
+  - Anisotropic, size-dependent strength: displacement is gradient × 0.015
+    × W horizontally but × H vertically, so it is ~6× stronger sideways on a
+    wide title, and stronger on bigger screens.
+  - Frame-rate dependent: damping and speed are per frame, so on a 120 Hz
+    display ripples travel twice as fast and die twice as quickly. Step at a
+    fixed rate (e.g. 60 Hz accumulator).
+  - Sized once at mount: no resize handling, so resizing or rotating the
+    window stretches or blurs the title.
+  - Accessibility: the canvas has no text alternative and the home page has
+    no <h1>, so screen readers never hear "webpost.ing". Add
+    role="img" aria-label={text}, or a visually-hidden <h1>.
+  - The diffusion pass updates in place (Gauss-Seidel style): a slight
+    directional bias. Minor.
+  - touchmove preventDefault on the canvas blocks page scrolling when a
+    swipe starts on the title. Probably intended; check with Mae.
+  - Stale names and comments: TEAL_R/G/B hold gray, and "Normalise over
+    12px" divides by 40.
+  - A WebGL fragment-shader version would be far cheaper per pixel. Optional;
+    fixing the idle loop is what matters.
+
+
+--------------------------------------------------------------------
+5. PRODUCTION: WHY IT CRASHED TWICE ON 2026-09-30
+--------------------------------------------------------------------
+
+Crash 1 (reboot 17:59:38 UTC): deploy prep on the box (builds, tests,
+rehearsal JVM and Postgres instances) thrashed memory. An image upload at
+17:54 hit the heaviest path and died mid-request. Crash 2 (hung ~19:06,
+power-cycled): VSCode Remote-SSH reconnects kept old extension hosts alive
+for their 3-hour grace period, and started another Claude Code process
+(~250 MB each). Root cause of both: developer tooling shares a 2 GB, no-swap
+box with production, with no JVM -Xmx, no OOM protection for the site, and
+no memory limit on Mae's session. harden.sh (section 1, step 1) fixes the
+limits; keeping development off the box removes the cause. sysstat history:
+`sar -r -f /var/log/sysstat/saDD` (no root needed).
+
+
+--------------------------------------------------------------------
+6. PRODUCTION LIVE SETUP (not in the repo, or where the repo is wrong)
+--------------------------------------------------------------------
+
+- Service: /etc/systemd/system/start-servers.service, User=webposting (NOT
+  root; DEPLOYMENT.md still says root), hardened (NoNewPrivileges, PrivateTmp,
+  ProtectSystem=full, ProtectHome=read-only,
+  ReadWritePaths=/var/www/webposting/uploads). ExecStart=/home/webpost.ing/server-start.sh.
+- JAR: /home/webpost.ing/server/target/server-0.0.1-SNAPSHOT.jar. Replace it
+  by rename (.new, then mv), never in place. Frontend: /var/www/webpost.ing/html.
+  /home/mae/webpost.ing on the server is an old build tree; don't build
+  there. /home/webpost.ing is a STALE git checkout; only server-start.sh,
+  deploy.env and the JAR there are live.
+- deploy.env (root:webposting 0640) keys: APP_PROFILE=prod, DB_* (DB_NAME=webpostingdb),
+  ALLOWED_ORIGINS, UPLOAD_DIR=/var/www/webposting/uploads, APP_BASE_URL=https://webpost.ing,
+  SERVER_ADDRESS=127.0.0.1, SERVER_PORT=8080, SERVER_FORWARD_HEADERS_STRATEGY=native,
+  WEB_ROOT, APP_HOME, SERVICE_NAME. After harden.sh: JAVA_TOOL_OPTIONS=-Xmx512m ….
+  No MAIL_* keys.
+- nginx: server_tokens off, HSTS, nosniff (also /uploads/),
+  client_max_body_size 50m on /api/, and X-Forwarded-For overwritten with
+  $remote_addr. Not in the repo; a pre-deploy copy is in
+  /root/webposting-rollback-20260930_174709/.
+- Database webpostingdb: schema squashed to V001 plus V002–V007. Accounts:
+  maepigeon (was "Mae"; is_admin=true), Greg, thatlldosammy. My earlier
+  handoff said the account was "Mae"; that is now WRONG. Old databases:
+  webposting (unused), webpostingdb_before_20260930_174709 (the only copy of
+  strky's account and 3 posts; strky was deliberately not carried over).
+- Backups: ~/backups/ (dumps, uploads tgz, old html and JAR),
+  /root/webposting-rollback-…, /root/webposting-gridfix-<ts>/. No scheduled
+  off-box backup exists yet (tools/backup.sh is in the repo; nothing runs it).
+- Logs: `journalctl -u start-servers` needs root.
+- Leftovers: two unreferenced uploads (upload #5 and a 4.6 KB test jpeg; the
+  admin orphan sweep removes both); strky's avatar in uploads/avatars;
+  pm2-root.service enabled but managing nothing (disable it); the stale
+  checkout's application.properties holds an old plaintext DB login (user
+  cutiekitty, database `webposting`, unused) readable by local users; git
+  stashes in /home/mae/webpost.ing (stash@{0} contains an AuthController edit
+  that REMOVES a null check on todayCount; don't apply that part).
+
+
+--------------------------------------------------------------------
+7. EMAIL: NOT WORKING ANYWHERE, AND WHY
+--------------------------------------------------------------------
+
+- Off on production and on the laptop: app.mail.enabled defaults to false,
+  and no deploy.env has MAIL_* keys. EmailService.send() only logs "Mail
+  disabled; would have sent…" at DEBUG. The code itself is complete
+  (verification, reset, notifications, digest; guide/EMAIL.md).
+- The network is fine: the droplet reaches SMTP ports 25/465/587/2525. There
+  is no local MTA, and none is needed.
+- DNS is not ready: webpost.ing has no MX, SPF, DKIM or DMARC records, so
+  mail from no-reply@webpost.ing would be rejected or spam-foldered.
+- Sign-up: an address is required, but the only check is that it contains
+  "@" (Settings uses the stricter EMAIL_SHAPE). It is stored UNVERIFIED on
+  users.email, and no email is sent. That address is unusable:
+  notifications and password reset both need a verified address, and
+  "resend" only works for an address pending on a token. It also bypasses
+  the protection Settings has: an address joins an account only after its
+  owner clicks the link. users.email has no unique constraint.
+- Password reset is therefore impossible today; only an admin can reset a
+  password.
+- To turn it on: (1) Mae picks a provider (Resend, Postmark, SendGrid,
+  Mailgun, SES); (2) verify webpost.ing there: SPF and DKIM from the
+  provider, DMARC starting at p=none; (3) a sudo script adds MAIL_ENABLED=true,
+  MAIL_HOST, MAIL_PORT=587, MAIL_USERNAME, MAIL_PASSWORD, MAIL_FROM to the
+  server's deploy.env and restarts; (4) test by setting an address in
+  Settings, then a password reset. Local testing: a catcher such as Mailpit
+  (ask Mae before installing anything).
+- [Mae decides] Recommended for sign-up: send the address through the same
+  token flow as Settings (don't write users.email until confirmed), and make
+  it optional while mail is off. At minimum, stop presenting sign-up emails
+  as usable.
+
+
+--------------------------------------------------------------------
+8. OPEN CODE ISSUES
+--------------------------------------------------------------------
+
+a. X-Forwarded-For trust: AuthController.getClientIp and
+   EmailSettingsController.clientIp use the first X-Forwarded-For entry, so
+   "X-Forwarded-For: 127.0.0.1" skipped the registration IP limit (and
+   fooled the verify/reset limiters). nginx now overwrites the header, which
+   mitigates it. Use request.getRemoteAddr() (correct with forward headers
+   set to native).
+b. Sign-up email unverified (section 7).
+c. POST /api/upload with no cookies and no body returns 500; expected
+   400/401.
+d. UploadController.uploadFile writes the file and the uploads row before
+   the variants: a request that dies midway leaves an orphan. Insert the row
+   after the variants, or clean up on failure.
+e. "Using generated security password" at startup: harmless; exclude
+   UserDetailsServiceAutoConfiguration.
+f. Water title idle CPU and the other items in section 4.
+g. Grid focus bug (section 3b).
+h. Local jsdom 27 needs Node ≥ 20.19 (the laptop has 26; the server has
+   20.18.1, which doesn't matter as nothing builds there).
+
+
+--------------------------------------------------------------------
+9. THIS LAPTOP
+--------------------------------------------------------------------
+
+- Main checkout: /Users/mae/workspace/webposting (branch main). Agent
+  sessions run in worktrees under .claude/worktrees/<name>. The RUNNING app
+  comes from the main checkout, so worktree changes don't show in it until
+  merged there and rebuilt.
+- Running: backend `java -jar server/target/server-0.0.1-SNAPSHOT.jar` on
+  :8080, started with ./server-start.sh from the main checkout (log:
+  logs/server.log). Frontend `vite preview` on :5174, serving client/dist
+  (no hot reload; `npm run build` to refresh). Postgres on :5432
+  (`psql -U mae` needs no password). Other sessions share the machine, so
+  check `pgrep -fl "java -jar"` before assuming anything.
+- Databases: testdb = the dev database, erased and recreated today at Mae's
+  request. It has one user, `test` / `test` (inserted directly with a bcrypt
+  hash, since the password policy rejects "test"; not admin), and Mae's
+  draft post "Grid". testdb_before_erase_20260930_130043 holds the old dev
+  data. testdb_before_reset_20260929_234156 is left over from reset-schema.
+  webposting_test is the test suite's database (a guard refuses any database
+  not ending in _test). No admin and no invite codes exist in testdb, so
+  nobody can sign up there yet; ask Mae which account to make admin.
+- To test a branch without touching the running app: createdb a scratch DB,
+  run the branch JAR with DB_NAME=<scratch> SERVER_PORT=8081, and serve a
+  build with `vite preview` on :5175 via a temporary config proxying to
+  8081. Drive it with Playwright (client/node_modules/playwright; Chromium
+  cached). For videos: recordVideo, and no page.screenshot() while recording
+  (it stalls capture). Playwright's ffmpeg (~/Library/Caches/ms-playwright/ffmpeg-*/ffmpeg-mac)
+  encodes VP8 and PNG only. PIL is available for contact sheets.
+- Tooling limits: `gh` is not installed and the built-in browser isn't
+  signed in to GitHub. You can push branches, but Mae opens and merges PRs
+  (or fast-forwards main from her terminal). The auto-mode safety checker
+  blocks reading process environments or secret values, and blocks stopping
+  the server or renaming databases unless Mae has asked in chat. Don't work
+  around a block; explain and let Mae decide.
+- A UI-review subagent definition is drafted at .claude/agents/ui-reviewer.md
+  on branch claude/ui-fixes-2026-10-01-clean. It tests in headless Chromium on
+  its own ports (8082/5176) and scratch DB, and writes a report to
+  guide/ui-review-<date>-<topic>.md.

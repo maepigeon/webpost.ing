@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   normaliseGrid, pixelLayer, rowChars, writeSlot, writeChar, setTileWidths, isWide, restyleSlots, resizeLayerText,
   orderSlots, slotsIn, containRect, bitsFromHex, hexFromBits, seedBits, slotsPerRow, LIMITS,
-  photoRect, resizePhoto, zoomPhoto, PHOTO_SCALE, cleanHref, isExternalHref, setLink, linkAt, cleanExt, GRID_VERSION, mergeText, writeXl, variantRows, FONT_NAMES, TYPEFACES,
+  photoRect, resizePhoto, zoomPhoto, PHOTO_SCALE, cleanHref, isExternalHref, setLink, linkAt, cleanExt, GRID_VERSION, mergeText, writeXl, xlTiles, variantRows, FONT_NAMES, TYPEFACES,
 } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
 import { pixelGlyph } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileFont.js';
 
@@ -325,19 +325,31 @@ describe('merging two layers\' text', () => {
 
 describe('XL font (2×2 tiles)', () => {
   const d = normaliseGrid({ v: 3, cols: 4, rows: 3, layers: [pixelLayer('x')] });
-  it('covers its tile and the three beside and under it, clearing what was there', () => {
-    let l = writeChar(d, d.layers[0], 0, 2, 'b', null, 'half');          // tile 1, row 0
-    l = writeChar(d, l, 1, 0, 'c', null, 'full');                         // tile 0, row 1
-    l = writeXl(d, l, 0, 0, 'A', { color: '#ff0000' });
-    expect(rowChars(d, l, 0).slice(0, 4)).toEqual(['A', ' ', ' ', ' ']);
-    expect(rowChars(d, l, 1).slice(0, 2)).toEqual([' ', ' ']);
-    expect(isWide(l, 0, 0)).toBe(true);
-    expect(l.style['0,0']).toEqual({ color: '#ff0000', font: 'xl' });
+  it('is four characters: four wide tiles, each holding the letter and its quarter', () => {
+    const l = writeXl(d, d.layers[0], 0, 1, 'A', { color: '#ff0000' });
+    for (const [r, c, part] of xlTiles(0, 1)) {
+      expect(isWide(l, r, c)).toBe(true);
+      expect(rowChars(d, l, r)[c * 2]).toBe('A');
+      expect(l.style[`${r},${c * 2}`]).toEqual({ color: '#ff0000', font: 'xl', part });
+    }
   });
-  it('is left out where it would not fit', () => {
+  it('draws over what was there, and is itself overwritten one tile at a time', () => {
+    let l = writeChar(d, d.layers[0], 0, 0, 'z', null, 'full');
+    l = writeXl(d, l, 0, 0, 'A', null);
+    expect(rowChars(d, l, 0)[0]).toBe('A');
+    l = writeChar(d, l, 0, 2, 'q', { font: 'pixel' }, 'half');       // a narrow letter over the top-right quarter
+    expect(isWide(l, 0, 1)).toBe(false);
+    expect(l.style['0,2']).toEqual({ font: 'pixel' });                // no longer a quarter
+    expect(l.style['0,0'].part).toBe('tl');                           // the others are untouched
+    expect(l.style['2,0']).toBeUndefined();
+    expect(l.style['0,0'].font).toBe('xl');
+  });
+  it('is left out where it would not fit, and keeps only real parts', () => {
     const l = d.layers[0];
     expect(writeXl(d, l, 0, 3, 'A', null)).toBe(l);    // last column
     expect(writeXl(d, l, 2, 0, 'A', null)).toBe(l);    // last row
+    const g = normaliseGrid({ v: 3, layers: [{ id: 'a', kind: 'pixel', style: { '0,0': { font: 'xl', part: 'zz' }, '0,2': { font: 'pixel', part: 'tl' } } }] });
+    expect(g.layers[0].style).toEqual({ '0,0': { font: 'xl' }, '0,2': { font: 'pixel' } });
   });
 });
 

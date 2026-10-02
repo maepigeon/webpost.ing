@@ -25,10 +25,13 @@ export const LIMITS = { minCols: 1, maxCols: 64, minRows: 1, maxRows: 48, minLay
 export const SMOOTH_FONT = '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
 /** Mini (id "small"): the pixel letters at their own size, centred, leaving room above and below. */
 /**
- * XL: the pixel letters four times the size, one character across 2 × 2 tiles
- * (32 × 32 grid pixels). It sits in its top-left tile, which is wide; the other
- * three tiles hold nothing, and typing in it moves two tiles at a time.
+ * XL: the pixel letters four times the size, one letter across 2 × 2 tiles
+ * (32 × 32 grid pixels). It is really four characters: each of the four wide
+ * tiles holds the letter with `part` ("tl", "tr", "bl", "br") saying which
+ * quarter it draws. Being ordinary tiles, any other character typed over one
+ * replaces just that quarter; typing XL moves two tiles at a time.
  */
+export const XL_PARTS = ['tl', 'tr', 'bl', 'br'];
 export const FONT_NAMES = {
   pixel: 'Pixel', small: 'Mini', smooth: 'Smooth', xl: 'XL 2×2',
   // Variants of the pixel letters, made from them (see variantRows): no extra font data.
@@ -183,6 +186,7 @@ function cleanLayer(raw) {
       if (!/^\d+,\d+$/.test(k) || !v || typeof v !== 'object') continue;
       const s = {};
       if (FONT_NAMES[v.font]) s.font = v.font;
+      if (s.font === 'xl' && XL_PARTS.includes(v.part)) s.part = v.part;
       if (typeof v.color === 'string' && HEX_COLOUR.test(v.color)) s.color = v.color.toLowerCase();
       if (Object.keys(s).length) style[k] = s;
     }
@@ -363,18 +367,21 @@ export function writeChar(d, layer, r, s, ch, style, width = 'half') {
   return l;
 }
 
+/** The four tiles of an XL letter whose top-left tile is (r, c), with the quarter each shows. */
+export const xlTiles = (r, c) => [[r, c, 'tl'], [r, c + 1, 'tr'], [r + 1, c, 'bl'], [r + 1, c + 1, 'br']];
+
 /**
- * Types one XL character (font "xl") at a tile: it covers that tile, the one
- * to its right and the two under them, whose text is cleared. Unchanged where
- * it would not fit (last column or row).
+ * Types one XL letter at a tile: four wide tiles, each holding the letter and
+ * its quarter, drawn over whatever was there. Unchanged where it would not
+ * fit (last column or row).
  */
 export function writeXl(d, layer, r, c, ch, style) {
   if (r + 1 >= d.rows || c + 1 >= d.cols) return layer;
   let l = layer;
-  for (const [rr, cc] of [[r, c + 1], [r + 1, c], [r + 1, c + 1]]) {
-    l = writeChar(d, l, rr, cc * SLOTS_PER_TILE, ' ', undefined, 'full');
+  for (const [rr, cc, part] of xlTiles(r, c)) {
+    l = writeChar(d, l, rr, cc * SLOTS_PER_TILE, ch, { ...style, font: 'xl', part }, 'full');
   }
-  return writeChar(d, l, r, c * SLOTS_PER_TILE, ch, { ...style, font: 'xl' }, 'full');
+  return l;
 }
 
 /** Sets the width of whole tiles, keeping each tile's first character. */
@@ -411,7 +418,12 @@ export function writeSlot(d, layer, r, s, ch, style) {
   text[r] = chars.join('').replace(/ +$/, '');
   const next = { ...layer.style };
   if (ch === ' ') delete next[slotKey(r, s)];
-  else if (style) next[slotKey(r, s)] = { ...next[slotKey(r, s)], ...style };
+  else if (style) {
+    const merged = { ...next[slotKey(r, s)], ...style };
+    // Only an XL tile has a quarter; a letter typed over one is not part of it any more.
+    if (merged.font !== 'xl') delete merged.part;
+    next[slotKey(r, s)] = merged;
+  }
   return { ...layer, text, style: next };
 }
 
@@ -763,7 +775,7 @@ function drawLayerText(ctx, d, layer) {
         const x = s * SLOT_W;
         const y = r * TILE;
         if (d.glyphs[ch]) drawCustomGlyph(ctx, d.glyphs[ch], x, y, sw);
-        else if (style.font === 'xl' && wide && pixelGlyph(ch)) drawXlGlyph(ctx, pixelGlyph(ch), x, y);
+        else if (style.font === 'xl' && wide && style.part && pixelGlyph(ch)) drawXlPart(ctx, pixelGlyph(ch), style.part, x, y);
         else if (['bold', 'italic', 'outline'].includes(style.font) && pixelGlyph(ch)) drawPixelGlyph(ctx, variantRows(style.font, pixelGlyph(ch)), x, y, sw);
         else if (style.font === 'small' && pixelGlyph(ch)) drawSmallGlyph(ctx, pixelGlyph(ch), x, y, sw);
         else if (style.font !== 'smooth' && !TYPEFACES[style.font] && pixelGlyph(ch)) drawPixelGlyph(ctx, pixelGlyph(ch), x, y, sw);
@@ -785,12 +797,14 @@ function drawPixelGlyph(ctx, rows, x, y, sw) {
   }
 }
 
-/** 8×8 font bitmap four grid pixels a dot: 32 × 32, across 2 × 2 tiles. */
-function drawXlGlyph(ctx, rows, x, y) {
-  for (let gy = 0; gy < 8; gy++) {
-    const bits = rows[gy];
+/** One quarter of an 8×8 letter at four grid pixels a dot: a tile's worth of the 2 × 2 letter. */
+function drawXlPart(ctx, rows, part, x, y) {
+  const qx = part.endsWith('r') ? 4 : 0;
+  const qy = part.startsWith('b') ? 4 : 0;
+  for (let gy = 0; gy < 4; gy++) {
+    const bits = rows[qy + gy];
     if (!bits) continue;
-    for (let gx = 0; gx < 8; gx++) if (bits & (0x80 >> gx)) ctx.fillRect(x + gx * 4, y + gy * 4, 4, 4);
+    for (let gx = 0; gx < 4; gx++) if (bits & (0x80 >> (qx + gx))) ctx.fillRect(x + gx * 4, y + gy * 4, 4, 4);
   }
 }
 

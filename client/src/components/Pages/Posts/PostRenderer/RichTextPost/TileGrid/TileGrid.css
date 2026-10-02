@@ -423,3 +423,15 @@ span.tg-layer-name { overflow: hidden; text-overflow: ellipsis; white-space: now
 /* Grid buttons (GridButton) in the grid editor's panel. */
 .tg-panel .gb { display: inline-flex; align-items: center; gap: 6px; padding: 0 8px; color: #f2f2f2; }
 .tg-panel .gb.is-on { color: #111; }
+
+/* The font dropdown in the Text row. */
+.tg-font { display: inline-flex; align-items: center; gap: 6px; color: #9a9a9a; }
+.tg-font select {
+  height: 26px;
+  padding: 0 6px;
+  background: #1c1c1c;
+  color: #f2f2f2;
+  border: 1px solid #333;
+  border-radius: 3px;
+  font: 600 12px var(--app-font);
+}

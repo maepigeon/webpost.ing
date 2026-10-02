@@ -7,13 +7,14 @@ import { BASE_URL, IMAGES_BASE_URL } from '../../../../../../config.js';
 import { normaliseUploadResponse, describeUploadError } from '../../../../../../utils/responsiveImage.js';
 import {
   TILE, SCALE, LIMITS, FONT_NAMES, DIRECTIONS, normaliseGrid, pixelLayer, photoLayer,
-  SLOTS_PER_TILE, SLOT_W, slotsPerRow, rowChars, writeSlot, writeChar, writeXl, setTileWidths, isWide, restyleSlots, resizeLayerText,
+  SLOTS_PER_TILE, SLOT_W, slotsPerRow, rowChars, writeSlot, writeChar, writeXl, xlTiles, setTileWidths, isWide, restyleSlots, resizeLayerText,
   EDGES, mergeText, cleanHref, isExternalHref, setLink, linkAt, orderSlots, slotsIn, renderGrid, pixelatePhoto, photoRect, resizePhoto, zoomPhoto, tileKey, rectTiles, combineSelection, orderedTiles,
 } from './tileGrid.js';
 import { TEXTURES, fillTexture, texturePreview, DEFAULT_PAW_OPTIONS } from './textures.js';
 import PawOptions from '../../../../../TileArt/PawOptions.jsx';
 import GlyphEditor from './GlyphEditor.jsx';
 import GridButton from './GridButton.jsx';
+import PixelText from './PixelText.jsx';
 import PixelIcon from './PixelIcon.jsx';
 import './TileGrid.css';
 
@@ -62,7 +63,7 @@ const SHORTCUTS = [
     ['⌥ Arrows', 'Nudge the selection or layer'],
   ]],
   ['Typing', [
-    ['Any key', 'Types, switching to Text if another tool is picked'], ['Insert', 'Skip filled slots on or off'],
+    ['Any key', 'Types, switching to Text if another tool is picked'], ['Insert', 'Avoid overdraw on or off'],
     ['Enter', 'Next line'], ['F2', 'Rename the layer'], ['⌘/', 'Show or hide this list'],
   ]],
 ];
@@ -220,20 +221,7 @@ export default function TileGrid({
   const setCursor = (c) => { cursorRef.current = c; setCursorState(c); };
   const selectionRef = useRef(EMPTY);
   const [selection, setSelectionState] = useState(EMPTY);
-  // An XL letter is four tiles, which are selected, copied, moved and cleared together.
-  const withXlTiles = (sel) => {
-    const layer = dataRef.current.layers.find(l => l.id === activeIdRef.current);
-    if (!layer || layer.kind !== 'pixel' || !sel.size) return sel;
-    let out = sel;
-    for (const key of sel) {
-      const [r, c] = key.split(',').map(Number);
-      if (layer.style[`${r},${c * SLOTS_PER_TILE}`]?.font !== 'xl' || !isWide(layer, r, c)) continue;
-      if (out === sel) out = new Set(sel);
-      for (const [rr, cc] of [[r, c + 1], [r + 1, c], [r + 1, c + 1]]) out.add(`${rr},${cc}`);
-    }
-    return out;
-  };
-  const setSelection = (s) => { const x = withXlTiles(s); selectionRef.current = x; setSelectionState(x); };
+  const setSelection = (s) => { selectionRef.current = s; setSelectionState(s); };
   const [moveBy, setMoveBy] = useState(null);
   // A photo corner being dragged: the scale and offset it would have now.
   const [photoResize, setPhotoResize] = useState(null);
@@ -647,15 +635,24 @@ export default function TileGrid({
     return { d: { ...d, layers }, layer: text };
   };
 
-  /** XL letters: each takes 2 × 2 tiles, so the cursor moves two tiles along and, at a line's end or Enter, two rows down. */
+  /**
+   * XL letters: each is four tiles (2 × 2), so the cursor moves two tiles
+   * along and, at a line's end or Enter, two rows down. With Avoid overdraw
+   * (the Insert toggle) a letter goes to the next 2 × 2 spot whose tiles are
+   * all empty, instead of drawing over what is there.
+   */
   const typeXl = (str, d, layer) => {
     const startC = Math.floor(cursorRef.current.s / SLOTS_PER_TILE);
     let { r } = cursorRef.current;
     let c = startC;
     let l = layer;
+    const taken = (rr, cc) => xlTiles(rr, cc).some(([tr, tc]) => slotFilled(d, l, { r: tr, s: tc * SLOTS_PER_TILE }));
     for (const ch of Array.from(str)) {
       if (ch === '\n' || ch === '\r') { r += 2; c = startC; continue; }
       if (c + 1 >= d.cols) { r += 2; c = 0; }
+      if (skipFilled) {
+        while (r + 1 < d.rows && taken(r, c)) { c += 2; if (c + 1 >= d.cols) { r += 2; c = 0; } }
+      }
       if (r + 1 >= d.rows) break;
       if (ch !== ' ') l = writeXl(d, l, r, c, ch, { color: colour });
       c += 2;
@@ -1111,13 +1108,13 @@ export default function TileGrid({
               <Tile icon="one" label="One wide character per tile: for what you type next, or the selected tiles" on={width === 'full'} onClick={() => setWidth('full')} />
               <Tile icon="two" label="Two narrow characters per tile: for what you type next, or the selected tiles" on={width === 'half'} onClick={() => setWidth('half')} />
               <span className="tg-gap" />
-              <span className="tg-seg" role="group" aria-label="Font">
-                {/* One button per font the format knows (FONT_NAMES), so a new font appears here by being added there. */}
-                {Object.entries(FONT_NAMES).map(([id, name]) => (
-                  <GridButton key={id} label={name} on={font === id} onClick={() => chooseFont(id)}
-                    title={`${name} font. Applies to the selection, or what you type next.`} />
-                ))}
-              </span>
+              <label className="tg-font" data-tip="Font: applies to the selection, or what you type next.">
+                <PixelText text="Font" px={1.25} />
+                <select value={font} onChange={e => chooseFont(e.target.value)} aria-label="Font">
+                  {/* One option per font the format knows (FONT_NAMES): a new font appears here by being added there. */}
+                  {Object.entries(FONT_NAMES).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+                </select>
+              </label>
               <span className="tg-gap" />
               <span className="tg-colours" role="group" aria-label="Text colour">
                 <label className="tg-swatch" data-tip="Text colour: any colour. Applies to the selection, or what you type next." style={{ background: colour }}>
@@ -1131,7 +1128,7 @@ export default function TileGrid({
               <span className="tg-gap" />
               <Tile icon="glyph" label="Custom characters" on={panel === 'glyphs'}
                 onClick={() => setPanel(p => (p === 'glyphs' ? null : 'glyphs'))} />
-              <Tile icon="skip" label={`Skip filled slots while typing (Insert): ${skipFilled ? 'on' : 'off'}`} on={skipFilled} onClick={() => setSkipFilled(v => !v)} />
+              <Tile icon="skip" label={`Avoid overdraw (Insert): ${skipFilled ? 'on' : 'off'}. Typing skips filled slots, and XL letters filled 2×2 spots, instead of drawing over them.`} on={skipFilled} onClick={() => setSkipFilled(v => !v)} />
               <span className="tg-gap" />
               <DirectionPad value={direction} onChange={setDirection} />
             </div>
@@ -1243,7 +1240,7 @@ export default function TileGrid({
               <span className="tg-hint">{hint}</span>
               {notice && <span className="tg-notice" role="status">{notice}</span>}
               {hasSel && <span className="tg-badge">{selection.size} tile{selection.size === 1 ? '' : 's'}</span>}
-              {skipFilled && <span className="tg-badge">Skipping filled</span>}
+              {skipFilled && <span className="tg-badge">Avoiding overdraw</span>}
               <Tile icon="keys" label="Keyboard shortcuts (⌘/)" on={showKeys} onClick={() => setShowKeys(v => !v)} />
               <button type="button" className="tg-done" onClick={() => { setEditing(false); setSelection(EMPTY); setPanel(null); onDone?.(); }}>
                 Done

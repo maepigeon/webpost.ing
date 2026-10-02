@@ -36,6 +36,7 @@ public final class GridValidator {
     private static final Pattern LINK = Pattern.compile("^(/(?!/)\\S*|https?://[^\\s/$.?#]\\S*)$", Pattern.CASE_INSENSITIVE);
     private static final int MAX_LINKS = 64;
     // Font ids a character's style may name; keep in step with FONT_NAMES in tileGrid.js.
+    private static final Set<String> XL_PARTS = Set.of("tl", "tr", "bl", "br");
     private static final Set<String> FONTS = Set.of("pixel", "small", "smooth", "xl", "bold", "italic", "outline",
             "serif", "script", "cute", "comic");
     // `ext`: data this validator doesn't know about, kept as it came (see
@@ -230,6 +231,9 @@ public final class GridValidator {
                 ObjectNode s = MAPPER.createObjectNode();
                 String font = e.getValue().path("font").asText("");
                 if (FONTS.contains(font)) s.put("font", font);
+                // Which quarter of an XL letter this tile shows.
+                String part = e.getValue().path("part").asText("");
+                if (font.equals("xl") && XL_PARTS.contains(part)) s.put("part", part);
                 String color = e.getValue().path("color").asText("");
                 if (HEX.matcher(color).matches()) s.put("color", color.toLowerCase());
                 if (s.isEmpty()) continue;

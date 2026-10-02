@@ -30,7 +30,7 @@ and **the two must agree**: both keep exactly the fields below and drop the rest
     { "id": "a1", "kind": "pixel", "name": "Text", "visible": true,
       "paint": "data:image/png;base64,…" | null,   // painted pixels, grid-sized PNG
       "text": ["row 0 chars", …],                    // slots, trailing spaces trimmed
-      "style": { "r,s": { "color": "#rrggbb", "font": "pixel" | "small" (Mini) | "smooth" | "xl" | "bold" | "italic" | "outline" } },
+      "style": { "r,s": { "color": "#rrggbb", "part": "tl|tr|bl|br" /* XL only */, "font": "pixel" | "small" (Mini) | "smooth" | "xl" | "bold" | "italic" | "outline" } },
       "wide": ["r,c", …],
       "ext": { … } },
     { "id": "b2", "kind": "photo", "src": "/uploads/…", "scale": 1, "x": 0, "y": 0 }
@@ -74,3 +74,11 @@ to that upgrade; never rewrite stored grids in a migration.
 | Pixel font, symbols | `tileFont.js`, `symbols.js` (default pack "Basics"), `PixelText.jsx`, `GridButton.jsx` |
 | Text laid out as a grid | `client/src/utils/gridText.js` |
 | Server validation | `server/.../validator/GridValidator.java` |
+
+## XL letters
+
+The `xl` font is one letter across 2 × 2 tiles, stored as four characters: each
+of the four tiles is wide, holds the letter, and has `"font": "xl"` with `part`
+(`tl`, `tr`, `bl`, `br`) naming the quarter it draws. They are ordinary tiles, so
+anything typed over one replaces only that quarter. Typing XL draws over what is
+there unless Avoid overdraw is on, which moves to the next empty 2 × 2 spot.
