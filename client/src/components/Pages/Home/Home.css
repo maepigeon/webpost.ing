@@ -33,19 +33,11 @@
 }
 
 .home-hero-sub {
-  font-size: clamp(1.05rem, 2.5vw, 1.3rem);
-  color: #333;
-  max-width: 620px;
-  line-height: 1.7;
+  width: min(100%, 680px);
   margin: 0;
+  text-align: left;
 }
-
-.home-hero-sub a {
-  color: var(--accent);
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
+.home-hero-sub .tilegrid { margin: 0; }
 
 /* ── Footer ───────────────────────────────────────────────────────────────── */
 .home-footer {
