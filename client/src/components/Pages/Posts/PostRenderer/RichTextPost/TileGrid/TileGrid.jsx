@@ -680,6 +680,45 @@ export default function TileGrid({
     if (selectionRef.current.size) setSelection(res.placed);
   };
 
+  /**
+   * Mirrors the selection (or the whole layer) across or up and down: tiles
+   * swap places and their pixels flip. Letters move with their tiles but stay
+   * the right way round, so text is still readable.
+   */
+  const flip = (across) => {
+    const d = dataRef.current;
+    const layer = activeLayer();
+    if (layer.kind !== 'pixel') return;
+    const sel = selectionRef.current.size ? selectionRef.current
+      : new Set(rectTiles({ r: 0, c: 0 }, { r: d.rows - 1, c: d.cols - 1 }));
+    const clip = capture(sel, layer);
+    const box = boundsOf(sel);
+    const h = box.r1 - box.r0, w = box.c1 - box.c0;
+    const flipped = {
+      tiles: clip.tiles.map(t => {
+        let pixels = t.pixels;
+        if (pixels) {
+          const out = new ImageData(TILE, TILE);
+          for (let y = 0; y < TILE; y++) {
+            for (let x = 0; x < TILE; x++) {
+              const from = ((across ? y : TILE - 1 - y) * TILE + (across ? TILE - 1 - x : x)) * 4;
+              out.data.set(pixels.data.subarray(from, from + 4), (y * TILE + x) * 4);
+            }
+          }
+          pixels = out;
+        }
+        return { ...t, pixels, dr: across ? t.dr : h - t.dr, dc: across ? w - t.dc : t.dc,
+          // Two narrow letters in a tile swap sides when it flips across.
+          chars: across && !t.wide ? [...t.chars].reverse() : t.chars,
+          styles: across && !t.wide ? [...t.styles].reverse() : t.styles };
+      }),
+    };
+    const res = stamp(d, clearTiles(d, layer, orderedTiles(sel)), flipped, box.r0, box.c0);
+    commit(applyLayer(d, res.layer));
+    if (selectionRef.current.size) setSelection(res.placed);
+    typeRef.current?.focus();
+  };
+
   const copySelection = () => {
     const layer = activeLayer();
     if (layer.kind === 'pixel' && selectionRef.current.size) clipboard.current = capture(selectionRef.current, layer);
@@ -1342,6 +1381,8 @@ export default function TileGrid({
               <Tile icon="cut" label="Cut (⌘X)" onClick={() => { copySelection(); deleteSelection(); }} disabled={!hasSel || !isPixel} />
               <Tile icon="paste" label="Paste (⌘V)" onClick={paste} disabled={!clipboard.current || !isPixel} />
               <Tile icon="delete" label="Delete selection" onClick={deleteSelection} disabled={!hasSel || !isPixel} />
+              <Tile icon="flipH" label="Flip across: the selection, or the whole layer" onClick={() => flip(true)} disabled={!isPixel} />
+              <Tile icon="flipV" label="Flip up and down: the selection, or the whole layer" onClick={() => flip(false)} disabled={!isPixel} />
               <span className="tg-gap" />
               <Tile icon="link" label="Link the selected tiles" on={panel === 'link'} disabled={!hasSel && panel !== 'link'} onClick={openLinkPanel} />
             </div>
