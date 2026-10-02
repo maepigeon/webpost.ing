@@ -105,9 +105,14 @@ public class SharedPackController {
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("id", id.toString()));
     }
 
-    /** {id, kind, name, sender, body}: body is [{name, grid}] for stickers, {char: hex} for symbols. */
+    /**
+     * {id, kind, name, sender, body, savedByMe}: body is [{name, grid}] for
+     * stickers, {char: hex} for symbols; savedByMe is false when signed out.
+     */
     @GetMapping("/packs/{id}")
-    public ResponseEntity<?> get(@PathVariable String id) {
+    public ResponseEntity<?> get(@PathVariable String id,
+                                 @CookieValue(name = "username", required = false) String authUsername,
+                                 @CookieValue(name = "authToken", required = false) String token) {
         UUID uuid = parseId(id);
         if (uuid == null) return ResponseEntity.notFound().build();
         List<Map<String, Object>> rows = jdbc.queryForList("""
@@ -122,12 +127,15 @@ public class SharedPackController {
         out.put("sender", row.get("username"));
         try { out.put("body", MAPPER.readTree((String) row.get("body"))); }
         catch (Exception e) { out.put("body", null); }
+        AuthSession session = authorize(authUsername, token);
+        out.put("savedByMe", session != null && hasSaved(uuid, session.userId));
         return ResponseEntity.ok(out);
     }
 
     /**
      * Copies a pack into the signed-in user's own collection: its stickers are
-     * added to theirs, or its symbols become a new pixel font. Returns {saved}.
+     * added to theirs, or its symbols become a new pixel font, once per reader:
+     * saving again copies nothing. Returns {saved, alreadySaved}.
      */
     @PostMapping("/packs/{id}/save")
     @Transactional
@@ -145,19 +153,22 @@ public class SharedPackController {
         JsonNode body;
         try { body = MAPPER.readTree((String) rows.get(0).get("body")); }
         catch (Exception e) { return bad("That pack could not be read."); }
+        if (hasSaved(uuid, session.userId)) return ResponseEntity.ok(Map.of("saved", 0, "alreadySaved", true));
 
         if ("symbols".equals(kind)) {
             Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM pixel_fonts WHERE user_id = ?", Integer.class, session.userId);
             if (count != null && count >= PixelFontController.MAX_FONTS)
                 return bad("You can keep at most " + PixelFontController.MAX_FONTS + " fonts.");
             String glyphs = GridValidator.cleanGlyphs(body, PixelFontController.MAX_GLYPHS).toString();
+            if (!claim(uuid, session.userId)) return ResponseEntity.ok(Map.of("saved", 0, "alreadySaved", true));
             jdbc.update("INSERT INTO pixel_fonts (user_id, name, glyphs) VALUES (?, ?, ?)", session.userId, name, glyphs);
-            return ResponseEntity.ok(Map.of("saved", 1));
+            return ResponseEntity.ok(Map.of("saved", 1, "alreadySaved", false));
         }
 
         if (!body.isArray()) return bad("That pack could not be read.");
         if (!StickerController.hasRoom(jdbc, session.userId, body.size()))
             return bad("That would take you past " + StickerController.MAX_STICKERS + " stickers.");
+        if (!claim(uuid, session.userId)) return ResponseEntity.ok(Map.of("saved", 0, "alreadySaved", true));
         int saved = 0;
         for (JsonNode s : body) {
             StickerController.Sticker clean = StickerController.clean(s);
@@ -165,7 +176,19 @@ public class SharedPackController {
             jdbc.update("INSERT INTO stickers (user_id, name, grid) VALUES (?, ?, ?)", session.userId, clean.name(), clean.grid());
             saved++;
         }
-        return ResponseEntity.ok(Map.of("saved", saved));
+        return ResponseEntity.ok(Map.of("saved", saved, "alreadySaved", false));
+    }
+
+    private boolean hasSaved(UUID pack, int userId) {
+        Integer n = jdbc.queryForObject("SELECT COUNT(*) FROM shared_pack_saves WHERE pack_id = ? AND user_id = ?",
+                Integer.class, pack, userId);
+        return n != null && n > 0;
+    }
+
+    /** Records the save; false if this reader already has (two presses at once included). */
+    private boolean claim(UUID pack, int userId) {
+        return jdbc.update("INSERT INTO shared_pack_saves (pack_id, user_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
+                pack, userId) == 1;
     }
 
     private static int intOf(Object v) {

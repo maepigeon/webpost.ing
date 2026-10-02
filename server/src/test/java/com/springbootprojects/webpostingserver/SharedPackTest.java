@@ -81,14 +81,20 @@ class SharedPackTest {
 
         // Deleting the original leaves the shared copy whole.
         jdbc.update("DELETE FROM stickers WHERE id = ?", stickerId);
-        Map<?, ?> pack = (Map<?, ?>) packs.get(packId).getBody();
+        Map<?, ?> pack = (Map<?, ?>) packs.get(packId, null, null).getBody();
         assertThat(pack.get("kind")).isEqualTo("stickers");
         assertThat(pack.get("sender")).isEqualTo(SENDER);
         assertThat(((JsonNode) pack.get("body")).size()).isEqualTo(1);
 
-        assertThat(packs.save(packId, TAKER, signIn(TAKER)).getStatusCode()).isEqualTo(HttpStatus.OK);
+        String takerToken = signIn(TAKER);
+        assertThat(((Map<?, ?>) packs.get(packId, TAKER, takerToken).getBody()).get("savedByMe")).isEqualTo(false);
+        assertThat(packs.save(packId, TAKER, takerToken).getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM stickers WHERE user_id = ?", Integer.class, takerId)).isEqualTo(1);
-        assertThat(packs.get("not-a-uuid").getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        // Saving again, after a reload say, copies nothing more.
+        assertThat(((Map<?, ?>) packs.get(packId, TAKER, takerToken).getBody()).get("savedByMe")).isEqualTo(true);
+        assertThat(((Map<?, ?>) packs.save(packId, TAKER, takerToken).getBody()).get("alreadySaved")).isEqualTo(true);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM stickers WHERE user_id = ?", Integer.class, takerId)).isEqualTo(1);
+        assertThat(packs.get("not-a-uuid", null, null).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 
     @Test

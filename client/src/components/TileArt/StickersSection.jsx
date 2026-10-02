@@ -5,12 +5,22 @@ import TileGrid from '../Pages/Posts/PostRenderer/RichTextPost/TileGrid/TileGrid
 import { normaliseGrid, pixelLayer } from '../Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
 import { STICKERS } from './stickers.js';
 import { StickerThumb } from './PackThumbs.jsx';
+import { renderGridImage } from './wallpaper.js';
 import { useDialog } from '../Dialog/Dialog.jsx';
 import { errorMessage } from '../../utils/errorMessage.js';
 import './Packs.css';
 
 /** Largest sticker, in tiles on a side; the server clamps to the same. */
 const MAX_TILES = 8;
+
+/** True when a grid draws no visible pixel at all. */
+async function isBlank(grid) {
+  const canvas = await renderGridImage(grid, 1).catch(() => null);
+  if (!canvas) return false;
+  const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+  for (let i = 3; i < data.length; i += 4) if (data[i]) return false;
+  return true;
+}
 
 const blankSticker = () => normaliseGrid({ cols: 2, rows: 2, layers: [pixelLayer('Drawing')] });
 
@@ -30,6 +40,7 @@ export default function StickersSection({ username }) {
   const save = async () => {
     const name = editing.name.trim();
     if (!name) { setNote('Give the sticker a name.'); return; }
+    if (await isBlank(editing.grid)) { setNote('Draw something first: this sticker is empty.'); return; }
     try {
       if (editing.id) await UPDATE_STICKER(username, editing.id, name, editing.grid);
       else await CREATE_STICKER(username, name, editing.grid);
@@ -40,7 +51,7 @@ export default function StickersSection({ username }) {
   };
 
   const remove = async (s) => {
-    if (!(await confirm(`Delete the sticker “${s.name}”? Packs you have already shared keep their copies.`))) return;
+    if (!(await confirm(`Delete the sticker “${s.name}”? Packs you have already shared keep their copies.`, null, 'Delete'))) return;
     try { await DELETE_STICKER(username, s.id); load(); }
     catch (err) { setNote(errorMessage(err, 'Could not delete that sticker.')); }
   };
@@ -58,7 +69,7 @@ export default function StickersSection({ username }) {
         <ul className="sticker-list">
           {stickers.map(s => (
             <li key={s.id}>
-              <StickerThumb grid={s.grid} name={s.name} scale={1} />
+              <StickerThumb grid={s.grid} name={s.name} scale={2} />
               <span className="sticker-list-name">{s.name}</span>
               <button type="button" className="settings-link-btn" onClick={() => { setNote(''); setEditing({ id: s.id, name: s.name, grid: s.grid }); }}>Edit</button>
               <button type="button" className="settings-link-btn" onClick={() => remove(s)}>Delete</button>

@@ -33,6 +33,7 @@
 .pack-card-meta { font-size: 12px; color: var(--ink-soft); }
 .pack-card-save {
   align-self: flex-start;
+  min-height: 40px;
   background: var(--accent-fill);
   color: #fff;
   border: none;
@@ -80,6 +81,7 @@
 .pack-tabs { display: flex; gap: 6px; }
 .pack-tabs button,
 .pack-btn {
+  min-height: 36px;
   padding: 6px 14px;
   border-radius: 10px;
   border: 1px solid var(--hairline);
@@ -95,6 +97,11 @@
 
 .pack-pick-grid { display: flex; flex-wrap: wrap; gap: 6px; }
 .pack-pick {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 4px;
   border-radius: 8px;
   border: 2px solid transparent;
@@ -135,8 +142,9 @@
 /* ── Stickers section ──────────────────────────────────────────────────── */
 
 .sticker-list { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.sticker-list li { display: flex; align-items: center; gap: 10px; }
-.sticker-list-name { flex: 1; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sticker-list li { display: flex; align-items: center; gap: 10px; text-align: left; }
+.sticker-list li .pack-thumb { flex: none; }
+.sticker-list-name { flex: 0 1 auto; margin-right: auto; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sticker-start { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .sticker-start-label { font-size: 13px; font-weight: 700; color: var(--ink-soft); margin-right: 4px; }
 .sticker-editor { display: flex; flex-direction: column; gap: 10px; }
@@ -186,3 +194,5 @@
 .center-tabs { display: flex; gap: 6px; }
 .center-symbols { display: flex; flex-wrap: wrap; gap: 4px; }
 .center-symbol { color: #f2f2f2; display: inline-flex; align-items: center; justify-content: center; }
+
+.pack-tabpanel { display: flex; flex-direction: column; gap: 12px; }
