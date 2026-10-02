@@ -11,7 +11,7 @@ export function fmtBytes(n) {
 
 /** What each section and item is called, in the order shown. */
 const SECTIONS = [
-  ['files', 'Files', { postImages: 'Images in posts', profilePicture: 'Profile picture', headerImage: 'Card background image' }],
+  ['files', 'Files', { postImages: 'Images in posts', audio: 'Audio', profilePicture: 'Profile picture', headerImage: 'Card background image' }],
   ['posts', 'Posts', { content: 'Writing and grids', themes: 'Post themes', wallpapers: 'Post wallpapers' }],
   ['profile', 'Profile', { banner: 'Banner', theme: 'Page theme', wallpaper: 'Wallpaper', bio: 'Bio', links: 'Links', wallpaperPresets: 'Saved wallpapers' }],
   ['library', 'Library', { stickers: 'Stickers', pixelFonts: 'Pixel fonts', sharedPacks: 'Packs you shared' }],

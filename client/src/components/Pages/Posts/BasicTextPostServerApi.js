@@ -849,6 +849,15 @@ export function UPDATE_CODE_DISPLAY(username, prefs) {
   }).then(r => r.data);
 }
 
+/** Uploads an MP3 for an audio block; resolves { url, name, sizeBytes }. */
+export function UPLOAD_AUDIO(file) {
+  const form = new FormData();
+  form.append('file', file);
+  // Content-Type is left unset so the browser adds the multipart boundary.
+  return axios.post(baseUrl + "/api/upload/audio", form, { withCredentials: true })
+    .then(r => r.data);
+}
+
 /** The signed-in user's own uploaded images, for the "choose an existing one" picker. */
 export function LIST_MY_UPLOADS(limit = 60) {
   return axios.get(baseUrl + "/api/uploads/mine?limit=" + limit, { withCredentials: true })

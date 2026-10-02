@@ -30,12 +30,13 @@ import { CodeHighlightNode, $isCodeNode, registerCodeHighlighting, getCodeLangua
 import { CustomCodeNode, $createCustomCodeNode } from './CustomCodeNode.jsx';
 import { LinkNode, $createLinkNode, $isLinkNode, TOGGLE_LINK_COMMAND } from '@lexical/link';
 import { LinkPlugin } from '@lexical/react/LexicalLinkPlugin';
-import { READ_POST, CREATE_POST, UPDATE_POST, GET_USER_FROM_POST, GET_POST_FEATURES, SET_REACTIONS_ENABLED, SET_DISCUSSION_ENABLED, SET_VOTES_ENABLED, SET_CARD_GRID, SEARCH_POSTS } from '../../BasicTextPostServerApi.js';
+import { UPLOAD_AUDIO, READ_POST, CREATE_POST, UPDATE_POST, GET_USER_FROM_POST, GET_POST_FEATURES, SET_REACTIONS_ENABLED, SET_DISCUSSION_ENABLED, SET_VOTES_ENABLED, SET_CARD_GRID, SEARCH_POSTS } from '../../BasicTextPostServerApi.js';
 import { errorMessage } from '../../../../../utils/errorMessage.js';
 import { useDialog } from '../../../../Dialog/Dialog.jsx';
 import ThemeEditor from '../../../../PageTheme/ThemeEditor.jsx';
 import { useParams, useNavigate } from "react-router-dom";
 import { ImageNode, $createImageNode } from './ImageNode.jsx';
+import { AudioNode, $createAudioNode } from './AudioNode.jsx';
 import { MathNode, $createMathNode } from './MathNode.jsx';
 import { TileGridNode, $createTileGridNode } from './TileGrid/TileGridNode.jsx';
 import axios from 'axios';
@@ -49,7 +50,7 @@ import { postPath, slugify } from '../../../../../utils/postUrl.js';
 import ColourPicker from '../../../../TileArt/ColourPicker.jsx';
 import { StickerCenter } from '../../../../TileArt/StickerCenter.jsx';
 
-const EDITOR_NODES = [HeadingNode, ListNode, ListItemNode, CustomCodeNode, CodeHighlightNode, ImageNode, MathNode, TileGridNode, LinkNode];
+const EDITOR_NODES = [HeadingNode, ListNode, ListItemNode, CustomCodeNode, CodeHighlightNode, ImageNode, AudioNode, MathNode, TileGridNode, LinkNode];
 
 const FONT_SIZES   = ['12px', '14px', '16px', '18px', '24px', '32px', '48px'];
 const LINE_HEIGHTS = ['1', '1.25', '1.5', '1.75', '2', '2.5'];
@@ -832,6 +833,40 @@ function ImageDragPastePlugin() {
   return null;
 }
 
+// An MP3 from the Insert row: picked, uploaded, and placed as an audio block.
+function AudioToolbarPlugin() {
+  const [editor] = useLexicalComposerContext();
+  const inputRef = useRef(null);
+  const [busy, setBusy] = useState(false);
+
+  const onPick = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';   // so picking the same file again still fires
+    if (!file) return;
+    setBusy(true);
+    try {
+      const { url, name } = await UPLOAD_AUDIO(file);
+      editor.update(() => {
+        insertBlockInner(() => $createAudioNode(url, name || file.name));
+      });
+    } catch (err) {
+      console.error('Audio upload failed:', err);
+      alert(describeUploadError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <input ref={inputRef} type="file" accept=".mp3,audio/mpeg" onChange={onPick}
+        style={{ display: 'none' }} tabIndex={-1} aria-hidden="true" />
+      <GridButton symbol="audio" label="Audio" title="Add an MP3" disabled={busy}
+        onClick={() => inputRef.current?.click()} />
+    </>
+  );
+}
+
 function ImageToolbarPlugin() {
   const [editor] = useLexicalComposerContext();
   const [infoOpen, setInfoOpen] = useState(false);
@@ -1445,11 +1480,11 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
     if (published) {
       if (!postTitle) { showStatus('Add a title before uploading.', true); return; }
       // Text, or any block that is content by itself — an image, a grid, a
-      // math block. A post that is only a picture is still a post.
+      // math block. A post that is only a picture or a song is still a post.
       const hasContent = editor.getEditorState().read(() => {
         const root = $getRoot();
         return root.getTextContent().trim().length > 0
-          || root.getChildren().some(n => ['image', 'tilegrid', 'math'].includes(n.getType()));
+          || root.getChildren().some(n => ['image', 'audio', 'tilegrid', 'math'].includes(n.getType()));
       });
       if (!hasContent) { showStatus('Add some content before uploading.', true); return; }
     }
@@ -1661,6 +1696,7 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
         <>
           <ListToolbarPlugin />
           <ImageToolbarPlugin />
+          <AudioToolbarPlugin />
           <CodeToolbarPlugin />
           <MathToolbarPlugin />
           <TileGridToolbarPlugin />

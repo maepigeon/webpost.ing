@@ -43,6 +43,9 @@ public class UploadController {
     @Autowired JdbcTemplate jdbc;
     @Autowired ImageProcessingService imageService;
 
+    // Audio is kept to the size of a song, well under the general upload cap.
+    static final long MAX_AUDIO_BYTES = 20L * 1024 * 1024;
+
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of(".jpg", ".jpeg", ".png", ".gif", ".webp");
 
     private static boolean hasValidImageMagicBytes(byte[] h) {
@@ -57,6 +60,73 @@ public class UploadController {
         if (h.length >= 12 && h[0] == 'R' && h[1] == 'I' && h[2] == 'F' && h[3] == 'F'
                 && h[8] == 'W' && h[9] == 'E' && h[10] == 'B' && h[11] == 'P') return true;
         return false;
+    }
+
+    /** An MP3 starts with an ID3 tag, or directly with an MPEG frame: 11 set sync bits. */
+    static boolean hasMp3MagicBytes(byte[] h) {
+        if (h.length < 4) return false;
+        if (h[0] == 'I' && h[1] == 'D' && h[2] == '3') return true;
+        return (h[0] & 0xFF) == 0xFF && (h[1] & 0xE0) == 0xE0;
+    }
+
+    /**
+     * An MP3 for the audio block. Stored under audio/ and recorded as an upload,
+     * so it is charged to the user's storage like their images.
+     */
+    @PostMapping("/upload/audio")
+    public ResponseEntity<?> uploadAudio(
+            @RequestParam("file") MultipartFile file,
+            @CookieValue(name = "username") String username,
+            @CookieValue(name = "authToken") String token) {
+
+        AuthSession loginResult;
+        try {
+            loginResult = loginRepository.authorize(username, token);
+        } catch (JdbcLoginRepository.TokenExpiredException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Session expired");
+        }
+        if (loginResult == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized");
+        if (file.isEmpty()) return ResponseEntity.badRequest().body("No file provided");
+        if (file.getSize() > MAX_AUDIO_BYTES)
+            return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body("Audio exceeds the 20 MB size limit");
+
+        String original = file.getOriginalFilename() != null ? file.getOriginalFilename() : "";
+        if (!original.toLowerCase().endsWith(".mp3"))
+            return ResponseEntity.badRequest().body("Only .mp3 files are allowed");
+
+        byte[] data;
+        try (InputStream is = file.getInputStream()) {
+            data = is.readAllBytes();
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to read file");
+        }
+        if (!hasMp3MagicBytes(data))
+            return ResponseEntity.badRequest().body("File content is not an MP3");
+
+        List<Integer> ids = jdbc.queryForList("SELECT id FROM users WHERE username=?", Integer.class, username);
+        if (ids.isEmpty()) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not found");
+        int userId = ids.get(0);
+
+        if (!storageAccount.fitsQuota(userId, data.length, 0))
+            return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body("Storage quota exceeded");
+
+        try {
+            Path audioDir = Paths.get(uploadDir, "audio");
+            Files.createDirectories(audioDir);
+            String filename = "audio/" + UUID.randomUUID() + ".mp3";
+            Files.write(Paths.get(uploadDir).resolve(filename), data);
+            jdbc.update("INSERT INTO uploads(filename, user_id, original_name, size_bytes) VALUES(?,?,?,?)",
+                    filename, userId, original, (long) data.length);
+
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("url", "/uploads/" + filename);
+            body.put("name", original);
+            body.put("sizeBytes", (long) data.length);
+            return ResponseEntity.ok(body);
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to store file: " + e.getMessage());
+        }
     }
 
     @PostMapping("/upload")
@@ -239,6 +309,7 @@ public class UploadController {
                  WHERE usr.username = ?
                    AND u.filename NOT LIKE 'avatar/%'
                    AND u.filename NOT LIKE 'headers/%'
+                   AND u.filename NOT LIKE 'audio/%'
                  ORDER BY u.uploaded_at DESC
                  LIMIT ?
                 """, username, capped);
