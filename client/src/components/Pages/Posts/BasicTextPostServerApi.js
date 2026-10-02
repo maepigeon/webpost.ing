@@ -14,6 +14,12 @@ import { BASE_URL as baseUrl } from '../../../config.js';
 const TEXT_GET = { withCredentials: true, transformResponse: [(d) => d] };
 
 //delete
+/** Makes a post public (true) or private, a draft (false), changing nothing else. */
+export function SET_POST_VISIBILITY(id, published) {
+  return axios.put(baseUrl + `/api/posts/${id}/visibility`, { published }, { withCredentials: true })
+    .then(r => r.data);
+}
+
 export function DELETE_POST(id) {
   const promise = axios.delete(baseUrl + "/api/posts/" + id);
   const dataPromise = promise.then((response) => response.data);

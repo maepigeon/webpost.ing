@@ -22,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.any;
 
 @ExtendWith(MockitoExtension.class)
 class PostControllerTest {
@@ -67,6 +68,46 @@ class PostControllerTest {
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
         verify(postRepository).update(existing);
+    }
+
+    @Test
+    void setVisibility_ownerMakesItPrivateOrPublic() throws Exception {
+        when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
+        LoginInfo owner = new LoginInfo();
+        owner.setUsername("kittycat");
+        when(postRepository.getUsernameFromPostId(10)).thenReturn(owner);
+        Post existing = new Post();
+        existing.setId(10);
+        existing.setPublished(true);
+        when(postRepository.findById(10L)).thenReturn(existing);
+
+        var resp = postController.setVisibility(10L, java.util.Map.of("published", false), "kittycat", "tok");
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(existing.isPublished()).isFalse();
+        verify(postRepository).update(existing);
+        verifyNoInteractions(emailNotifications);   // going private tells nobody
+
+        postController.setVisibility(10L, java.util.Map.of("published", true), "kittycat", "tok");
+        assertThat(existing.isPublished()).isTrue();
+        verify(emailNotifications).notifyFollowersOfPost(eq("kittycat"), any(), eq(10L));   // a draft made public is published
+    }
+
+    @Test
+    void setVisibility_notTheOwnerOrNotSignedIn() throws Exception {
+        when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
+        Post existing = new Post();
+        existing.setId(10);
+        when(postRepository.findById(10L)).thenReturn(existing);
+        LoginInfo owner = new LoginInfo();
+        owner.setUsername("mittens");
+        when(postRepository.getUsernameFromPostId(10)).thenReturn(owner);
+        assertThat(postController.setVisibility(10L, java.util.Map.of("published", true), "kittycat", "tok").getStatusCode())
+            .isEqualTo(HttpStatus.FORBIDDEN);
+        verify(postRepository, never()).update(any());
+
+        when(loginRepository.authorize("kittycat", "bad")).thenReturn(null);
+        assertThat(postController.setVisibility(10L, java.util.Map.of("published", true), "kittycat", "bad").getStatusCode())
+            .isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 
     @Test

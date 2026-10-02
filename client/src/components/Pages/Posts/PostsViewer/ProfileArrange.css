@@ -264,3 +264,9 @@ body.is-arranging .scroll-to-top { display: none; }
 .arrange-folder-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 10px; }
 .arrange-folder-form input { flex: 1 1 200px; min-width: 0; padding: 6px 8px; border: 1px solid #999; font: inherit; }
 .arrange-folder-error { color: #b3261e; font-size: 12px; }
+
+/* Make public / private and delete, at the end of a post's row. */
+.arrange-actions { display: inline-flex; gap: 6px; margin-left: auto; flex-shrink: 0; }
+.arrange-action { padding: 2px 8px; font-size: 12px; border-radius: 6px; white-space: nowrap; }
+.arrange-action--danger { color: #b3261e; border-color: currentColor; }
+@media (max-width: 600px) { .arrange-actions { flex-wrap: wrap; justify-content: flex-end; } }

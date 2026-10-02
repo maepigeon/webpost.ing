@@ -444,6 +444,40 @@ public class PostController {
         }
     }
 
+    /**
+     * Makes a post public or private (a draft) without touching anything else
+     * about it: what the profile's arrange menu does. Making a draft public
+     * for the first time tells followers, as publishing from the editor does.
+     */
+    @PutMapping("/posts/{id}/visibility")
+    public ResponseEntity<String> setVisibility(@PathVariable("id") long id,
+            @RequestBody java.util.Map<String, Boolean> body,
+            @CookieValue(name = "username") String username, @CookieValue(name = "authToken") String token) {
+        AuthSession loginResult;
+        try {
+            loginResult = loginRepository.authorize(username, token);
+        } catch (JdbcLoginRepository.TokenExpiredException ex) {
+            return loginRepository.deleteCookie();
+        }
+        if (loginResult == null) return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
+        Post post = postRepository.findById(id);
+        if (post == null) return new ResponseEntity<>("Cannot find Post with id=" + id, HttpStatus.NOT_FOUND);
+        LoginInfo owner = postRepository.getUsernameFromPostId((int) id);
+        if (owner == null || !owner.compareUsername(username)) return new ResponseEntity<>("Forbidden", HttpStatus.FORBIDDEN);
+        if (body == null || !body.containsKey("published")) return new ResponseEntity<>("Say whether it is published.", HttpStatus.BAD_REQUEST);
+
+        boolean published = Boolean.TRUE.equals(body.get("published"));
+        boolean was = post.isPublished();
+        post.setPublished(published);
+        postRepository.update(post);
+        if (!was && published) {
+            int authorId = social.getUserIdByUsername(username);
+            if (authorId > 0) social.notifyFollowers(authorId, username, (int) id);
+            emailNotifications.notifyFollowersOfPost(username, post.getTitle(), id);
+        }
+        return new ResponseEntity<>(published ? "The post is public." : "The post is private.", HttpStatus.OK);
+    }
+
     @DeleteMapping("/posts/{id}")
     public ResponseEntity<String> deletePost(@PathVariable("id") long id,
                          @CookieValue(name = "username") String username, @CookieValue(name = "authToken") String token) {

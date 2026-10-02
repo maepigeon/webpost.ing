@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import BasicTextPost from '../PostRenderer/BasicTextPost/BasicTextPost.jsx';
-import { UPDATE_POST_ORDER } from '../BasicTextPostServerApi.js';
+import { UPDATE_POST_ORDER, SET_POST_VISIBILITY, DELETE_POST } from '../BasicTextPostServerApi.js';
+import { useDialog } from '../../../Dialog/Dialog.jsx';
 import ProfileArrange from './ProfileArrange.jsx';
 import { toBlocks, moveToFolder, removeFromFolder } from './profileOrder.js';
 import { errorMessage } from '../../../../utils/errorMessage.js';
@@ -174,6 +175,7 @@ export default function ProfilePostList({
   const [arranging, setArranging] = useState(false);
   const [loadingAll, setLoadingAll] = useState(false);
   const [status, setStatus] = useState({ state: 'idle', text: '' });
+  const { confirm } = useDialog();
 
   // ── Saving ──────────────────────────────────────────────────────────────────
 
@@ -208,6 +210,34 @@ export default function ProfilePostList({
         setStatus({ state: 'error', text: `${errorMessage(err, 'Could not save the new order.')} It has been put back.` });
       }
     });
+  };
+
+  /** Public or private from the arrange list: shown at once, put back if the server says no. */
+  const setVisibility = async (post, published) => {
+    onArrange(posts.map(p => (p.id === post.id ? { ...p, published } : p)));
+    setStatus({ state: 'saving', text: 'Saving…' });
+    try {
+      await SET_POST_VISIBILITY(post.id, published);
+      setStatus({ state: 'saved', text: published ? 'Made public' : 'Made private' });
+      onRefresh?.();
+    } catch (err) {
+      onArrange(posts.map(p => (p.id === post.id ? { ...p, published: post.published } : p)));
+      setStatus({ state: 'error', text: `${errorMessage(err, 'Could not change that post.')} It has been put back.` });
+    }
+  };
+
+  /** Deleting from the arrange list asks first: it cannot be undone. */
+  const removePost = async (post) => {
+    if (!(await confirm(`Delete "${post.title || 'Untitled'}"? This cannot be undone.`, 'Delete post', 'Delete'))) return;
+    setStatus({ state: 'saving', text: 'Deleting…' });
+    try {
+      await DELETE_POST(post.id);
+      onArrange(posts.filter(p => p.id !== post.id));
+      setStatus({ state: 'saved', text: 'Deleted' });
+      onRefresh?.();
+    } catch (err) {
+      setStatus({ state: 'error', text: errorMessage(err, 'Could not delete that post.') });
+    }
   };
 
   const moveToFolderAndSave = (postId, folderName) => {
@@ -250,7 +280,8 @@ export default function ProfilePostList({
     return loadingAll
       ? <p className="profile-arrange-loading" role="status">Loading all your posts…</p>
       : <ProfileArrange posts={posts} pinnedId={pinnedId} onChange={save}
-          onDone={() => setArranging(false)} status={status} />;
+          onDone={() => setArranging(false)} status={status}
+          onVisibility={setVisibility} onDelete={removePost} />;
   }
 
   const blocks = toBlocks(posts.filter(p => p.id !== pinnedId));
