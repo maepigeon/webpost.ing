@@ -8,10 +8,11 @@ export function DialogProvider({ children }) {
   const [dialog, setDialog] = useState(null); // { type, title, message, resolve }
   const resolveRef = useRef(null);
 
-  const confirm = useCallback((message, title) => {
+  // confirmLabel names the action ("Delete") where "Continue" would be vague.
+  const confirm = useCallback((message, title, confirmLabel) => {
     return new Promise(resolve => {
       resolveRef.current = resolve;
-      setDialog({ type: 'confirm', title: title || null, message, resolve });
+      setDialog({ type: 'confirm', title: title || null, message, confirmLabel, resolve });
     });
   }, []);
 
@@ -60,7 +61,7 @@ export function DialogProvider({ children }) {
                 <div className="dialog-actions">
                   {dialog.type === 'confirm' ? (
                     <>
-                      <button className="dialog-btn dialog-btn--confirm" onClick={() => dismiss(true)}>Continue</button>
+                      <button className="dialog-btn dialog-btn--confirm" onClick={() => dismiss(true)}>{dialog.confirmLabel || 'Continue'}</button>
                       <button className="dialog-btn dialog-btn--cancel" onClick={() => dismiss(false)}>Cancel</button>
                     </>
                   ) : (

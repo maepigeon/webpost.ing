@@ -7,7 +7,8 @@ import './Packs.css';
 
 /**
  * A pack shared in a message: what is in it, and a button that copies it into
- * the reader's own stickers or pixel fonts. The sender sees no button.
+ * the reader's own stickers or pixel fonts, once: the server remembers who has
+ * saved it, so the button stays "Saved" after a reload. The sender sees none.
  */
 export default function PackCard({ id, mine }) {
   const [pack, setPack] = useState(null);
@@ -17,7 +18,7 @@ export default function PackCard({ id, mine }) {
 
   useEffect(() => {
     let live = true;
-    GET_SHARED_PACK(id).then(p => { if (live) setPack(p); }).catch(() => { if (live) setMissing(true); });
+    GET_SHARED_PACK(id).then(p => { if (!live) return; setPack(p); if (p.savedByMe) setState('saved'); }).catch(() => { if (live) setMissing(true); });
     return () => { live = false; };
   }, [id]);
 
@@ -31,9 +32,10 @@ export default function PackCard({ id, mine }) {
     setState('saving');
     setNote('');
     try {
-      await SAVE_SHARED_PACK(id);
+      const { alreadySaved } = await SAVE_SHARED_PACK(id);
       setState('saved');
-      setNote(pack.kind === 'stickers' ? 'Added to your stickers.' : 'Saved as one of your pixel fonts.');
+      setNote(alreadySaved ? 'You saved this pack already.'
+        : pack.kind === 'stickers' ? 'Added to your stickers.' : 'Saved as one of your pixel fonts.');
     } catch (err) {
       setState('idle');
       setNote(errorMessage(err, 'Could not save this pack.'));

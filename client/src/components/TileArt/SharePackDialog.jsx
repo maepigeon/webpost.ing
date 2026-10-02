@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { GET_STICKERS, GET_PIXEL_FONTS, SHARE_PACK } from '../Pages/Posts/BasicTextPostServerApi.js';
 import { errorMessage } from '../../utils/errorMessage.js';
 import { packMessage } from '../../utils/packMessage.js';
@@ -9,6 +10,10 @@ import './Packs.css';
  * Pick a pack to share in a conversation: some of your stickers, under a name
  * you give the pack, or one of your pixel fonts as a symbols pack. On share it
  * hands the message text to `onSend`, which posts it like any other message.
+ *
+ * Rendered into <body>: the messages page's backdrop-filter would otherwise
+ * trap the fixed overlay inside it. Focus moves in on open, stays in while it
+ * is open, and goes back to whatever opened it on close.
  */
 export default function SharePackDialog({ username, onSend, onClose }) {
   const [tab, setTab] = useState('stickers');
@@ -19,6 +24,7 @@ export default function SharePackDialog({ username, onSend, onClose }) {
   const [fontId, setFontId] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const dialogRef = useRef(null);
 
   useEffect(() => {
     GET_STICKERS(username).then(s => setStickers(Array.isArray(s) ? s : [])).catch(() => setStickers([]));
@@ -26,10 +32,33 @@ export default function SharePackDialog({ username, onSend, onClose }) {
   }, [username]);
 
   useEffect(() => {
-    const onKey = e => { if (e.key === 'Escape') onClose(); };
+    const opener = document.activeElement;
+    dialogRef.current?.querySelector('[role="tab"][aria-selected="true"]')?.focus();
+    return () => { if (opener && document.contains(opener)) opener.focus(); };
+  }, []);
+
+  useEffect(() => {
+    const onKey = e => {
+      if (e.key === 'Escape') { onClose(); return; }
+      if (e.key !== 'Tab' || !dialogRef.current) return;
+      const items = [...dialogRef.current.querySelectorAll('button:not(:disabled), input, [tabindex]:not([tabindex="-1"])')];
+      if (!items.length) return;
+      const first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      else if (!dialogRef.current.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
+
+  const switchTab = (next) => {
+    setTab(next);
+    dialogRef.current?.querySelector(`#pack-tab-${next}`)?.focus();
+  };
+  const onTabKey = (e) => {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); switchTab(tab === 'stickers' ? 'symbols' : 'stickers'); }
+  };
 
   const toggle = (id) => setPicked(p => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
@@ -54,16 +83,20 @@ export default function SharePackDialog({ username, onSend, onClose }) {
     }
   };
 
-  return (
+  return createPortal(
     <div className="pack-dialog-backdrop" onClick={onClose}>
-      <div className="pack-dialog" role="dialog" aria-label="Share a pack" onClick={e => e.stopPropagation()}>
+      <div className="pack-dialog" role="dialog" aria-modal="true" aria-label="Share a pack" ref={dialogRef}
+        onClick={e => e.stopPropagation()}>
         <div className="pack-dialog-title">Share a pack</div>
-        <div className="pack-tabs" role="tablist">
-          <button type="button" role="tab" aria-selected={tab === 'stickers'}
-            className={tab === 'stickers' ? 'is-on' : ''} onClick={() => setTab('stickers')}>Stickers</button>
-          <button type="button" role="tab" aria-selected={tab === 'symbols'}
-            className={tab === 'symbols' ? 'is-on' : ''} onClick={() => setTab('symbols')}>Symbols</button>
+        <div className="pack-tabs" role="tablist" aria-label="Kind of pack" onKeyDown={onTabKey}>
+          {[['stickers', 'Stickers'], ['symbols', 'Symbols']].map(([k, label]) => (
+            <button key={k} id={`pack-tab-${k}`} type="button" role="tab" aria-selected={tab === k}
+              aria-controls="pack-tabpanel" tabIndex={tab === k ? 0 : -1}
+              className={tab === k ? 'is-on' : ''} onClick={() => switchTab(k)}>{label}</button>
+          ))}
         </div>
+
+        <div id="pack-tabpanel" role="tabpanel" aria-labelledby={`pack-tab-${tab}`} className="pack-tabpanel">
 
         {tab === 'stickers' && (
           stickers === null ? <p className="pack-hint">Loading…</p>
@@ -75,7 +108,7 @@ export default function SharePackDialog({ username, onSend, onClose }) {
                 {stickers.map(s => (
                   <button key={s.id} type="button" className={`pack-pick${picked.has(s.id) ? ' is-on' : ''}`}
                     aria-pressed={picked.has(s.id)} onClick={() => toggle(s.id)} title={s.name}>
-                    <StickerThumb grid={s.grid} name={s.name} scale={1} />
+                    <StickerThumb grid={s.grid} name={s.name} scale={2} />
                   </button>
                 ))}
               </div>
@@ -101,6 +134,7 @@ export default function SharePackDialog({ username, onSend, onClose }) {
             </div>
           )
         )}
+        </div>
 
         {error && <p className="pack-error" role="alert">{error}</p>}
         <div className="pack-dialog-actions">
@@ -110,6 +144,7 @@ export default function SharePackDialog({ username, onSend, onClose }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
