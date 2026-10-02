@@ -158,12 +158,6 @@ export default function CustomizePage() {
         {/* ── Banner ───────────────────────────────────────────────────────── */}
         <section className="settings-section">
           <h2 className="settings-section-title">Banner</h2>
-          <p className="settings-section-hint">
-            The top of your profile is a tile grid. Its first four rows are filled
-            in for you (your name, follows, when you joined, your public posts)
-            beside your profile picture. Under them you can draw rows of your own,
-            {` ${BANNER_COLS}`} tiles wide, with everything the grid editor does.
-          </p>
           <div className="settings-banner-preview">
             <ProfileBanner username={username} followers={bannerInfo.followers} following={bannerInfo.following}
               joined={bannerInfo.joined} publicPosts={bannerInfo.publicPosts} grid={bannerDraft}
