@@ -34,11 +34,12 @@ export const SMOOTH_FONT = '"JetBrains Mono", ui-monospace, SFMono-Regular, Menl
  */
 export const XL_PARTS = ['tl', 'tr', 'bl', 'br'];
 export const FONT_NAMES = {
-  pixel: 'Pixel', small: 'Mini', smooth: 'Smooth', xl: 'XL 2×2',
+  pixel: 'Pixel', small: 'Mini', smooth: 'Mono pixel', xl: 'XL 2×2',
   // Variants of the pixel letters, made from them (see variantRows): no extra font data.
   bold: 'Pixel bold', italic: 'Pixel italic', outline: 'Pixel outline',
-  // Typefaces drawn like Smooth, in a web font: soft-edged unless the grid's edges are Pixel.
-  serif: 'Serif', script: 'Script', cute: 'Choco Cooky', comic: 'Comic Sans', papyrus: 'Papyrus',
+  // Typefaces turned into grid pixels: each letter is drawn into its cell at the
+  // grid's own resolution (8 or 16 × 16 dots), so it sits in the grid like the pixel font.
+  serif: 'Serif pixel', script: 'Script pixel', cute: 'Cookie pixel', comic: 'Comic pixel', papyrus: 'Papyrus pixel',
   // Bitmaps baked from Noto, half and full width (see bitmapFonts.js).
   serifpx: 'Serif bitmap', sanspx: 'Sans bitmap', symbols: 'Symbols',
 };
@@ -51,10 +52,10 @@ export const FONT_NAMES = {
  */
 export const TYPEFACES = {
   serif:  { family: '"Old Standard TT", "Times New Roman", Georgia, serif', weight: 700, size: 15 },
-  script: { family: '"Great Vibes", "Snell Roundhand", "Apple Chancery", cursive', weight: 400, size: 18 },
+  script: { family: '"Great Vibes", "Snell Roundhand", "Apple Chancery", cursive', weight: 400, size: 18, cover: 0.3 },
   cute:   { family: '"Choco cooky", "ChocoCooky", "Sniglet", "Arial Rounded MT Bold", sans-serif', weight: 800, size: 15 },
   comic:  { family: '"Comic Sans MS", "Comic Neue", "Chalkboard SE", "Patrick Hand", cursive', weight: 700, size: 15 },
-  papyrus: { family: 'Papyrus, Herculanum, "Luminari", "IM Fell English", fantasy', weight: 400, size: 16 },
+  papyrus: { family: 'Papyrus, Herculanum, "Luminari", "IM Fell English", fantasy', weight: 400, size: 16, cover: 0.35 },
 };
 
 /** Asks the browser for the typefaces now, so a grid drawn before they arrive is redrawn by fonts.ready. */
@@ -216,11 +217,11 @@ export function cleanGlyphs(raw) {
 
 /** Fills in anything missing or out of range, so any stored grid still renders. */
 /**
- * Antialiasing, per grid. Smooth: photos at full resolution and soft-edged
- * text. Pixel: both snapped to the grid's own pixels, hard-edged. A grid
- * without the setting keeps the original look: photos in grid pixels, soft text.
+ * How photos are drawn, per grid. Smooth: at full resolution. Pixel: in the
+ * grid's own pixels, sampled hard-edged. Absent: in the grid's pixels,
+ * averaged. Text is always drawn in the grid's pixels, whatever this says.
  */
-export const EDGES = { smooth: 'Soft edges', pixel: 'Pixel edges' };
+export const EDGES = { smooth: 'Smooth photos', pixel: 'Pixel photos' };
 
 export function normaliseGrid(raw) {
   const r = raw && typeof raw === 'object' ? raw : {};
@@ -846,8 +847,8 @@ function drawLayerText(ctx, d, layer) {
         else if (['bold', 'italic', 'outline'].includes(style.font) && pixelGlyph(ch)) drawPixelGlyph(ctx, variantRows(style.font, pixelGlyph(ch)), x, y, sw);
         else if (style.font === 'small' && pixelGlyph(ch)) drawSmallGlyph(ctx, pixelGlyph(ch), x, y, sw);
         else if (style.font !== 'smooth' && !TYPEFACES[style.font] && pixelGlyph(ch)) drawPixelGlyph(ctx, pixelGlyph(ch), x, y, sw);
-        else if (d.edges === 'pixel') drawPixelatedChar(ctx, ch, x, y, sw, style.font);
-        else drawSmoothChar(ctx, ch, x, y, sw, style.font);
+        // Every other face is drawn at the grid's own resolution, whatever the edges setting (which is for photos).
+        else drawPixelatedChar(ctx, ch, x, y, sw, style.font);
       }
     }
   }
@@ -920,7 +921,7 @@ function drawPixelatedChar(ctx, ch, x, y, sw, font) {
         for (let sy = 0; sy < SCALE; sy++) {
           for (let sx = 0; sx < SCALE; sx++) cover += data[(((py * SCALE + sy) * c.width) + px * SCALE + sx) * 4 + 3];
         }
-        if (cover / (SCALE * SCALE) >= 128) mask.push(px, py);
+        if (cover / (SCALE * SCALE) >= 255 * (TYPEFACES[font]?.cover ?? 0.5)) mask.push(px, py);
       }
     }
     // Kept only once the font has loaded; until then it is the fallback's shape.

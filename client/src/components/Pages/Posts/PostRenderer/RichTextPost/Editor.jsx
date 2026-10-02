@@ -59,7 +59,11 @@ const FONT_FAMILIES = [
   { label: 'Mono', value: '"Fira Code", "SF Mono", Menlo, monospace' },
   { label: 'Rounded', value: '"Nunito", "Varela Round", sans-serif' },
   { label: 'Elegant', value: '"Playfair Display", "Garamond", serif' },
-  { label: 'Handwritten', value: '"Caveat", "Patrick Hand", cursive' },
+  // Choco Cooky ships with the site; Comic Sans and Papyrus show where the
+  // reader's device has them, otherwise the nearest free font.
+  { label: 'Choco Cooky', value: '"Choco cooky", "ChocoCooky", "Sniglet", "Arial Rounded MT Bold", sans-serif' },
+  { label: 'Comic Sans', value: '"Comic Sans MS", "Comic Neue", "Chalkboard SE", "Patrick Hand", cursive' },
+  { label: 'Papyrus', value: 'Papyrus, Herculanum, "Luminari", "IM Fell English", fantasy' },
 ];
 
 const initialConfig = {

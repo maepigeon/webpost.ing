@@ -1230,8 +1230,8 @@ export default function TileGrid({
                 </>
               )}
               <span className="tg-gap" />
-              <span className="tg-seg" role="group" aria-label="Edges (antialiasing)"
-                title="Smooth: photos at full resolution and soft-edged text. Pixel: both snapped to the grid's pixels.">
+              <span className="tg-seg" role="group" aria-label="Photo edges"
+                title="How photos are drawn. Smooth: at full resolution. Pixel: in the grid's own pixels, hard-edged. Text is always in the grid's pixels.">
                 {Object.entries(EDGES).map(([k, label]) => (
                   <button key={k} type="button" className={`tg-text-btn${data.edges === k ? ' is-on' : ''}`}
                     aria-pressed={data.edges === k} onClick={() => setEdges(k)}>{label}</button>
