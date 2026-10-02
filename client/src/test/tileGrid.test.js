@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   normaliseGrid, pixelLayer, rowChars, writeSlot, writeChar, setTileWidths, isWide, restyleSlots, resizeLayerText,
   orderSlots, slotsIn, containRect, bitsFromHex, hexFromBits, seedBits, slotsPerRow, LIMITS,
-  photoRect, resizePhoto, zoomPhoto, PHOTO_SCALE, cleanHref, isExternalHref, setLink, linkAt, cleanExt, GRID_VERSION, mergeText, writeXl, xlTiles, variantRows, FONT_NAMES, TYPEFACES, readableText, floodTiles, isElbow,
+  photoRect, resizePhoto, zoomPhoto, PHOTO_SCALE, cleanHref, isExternalHref, setLink, linkAt, cleanExt, GRID_VERSION, mergeText, writeXl, xlTiles, variantRows, FONT_NAMES, TYPEFACES, readableText, floodTiles, isElbow, linePixels, rectPixels, ellipsePixels,
 } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
 import { pixelGlyph } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileFont.js';
 import { bitmapGlyph, SYMBOL_CHARS } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/bitmapFonts.js';
@@ -444,5 +444,32 @@ describe('magic wand and pixel perfect', () => {
     expect(isElbow({ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 })).toBe(false);   // straight
     expect(isElbow({ x: 0, y: 0 }, { x: 1, y: 1 }, { x: 2, y: 2 })).toBe(false);   // already diagonal
     expect(isElbow({ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 2 })).toBe(false);   // a gap
+  });
+});
+
+describe('shapes', () => {
+  const set = (pts) => new Set(pts.map(([x, y]) => `${x},${y}`));
+  it('draws a line one pixel thick from end to end', () => {
+    expect(linePixels(0, 0, 3, 0)).toEqual([[0, 0], [1, 0], [2, 0], [3, 0]]);
+    expect(linePixels(0, 0, 3, 3)).toEqual([[0, 0], [1, 1], [2, 2], [3, 3]]);
+    const l = linePixels(5, 1, 0, 3);
+    expect(l[0]).toEqual([5, 1]);
+    expect(l[l.length - 1]).toEqual([0, 3]);
+    expect(l).toHaveLength(6);
+  });
+  it('draws a rectangle edge, or fills it, whichever corner it starts from', () => {
+    expect(rectPixels(0, 0, 2, 2)).toHaveLength(8);
+    expect(rectPixels(2, 2, 0, 0, true)).toHaveLength(9);
+    expect(set(rectPixels(0, 0, 2, 2)).has('1,1')).toBe(false);
+  });
+  it('draws an ellipse inside its box, edge or filled, symmetric', () => {
+    const fill = set(ellipsePixels(0, 0, 8, 4, true));
+    const edge = set(ellipsePixels(0, 0, 8, 4));
+    expect(fill.has('4,2')).toBe(true);           // the middle
+    expect(edge.has('4,2')).toBe(false);
+    expect(fill.has('0,0')).toBe(false);          // the box's corner is outside
+    for (const k of edge) expect(fill.has(k)).toBe(true);
+    for (const k of fill) { const [x, y] = k.split(',').map(Number); expect(fill.has(`${8 - x},${y}`)).toBe(true); }
+    expect(ellipsePixels(3, 3, 3, 3)).toEqual([[3, 3]]);
   });
 });

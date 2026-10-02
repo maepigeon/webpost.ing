@@ -8,7 +8,7 @@ import { normaliseUploadResponse, describeUploadError } from '../../../../../../
 import {
   TILE, SCALE, LIMITS, FONT_NAMES, DIRECTIONS, normaliseGrid, pixelLayer, photoLayer,
   SLOTS_PER_TILE, SLOT_W, slotsPerRow, rowChars, writeSlot, writeChar, writeXl, xlTiles, setTileWidths, isWide, restyleSlots, resizeLayerText,
-  EDGES, floodTiles, isElbow, readableText, mergeText, cleanHref, isExternalHref, setLink, linkAt, orderSlots, slotsIn, renderGrid, pixelatePhoto, photoRect, resizePhoto, zoomPhoto, tileKey, rectTiles, combineSelection, orderedTiles,
+  EDGES, floodTiles, isElbow, linePixels, rectPixels, ellipsePixels, readableText, mergeText, cleanHref, isExternalHref, setLink, linkAt, orderSlots, slotsIn, renderGrid, pixelatePhoto, photoRect, resizePhoto, zoomPhoto, tileKey, rectTiles, combineSelection, orderedTiles,
 } from './tileGrid.js';
 import { TEXTURES, fillTexture, texturePreview, DEFAULT_PAW_OPTIONS } from './textures.js';
 import PawOptions from '../../../../../TileArt/PawOptions.jsx';
@@ -52,13 +52,14 @@ function boundsOf(selection) {
 }
 
 /** Alt (Option) + a letter picks a tool. Keyed by KeyboardEvent.code. */
-const TOOL_KEYS = { KeyT: 'text', KeyS: 'select', KeyW: 'wand', KeyM: 'move', KeyP: 'pixel', KeyB: 'tile', KeyE: 'erase', KeyF: 'fill' };
+const TOOL_KEYS = { KeyT: 'text', KeyS: 'select', KeyW: 'wand', KeyM: 'move', KeyP: 'pixel', KeyB: 'tile', KeyE: 'erase', KeyF: 'fill', KeyL: 'line', KeyR: 'rect', KeyO: 'ellipse', KeyI: 'pick' };
 
 /** The editor's keyboard shortcuts, as the shortcuts panel lists them. */
 const SHORTCUTS = [
   ['Tools', [
     ['⌥T', 'Text'], ['⌥S', 'Select'], ['⌥W', 'Magic wand'], ['⌥M', 'Move'], ['⌥P', 'Paint pixels'],
-    ['⌥B', 'Paint tiles'], ['⌥E', 'Erase'], ['⌥F', 'Fill'],
+    ['⌥B', 'Paint tiles'], ['⌥E', 'Erase'], ['⌥F', 'Fill'], ['⌥L', 'Line'], ['⌥R', 'Rectangle (Shift fills)'],
+    ['⌥O', 'Ellipse (Shift fills)'], ['⌥I', 'Eyedropper'],
   ]],
   ['Edit', [
     ['⌘Z', 'Undo'], ['⇧⌘Z or ⌘Y', 'Redo'], ['⌘C', 'Copy'], ['⌘X', 'Cut'], ['⌘V', 'Paste'],
@@ -415,6 +416,25 @@ export default function TileGrid({
     else { ctx.fillStyle = colour; ctx.fillRect(px, py, size, size); }
   };
 
+  /** The shape being dragged out, from where it started to `p`; Shift fills a rectangle or ellipse. */
+  const drawShape = (p, fill) => {
+    const g = gesture.current;
+    const canvas = paintCanvas(g.layerId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.putImageData(g.before, 0, 0);
+    const a = g.start;
+    const pts = tool === 'line' ? linePixels(a.x, a.y, p.x, p.y)
+      : tool === 'rect' ? rectPixels(a.x, a.y, p.x, p.y, fill)
+        : ellipsePixels(a.x, a.y, p.x, p.y, fill);
+    ctx.fillStyle = colour;
+    for (const [x, y] of pts) {
+      if (clear) ctx.clearRect(x, y, 1, 1);
+      else ctx.fillRect(x, y, 1, 1);
+    }
+    bump();
+  };
+
   const strokeTo = (x, y) => {
     const g = gesture.current;
     const canvas = paintCanvas(g.layerId);
@@ -469,7 +489,24 @@ export default function TileGrid({
       fillTiles(sel.size && sel.has(tileKey(p.tile.r, p.tile.c)) ? orderedTiles(sel) : [p.tile], colour);
       return;
     }
+    if (tool === 'pick') {
+      // Eyedropper: the colour of what you see at that pixel, all layers together.
+      const cv = canvasRef.current;
+      const px = cv.getContext('2d').getImageData(p.x * SCALE + 1, p.y * SCALE + 1, 1, 1).data;
+      if (px[3] === 0) { setClear(true); }
+      else chooseColour(`#${[px[0], px[1], px[2]].map(v => v.toString(16).padStart(2, '0')).join('')}`);
+      return;
+    }
     if (layer.kind !== 'pixel') return;
+    if (tool === 'line' || tool === 'rect' || tool === 'ellipse') {
+      // A shape: drawn afresh from the layer as it was each time the pointer moves.
+      const canvas = paintCanvas(layer.id);
+      if (!canvas) return;
+      gesture.current = { kind: 'shape', layerId: layer.id, start: p,
+        before: canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height) };
+      drawShape(p, e.shiftKey);
+      return;
+    }
     // Only one-pixel strokes can be pixel perfect; tiles are painted whole.
     gesture.current = { kind: 'paint', layerId: layer.id, last: null,
       stroke: pixelPerfect && (tool === 'pixel' || tool === 'erase') ? { pts: [] } : null };
@@ -481,6 +518,7 @@ export default function TileGrid({
     if (!g) return;
     const p = toGrid(e);
     if (g.kind === 'paint') { strokeTo(p.x, p.y); return; }
+    if (g.kind === 'shape') { drawShape(p, e.shiftKey); return; }
     if (g.kind === 'move') {
       setMoveBy({
         r: p.tile.r - g.start.tile.r, c: p.tile.c - g.start.tile.c,
@@ -498,7 +536,7 @@ export default function TileGrid({
     const g = gesture.current;
     gesture.current = null;
     if (!g) { typeRef.current?.focus(); return; }
-    if (g.kind === 'paint') {
+    if (g.kind === 'paint' || g.kind === 'shape') {
       commit(savePaint(dataRef.current, g.layerId));
     } else if (g.kind === 'move') {
       const p = toGrid(e);
@@ -1137,7 +1175,7 @@ export default function TileGrid({
 
   const aspect = `${data.cols * TILE} / ${data.rows * TILE}`;
   const canvasCursor = !editing ? 'default'
-    : { text: 'text', select: 'cell', move: 'move', fill: 'copy' }[tool] || 'crosshair';
+    : { text: 'text', select: 'cell', wand: 'cell', move: 'move', fill: 'copy', pick: 'copy' }[tool] || 'crosshair';
   const isPixel = active?.kind === 'pixel';
   // The active photo's outline and corner handles, over the canvas.
   const photoBox = (() => {
@@ -1165,6 +1203,10 @@ export default function TileGrid({
       move: 'Drag to move the selection, or the whole layer. Arrow keys nudge.',
       pixel: 'Paint single pixels.', tile: 'Paint whole tiles.', erase: 'Erase to transparent.',
       fill: 'Click a tile, or the selection, to fill it.',
+      line: 'Drag to draw a straight line.',
+      rect: 'Drag to draw a rectangle. Hold Shift to fill it.',
+      ellipse: 'Drag to draw an ellipse. Hold Shift to fill it.',
+      pick: 'Click to take that colour.',
     }[tool];
 
   return (
@@ -1221,6 +1263,10 @@ export default function TileGrid({
               <Tile icon="tile" label="Paint tiles (⌥B)" on={tool === 'tile'} onClick={() => setTool('tile')} />
               <Tile icon="erase" label="Erase (⌥E)" on={tool === 'erase'} onClick={() => setTool('erase')} />
               <Tile icon="fill" label="Fill (⌥F)" on={tool === 'fill'} onClick={() => setTool('fill')} />
+              <Tile icon="line" label="Line (⌥L)" on={tool === 'line'} onClick={() => setTool('line')} />
+              <Tile icon="rect" label="Rectangle (⌥R): drag a box. Hold Shift to fill it." on={tool === 'rect'} onClick={() => setTool('rect')} />
+              <Tile icon="ellipse" label="Ellipse (⌥O): drag a box. Hold Shift to fill it." on={tool === 'ellipse'} onClick={() => setTool('ellipse')} />
+              <Tile icon="pick" label="Eyedropper (⌥I): take a colour from the grid" on={tool === 'pick'} onClick={() => setTool('pick')} />
               <ColourPicker value={colour} onChange={chooseColour} label="Colour" className={`tg-swatch${clear ? ' is-clear' : ''}`} />
               <button type="button" className={`tg-tile tg-clear${clear ? ' is-on' : ''}`} aria-pressed={clear}
                 data-tip="Clear: painting and filling make tiles transparent" aria-label="Clear (transparent)"

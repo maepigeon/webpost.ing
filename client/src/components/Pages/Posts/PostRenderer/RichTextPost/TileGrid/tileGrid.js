@@ -696,6 +696,54 @@ export function isElbow(p0, p1, p2) {
   return diagonal && joins(p0, p1) && joins(p1, p2);
 }
 
+/** The pixels of a straight line from one point to another, one pixel thick (Bresenham). */
+export function linePixels(x0, y0, x1, y1) {
+  const out = [];
+  const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0);
+  const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy, x = x0, y = y0;
+  for (;;) {
+    out.push([x, y]);
+    if (x === x1 && y === y1) break;
+    const e2 = 2 * err;
+    if (e2 >= dy) { err += dy; x += sx; }
+    if (e2 <= dx) { err += dx; y += sy; }
+  }
+  return out;
+}
+
+/** The pixels of a rectangle between two corners: its edge, or all of it when filled. */
+export function rectPixels(x0, y0, x1, y1, filled = false) {
+  const [l, r] = [Math.min(x0, x1), Math.max(x0, x1)];
+  const [t, b] = [Math.min(y0, y1), Math.max(y0, y1)];
+  const out = [];
+  for (let y = t; y <= b; y++) {
+    for (let x = l; x <= r; x++) if (filled || y === t || y === b || x === l || x === r) out.push([x, y]);
+  }
+  return out;
+}
+
+/**
+ * The pixels of an ellipse inside the box between two corners: all of it
+ * when filled, otherwise its edge (the filled pixels with a side outside it,
+ * so the outline is one pixel thick and has no gaps).
+ */
+export function ellipsePixels(x0, y0, x1, y1, filled = false) {
+  const [l, r] = [Math.min(x0, x1), Math.max(x0, x1)];
+  const [t, b] = [Math.min(y0, y1), Math.max(y0, y1)];
+  const cx = (l + r) / 2, cy = (t + b) / 2;
+  const rx = (r - l) / 2 + 0.5, ry = (b - t) / 2 + 0.5;
+  const inside = (x, y) => ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1;
+  const out = [];
+  for (let y = t; y <= b; y++) {
+    for (let x = l; x <= r; x++) {
+      if (!inside(x, y)) continue;
+      if (filled || !inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1)) out.push([x, y]);
+    }
+  }
+  return out;
+}
+
 /** Shift adds to a selection, Alt takes away, otherwise it is replaced. */
 export function combineSelection(base, rect, mode) {
   if (mode === 'add') return new Set([...base, ...rect]);
