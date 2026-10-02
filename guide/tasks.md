@@ -16,20 +16,20 @@ Goal: 100% ready to deploy and user-ready. Keep going across sessions until done
 - [x] Magic wand and pixel-perfect in the grid editor.
 
 ### Fonts
-- [ ] Choco Cooky, Comic Sans and Papyrus belong to the **post editor's** font list
+- [x] Choco Cooky, Comic Sans and Papyrus belong to the **post editor's** font list
       (Style row), not the grid editor's. Give the grid editor its own pixel versions
       instead, matching its design language.
-- [ ] All text in grids rendered at the grid's resolution (16×16 px a tile), never as
+- [x] All text in grids rendered at the grid's resolution (16×16 px a tile), never as
       smooth vector text over it.
 
 ### Grid editor: one design language, full featured
-- [ ] Every control in the grid editor as grid elements (pixel font labels, pixel
+- [x] Every control in the grid editor as grid elements (pixel font labels, pixel
       icons, tile buttons); no system-styled text buttons, selects or number fields.
-- [ ] Symbol packs: an on-screen keyboard to click or tap symbols in.
+- [x] Symbol packs: an on-screen keyboard to click or tap symbols in.
 - [ ] Full-featured: links (done), and audit for anything missing.
 
 ### Stickers
-- [ ] Sticker board insertion in all three places: profile, posts in text mode (done
+- [x] Sticker board insertion in all three places: profile, posts in text mode (done
       via Insert → Sticker), and on grid content.
 
 ### Posts and messages
@@ -37,10 +37,10 @@ Goal: 100% ready to deploy and user-ready. Keep going across sessions until done
 - [ ] Send grid posts in DMs.
 
 ### Settings
-- [ ] Collapse the Settings sections ("Your profile's look", "Site background", "Code
+- [x] Collapse the Settings sections ("Your profile's look", "Site background", "Code
       blocks").
-- [ ] Put email notifications and email sign-up together.
-- [ ] Rewrite the clumsy explanations (e.g. "These are saved, but nothing is sent while
+- [x] Put email notifications and email sign-up together.
+- [x] Rewrite the clumsy explanations (e.g. "These are saved, but nothing is sent while
       email is off", "Turning this off silences everything below, whatever they are set
       to"). Plain, short, kind.
 
