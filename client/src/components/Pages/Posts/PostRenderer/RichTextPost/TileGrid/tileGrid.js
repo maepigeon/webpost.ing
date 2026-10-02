@@ -573,10 +573,12 @@ export function renderGrid(ctx, d, assets = {}, view = {}) {
     const s = view.cursorWide ? view.cursor.s - (view.cursor.s % SLOTS_PER_TILE) : view.cursor.s;
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 2 / SCALE;
-    ctx.strokeRect(s * sw + 0.25, r * TILE + 0.25, sw - 0.5, TILE - 0.5);
+    // s counts half-tile slots, whatever the cursor's width.
+    const x = s * SLOT_W;
+    ctx.strokeRect(x + 0.25, r * TILE + 0.25, sw - 0.5, TILE - 0.5);
     ctx.strokeStyle = '#000000';
     ctx.lineWidth = 1 / SCALE;
-    ctx.strokeRect(s * sw + 0.75, r * TILE + 0.75, sw - 1.5, TILE - 1.5);
+    ctx.strokeRect(x + 0.75, r * TILE + 0.75, sw - 1.5, TILE - 1.5);
   }
   ctx.restore();
 }
