@@ -354,7 +354,7 @@ function RichTextViewerBody({ id }) {
   if (notFound) return <PostNotFound username={username} />;
 
   return (
-    <div style={{ minHeight: '100vh' }}>
+    <div className="th-scope" style={{ minHeight: '100vh' }}>
       <LexicalComposer initialConfig={initialConfig}>
         <CodeHighlightPlugin />
         <LinkPlugin />

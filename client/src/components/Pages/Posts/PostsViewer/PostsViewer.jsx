@@ -309,7 +309,7 @@ function PostsViewer() {
     ) : null;
 
     return (
-      <div className="window" style={{ minHeight: '100vh' }}>
+      <div className="window th-scope" style={{ minHeight: '100vh' }}>
         {followModal && (
           <FollowListModal
             title={followModal === 'followers' ? `Followers` : `Following`}

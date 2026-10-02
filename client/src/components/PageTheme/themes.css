@@ -53,15 +53,20 @@ html[data-th-hide-wallpaper] body { background-image: none !important; }
 
 #appBody,
 .theme-preview {
-  font-family: var(--th-font-body);
+  font-family: var(--app-font);
   color: var(--th-ink);
 }
 
-/* The navbar is chrome, not part of anyone's page. */
-.navBar, .navBar * { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+/* A theme's fonts belong to the page it styles: a profile, a post and its
+   comments, the post being written. Everything else (settings, messages,
+   search, the editor's controls, the top bar) is in the app's own font. */
+.th-scope,
+.theme-preview { font-family: var(--th-font-body); }
+:is(.th-scope, .theme-preview) :is(h1, h2, h3):not(.navBar *) { font-family: var(--th-font-heading); }
+
+.navBar, .navBar * { font-family: var(--app-font); }
 
 :is(#appBody, .theme-preview) :is(h1, h2, h3):not(.navBar *) {
-  font-family: var(--th-font-heading);
   color: var(--th-heading-ink);
   text-transform: var(--th-heading-case);
   letter-spacing: 0;

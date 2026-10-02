@@ -1949,7 +1949,8 @@ export default function RichTextEditor() {
               postId={id > 0 ? id : null}
             />
             <ToolbarPlugin postid={id} backgroundPattern={backgroundPattern} onPatternChange={changePattern} username={postAuthor || me} postPublished={postPublished} onPublishedChange={setPostPublished} features={features} onFeaturesChange={setFeatures} titleRef={titlehtml} onSaved={handleSaved} folder={postFolder} onFolderChange={changeFolder} slug={postSlug} onSlugChange={changeSlug} />
-            <div style={{ position: 'relative' }}>
+            {/* The post itself, in its theme's fonts; the controls above stay in the app's. */}
+            <div className="th-scope" style={{ position: 'relative' }}>
               <RichTextPlugin
                 contentEditable={<ContentEditable className='editor-contenteditable' />}
                 placeholder={<div className='editor-placeholder'>Enter some text...</div>}

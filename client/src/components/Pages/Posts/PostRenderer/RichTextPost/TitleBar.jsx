@@ -57,7 +57,7 @@ function TitleBar(props) {
 
     // Returns the Title component
     return (
-        <div className="post basicTextPost">
+        <div className="post basicTextPost th-scope">
             <div className="datestring">
                 {dateline.text && <p><time dateTime={dateline.iso} title={dateline.full}>{dateline.text}</time></p>}
              </div>

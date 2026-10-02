@@ -37,7 +37,7 @@
   /* The theme's card, so it reads on any wallpaper, dark or light. */
   background: var(--th-card-background, #ffffff);
   color: var(--th-accent, #111111);
-  font: 600 13px system-ui, sans-serif;
+  font: 600 13px var(--app-font);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
 }
 

@@ -91,10 +91,10 @@ function DiscussionPageBody({ id }) {
     setSubmitting(false);
   };
 
-  if (!loaded) return <div className="discussion-page"><div className="discussion-glass-panel"><p className="discussion-empty">Loading…</p></div></div>;
+  if (!loaded) return <div className="discussion-page th-scope"><div className="discussion-glass-panel"><p className="discussion-empty">Loading…</p></div></div>;
 
   if (!enabled) return (
-    <div className="discussion-page">
+    <div className="discussion-page th-scope">
       <div className="discussion-glass-panel">
         <button className="discussion-back-btn" onClick={() => navigate(-1)}>← Back to post</button>
         <p className="discussion-disabled">Discussion is not enabled for this post.</p>
@@ -107,7 +107,7 @@ function DiscussionPageBody({ id }) {
     : comments;
 
   return (
-    <div className="discussion-page">
+    <div className="discussion-page th-scope">
       <div className="discussion-glass-panel">
       <div className="discussion-page-header">
         <button className="discussion-back-btn" onClick={() => navigate(postPath(username, { id, title: postTitle }))}>

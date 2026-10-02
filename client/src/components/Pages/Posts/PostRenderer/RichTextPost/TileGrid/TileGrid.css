@@ -5,7 +5,7 @@
 .tilegrid {
   position: relative;
   margin: 16px 0;
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--app-font);
   text-align: left;
 }
 
@@ -86,7 +86,7 @@
   border-radius: 3px;
   background: #1c1c1c;
   color: #f2f2f2;
-  font: 600 12px system-ui, sans-serif;
+  font: 600 12px var(--app-font);
   cursor: pointer;
 }
 
@@ -124,7 +124,7 @@
 .tg-group-label {
   flex: 0 0 42px;
   color: #8c8c8c;
-  font: 700 10px system-ui, sans-serif;
+  font: 700 10px var(--app-font);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -135,7 +135,7 @@
 
 /* Linking the selected tiles. */
 .tg-link-panel { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.tg-link-label { display: inline-flex; align-items: center; gap: 6px; color: #9a9a9a; font: 700 11px system-ui, sans-serif; flex: 1 1 260px; min-width: 0; }
+.tg-link-label { display: inline-flex; align-items: center; gap: 6px; color: #9a9a9a; font: 700 11px var(--app-font); flex: 1 1 260px; min-width: 0; }
 .tg-link-label input {
   flex: 1;
   min-width: 0;
@@ -287,7 +287,7 @@ span.tg-layer-name { overflow: hidden; text-overflow: ellipsis; white-space: now
   border-radius: 3px;
   background: #f2f2f2;
   color: #111111;
-  font: 700 12px system-ui, sans-serif;
+  font: 700 12px var(--app-font);
   cursor: pointer;
 }
 
@@ -329,7 +329,7 @@ span.tg-layer-name { overflow: hidden; text-overflow: ellipsis; white-space: now
   border: none;
   background: transparent;
   color: inherit;
-  font: 500 12px system-ui, sans-serif;
+  font: 500 12px var(--app-font);
   padding: 2px 0;
 }
 .tg-layer-name:focus { outline: 1px solid #5ea0ff; border-radius: 2px; }
@@ -359,7 +359,7 @@ span.tg-layer-name { overflow: hidden; text-overflow: ellipsis; white-space: now
   border-radius: 3px;
   background: #1c1c1c;
   color: #f2f2f2;
-  font: 600 12px system-ui, sans-serif;
+  font: 600 12px var(--app-font);
   cursor: pointer;
 }
 .tilegrid-glyphs button.is-on,
@@ -393,7 +393,7 @@ span.tg-layer-name { overflow: hidden; text-overflow: ellipsis; white-space: now
   border-radius: 3px;
   background: #1c1c1c;
   color: #f2f2f2;
-  font: 500 12px system-ui, sans-serif;
+  font: 500 12px var(--app-font);
   padding: 0 6px;
 }
 
