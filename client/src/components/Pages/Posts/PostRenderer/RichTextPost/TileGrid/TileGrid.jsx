@@ -17,6 +17,7 @@ import GridButton from './GridButton.jsx';
 import PixelText from './PixelText.jsx';
 import PixelIcon from './PixelIcon.jsx';
 import './TileGrid.css';
+import ColourPicker from '../../../../../TileArt/ColourPicker.jsx';
 
 const EMPTY = new Set();
 const HISTORY_LIMIT = 60;
@@ -1092,9 +1093,7 @@ export default function TileGrid({
               <Tile icon="tile" label="Paint tiles (⌥B)" on={tool === 'tile'} onClick={() => setTool('tile')} />
               <Tile icon="erase" label="Erase (⌥E)" on={tool === 'erase'} onClick={() => setTool('erase')} />
               <Tile icon="fill" label="Fill (⌥F)" on={tool === 'fill'} onClick={() => setTool('fill')} />
-              <label className={`tg-swatch${clear ? ' is-clear' : ''}`} data-tip="Colour" style={clear ? undefined : { background: colour }}>
-                <input type="color" value={colour} onChange={e => chooseColour(e.target.value)} aria-label="Colour" />
-              </label>
+              <ColourPicker value={colour} onChange={chooseColour} label="Colour" className={`tg-swatch${clear ? ' is-clear' : ''}`} />
               <button type="button" className={`tg-tile tg-clear${clear ? ' is-on' : ''}`} aria-pressed={clear}
                 data-tip="Clear: painting and filling make tiles transparent" aria-label="Clear (transparent)"
                 onClick={() => setClear(v => !v)} />
@@ -1117,9 +1116,7 @@ export default function TileGrid({
               </label>
               <span className="tg-gap" />
               <span className="tg-colours" role="group" aria-label="Text colour">
-                <label className="tg-swatch" data-tip="Text colour: any colour. Applies to the selection, or what you type next." style={{ background: colour }}>
-                  <input type="color" value={colour} onChange={e => chooseColour(e.target.value)} aria-label="Text colour" />
-                </label>
+                <ColourPicker value={colour} onChange={chooseColour} label="Text colour" tip="Text colour: any colour. Applies to the selection, or what you type next." className="tg-swatch" />
                 {PALETTE.map(c => (
                   <button key={c} type="button" className={`tg-chip${colour.toLowerCase() === c ? ' is-on' : ''}`} style={{ background: c }}
                     aria-label={`Colour ${c}`} data-tip={c} aria-pressed={colour.toLowerCase() === c} onClick={() => chooseColour(c)} />

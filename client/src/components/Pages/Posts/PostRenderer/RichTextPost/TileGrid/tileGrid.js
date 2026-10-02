@@ -38,7 +38,7 @@ export const FONT_NAMES = {
   // Variants of the pixel letters, made from them (see variantRows): no extra font data.
   bold: 'Pixel bold', italic: 'Pixel italic', outline: 'Pixel outline',
   // Typefaces drawn like Smooth, in a web font: soft-edged unless the grid's edges are Pixel.
-  serif: 'Serif', script: 'Script', cute: 'Cute', comic: 'Comic',
+  serif: 'Serif', script: 'Script', cute: 'Choco Cooky', comic: 'Comic Sans', papyrus: 'Papyrus',
   // Bitmaps baked from Noto, half and full width (see bitmapFonts.js).
   serifpx: 'Serif bitmap', sanspx: 'Sans bitmap', symbols: 'Symbols',
 };
@@ -54,6 +54,7 @@ export const TYPEFACES = {
   script: { family: '"Great Vibes", "Snell Roundhand", "Apple Chancery", cursive', weight: 400, size: 18 },
   cute:   { family: '"Choco cooky", "ChocoCooky", "Sniglet", "Arial Rounded MT Bold", sans-serif', weight: 800, size: 15 },
   comic:  { family: '"Comic Sans MS", "Comic Neue", "Chalkboard SE", "Patrick Hand", cursive', weight: 700, size: 15 },
+  papyrus: { family: 'Papyrus, Herculanum, "Luminari", "IM Fell English", fantasy', weight: 400, size: 16 },
 };
 
 /** Asks the browser for the typefaces now, so a grid drawn before they arrive is redrawn by fonts.ready. */

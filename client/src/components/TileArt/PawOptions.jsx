@@ -1,6 +1,7 @@
 import { PAW_COLOURINGS, DEFAULT_PAW_OPTIONS, MAX_PAW_STOPS } from '../Pages/Posts/PostRenderer/RichTextPost/TileGrid/textures.js';
 import Icon from '../Icon/Icon.jsx';
 import './PawOptions.css';
+import ColourPicker from './ColourPicker.jsx';
 
 /** A colour for a new gradient stop: one not used yet, so adding one shows. */
 const SUGGESTED = ['#ff5e8a', '#ffa45c', '#f5d547', '#6ee29c', '#5ec8ff', '#a98bff', '#ffffff'];
@@ -31,18 +32,14 @@ export default function PawOptions({ value, onChange }) {
       </label>
 
       {o.colouring === 'single' && (
-        <label className="paw-swatch" style={{ background: o.colour }} title="Paw colour">
-          <input type="color" value={o.colour} onChange={e => set({ colour: e.target.value })} aria-label="Paw colour" />
-        </label>
+        <ColourPicker value={o.colour} onChange={c => set({ colour: c })} label="Paw colour" className="paw-swatch" />
       )}
 
       {o.colouring === 'gradient' && (
         <span className="paw-stops">
           {o.stops.map((c, i) => (
             <span key={i} className="paw-stop">
-              <label className="paw-swatch" style={{ background: c }} title={`Colour ${i + 1} of ${o.stops.length}, top to bottom`}>
-                <input type="color" value={c} onChange={e => setStop(i, e.target.value)} aria-label={`Gradient colour ${i + 1}`} />
-              </label>
+              <ColourPicker value={c} onChange={v => setStop(i, v)} label={`Gradient colour ${i + 1}`} tip={`Colour ${i + 1} of ${o.stops.length}, top to bottom`} className="paw-swatch" />
               {o.stops.length > 2 && (
                 <button type="button" className="paw-stop-remove" aria-label={`Remove colour ${i + 1}`}
                   onClick={() => set({ stops: o.stops.filter((_, j) => j !== i) })}>

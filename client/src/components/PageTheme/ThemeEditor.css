@@ -188,3 +188,6 @@
 @media (max-width: 760px) {
   .theme-field { grid-template-columns: 92px minmax(0, 1fr); }
 }
+
+/* The theme editor's colour swatch (ColourPicker). */
+.theme-colour-swatch { width: 36px; height: 28px; padding: 0; border: 2px solid #111; border-radius: 0; cursor: pointer; }

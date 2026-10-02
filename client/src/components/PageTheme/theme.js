@@ -27,7 +27,6 @@ export const FONTS = {
   blackletter:   { label: 'Blackletter',      css: '"UnifrakturMaguntia", "Old English Text MT", serif' },
   fell:          { label: 'Old press',        css: '"IM Fell English", Georgia, serif' },
   typewriter:    { label: 'Typewriter',       css: '"Special Elite", "Courier New", monospace' },
-  handwriting:   { label: 'Handwriting',      css: '"Caveat", "Bradley Hand", cursive' },
   marker:        { label: 'Marker',           css: '"Permanent Marker", "Marker Felt", cursive' },
   notebook:      { label: 'Notebook print',   css: '"Patrick Hand", "Comic Sans MS", cursive' },
   terminal:      { label: 'Terminal',         css: '"VT323", "Courier New", monospace' },
@@ -35,8 +34,15 @@ export const FONTS = {
   // Samsung's Choco Cooky where the device has it (it is not licensed for the
   // web), otherwise Sniglet, a free font in the same round, bubbly spirit.
   cookie:        { label: 'Choco Cooky',      css: '"Choco cooky", "ChocoCooky", "Sniglet", "Arial Rounded MT Bold", sans-serif' },
+  // Comic Sans and Papyrus are system fonts: shown where the device has them
+  // (they are not licensed for the web), otherwise the closest free font.
+  comic:         { label: 'Comic Sans',       css: '"Comic Sans MS", "Comic Neue", "Chalkboard SE", "Patrick Hand", cursive' },
+  papyrus:       { label: 'Papyrus',          css: 'Papyrus, Herculanum, "Luminari", "IM Fell English", fantasy' },
   sans:          { label: 'Clean sans',       css: 'system-ui, -apple-system, "Segoe UI", sans-serif' },
 };
+
+/** Themes saved with the old Handwriting font now use Choco Cooky, which replaced it. */
+const legacyFont = (id) => (id === 'handwriting' ? 'cookie' : id);
 
 export const BORDERS = { none: 'None', rule: 'Thin rule', double: 'Double rule', dashed: 'Dashed', glow: 'Neon glow', rainbow: 'Rainbow' };
 export const SHADOWS = { none: 'None', soft: 'Soft', lifted: 'Lifted', curl: 'Paper curl', glow: 'Glow' };
@@ -88,7 +94,7 @@ function buildPresets() {
           },
           useProfileWallpaper: false,
         },
-        type: { heading: 'marker', body: 'handwriting', ink: '#2a2a2a', headingInk: '#e4572e', accent: '#e4572e', headingCase: 'none', headingScale: 1.15 },
+        type: { heading: 'marker', body: 'cookie', ink: '#2a2a2a', headingInk: '#e4572e', accent: '#e4572e', headingCase: 'none', headingScale: 1.15 },
         // A plain, flat note: the colour of the real thing and a soft lift off
         // the wall. A striped texture, a curled corner and a strip of tape made
         // it look like a slice of cheese.
@@ -112,7 +118,7 @@ function buildPresets() {
           },
           useProfileWallpaper: false,
         },
-        type: { heading: 'handwriting', body: 'notebook', ink: '#1d2a6b', headingInk: '#1d2a6b', accent: '#d0342c', headingCase: 'none', headingScale: 1.3 },
+        type: { heading: 'cookie', body: 'notebook', ink: '#1d2a6b', headingInk: '#1d2a6b', accent: '#d0342c', headingCase: 'none', headingScale: 1.3 },
         card: {
           bg: '#fffef6', opacity: 1, border: 'none', borderColor: '#000000', radius: 3, shadow: 'lifted',
           texture: textureWallpaper('notebook', { cols: 4, rows: 2, scale: 1, bg: '#fffef6' }),
@@ -202,8 +208,8 @@ export function sanitiseTheme(raw) {
       useProfileWallpaper: page.useProfileWallpaper === true,
     },
     type: {
-      heading: oneOf(type.heading, FONTS, d.type.heading),
-      body: oneOf(type.body, FONTS, d.type.body),
+      heading: oneOf(legacyFont(type.heading), FONTS, d.type.heading),
+      body: oneOf(legacyFont(type.body), FONTS, d.type.body),
       ink: colour(type.ink, d.type.ink),
       headingInk: colour(type.headingInk, d.type.headingInk),
       accent: colour(type.accent, d.type.accent),

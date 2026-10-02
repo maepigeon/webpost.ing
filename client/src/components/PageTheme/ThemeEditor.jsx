@@ -10,6 +10,7 @@ import { StickerCenter } from '../TileArt/StickerCenter.jsx';
 import { GET_PAGE_THEME, SET_PAGE_THEME, GET_POST_THEME, SET_POST_THEME } from '../Pages/Posts/BasicTextPostServerApi.js';
 import './ThemeEditor.css';
 import { errorMessage } from '../../utils/errorMessage.js';
+import ColourPicker from '../TileArt/ColourPicker.jsx';
 
 /** A small page drawn in a theme: a header card and two posts. */
 function Sample({ name = 'you', compact = false }) {
@@ -52,7 +53,7 @@ function Select({ value, options, onChange }) {
 }
 
 function Colour({ value, onChange }) {
-  return <input type="color" value={value} onChange={e => onChange(e.target.value)} />;
+  return <ColourPicker value={value} onChange={onChange} label="Colour" className="theme-colour-swatch" />;
 }
 
 /**

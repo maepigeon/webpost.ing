@@ -1,0 +1,55 @@
+/* The in-app colour picker: a dark panel of square tiles, like the grid editor's. */
+.colour-swatch {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  margin: 0;
+  border: 2px solid currentColor;
+  border-radius: 0;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.colour-picker {
+  position: fixed;
+  z-index: 800;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  background: #0d0d0d;
+  color: #f2f2f2;
+  border: 1px solid #333;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  font: 12px var(--app-font);
+}
+.colour-grid { display: grid; grid-template-columns: repeat(12, 20px); gap: 2px; }
+.colour-recent { display: flex; flex-wrap: wrap; gap: 2px; }
+.colour-picker .colour-tile {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  margin: 0;
+  border: 2px solid transparent;
+  border-radius: 0;
+  box-shadow: none;
+  position: relative;
+}
+.colour-picker .colour-tile:hover { border-color: #fff; filter: none; transform: none; }
+.colour-picker .colour-tile.is-on { border-color: #fff; outline: 1px solid #000; outline-offset: -3px; }
+.colour-hex { display: flex; align-items: center; gap: 6px; }
+.colour-preview { width: 22px; height: 22px; border: 1px solid #fff; flex-shrink: 0; }
+.colour-hex input {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  padding: 0 6px;
+  background: #161616;
+  color: #f2f2f2;
+  border: 1px solid #444;
+  font: 12px ui-monospace, Menlo, monospace;
+}
+.colour-hex input[aria-invalid="true"] { border-color: #ff6b6b; }
+.colour-hex button { height: 26px; padding: 0 10px; border-radius: 3px; border: 0; background: #1c1c1c; color: #f2f2f2; font: 600 12px var(--app-font); }
+.colour-hex button:disabled { opacity: 0.4; }
+@media (max-width: 420px) { .colour-grid { grid-template-columns: repeat(12, 18px); } .colour-picker .colour-tile { width: 18px; height: 18px; } }

@@ -37,7 +37,7 @@ public final class ThemeValidator {
             "newspaper", "sticky", "notebook", "corkboard", "neon", "paw", "custom");
     public static final Set<String> FONTS = Set.of(
             "news-serif", "headline", "blackletter", "fell", "typewriter", "handwriting",
-            "marker", "notebook", "terminal", "mono", "cookie", "sans");
+            "marker", "notebook", "terminal", "mono", "cookie", "sans", "comic", "papyrus");
     public static final Set<String> BORDERS = Set.of("none", "rule", "double", "dashed", "glow", "rainbow");
     public static final Set<String> SHADOWS = Set.of("none", "soft", "lifted", "curl", "glow");
     public static final Set<String> CASES = Set.of("none", "upper");

@@ -46,6 +46,7 @@ import { normaliseUploadResponse, describeUploadError } from '../../../../../uti
 import ImageCropDialog from '../../../../ImageCrop/ImageCropDialog.jsx';
 import ImagePicker from '../../../../ImagePicker/ImagePicker.jsx';
 import { postPath, slugify } from '../../../../../utils/postUrl.js';
+import ColourPicker from '../../../../TileArt/ColourPicker.jsx';
 
 const EDITOR_NODES = [HeadingNode, ListNode, ListItemNode, CustomCodeNode, CodeHighlightNode, ImageNode, MathNode, TileGridNode, LinkNode];
 
@@ -219,9 +220,7 @@ function InlineStylePlugin() {
 
   return (
     <>
-      <label className="tg-swatch" title="Text colour" style={{ background: color }}>
-        <input type="color" value={color} onChange={(e) => applyColor(e.target.value)} aria-label="Text colour" />
-      </label>
+      <ColourPicker value={color} onChange={applyColor} label="Text colour" className="tg-swatch" />
       <label className="toolbar-label">
         <PixelText text="Font" px={1.25} />
         <select
@@ -1553,7 +1552,7 @@ function readOpen() {
  */
 function ToolRow({ label, open, onToggle, children }) {
   return (
-    <div className="tg-group pe-section" role="group" aria-label={label}>
+    <div className={`tg-group pe-section ${open ? 'is-open' : 'is-folded'}`} role="group" aria-label={label}>
       <button type="button" className="pe-section-head" aria-expanded={open} onClick={onToggle}
         title={`${open ? 'Fold' : 'Show'} ${label}`}>
         <PixelText symbol={open ? 'open' : 'closed'} px={1.5} />

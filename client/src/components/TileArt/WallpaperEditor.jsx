@@ -5,6 +5,7 @@ import { normaliseGrid, pixelLayer } from '../Pages/Posts/PostRenderer/RichTextP
 import { TILINGS, MAX_TILE_TILES, sanitiseWallpaper, textureWallpaper, useWallpaperStyle } from './wallpaper.js';
 import PawOptions from './PawOptions.jsx';
 import './WallpaperEditor.css';
+import ColourPicker from './ColourPicker.jsx';
 
 /** Pixel sizes offered as buttons (it used to be a slider). */
 const PIXEL_SIZES = [1, 2, 3, 4, 6, 8];
@@ -102,9 +103,7 @@ export default function WallpaperEditor({ value, onChange, allowNone = true }) {
               ))}
             </span>
             <span className="wp-label wp-label--gap">Behind</span>
-            <label className="wp-colour" style={{ background: w.bg }} title="Colour behind transparent pixels">
-              <input type="color" value={w.bg} onChange={e => set({ bg: e.target.value })} aria-label="Colour behind transparent pixels" />
-            </label>
+            <ColourPicker value={w.bg} onChange={c => set({ bg: c })} label="Colour behind transparent pixels" className="wp-colour" />
             <span className="wp-grow" />
             <button type="button" className={`wp-chip${drawing ? ' is-on' : ''}`} onClick={() => { setTexture(null); setDrawing(d => !d); }}>
               {drawing ? 'Close designer' : 'Draw the tile'}

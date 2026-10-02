@@ -62,8 +62,9 @@
    TileGrid.css), so the two editors look and work alike. */
 .pe-panel {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-flow: row wrap;   /* open sections take a line each; folded ones share a line */
+  align-items: flex-start;
+  gap: 6px 14px;
   padding: 8px;
   background: #0d0d0d;
   color: #f2f2f2;
@@ -1290,3 +1291,8 @@
 .pe-panel .gb:disabled { opacity: 0.35; }
 .pe-panel .toolbar-label { display: inline-flex; align-items: center; gap: 4px; }
 @media (max-width: 600px) { .pe-section-head { flex-basis: 100%; } }
+
+/* An open section is a full line; folded ones sit side by side on a shared line. */
+.pe-section.is-open { flex: 1 0 100%; }
+.pe-section.is-folded { flex: 0 0 auto; }
+.pe-section.is-folded .pe-section-head { flex-basis: auto; }
