@@ -183,3 +183,6 @@
 .center-item .pack-btn { padding: 4px 10px; font-size: 12px; }
 .center-fonts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .center-fonts li { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 12px; background: var(--surface-sunken); }
+.center-tabs { display: flex; gap: 6px; }
+.center-symbols { display: flex; flex-wrap: wrap; gap: 4px; }
+.center-symbol { color: #f2f2f2; display: inline-flex; align-items: center; justify-content: center; }

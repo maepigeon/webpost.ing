@@ -2,14 +2,17 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { GET_STICKERS, CREATE_STICKER, GET_PIXEL_FONTS } from '../Pages/Posts/BasicTextPostServerApi.js';
 import { STICKERS } from './stickers.js';
-import { StickerThumb, PackPreview } from './PackThumbs.jsx';
+import { StickerThumb, PackPreview, GlyphThumb } from './PackThumbs.jsx';
+import GridButton from '../Pages/Posts/PostRenderer/RichTextPost/TileGrid/GridButton.jsx';
+import { BITMAP_FONTS, SYMBOL_CHARS } from '../Pages/Posts/PostRenderer/RichTextPost/TileGrid/bitmapFonts.js';
+import '../Pages/Posts/PostRenderer/RichTextPost/TileGrid/TileGrid.css';
 import { errorMessage } from '../../utils/errorMessage.js';
 import { usePageTitle } from '../../utils/usePageTitle.js';
 import './Packs.css';
 
 /**
  * Every sticker and symbols pack you can use, in one place: the built-in
- * stickers, your own, and your pixel fonts. As a page it lets you copy a
+ * stickers and symbols, your own stickers, and your pixel fonts. As a page it lets you copy a
  * built-in into your collection; given `onPick` it is a chooser, and picking
  * a sticker hands its grid back.
  */
@@ -38,6 +41,13 @@ export function StickerCenter({ onPick, showSymbols = !onPick }) {
     } catch (err) { setNote(errorMessage(err, 'Could not add that sticker.')); }
   };
 
+  const copySymbol = async (ch) => {
+    try {
+      await navigator.clipboard.writeText(ch);
+      setNote(`Copied ${ch}. Paste it into a grid and give it the Symbols font.`);
+    } catch { setNote(`Could not copy; select ${ch} and copy it yourself.`); }
+  };
+
   const tile = (key, grid, name, action) => (
     <li key={key} className="center-item">
       {onPick ? (
@@ -53,11 +63,9 @@ export function StickerCenter({ onPick, showSymbols = !onPick }) {
   return (
     <div className="sticker-center">
       {showSymbols && (
-        <div className="pack-tabs" role="tablist">
-          <button type="button" role="tab" aria-selected={tab === 'stickers'}
-            className={tab === 'stickers' ? 'is-on' : ''} onClick={() => setTab('stickers')}>Stickers</button>
-          <button type="button" role="tab" aria-selected={tab === 'symbols'}
-            className={tab === 'symbols' ? 'is-on' : ''} onClick={() => setTab('symbols')}>Symbols</button>
+        <div className="center-tabs">
+          <GridButton label="Stickers" on={tab === 'stickers'} onClick={() => setTab('stickers')} />
+          <GridButton label="Symbols" on={tab === 'symbols'} onClick={() => setTab('symbols')} />
         </div>
       )}
 
@@ -75,11 +83,26 @@ export function StickerCenter({ onPick, showSymbols = !onPick }) {
           <h2 className="center-heading">Built in</h2>
           <ul className="center-grid">
             {Object.entries(STICKERS).map(([k, s]) => tile(k, s.make(), s.label,
-              !onPick && me ? <button type="button" className="pack-btn" onClick={() => addBuiltIn(s)}>Add to mine</button> : null))}
+              !onPick && me ? <GridButton label="Add to mine" onClick={() => addBuiltIn(s)} /> : null))}
           </ul>
         </>
       )}
 
+      {tab === 'symbols' && (
+        <>
+          <h2 className="center-heading">Built in</h2>
+          <p className="pack-hint">The Symbols font draws these. Press one to copy it.</p>
+          <div className="center-symbols">
+            {SYMBOL_CHARS.map(ch => (
+              <button key={ch} type="button" className="tg-tile center-symbol" aria-label={`Copy ${ch}`} data-tip={ch}
+                onClick={() => copySymbol(ch)}>
+                <GlyphThumb ch={ch} hex={BITMAP_FONTS.symbols.full[ch]} scale={1} />
+              </button>
+            ))}
+          </div>
+          <h2 className="center-heading">Yours</h2>
+        </>
+      )}
       {tab === 'symbols' && (
         fonts === null ? <p className="pack-hint">Loading…</p>
           : fonts.length === 0 ? (
