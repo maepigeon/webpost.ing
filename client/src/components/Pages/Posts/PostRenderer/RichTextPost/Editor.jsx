@@ -12,7 +12,8 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import './Editor.css'
 import TitleBar from "./TitleBar"
-import PixelIcon from './TileGrid/PixelIcon.jsx';
+import GridButton from './TileGrid/GridButton.jsx';
+import PixelText from './TileGrid/PixelText.jsx';
 
 import { exampleTheme } from './exampleTheme';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
@@ -77,8 +78,8 @@ function ListToolbarPlugin() {
   };
   return (
     <>
-      <button type="button" className="tg-text-btn" onClick={() => onClick('ul')} title="Bulleted list">• List</button>
-      <button type="button" className="tg-text-btn" onClick={() => onClick('ol')} title="Numbered list">1. List</button>
+      <GridButton symbol="bullets" label="Bulleted list" text="List" onClick={() => onClick('ul')} />
+      <GridButton symbol="numbers" label="Numbered list" text="List" onClick={() => onClick('ol')} />
     </>
   );
 }
@@ -120,10 +121,9 @@ function BlockTypeTiles() {
   return (
     <span className="pe-seg" role="radiogroup" aria-label="Text style">
       {BLOCK_TYPES.map(b => (
-        <button key={b.tag} type="button" role="radio" aria-checked={current === b.tag} title={b.label} aria-label={b.label}
-          className={`tg-tile pe-char${current === b.tag ? ' is-on' : ''}`} onClick={() => choose(b.tag)}>
-          {b.short}
-        </button>
+        <GridButton key={b.tag} role="radio" aria-checked={current === b.tag} aria-pressed={undefined}
+          label={b.label} {...(b.tag === 'paragraph' ? { symbol: 'paragraph' } : { text: b.short, showLabel: true })}
+          on={current === b.tag} onClick={() => choose(b.tag)} className="gb-square" />
       ))}
     </span>
   );
@@ -223,7 +223,7 @@ function InlineStylePlugin() {
         <input type="color" value={color} onChange={(e) => applyColor(e.target.value)} aria-label="Text colour" />
       </label>
       <label className="toolbar-label">
-        Font
+        <PixelText text="Font" px={1.25} />
         <select
           value={fontFamily}
           onChange={(e) => applyFontFamily(e.target.value)}
@@ -237,7 +237,7 @@ function InlineStylePlugin() {
         </select>
       </label>
       <label className="toolbar-label">
-        Size
+        <PixelText text="Size" px={1.25} />
         <select
           value={fontSize}
           onChange={(e) => applyFontSize(e.target.value)}
@@ -250,7 +250,7 @@ function InlineStylePlugin() {
         </select>
       </label>
       <label className="toolbar-label">
-        Spacing
+        <PixelText text="Spacing" px={1.25} />
         <select
           value={lineHeight}
           onChange={(e) => applyLineHeight(e.target.value)}
@@ -890,14 +890,8 @@ function ImageToolbarPlugin() {
         />
       )}
       <span className="image-btn-group" ref={infoRef}>
-        <button type="button" className="tg-text-btn" onClick={() => setPickerOpen(true)}>Image</button>
-        <button
-          type="button"
-          className="tg-tile pe-char"
-          title="Image upload info"
-          onClick={() => setInfoOpen(o => !o)}
-          aria-label="Image upload limits"
-        >ⓘ</button>
+        <GridButton symbol="image" label="Image" onClick={() => setPickerOpen(true)} />
+        <GridButton symbol="info" label="Image upload limits" title="Image upload info" onClick={() => setInfoOpen(o => !o)} />
         {infoOpen && (
           <div className="image-info-popup">
             <strong>Image upload</strong>
@@ -1087,14 +1081,8 @@ function LinkToolbarPlugin() {
 
   return (
     <>
-      <button
-        type="button"
-        className={`tg-text-btn${isLink ? ' is-on' : ''}`}
-        title={isLink ? 'Edit link' : 'Insert link'}
-        onClick={isLink ? editLink : addLink}
-      >
-        {isLink ? 'Edit link' : 'Link'}
-      </button>
+      <GridButton symbol="link" label={isLink ? 'Edit link' : 'Link'} title={isLink ? 'Edit link' : 'Insert link'}
+        on={isLink} onClick={isLink ? editLink : addLink} />
       {showFloat && pos && (
         <div
           className="floating-link-toolbar"
@@ -1185,7 +1173,7 @@ function CodeToolbarPlugin() {
       insertBlockInner(() => $createCustomCodeNode());
     });
   };
-  return <button type="button" className="tg-text-btn" onClick={onClick} title="Code block">Code</button>;
+  return <GridButton symbol="code" label="Code" title="Code block" onClick={onClick} />;
 }
 
 function MathToolbarPlugin() {
@@ -1195,14 +1183,14 @@ function MathToolbarPlugin() {
     if (equation === null) return;
     insertBlock(editor, () => $createMathNode(equation.trim()));
   };
-  return <button type="button" className="tg-text-btn" onClick={onClick} title="Insert LaTeX math block">∑ Math</button>;
+  return <GridButton symbol="math" label="Math" title="Insert LaTeX math block" onClick={onClick} />;
 }
 
 function TileGridToolbarPlugin() {
   const [editor] = useLexicalComposerContext();
   return (
-    <button type="button" className="tg-text-btn" onClick={() => insertBlock(editor, () => $createTileGridNode())}
-      title="Insert a tile grid: text on tiles, pixel painting and photos">▦ Grid</button>
+    <GridButton symbol="grid" label="Grid" onClick={() => insertBlock(editor, () => $createTileGridNode())}
+      title="Insert a tile grid: text on tiles, pixel painting and photos" />
   );
 }
 
@@ -1225,7 +1213,7 @@ function PostLinkToolbarPlugin() {
 
   return (
     <>
-      <button type="button" className="tg-text-btn" onClick={() => setShowSearch(true)} title="Insert link to another post on this site">Post link</button>
+      <GridButton symbol="postLink" label="Post link" title="Insert link to another post on this site" onClick={() => setShowSearch(true)} />
       {showSearch && <PostSearchModal onSelect={handleSelect} onCancel={() => setShowSearch(false)} />}
     </>
   );
@@ -1246,9 +1234,7 @@ function BackgroundToolbarPlugin({ pattern, onPatternChange }) {
 
   return (
     <div className="toolbar-bg-wrapper" ref={wrapperRef}>
-      <button type="button" className={`tg-text-btn${open ? ' is-on' : ''}`} onClick={() => setOpen(o => !o)} title="Post wallpaper">
-        Wallpaper
-      </button>
+      <GridButton symbol="wallpaper" label="Wallpaper" title="Post wallpaper" on={open} onClick={() => setOpen(o => !o)} />
       {open && (
         <div className="toolbar-bg-panel">
           <WallpaperEditor value={pattern} onChange={w => onPatternChange(serialiseWallpaper(w))} />
@@ -1294,17 +1280,16 @@ function FeatureTogglePlugin({ postid, features, onFeaturesChange }) {
   };
 
   const TOGGLES = [
-    ['reactionsEnabled', 'Reactions', 'Reactions on this post'],
-    ['discussionEnabled', 'Comments', 'Comments on this post'],
-    ['votesEnabled', 'Voting', 'Upvotes, downvotes and the score on this post'],
-    ['cardGrid', 'Grid on card', "Show this post's first grid on its card in your profile"],
+    ['reactionsEnabled', 'Reactions', 'Reactions on this post', 'heart'],
+    ['discussionEnabled', 'Comments', 'Comments on this post', 'comment'],
+    ['votesEnabled', 'Voting', 'Upvotes, downvotes and the score on this post', 'vote'],
+    ['cardGrid', 'Grid on card', "Show this post's first grid on its card in your profile", 'grid'],
   ];
   return (
     <>
-      {TOGGLES.map(([key, label, title]) => (
-        <button key={key} type="button" className={`tg-text-btn${features[key] ? ' is-on' : ''}`}
-          aria-pressed={Boolean(features[key])} title={`${title}: ${features[key] ? 'on' : 'off'}`}
-          onClick={() => toggle(key)}>{label}</button>
+      {TOGGLES.map(([key, label, title, symbol]) => (
+        <GridButton key={key} symbol={symbol} label={label} on={Boolean(features[key])}
+          title={`${title}: ${features[key] ? 'on' : 'off'}`} onClick={() => toggle(key)} />
       ))}
     </>
   );
@@ -1503,12 +1488,8 @@ function UndoRedoPlugin() {
   }, [editor]);
   return (
     <>
-      <button type="button" className="tg-tile" title="Undo (⌘Z)" aria-label="Undo" disabled={!canUndo} onClick={() => editor.dispatchCommand(UNDO_COMMAND, undefined)}>
-        <PixelIcon name="undo" size={14} />
-      </button>
-      <button type="button" className="tg-tile" title="Redo (⌘⇧Z)" aria-label="Redo" disabled={!canRedo} onClick={() => editor.dispatchCommand(REDO_COMMAND, undefined)}>
-        <PixelIcon name="redo" size={14} />
-      </button>
+      <GridButton symbol="undo" label="Undo" title="Undo (⌘Z)" disabled={!canUndo} onClick={() => editor.dispatchCommand(UNDO_COMMAND, undefined)} />
+      <GridButton symbol="redo" label="Redo" title="Redo (⌘⇧Z)" disabled={!canRedo} onClick={() => editor.dispatchCommand(REDO_COMMAND, undefined)} />
     </>
   );
 }
@@ -1539,15 +1520,15 @@ function FormatToolbarPlugin() {
   const fmt = (type) => editor.dispatchCommand(FORMAT_TEXT_COMMAND, type);
 
   const FORMATS = [
-    ['bold', 'Bold (⌘B)', <b key="b">B</b>], ['italic', 'Italic (⌘I)', <i key="i">I</i>],
-    ['underline', 'Underline (⌘U)', <u key="u">U</u>], ['strikethrough', 'Strikethrough', <s key="s">S</s>],
-    ['subscript', 'Subscript', <span key="sub">x<sub>2</sub></span>], ['superscript', 'Superscript', <span key="sup">x<sup>2</sup></span>],
+    ['bold', 'Bold', 'bold', '(⌘B)'], ['italic', 'Italic', 'italic', '(⌘I)'],
+    ['underline', 'Underline', 'underline', '(⌘U)'], ['strikethrough', 'Strikethrough', 'strike', ''],
+    ['subscript', 'Subscript', 'sub', ''], ['superscript', 'Superscript', 'sup', ''],
   ];
   return (
     <span className="pe-seg">
-      {FORMATS.map(([type, label, glyph]) => (
-        <button key={type} type="button" className={`tg-tile pe-char${formats[type] ? ' is-on' : ''}`}
-          title={label} aria-label={label} aria-pressed={Boolean(formats[type])} onClick={() => fmt(type)}>{glyph}</button>
+      {FORMATS.map(([type, label, symbol, keys]) => (
+        <GridButton key={type} symbol={symbol} label={label} title={`${label} ${keys}`.trim()}
+          on={Boolean(formats[type])} onClick={() => fmt(type)} />
       ))}
     </span>
   );
@@ -1559,35 +1540,48 @@ function FormatToolbarPlugin() {
  * (Edit, Text, Style, Insert, Page) of tile buttons, then the save actions.
  * "Fewer tools" folds it to the Edit and Text rows, remembered per browser.
  */
-const TOOLS_FOLDED_KEY = 'editorToolsFolded';
+const OPEN_KEY = 'editorToolSections';
 
-function ToolRow({ label, children }) {
+/** Which sections are open, kept per browser; sections not mentioned use `fallback`. */
+function readOpen() {
+  try { return JSON.parse(localStorage.getItem(OPEN_KEY)) || {}; } catch { return {}; }
+}
+
+/**
+ * One section of the tools: a header (its name in grid pixels, with a
+ * triangle) that folds just that section. Each remembers whether it is open.
+ */
+function ToolRow({ label, open, onToggle, children }) {
   return (
-    <div className="tg-group" role="group" aria-label={label}>
-      <span className="tg-group-label">{label}</span>
-      {children}
+    <div className="tg-group pe-section" role="group" aria-label={label}>
+      <button type="button" className="pe-section-head" aria-expanded={open} onClick={onToggle}
+        title={`${open ? 'Fold' : 'Show'} ${label}`}>
+        <PixelText symbol={open ? 'open' : 'closed'} px={1.5} />
+        <PixelText text={label} px={1.5} />
+      </button>
+      {open && <div className="pe-section-body">{children}</div>}
     </div>
   );
 }
 
+/**
+ * The tools, laid out like the grid editor's: a dark panel of named sections
+ * of grid buttons, each folding on its own, then the save actions. On a
+ * phone only Edit and Text start open.
+ */
 function ToolPanel({ rows, children }) {
-  // Folded on a phone until chosen otherwise: unfolded it fills most of the screen.
-  const [folded, setFolded] = useState(() => {
-    let kept = null;
-    try { kept = localStorage.getItem(TOOLS_FOLDED_KEY); } catch { /* none */ }
-    return kept === null ? window.matchMedia?.('(max-width: 600px)').matches ?? false : kept === '1';
-  });
-  const fold = (v) => {
-    setFolded(v);
-    try { localStorage.setItem(TOOLS_FOLDED_KEY, v ? '1' : '0'); } catch { /* not kept */ }
+  const [kept, setKept] = useState(readOpen);
+  const phone = window.matchMedia?.('(max-width: 600px)').matches ?? false;
+  const isOpen = (row) => (row.label in kept ? kept[row.label] : (!phone || row.always));
+  const toggle = (row) => {
+    const next = { ...kept, [row.label]: !isOpen(row) };
+    setKept(next);
+    try { localStorage.setItem(OPEN_KEY, JSON.stringify(next)); } catch { /* not kept */ }
   };
   return (
     <div className="toolbar-sticky toolbar-stack">
       <div className="pe-panel" role="toolbar" aria-label="Post tools">
-        {rows.filter(r => !folded || r.always).map(r => <ToolRow key={r.label} label={r.label}>{r.node}</ToolRow>)}
-        <button type="button" className="pe-fold" aria-expanded={!folded} onClick={() => fold(!folded)}>
-          {folded ? 'More tools ▾' : 'Fewer tools ▴'}
-        </button>
+        {rows.map(r => <ToolRow key={r.label} label={r.label} open={isOpen(r)} onToggle={() => toggle(r)}>{r.node}</ToolRow>)}
       </div>
       {/* Save draft, Upload, View post: on a row of their own. */}
       <div className="toolbar-actions">{children}</div>
@@ -1634,11 +1628,9 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
         <>
           <BackgroundToolbarPlugin pattern={backgroundPattern} onPatternChange={onPatternChange} />
           {/* Each post has its own theme; it starts as a copy of the profile's. */}
-          <button type="button" className="tg-text-btn" disabled={!savedPost}
+          <GridButton symbol="theme" label="Theme" disabled={!savedPost}
             title={savedPost ? "This post's own theme" : 'Save the post first: it starts with your profile theme'}
-            onClick={() => setThemeOpen(true)}>
-            Theme…
-          </button>
+            onClick={() => setThemeOpen(true)} />
           <span className="tg-gap" />
           <FeatureTogglePlugin postid={postid} features={features} onFeaturesChange={onFeaturesChange} />
         </>

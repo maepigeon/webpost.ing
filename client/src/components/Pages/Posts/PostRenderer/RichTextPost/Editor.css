@@ -84,16 +84,6 @@
   border: 1px solid #333;
   font-size: 12px;
 }
-.pe-fold {
-  align-self: flex-start;
-  padding: 2px 4px;
-  border: 0;
-  background: none;
-  color: #8c8c8c;
-  font: 600 11px var(--app-font);
-  cursor: pointer;
-}
-.pe-fold:hover { color: #f2f2f2; }
 
 /* ── Editor / viewer content area ───────────────────────────────────────── */
 
@@ -1276,3 +1266,27 @@
   font-weight: 700;
 }
 
+/* Sections of the tools: a header that folds the section, and its buttons. */
+.pe-section { align-items: flex-start; }
+.pe-section-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 82px;
+  height: 26px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: #9a9a9a;
+  cursor: pointer;
+}
+.pe-section-head:hover { color: #f2f2f2; }
+.pe-section-body { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; min-width: 0; flex: 1; }
+.pe-panel .gb { display: inline-flex; align-items: center; gap: 6px; padding: 0 8px; color: #f2f2f2; }
+.pe-panel .gb.tg-tile { padding: 0; }
+.pe-panel .gb.is-on { color: #111; }
+.pe-panel .gb:disabled { opacity: 0.35; }
+.pe-panel .toolbar-label { display: inline-flex; align-items: center; gap: 4px; }
+@media (max-width: 600px) { .pe-section-head { flex-basis: 100%; } }
