@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   normaliseGrid, pixelLayer, rowChars, writeSlot, writeChar, setTileWidths, isWide, restyleSlots, resizeLayerText,
   orderSlots, slotsIn, containRect, bitsFromHex, hexFromBits, seedBits, slotsPerRow, LIMITS,
-  photoRect, resizePhoto, zoomPhoto, PHOTO_SCALE, cleanHref, isExternalHref, setLink, linkAt, cleanExt, GRID_VERSION, mergeText, writeXl, variantRows, FONT_NAMES,
+  photoRect, resizePhoto, zoomPhoto, PHOTO_SCALE, cleanHref, isExternalHref, setLink, linkAt, cleanExt, GRID_VERSION, mergeText, writeXl, variantRows, FONT_NAMES, TYPEFACES,
 } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
 import { pixelGlyph } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileFont.js';
 
@@ -359,5 +359,16 @@ describe('pixel font variants', () => {
     expect(hollow[3]).toBe(0x81);       // only the left and right edges of the middle rows
     expect(variantRows('pixel', H)).toBe(H);
     expect(H.every(b => b <= 0xff) && variantRows('bold', H)).toHaveLength(8);
+  });
+});
+
+describe('typefaces', () => {
+  it('serif, script, cute and comic are fonts the format keeps, each with a family', () => {
+    for (const id of ['serif', 'script', 'cute', 'comic']) {
+      expect(FONT_NAMES[id]).toBeTruthy();
+      expect(TYPEFACES[id].family).toContain(',');
+      const d = normaliseGrid({ layers: [{ id: 'a', kind: 'pixel', style: { '0,0': { font: id } } }] });
+      expect(d.layers[0].style['0,0'].font).toBe(id);
+    }
   });
 });

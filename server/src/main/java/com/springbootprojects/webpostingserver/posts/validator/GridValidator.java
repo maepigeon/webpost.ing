@@ -36,7 +36,8 @@ public final class GridValidator {
     private static final Pattern LINK = Pattern.compile("^(/(?!/)\\S*|https?://[^\\s/$.?#]\\S*)$", Pattern.CASE_INSENSITIVE);
     private static final int MAX_LINKS = 64;
     // Font ids a character's style may name; keep in step with FONT_NAMES in tileGrid.js.
-    private static final Set<String> FONTS = Set.of("pixel", "small", "smooth", "xl", "bold", "italic", "outline");
+    private static final Set<String> FONTS = Set.of("pixel", "small", "smooth", "xl", "bold", "italic", "outline",
+            "serif", "script", "cute", "comic");
     // `ext`: data this validator doesn't know about, kept as it came (see
     // tileGrid.js): { "<namespace>": <JSON> }, plain JSON only, bounded.
     private static final Pattern EXT_NAMESPACE = Pattern.compile("^[a-z][a-z0-9-]{0,23}$");

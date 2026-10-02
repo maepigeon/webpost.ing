@@ -33,7 +33,30 @@ export const FONT_NAMES = {
   pixel: 'Pixel', small: 'Mini', smooth: 'Smooth', xl: 'XL 2×2',
   // Variants of the pixel letters, made from them (see variantRows): no extra font data.
   bold: 'Pixel bold', italic: 'Pixel italic', outline: 'Pixel outline',
+  // Typefaces drawn like Smooth, in a web font: soft-edged unless the grid's edges are Pixel.
+  serif: 'Serif', script: 'Script', cute: 'Cute', comic: 'Comic',
 };
+
+/**
+ * The typefaces: CSS family stacks, weight, and size in grid pixels for a
+ * full-width cell (narrow cells use 0.9 of it). Script is larger so its thin
+ * strokes read; Cute is Choco Cooky where the device has it (it is not
+ * licensed for the web), otherwise the round, bubbly Sniglet.
+ */
+export const TYPEFACES = {
+  serif:  { family: '"Old Standard TT", "Times New Roman", Georgia, serif', weight: 700, size: 15 },
+  script: { family: '"Great Vibes", "Snell Roundhand", "Apple Chancery", cursive', weight: 400, size: 18 },
+  cute:   { family: '"Choco cooky", "ChocoCooky", "Sniglet", "Arial Rounded MT Bold", sans-serif', weight: 800, size: 15 },
+  comic:  { family: '"Comic Sans MS", "Comic Neue", "Chalkboard SE", "Patrick Hand", cursive', weight: 700, size: 15 },
+};
+
+/** Asks the browser for the typefaces now, so a grid drawn before they arrive is redrawn by fonts.ready. */
+let typefacesRequested = false;
+function requestTypefaces() {
+  if (typefacesRequested || typeof document === 'undefined' || !document.fonts?.load) return;
+  typefacesRequested = true;
+  for (const t of Object.values(TYPEFACES)) document.fonts.load(`${t.weight} 16px ${t.family}`).catch(() => {});
+}
 
 /**
  * The pixel font's letters in a variant: bold thickens each stroke by a dot,
@@ -743,9 +766,9 @@ function drawLayerText(ctx, d, layer) {
         else if (style.font === 'xl' && wide && pixelGlyph(ch)) drawXlGlyph(ctx, pixelGlyph(ch), x, y);
         else if (['bold', 'italic', 'outline'].includes(style.font) && pixelGlyph(ch)) drawPixelGlyph(ctx, variantRows(style.font, pixelGlyph(ch)), x, y, sw);
         else if (style.font === 'small' && pixelGlyph(ch)) drawSmallGlyph(ctx, pixelGlyph(ch), x, y, sw);
-        else if (style.font !== 'smooth' && pixelGlyph(ch)) drawPixelGlyph(ctx, pixelGlyph(ch), x, y, sw);
-        else if (d.edges === 'pixel') drawPixelatedChar(ctx, ch, x, y, sw);
-        else drawSmoothChar(ctx, ch, x, y, sw);
+        else if (style.font !== 'smooth' && !TYPEFACES[style.font] && pixelGlyph(ch)) drawPixelGlyph(ctx, pixelGlyph(ch), x, y, sw);
+        else if (d.edges === 'pixel') drawPixelatedChar(ctx, ch, x, y, sw, style.font);
+        else drawSmoothChar(ctx, ch, x, y, sw, style.font);
       }
     }
   }
@@ -796,8 +819,8 @@ function drawCustomGlyph(ctx, hex, x, y, sw) {
  * grid pixels, its coverage cut at half, and each covered pixel filled.
  */
 const pixelatedChars = new Map();
-function drawPixelatedChar(ctx, ch, x, y, sw) {
-  const key = `${ch}|${sw}`;
+function drawPixelatedChar(ctx, ch, x, y, sw, font) {
+  const key = `${font || 'smooth'}|${ch}|${sw}`;
   let mask = pixelatedChars.get(key);
   if (!mask) {
     if (typeof document === 'undefined') return;
@@ -807,7 +830,7 @@ function drawPixelatedChar(ctx, ch, x, y, sw) {
     if (!g) return;
     g.scale(SCALE, SCALE);
     g.fillStyle = '#000';
-    drawSmoothChar(g, ch, 0, 0, sw);
+    drawSmoothChar(g, ch, 0, 0, sw, font);
     const data = g.getImageData(0, 0, c.width, c.height).data;
     mask = [];
     for (let py = 0; py < TILE; py++) {
@@ -828,10 +851,12 @@ function drawPixelatedChar(ctx, ch, x, y, sw) {
   for (let i = 0; i < mask.length; i += 2) ctx.fillRect(x + mask[i], y + mask[i + 1], 1, 1);
 }
 
-function drawSmoothChar(ctx, ch, x, y, sw) {
+function drawSmoothChar(ctx, ch, x, y, sw, font) {
+  const face = TYPEFACES[font];
+  if (face) requestTypefaces();
   // A monospace advance is about 0.6em, so these sizes fill the cell width.
-  const size = sw === TILE ? 14 : 12.5;
-  ctx.font = `500 ${size}px ${SMOOTH_FONT}`;
+  const size = face ? (sw === TILE ? face.size : face.size * 0.9) : (sw === TILE ? 14 : 12.5);
+  ctx.font = face ? `${face.weight} ${size}px ${face.family}` : `500 ${size}px ${SMOOTH_FONT}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(ch, x + sw / 2, y + TILE / 2 + 0.5, sw);
