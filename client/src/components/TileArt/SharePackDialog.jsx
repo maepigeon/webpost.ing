@@ -41,7 +41,7 @@ export default function SharePackDialog({ username, onSend, onClose }) {
     const onKey = e => {
       if (e.key === 'Escape') { onClose(); return; }
       if (e.key !== 'Tab' || !dialogRef.current) return;
-      const items = [...dialogRef.current.querySelectorAll('button:not(:disabled), input, [tabindex]:not([tabindex="-1"])')];
+      const items = [...dialogRef.current.querySelectorAll('button:not(:disabled):not([tabindex="-1"]), input, [tabindex]:not([tabindex="-1"])')];
       if (!items.length) return;
       const first = items[0], last = items[items.length - 1];
       if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
