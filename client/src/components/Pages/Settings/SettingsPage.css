@@ -340,3 +340,30 @@
 .settings-banner-preview { margin: 8px 0 12px; }
 .settings-banner-preview .profile-banner { margin: 0; }
 .settings-banner-editor { margin-bottom: 10px; }
+
+/* Sections fold under their titles (<details>). */
+.settings-section > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.settings-section > summary::-webkit-details-marker { display: none; }
+.settings-section > summary::before {
+  content: '';
+  width: 0;
+  height: 0;
+  border-left: 5px solid currentColor;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform 0.15s ease;
+}
+.settings-section[open] > summary::before { transform: rotate(90deg); }
+.settings-section-body { margin-top: 10px; }
+.settings-subtitle { margin: 18px 0 6px; font-size: 0.9rem; font-weight: 700; color: #1c1c1c; }
+.settings-section-body,
+.settings-section-body .settings-section-hint,
+.settings-toggle-body { text-align: left; }
+.settings-toggle-body { align-items: flex-start; }

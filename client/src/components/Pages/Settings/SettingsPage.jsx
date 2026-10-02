@@ -28,14 +28,14 @@ import { errorMessage } from '../../../utils/errorMessage.js';
  */
 
 const CATEGORIES = [
-  { key: 'onDirectMessage', label: 'Direct messages',
-    hint: 'When someone sends you a message.' },
+  { key: 'onDirectMessage', label: 'Messages',
+    hint: 'Someone sends you a message.' },
   { key: 'onNewFollower', label: 'New followers',
-    hint: 'When someone starts following you.' },
-  { key: 'onFollowedPost', label: 'Posts from people you follow',
-    hint: 'When someone you follow publishes something.' },
-  { key: 'onPostPublished', label: 'Your own publish receipts',
-    hint: 'A confirmation to you each time one of your posts goes live.' },
+    hint: 'Someone follows you.' },
+  { key: 'onFollowedPost', label: 'New posts',
+    hint: 'Someone you follow posts something.' },
+  { key: 'onPostPublished', label: 'Your posts',
+    hint: 'A note to you each time you publish.' },
 ];
 
 
@@ -56,6 +56,33 @@ function BackgroundChoice({ label, value, current, onChoose }) {
       <WallpaperSwatch value={value} className="settings-bg-swatch" />
       <span className="settings-bg-name">{label}</span>
     </button>
+  );
+}
+
+const OPEN_KEY = 'settingsOpen';
+
+/**
+ * One section of Settings, folded under its title. Whether each is open is
+ * remembered in this browser; only Email starts open.
+ */
+function Section({ id, title, defaultOpen = false, children }) {
+  const [open, setOpen] = useState(() => {
+    try { const kept = JSON.parse(localStorage.getItem(OPEN_KEY)) || {}; return id in kept ? kept[id] : defaultOpen; }
+    catch { return defaultOpen; }
+  });
+  const toggle = (e) => {
+    const next = e.currentTarget.open;
+    setOpen(next);
+    try {
+      const kept = JSON.parse(localStorage.getItem(OPEN_KEY)) || {};
+      localStorage.setItem(OPEN_KEY, JSON.stringify({ ...kept, [id]: next }));
+    } catch { /* not kept */ }
+  };
+  return (
+    <details className="settings-section" open={open} onToggle={toggle}>
+      <summary className="settings-section-title">{title}</summary>
+      <div className="settings-section-body">{children}</div>
+    </details>
   );
 }
 
@@ -191,20 +218,17 @@ export default function SettingsPage() {
 
         {!mailEnabled && (
           <p className="settings-notice">
-            Email is switched off on this server, so nothing will be sent. You can still
-            save an address and choose preferences — they take effect if email is turned on.
+            Email isn&rsquo;t set up on this site yet, so nothing is sent. Your choices
+            below are kept for when it is.
           </p>
         )}
 
-        {/* ── Email address ───────────────────────────────────────────────── */}
-        <section className="settings-section">
-          <h2 className="settings-section-title">Email address</h2>
+        {/* ── Email: the address, and what to send to it ──────────────────── */}
+        <Section id="email" title="Email" defaultOpen>
           <p className="settings-section-hint">
-            Optional. Used for notifications and to reset your password if you
-            forget it, and never shown to anyone else. An address is only added
-            to your account once you confirm it from that inbox, so nobody can
-            sign someone else up. At most 3 emails a day; anything beyond that
-            arrives as one digest.
+            Optional. We use it for the emails you choose below and to help you
+            reset your password. Nobody else sees it. It&rsquo;s added once you click
+            the link we send to it. At most 3 emails a day; any more come together in one.
           </p>
 
           <form className="settings-email-form" onSubmit={saveEmail}>
@@ -235,9 +259,8 @@ export default function SettingsPage() {
 
           {settings.pendingEmail && (
             <p className="settings-verify-state settings-verify-state--pending">
-              Waiting for you to confirm <strong>{settings.pendingEmail}</strong>.
-              It is added to your account once you click the link in that email —
-              until then nothing else is sent to it.
+              Check your inbox: we sent a link to <strong>{settings.pendingEmail}</strong>.
+              Click it to add the address.
               {mailEnabled && (
                 <button type="button" className="settings-link-btn" onClick={resend}>
                   Resend
@@ -249,25 +272,60 @@ export default function SettingsPage() {
           {!emailVerified && !settings.pendingEmail && (
             <p className="settings-section-hint">No email address on your account.</p>
           )}
-        </section>
+
+          <h3 className="settings-subtitle">What to email you</h3>
+          {!notificationsUsable && (
+            <p className="settings-section-hint">
+              {mailEnabled
+                ? 'Confirm your address to get these.'
+                : 'Nothing is sent until email is set up on this site.'}
+            </p>
+          )}
+
+          <label className="settings-toggle settings-toggle--master">
+            <input
+              type="checkbox"
+              checked={!!preferences.enabled}
+              onChange={e => togglePreference('enabled', e.target.checked)}
+            />
+            <span className="settings-toggle-body">
+              <span className="settings-toggle-label">Email me</span>
+              <span className="settings-toggle-hint">Turn off to stop all emails at once.</span>
+            </span>
+          </label>
+
+          <div className={`settings-toggle-group${preferences.enabled ? '' : ' settings-toggle-group--muted'}`}>
+            {CATEGORIES.map(({ key, label, hint }) => (
+              <label className="settings-toggle" key={key}>
+                <input
+                  type="checkbox"
+                  checked={!!preferences[key]}
+                  disabled={!preferences.enabled}
+                  onChange={e => togglePreference(key, e.target.checked)}
+                />
+                <span className="settings-toggle-body">
+                  <span className="settings-toggle-label">{label}</span>
+                  <span className="settings-toggle-hint">{hint}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </Section>
 
         {/* ── Profile appearance lives on its own page now ─────────────────── */}
-        <section className="settings-section">
-          <h2 className="settings-section-title">Your profile&rsquo;s look</h2>
+        <Section id="look" title={'Your profile\u2019s look'}>
           <p className="settings-section-hint">
-            Header image, wallpaper, page theme and pixel fonts are on{' '}
-            <Link className="settings-link" to="/customize">Customize your profile</Link>,
-            which your profile links to as well.
+            Change your card background, wallpaper, theme, stickers and pixel fonts on{' '}
+            <Link className="settings-link" to="/customize">Customize your profile</Link>.
+            Your banner is edited on your profile itself.
           </p>
-        </section>
+        </Section>
 
         {/* ── Site background ─────────────────────────────────────────────── */}
-        <section className="settings-section">
-          <h2 className="settings-section-title">Site background</h2>
+        <Section id="background" title="Site background">
           <p className="settings-section-hint">
-            Shown to you across the site — home, search, your inbox, messages and
-            settings. Profiles and posts are left alone: those show the wallpaper
-            their author chose, and nobody else sees this.
+            The background you see around the site: home, search, messages and settings.
+            Only you see it. Profiles and posts keep their own.
           </p>
 
           <div className="settings-bg-grid">
@@ -298,18 +356,16 @@ export default function SettingsPage() {
 
           {savedPresets.length === 0 && !settings.profileBackground && (
             <p className="settings-section-hint">
-              Make a profile wallpaper above and it will appear here to use as
-              your site background too.
+              Make a wallpaper on <Link className="settings-link" to="/customize">Customize your profile</Link> and
+              it shows up here too.
             </p>
           )}
-        </section>
+        </Section>
 
         {/* ── Code blocks ─────────────────────────────────────────────────── */}
-        <section className="settings-section">
-          <h2 className="settings-section-title">Code blocks</h2>
+        <Section id="code" title="Code blocks">
           <p className="settings-section-hint">
-            How code looks to you in every post you read. This is your setting, not
-            the author's — it does not change how anyone else sees their posts.
+            How code looks in posts you read. Only you see this.
           </p>
 
           <div className="settings-code-controls">
@@ -343,51 +399,7 @@ export default function SettingsPage() {
   return \`Hello, \${name}\`;
 }`
           }</code></pre>
-        </section>
-
-        {/* ── Notification preferences ────────────────────────────────────── */}
-        <section className="settings-section">
-          <h2 className="settings-section-title">Email notifications</h2>
-
-          {!notificationsUsable && (
-            <p className="settings-section-hint">
-              {mailEnabled
-                ? 'Confirm your address above to start receiving these.'
-                : 'These are saved, but nothing is sent while email is off.'}
-            </p>
-          )}
-
-          <label className="settings-toggle settings-toggle--master">
-            <input
-              type="checkbox"
-              checked={!!preferences.enabled}
-              onChange={e => togglePreference('enabled', e.target.checked)}
-            />
-            <span className="settings-toggle-body">
-              <span className="settings-toggle-label">Send me email notifications</span>
-              <span className="settings-toggle-hint">
-                Turning this off silences everything below, whatever they are set to.
-              </span>
-            </span>
-          </label>
-
-          <div className={`settings-toggle-group${preferences.enabled ? '' : ' settings-toggle-group--muted'}`}>
-            {CATEGORIES.map(({ key, label, hint }) => (
-              <label className="settings-toggle" key={key}>
-                <input
-                  type="checkbox"
-                  checked={!!preferences[key]}
-                  disabled={!preferences.enabled}
-                  onChange={e => togglePreference(key, e.target.checked)}
-                />
-                <span className="settings-toggle-body">
-                  <span className="settings-toggle-label">{label}</span>
-                  <span className="settings-toggle-hint">{hint}</span>
-                </span>
-              </label>
-            ))}
-          </div>
-        </section>
+        </Section>
 
         {status && <p className="settings-status" role="status">{status}</p>}
         {error && <p className="settings-error" role="alert">{error}</p>}
