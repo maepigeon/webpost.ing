@@ -1,7 +1,10 @@
 # Deploying webpost.ing
 
-Last verified: 2026-10-01 (release scripts rehearsed locally, including both
-rollback paths).
+Last checked against the code: 2026-10-02, branch
+`claude/ui-fixes-2026-10-01-clean` (82 commits ahead of `main`; migrations
+V008 to V014). The release scripts were rehearsed locally, including both
+rollback paths, but **have not yet run against the real server**: the first
+real release is their first real test (see "Before you release").
 
 **Two rules.**
 
@@ -13,6 +16,111 @@ rollback paths).
    server's addresses, paths, names and settings live in its `deploy.env` (on
    the server) and your `release.env` (on your computer), neither of them in
    git. The database needs no password at all (section 4).
+
+---
+
+## Before you release
+
+On your own computer. Nothing here touches the server.
+
+1. **Merge.** Merge the branch you are releasing into `main`, then check it
+   out and pull. The release is built from whatever is checked out, so make
+   sure the working tree is clean and the latest commit is the one you mean.
+2. **Font.** `client/public/fonts/Chococooky.woff2` must exist (see
+   [Choco Cooky](#choco-cooky)). It is gitignored, so a fresh checkout or
+   worktree does not have it, and `release.sh` stops without it.
+3. **`release.env`** exists in the repository root with `DEPLOY_HOST` and
+   `SERVER_ENV` set (see "One-time setup on your computer"). Not needed for
+   `--build-only`.
+4. **Local prerequisites:** Java 21, Node 20.19 or newer, and the empty
+   `webposting_test` database (`createdb webposting_test`).
+5. **Dry run first, this once.** `./tools/release.sh --no-install` tests,
+   builds and uploads without going live. Then on the server run the
+   install with `--dry-run` (table below) and read what it would do.
+6. **Release:** `./tools/release.sh`. It asks for your SSH and sudo passwords.
+7. Run the **smoke test** below.
+
+### What this release changes
+
+Everything since the last deploy (`git log --oneline origin/main..HEAD`
+lists it). What matters for the server:
+
+- **Seven migrations, V008 to V014.** They run by themselves when the new
+  server starts, in order, after the install has taken its database backup.
+  Each is wrapped in a transaction and written to be safe to run again, so a
+  failure part-way leaves nothing half-done and the next start retries it.
+  They only add things, except V008, which swaps a key. What each does:
+  [MIGRATIONS.md](MIGRATIONS.md#current-migration-history).
+- **No existing data is rewritten** except V009, which copies each author's
+  current profile theme onto their existing posts, so nothing changes
+  visually.
+- **First release made with `release.sh`.** It also brings the passwordless
+  database connection (`DB_SOCKET`), real-client-address handling for rate
+  limits (nginx already sends `X-Forwarded-For`), and a production start-up
+  check that **refuses to start** if `deploy.env` is wrong. If the new
+  version won't start, the install rolls back by itself, and the journal
+  names the variable to fix. In `deploy.env` the server needs
+  `APP_PROFILE=prod`, `DB_NAME` (not `testdb`), either `DB_SOCKET` or
+  `DB_PASSWORD`, `ALLOWED_ORIGINS` (the public origin, not localhost), and
+  `UPLOAD_DIR` as an **absolute** path. The old built-in default for
+  `UPLOAD_DIR` is gone, so a `deploy.env` that relied on it fails now.
+  `APP_BASE_URL` pointing at localhost is only a warning.
+- **New kinds of file in `UPLOAD_DIR`:** `audio/` (MP3s, up to 20 MB each,
+  from `POST /upload/audio`), `headers/` (profile header images, up to 4 MB),
+  and avatars (accepted up to 25 MB, then compressed). Post images are
+  where they were. All are recorded in the `uploads` table (filename
+  prefixes `audio/`, `header/`, `avatar/`) and all count towards each
+  user's storage quota (`StorageAccountService`). They need no setup: the
+  server creates the directories on first use. A database backup without
+  `UPLOAD_DIR` loses them.
+- **New endpoints.** Nothing to configure; listed so you know what to test:
+  `/feed/following`, `/users/{u}/banner`, `/users/{u}/stickers`,
+  `/users/{u}/stickies`, `/upload/audio`, `/posts/{id}/card`,
+  `/posts/{id}/visibility`, `/posts/{id}/card-grid`, `/packs`,
+  `/packs/{id}`, `/packs/{id}/save`. In production all are under `/api/`
+  like the rest.
+- **Choco Cooky** ships inside the website build (`html/fonts/`), so the
+  server needs nothing extra for it.
+
+### One-time steps after this release
+
+Once, after the smoke test passes:
+
+1. Run `use-passwordless-db.sh` (section 4). It removes the database
+   password from `deploy.env`. Recommended; optional, since a TCP password
+   still works.
+2. Run `remove-stale-secrets.sh` (section 4), to delete leftover old
+   `application*.properties` files and hash files.
+3. Check nginx against the list in section 3 (body size and the `/uploads/`
+   location). A release never changes nginx.
+4. Rotate the two old database passwords that are in the repository
+   history (section 4).
+
+### Smoke test
+
+After a hard refresh (Ctrl/Cmd+Shift+R). If something fails, see "When
+something goes wrong".
+
+- `https://<site>/api/health` shows `{"status":"ok",...}`.
+- The home page loads, and the Cute theme shows Choco Cooky (a missing font
+  file shows as a plain fallback font, not an error).
+- Sign in (the restart signed everyone out), sign out, sign in again.
+- The Following feed shows recent posts of people you follow.
+- Your profile: the banner grid shows, an avatar upload works, pinned post
+  and folders look right, stickies sit where you put them.
+- Open a post: it has its own theme; opening it from a second signed-in
+  account raises its view count (V008); comments and reactions work.
+- Create a post with an image, an **audio block** (upload a small MP3, play
+  it, drag the playhead: seeking needs range requests), a grid and a
+  sticker. Publish, reload, check it is all still there.
+- Change a post between public and private from the arrange view; a private
+  post must not show when signed out.
+- Send a **post in a message**: the card appears in the conversation and
+  opens the post. Share a sticker pack and save it from the other account.
+- Settings, Storage: audio, header and avatar files are counted.
+- Customize profile: change the banner and theme, save, reload.
+- Upload a file over 50 MB: it fails with a message, not a blank error.
+- `sudo journalctl -u "$SERVICE" -n 100` shows no repeated errors.
 
 ---
 
@@ -74,9 +182,9 @@ just before that happens.
 
 ### After a release
 
-- Open the site, **hard-refresh** (the browser may keep an old
-  `index.html`), sign in, open a profile and a post.
-- `curl -s https://<your site>/api/health` should say `{"status":"ok",…}`.
+- Run the smoke test above. At the least: `curl -s https://<your site>/api/health`
+  should say `{"status":"ok",…}`; then **hard-refresh** (the browser may keep
+  an old `index.html`), sign in, open a profile and a post.
 
 ---
 
@@ -119,6 +227,11 @@ sudo rm -rf "$WEB_ROOT" && sudo tar -xzf $B/html.tgz -C "$(dirname "$WEB_ROOT")"
 sudo systemctl restart "$SERVICE"
 ```
 
+**Rolling back with the migrations left in place is safe.** V008 to V014
+only add tables and columns (V008 swaps a key), and the previous JAR
+ignores what it does not know, so putting the old JAR and website back does
+not need the database restored. Restore it only if the data itself is wrong.
+
 **A migration broke the data.** Restore the database dump taken just before
 the release (this loses anything written since):
 
@@ -127,6 +240,9 @@ sudo systemctl stop "$SERVICE"
 sudo -u postgres pg_restore --clean --if-exists -d "$DB" $B/$DB.dump
 sudo systemctl start "$SERVICE"
 ```
+
+Files in `UPLOAD_DIR` are not in the release backup and are never rolled
+back. Anything uploaded since stays on disk, which does no harm.
 
 ---
 
@@ -143,7 +259,20 @@ The specifics (paths, names, the database) are in its `deploy.env`; see
   `127.0.0.1`. Its config is on the server only: HSTS, `nosniff`,
   `server_tokens off`, a 50 MB body limit on `/api/`, `X-Forwarded-For` set to
   the real client address, and `try_files $uri $uri/ /index.html` so profile
-  URLs reach the app.
+  URLs reach the app. A sample is in the top-level README.
+
+  What the app needs from it:
+  - `client_max_body_size` on `/api/` of at least `UPLOAD_MAX_SIZE` (50 MB by
+    default). The biggest single uploads are avatars (25 MB) and audio
+    (20 MB). Over nginx's limit, a request is refused with a bare `413`
+    before the app sees it.
+  - `/uploads/` served from `$UPLOAD_DIR` (an `alias`, as in the README) or
+    proxied to the app, which serves it itself. Either way **audio needs
+    HTTP range requests** for seeking; nginx's static files and Spring's
+    resource handler both support them. Do not add caching or buffering
+    rules to `/uploads/` that strip `Range` or `Accept-Ranges`.
+  - `X-Forwarded-For` set from `$proxy_add_x_forwarded_for`, because rate
+    limits key on it.
 - Uploads live outside both, in `$UPLOAD_DIR`, owned by the service's user.
 - Release uploads go to `~/incoming/`, release backups to `~/backups/`.
 
@@ -214,7 +343,7 @@ permissions.
 
 Each release backs up the database, JAR and website (section 1). That's not
 the same as regular backups: nothing schedules `tools/backup.sh` yet, and
-images, avatars and fonts live on disk, so a database dump alone restores
-every post with its pictures broken. To do (guide/tasks.md): a nightly
+images, avatars, header images and audio live on disk (`UPLOAD_DIR`), so a
+database dump alone restores every post with its pictures and audio broken. To do (guide/tasks.md): a nightly
 database-and-uploads backup copied off the server, and an uptime monitor on
 `/api/health`.

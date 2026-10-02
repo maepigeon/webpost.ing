@@ -21,10 +21,10 @@ else
   echo "WARNING: no deploy.env; falling back to development defaults."
 fi
 
-DB_HOST="${DB_HOST:-localhost}"
+DB_HOST="${DB_SOCKET:-${DB_HOST:-localhost}}"   # a socket directory works as -h
 DB_PORT="${DB_PORT:-5432}"
 DB_NAME="${DB_NAME:-testdb}"
-DB_USER="${DB_USER:-mae}"
+DB_USER="${DB_USER:-${USER:-}}"
 UPLOAD_DIR="${UPLOAD_DIR:-$REPO_ROOT/server/uploads}"
 
 DEST="${1:-$REPO_ROOT/backups}"

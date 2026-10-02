@@ -18,7 +18,7 @@ Database migration complete — applied: 0, skipped (already applied): 1
 A file edited after it was applied is reported as a checksum mismatch at
 startup, and not re-run.
 
-### One file, from 2026-09-29
+### One file as the base, from 2026-09-29
 
 The history was squashed into `V001__schema.sql`: the complete schema plus
 its seed rows (`role_limits`, `system_settings`). It replaced the old V001–V024,
@@ -111,6 +111,25 @@ COMMIT;
 | Version | Description |
 |---------|-------------|
 | V001 | The complete schema and seed data (squashed 2026-09-29) |
+| V002 | Wallpapers and page themes become tile grids: the columns become `text` and the old CSS patterns are cleared |
+| V003 | Gives every post a stored, unique slug (`title`, `title-2`, ...) |
+| V004 | `profile_grids` table (dropped again by V006) |
+| V005 | `pixel_fonts` table: a user's own character sets for the grid editor |
+| V006 | Drops `profile_grids`: grids on a profile are ordinary posts |
+| V007 | `posts.votes_enabled`: existing posts keep voting, new posts start with it off |
+| V008 | Fixes `post_views`: its primary key was deferrable, so recording a signed-in view failed every time; the key becomes ordinary and views are deleted with their user |
+| V009 | `posts.page_theme`: each post keeps its own theme; existing posts get a copy of their author's current one |
+| V010 | `posts.card_grid` (default true): whether a post's profile card previews its first grid |
+| V011 | `users.banner_grid`: the owner's rows of the profile banner |
+| V012 | `stickers` (a user's small grids) and `stickies` (stickers placed on a profile or post) |
+| V013 | `shared_packs`: snapshots of sticker or symbol packs shared in messages |
+| V014 | `shared_pack_saves`: who has saved each shared pack, so saving twice copies once |
+
+V002 to V007 are already on the server. V008 to V014 go live with the next
+release. Every one is in a transaction and safe to run again, except V007's
+`ADD COLUMN` (no `IF NOT EXISTS`), which is fine because the runner never
+re-applies a recorded version. Only V008 changes something that exists (a
+key) and only V002 and V009 rewrite rows; the rest add.
 
 ---
 
@@ -151,8 +170,8 @@ which reads its own variables, never the `DB_*` ones:
 | `TEST_DB_HOST` | `localhost` |
 | `TEST_DB_PORT` | `5432` |
 | `TEST_DB_NAME` | `webposting_test` |
-| `TEST_DB_USER` | `mae` |
-| `TEST_DB_PASSWORD` | `password` |
+| `TEST_DB_USER` | your login name |
+| `TEST_DB_PASSWORD` | *(empty)* |
 
 `TestDatabaseGuard` stops a test context from starting when the database name
 does not end in `_test`, or when it equals `DB_NAME`. It catches a
@@ -171,7 +190,8 @@ cd server && ./mvnw test -Dtest=DatabaseSchemaTest
 ```
 
 It checks:
-- All 15 tables exist
+- The core tables exist (the list is in the test; it does not yet cover the
+  V009 to V014 additions)
 - Critical columns on `users`, `posts`, `discussions`, `notifications`, `uploads`, `activity_deletions`
 - The seeded roles in `role_limits` (`user`, `trusted`, `restricted`, `admin`,
   `frozen`)

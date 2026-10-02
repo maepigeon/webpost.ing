@@ -1,6 +1,7 @@
 # Database Schema Reference
 
-Database: PostgreSQL. Connection is configured in `server/src/main/resources/application.properties`.
+Database: PostgreSQL. The connection comes from `deploy.env` (see [CONFIGURATION.md](CONFIGURATION.md)); `application.properties` only wires the variables.
+Migrations V001 to V014 are described in [MIGRATIONS.md](MIGRATIONS.md); the exact schema is `V001__schema.sql` plus the later files.
 All tables are in the `public` schema.
 
 ---
@@ -21,12 +22,9 @@ EOF
 **2. Start the server** — it creates every table, index and seed row on first
 start, from `server/src/main/resources/db/migrations/V001__schema.sql`.
 
-**3. Update credentials** in `server/src/main/resources/application.properties`:
-```properties
-spring.datasource.url=jdbc:postgresql://localhost:5432/your_database
-spring.datasource.username=yourname
-spring.datasource.password=yourpassword
-```
+**3. Point the server at it** with `DB_NAME`, `DB_USER` and `DB_SOCKET` (or
+`DB_PASSWORD`) in `deploy.env`; see [CONFIGURATION.md](CONFIGURATION.md). The
+`.properties` files hold no credentials.
 
 **4. Create the first admin user** — there is no public registration endpoint, so insert one manually:
 ```bash
@@ -40,11 +38,8 @@ psql -U yourname -d your_database -c \
 
 After that, all other users can be created through the admin panel in the UI.
 
-**5. (Production only)** Switch the active profile in `application.properties` to `prod`:
-```properties
-spring.profiles.active=prod
-```
-The prod profile sets `Secure` + `SameSite=Strict` on cookies and uses an absolute path for uploads. See `application-prod.properties` for the upload directory setting.
+**5. (Production only)** Set `APP_PROFILE=prod` in `deploy.env`.
+The prod profile sets `Secure` + `SameSite=Strict` on cookies and requires an absolute `UPLOAD_DIR`.
 
 ---
 
@@ -337,7 +332,10 @@ DELETE FROM notifications WHERE recipient_id = (SELECT id FROM users WHERE usern
 
 ## uploads
 
-Tracks file uploads (images) per user.
+Tracks file uploads per user: post images, and from the audio and header work
+also MP3s and header images. Avatars, headers and audio are told apart by
+filename prefix (`avatar/`, `header/`, `audio/`); everything else is a post
+image. Every row counts towards the user's storage quota.
 
 ```sql
 CREATE TABLE uploads (
@@ -533,10 +531,77 @@ SELECT * FROM tutorials LIMIT 10;
 
 ---
 
+## Tables added by V004 to V014
+
+### stickers, stickies (V012)
+
+```sql
+CREATE TABLE stickers (
+  id         SERIAL PRIMARY KEY,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name       VARCHAR(40) NOT NULL,
+  grid       TEXT NOT NULL,                -- a tile grid, at most 16 x 16, checked by GridValidator
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE stickies (                    -- a sticker placed on a page
+  id         SERIAL PRIMARY KEY,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  sticker_id INTEGER NOT NULL REFERENCES stickers(id) ON DELETE CASCADE,
+  post_id    INTEGER REFERENCES posts(id) ON DELETE CASCADE,  -- NULL: on the profile
+  x          REAL NOT NULL,                -- 0..1 across the page column
+  y          REAL NOT NULL,                -- CSS pixels from the column top, 0..100000
+  size       SMALLINT NOT NULL DEFAULT 2,  -- 1..6
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+### shared_packs, shared_pack_saves (V013, V014)
+
+```sql
+CREATE TABLE shared_packs (                -- snapshot of a pack shared in a message ("[[pack:<id>]]")
+  id         UUID PRIMARY KEY,
+  sender_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind       VARCHAR(16) NOT NULL CHECK (kind IN ('stickers', 'symbols')),
+  name       VARCHAR(40) NOT NULL,
+  body       TEXT NOT NULL,                -- stickers: [{name, grid}]; symbols: {char: hex}
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE shared_pack_saves (           -- one copy per reader
+  pack_id  UUID NOT NULL REFERENCES shared_packs(id) ON DELETE CASCADE,
+  user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  saved_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (pack_id, user_id)
+);
+```
+
+### pixel_fonts (V005)
+
+`id`, `user_id` (cascade), `name` (40), `glyphs` (TEXT, JSON of character to
+bitmap hex), `created_at`, `updated_at`. A user's own symbol sets.
+
+### Other columns added since V001
+
+`users.banner_grid` (V011), `posts.page_theme` (V009), `posts.card_grid`
+(V010) and `posts.votes_enabled` (V007) are shown in the tables above.
+`post_views` has primary key `(post_id, user_id)` and cascades with the user (V008).
+
+### Tables without a section here
+
+`post_views`, `post_view_totals`, `post_votes`, `hashtags`, `post_hashtags`,
+`post_reports`, `invite_codes`, `dm_blocks`, `activity_deletions`,
+`custom_fonts`, `upload_variants`, `system_settings`, `email_*` and
+`schema_migrations` exist and are defined in `V001__schema.sql`.
+
+---
+
 ## Cascade delete summary
 
 When you DELETE a user, these cascade automatically:
 - `uploads`
+- `stickers`, `stickies`, `pixel_fonts`, `shared_packs`, `shared_pack_saves`, `post_views`
 - `follows` (both follower and followed rows)
 - `notifications`
 - `comment_votes`
@@ -552,6 +617,7 @@ When you DELETE a post, these cascade:
 - `discussions` → `comments` → `comment_votes`, `comment_reactions`, `notifications`
 - `post_reactions`
 - `post_uploads`
+- `stickies` placed on it
 
 When you DELETE a group conversation:
 - `group_conversation_members`, `group_messages`, `group_message_read`, `group_message_reactions`
