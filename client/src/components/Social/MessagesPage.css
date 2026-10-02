@@ -689,6 +689,7 @@
   animation: emoji-pop 0.14s cubic-bezier(0.34,1.56,0.64,1);
 }
 .messages-emoji-picker--mine { left: auto; right: 0; }
+.messages-emoji-picker--below { bottom: auto; top: 100%; }
 @keyframes emoji-pop {
   from { transform: scale(0.7) translateY(4px); opacity: 0; }
   to   { transform: scale(1) translateY(0);     opacity: 1; }

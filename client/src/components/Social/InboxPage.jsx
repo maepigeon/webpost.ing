@@ -132,6 +132,8 @@ export default function InboxPage() {
       navigate(postPath(n.postOwner, { id: n.postId, title: n.postTitle }));
     } else if (n.type === 'new_post' && n.postId) {
       navigate(postPath(n.actorUsername, { id: n.postId, title: n.postTitle }));
+    } else if (n.type === 'message' && n.actorUsername) {
+      navigate(`/messages?with=${encodeURIComponent(n.actorUsername)}`);
     } else if (n.type === 'follow') {
       navigate(`/${n.actorUsername}`);
     }

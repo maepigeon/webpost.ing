@@ -59,6 +59,7 @@ export default function MessagesPage() {
   const [sharingPack, setSharingPack]     = useState(false);
   const [hoveredMsg, setHoveredMsg]       = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(null); // msgId
+  const [pickerBelow, setPickerBelow] = useState(false);
   const [dmReactions, setDmReactions]     = useState({}); // { [msgId]: { counts, userReactions } }
   const [groupReactions, setGroupReactions] = useState({}); // { [msgId]: { counts, userReactions } }
   const [transferTarget, setTransferTarget] = useState(null); // username to confirm ownership transfer to
@@ -633,13 +634,20 @@ export default function MessagesPage() {
                       <div className={`messages-actions${isMine ? ' messages-actions--mine' : ''}`}>
                         <button className="messages-reply-btn" onClick={() => startReply(m)} title="Reply">↩</button>
                         <button className="messages-reply-btn" title="React"
-                          onClick={e => { e.stopPropagation(); setShowEmojiPicker(p => p === m.id ? null : m.id); }}>
+                          onClick={e => {
+                            e.stopPropagation();
+                            // Opens below the message when there isn't room above it in the thread.
+                            const wrap = e.currentTarget.closest('.messages-bubble-wrap');
+                            const body = wrap?.closest('.messages-thread-body');
+                            setPickerBelow(!!(wrap && body) && wrap.getBoundingClientRect().top - body.getBoundingClientRect().top < 56);
+                            setShowEmojiPicker(p => p === m.id ? null : m.id);
+                          }}>
                           😊
                         </button>
                       </div>
                     )}
                     {showEmojiPicker === m.id && (
-                      <div className={`messages-emoji-picker${isMine ? ' messages-emoji-picker--mine' : ''}`}
+                      <div className={`messages-emoji-picker${isMine ? ' messages-emoji-picker--mine' : ''}${pickerBelow ? ' messages-emoji-picker--below' : ''}`}
                         onClick={e => e.stopPropagation()}>
                         {REACTION_EMOJIS.map(e => (
                           <button key={e} className="messages-emoji-btn"
