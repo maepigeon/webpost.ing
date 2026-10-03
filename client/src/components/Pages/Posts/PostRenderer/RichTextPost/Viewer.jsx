@@ -17,6 +17,7 @@ import TitleBar from './TitleBar';
 import ReactionBar from '../../../../Social/ReactionBar.jsx';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { usePageTitle } from '../../../../../utils/usePageTitle.js';
+import { usePageMeta, excerptFromContent } from '../../../../../utils/pageMeta.js';
 import { useDialog } from '../../../../Dialog/Dialog.jsx';
 import {
   READ_POST, GET_USER_FROM_POST,
@@ -147,8 +148,10 @@ function RichTextViewerBody({ id }) {
   const [postTitle, setPostTitle] = useState('');
   usePageTitle(postTitle || null);
   const [postDate, setPostDate] = useState('');
+  const [postBlurb, setPostBlurb] = useState('');
   const [postPublished, setPostPublished] = useState(false);
   const [postAuthor, setPostAuthor] = useState('');
+  usePageMeta(postTitle && postPublished ? { title: postTitle, description: postBlurb, type: 'article', author: postAuthor, date: postDate } : null);
   usePostTheme(id);
   const [backgroundPattern, setBackgroundPattern] = useState('');
   const [dataReady, setDataReady] = useState(false);
@@ -207,6 +210,7 @@ function RichTextViewerBody({ id }) {
       setPostTitle(data.title);
       setPostSlug(data.slug || null);
       setPostDate(data.date);
+      setPostBlurb(data.summary || excerptFromContent(data.description));
       setPostPublished(data.published);
       setBackgroundPattern(data.backgroundPattern || '');
       localStorage.setItem('currentPostData', data.description);

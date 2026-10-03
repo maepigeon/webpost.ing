@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useUnsavedGuard } from '../../utils/useUnsavedGuard.js';
 import {
   getPresets, defaultTheme, FONTS, BORDERS, SHADOWS, CASES, EFFECTS, MAX_STICKER_TILES, sanitiseTheme,
@@ -12,6 +12,8 @@ import { GET_PAGE_THEME, SET_PAGE_THEME, GET_POST_THEME, SET_POST_THEME } from '
 import './ThemeEditor.css';
 import { errorMessage } from '../../utils/errorMessage.js';
 import ColourPicker from '../TileArt/ColourPicker.jsx';
+import { loadDraft } from '../../utils/autosave.js';
+import { useAutosave } from '../../utils/useAutosave.js';
 
 /** A small page drawn in a theme: a header card and two posts. */
 function Sample({ name = 'you', compact = false }) {
@@ -126,13 +128,24 @@ export default function ThemeEditor({ username, postId = null }) {
   const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [restored, setRestored] = useState(false);
+  const draftKey = `theme:${postId != null ? `post-${postId}` : username}`;
 
   useEffect(() => {
     load()
       .then(d => {
         const t = d?.theme ? sanitiseTheme(d.theme) : null;
+        const base = t || defaultTheme();
         setSaved(t);
-        setDraft(t || defaultTheme());
+        // Unsaved work from an earlier visit comes back by itself, with a way out.
+        const kept = loadDraft(draftKey);
+        let back = null;
+        if (kept?.data && typeof kept.data === 'object') {
+          try { back = sanitiseTheme(kept.data); } catch { back = null; }
+        }
+        const differs = back && JSON.stringify(back) !== JSON.stringify(sanitiseTheme(base));
+        setDraft(differs ? back : base);
+        setRestored(!!differs);
       })
       .catch(() => {})
       .finally(() => setLoaded(true));
@@ -163,6 +176,7 @@ export default function ThemeEditor({ username, postId = null }) {
       const t = res?.theme ? sanitiseTheme(res.theme) : null;
       setSaved(t);
       setDraft(t || defaultTheme());
+      setRestored(false);
       setStatus({ ok: true, msg: res?.message || 'Saved.' });
       window.dispatchEvent(postId != null
         ? new CustomEvent('post-theme-changed', { detail: { postId, theme: t } })
@@ -178,10 +192,26 @@ export default function ThemeEditor({ username, postId = null }) {
   const dirty = JSON.stringify(t) !== JSON.stringify(sanitiseTheme(saved || defaultTheme()));
   useUnsavedGuard(dirty, 'your theme');
 
+  // The working copy is kept on this device while it differs from what is
+  // saved; going back to the saved look (undo, save) drops it.
+  const auto = useAutosave(draftKey, loaded && dirty ? t : null);
+  const wasDirty = useRef(false);
+  useEffect(() => {
+    if (wasDirty.current && !dirty) auto.clear();
+    wasDirty.current = dirty;
+  }, [dirty]); // eslint-disable-line react-hooks/exhaustive-deps
+  const undoChanges = () => { setDraft(saved || defaultTheme()); setRestored(false); };
+
   if (!loaded) return <p className="settings-section-hint">{postId != null ? 'Loading this post’s theme…' : 'Loading your theme…'}</p>;
 
   return (
     <div className="theme-editor">
+      {restored && dirty && (
+        <p className="theme-status" role="status">
+          Restored your unsaved changes{' '}
+          <button type="button" className="settings-btn" onClick={undoChanges}>Undo</button>
+        </p>
+      )}
       <div className="theme-gallery" role="list">
         {Object.entries(presets).map(([key, p]) => (
           <button key={key} type="button" role="listitem"
@@ -263,7 +293,7 @@ export default function ThemeEditor({ username, postId = null }) {
           {busy ? 'Saving…' : 'Save theme'}
         </button>
         <button type="button" className="settings-btn" disabled={busy || !dirty} title={dirty ? undefined : 'No changes yet'}
-          onClick={() => setDraft(saved || defaultTheme())}>
+          onClick={undoChanges}>
           Undo changes
         </button>
         <button type="button" className="settings-btn" disabled={busy || saved === null}

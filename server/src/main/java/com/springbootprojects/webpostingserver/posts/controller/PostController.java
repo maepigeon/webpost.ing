@@ -391,6 +391,11 @@ public class PostController {
         if (desc != null && desc.length() > 5_000_000)
             return new ResponseEntity<>("This post is too large to save.", HttpStatus.BAD_REQUEST);
         try {
+            post.setDescription(com.springbootprojects.webpostingserver.posts.validator.PostContentValidator.clean(desc));
+        } catch (com.springbootprojects.webpostingserver.posts.validator.PostContentValidator.InvalidPostContentException e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+        }
+        try {
             post.setBackgroundPattern(WallpaperValidator.normalise(post.getBackgroundPattern()));
         } catch (WallpaperValidator.InvalidWallpaperException e) {
             return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);

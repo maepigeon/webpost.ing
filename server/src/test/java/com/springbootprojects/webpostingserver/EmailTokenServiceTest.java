@@ -178,4 +178,31 @@ class EmailTokenServiceTest {
             jdbc.update("DELETE FROM users WHERE id = ?", otherId);
         }
     }
+
+    @Test
+    void parallelRedeemsOfOneTokenSucceedExactlyOnce() throws Exception {
+        String plaintext = tokens.issue(userId, TEST_EMAIL, EmailTokenService.PURPOSE_VERIFY).plaintext();
+        int n = 8;
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(n);
+        java.util.concurrent.CountDownLatch go = new java.util.concurrent.CountDownLatch(1);
+        List<java.util.concurrent.Future<Boolean>> results = new java.util.ArrayList<>();
+        for (int i = 0; i < n; i++) results.add(pool.submit(() -> {
+            go.await();
+            return tokens.redeem(plaintext, EmailTokenService.PURPOSE_VERIFY).valid();
+        }));
+        go.countDown();
+        int wins = 0;
+        for (var f : results) if (f.get()) wins++;
+        pool.shutdown();
+        assertThat(wins).as("a single-use token must redeem once however many requests race").isEqualTo(1);
+    }
+
+    @Test
+    void expiredTokenCannotBeRedeemed() {
+        String plaintext = tokens.issue(userId, TEST_EMAIL, EmailTokenService.PURPOSE_RESET).plaintext();
+        jdbc.update("UPDATE email_tokens SET expires_at = NOW() - INTERVAL '1 minute' WHERE user_id = ?", userId);
+        var r = tokens.redeem(plaintext, EmailTokenService.PURPOSE_RESET);
+        assertThat(r.valid()).isFalse();
+        assertThat(r.reason()).isEqualTo("expired");
+    }
 }

@@ -51,6 +51,7 @@ import ImagePicker from '../../../../ImagePicker/ImagePicker.jsx';
 import { postPath, slugify } from '../../../../../utils/postUrl.js';
 import { cleanSummary, SUMMARY_MAX } from '../../../../../utils/postSummary.js';
 import ColourPicker from '../../../../TileArt/ColourPicker.jsx';
+import { useAutosave } from '../../../../../utils/useAutosave.js';
 import { StickerCenter } from '../../../../TileArt/StickerCenter.jsx';
 
 const EDITOR_NODES = [HeadingNode, ListNode, ListItemNode, CustomCodeNode, CodeHighlightNode, ImageNode, AudioNode, MathNode, TileGridNode, LinkNode];
@@ -1473,7 +1474,15 @@ function PostSummaryField({ summary, onSummaryChange }) {
   );
 }
 
-function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublishedChange, titleRef, onSaved, username, folder, features, slug, summary }) {
+// Server autosave of a saved draft: after this long without typing, at most
+// this often, and backing off (doubling to the cap) when a save fails.
+const AUTOSAVE_IDLE_MS = 30_000;
+const AUTOSAVE_EVERY_MS = 60_000;
+const AUTOSAVE_MAX_BACKOFF_MS = 300_000;
+
+const clock = ts => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublishedChange, titleRef, onSaved, username, folder, features, slug, summary, bus, localSavedAt, onAutoSaved, onCreated }) {
   const { confirm } = useDialog();
   const [editor] = useLexicalComposerContext();
   const [saveStatus, setSaveStatus] = useState('');
@@ -1484,6 +1493,63 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
   const effectiveId = postid > 0 ? postid : savedId;
   const hasSaved = effectiveId > 0;
 
+  // Autosave bookkeeping. Counters and times are refs: typing must not re-render this.
+  const rev = useRef(0);            // bumped by every change
+  const savedRev = useRef(0);       // the change count the server last has
+  const lastEdit = useRef(0);
+  const lastTry = useRef(0);
+  const autoSaving = useRef(false);
+  const backoff = useRef(AUTOSAVE_EVERY_MS);
+  const [unsynced, setUnsynced] = useState(false);     // changed since the last server save
+  const [serverAt, setServerAt] = useState(null);
+  const [autoFailed, setAutoFailed] = useState(false);
+  useEffect(() => {
+    const onChange = () => { rev.current += 1; lastEdit.current = Date.now(); setUnsynced(true); };
+    const set = bus.current;
+    set.add(onChange);
+    return () => set.delete(onChange);
+  }, [bus]);
+
+  const titleText = () => (titleRef?.current || localStorage.getItem("currentPostTitle") || '').replace(/<[^>]*>/g, '').trim();
+  const stateJson = () => JSON.stringify(editor.getEditorState().toJSON());
+  /** The update call behind Save draft, Publish and the autosave alike. */
+  const sendUpdate = (published) =>
+    UPDATE_POST(effectiveId, titleText(), stateJson(), published, backgroundPattern, folder, slug, summary);
+
+  // Only a saved draft goes to the server on its own. A published post stays
+  // on this device until saved, so readers never see half-finished edits.
+  const autoTick = () => {
+    if (!hasSaved || postPublished || saving || autoSaving.current) return;
+    if (document.visibilityState !== 'visible') return;
+    if (rev.current === savedRev.current) return;
+    const now = Date.now();
+    if (now - lastEdit.current < AUTOSAVE_IDLE_MS || now - lastTry.current < backoff.current) return;
+    lastTry.current = now;
+    autoSaving.current = true;
+    const at = rev.current;
+    sendUpdate(false)
+      .then(() => {
+        savedRev.current = at;
+        backoff.current = AUTOSAVE_EVERY_MS;
+        setAutoFailed(false);
+        setServerAt(Date.now());
+        const unchanged = rev.current === at;
+        if (unchanged) setUnsynced(false);
+        onAutoSaved?.(unchanged);
+      })
+      .catch(() => {
+        backoff.current = Math.min(backoff.current * 2, AUTOSAVE_MAX_BACKOFF_MS);
+        setAutoFailed(true);
+      })
+      .finally(() => { autoSaving.current = false; });
+  };
+  const tickRef = useRef(autoTick);
+  tickRef.current = autoTick;
+  useEffect(() => {
+    const t = setInterval(() => tickRef.current(), 10_000);
+    return () => clearInterval(t);
+  }, []);
+
   const showStatus = (msg, isError = false) => {
     setSaveStatus({ msg, error: isError });
     setTimeout(() => setSaveStatus(''), 3000);
@@ -1491,7 +1557,7 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
 
   const save = async (published) => {
     if (saving) return;
-    const postTitle = (titleRef?.current || localStorage.getItem("currentPostTitle") || '').replace(/<[^>]*>/g, '').trim();
+    const postTitle = titleText();
     if (published) {
       if (!postTitle) { showStatus('Add a title before uploading.', true); return; }
       // Text, or any block that is content by itself — an image, a grid, a
@@ -1506,12 +1572,16 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
     if (!published && postPublished) {
       if (!(await confirm('Unpublish this post? It will no longer be visible to other users.'))) return;
     }
-    const editorState = JSON.stringify(editor.getEditorState().toJSON());
+    const editorState = stateJson();
+    const at = rev.current;
     setSaving(true);
     if (hasSaved) {
-      UPDATE_POST(effectiveId, postTitle, editorState, published, backgroundPattern, folder, slug, summary)
+      sendUpdate(published)
         .then(() => {
-          showStatus(published ? 'Uploaded.' : postPublished ? 'Unpublished — saved as a draft.' : 'Draft saved.');
+          savedRev.current = at;
+          if (rev.current === at) setUnsynced(false);
+          setServerAt(Date.now());
+          showStatus(published ? 'Published.' : postPublished ? 'Unpublished — saved as a draft.' : 'Draft saved.');
           onPublishedChange(published);
           setSavedId(effectiveId);
           onSaved?.();
@@ -1527,6 +1597,10 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
         .then((newId) => {
           showStatus(published ? 'Uploaded — your post is live.' : 'Draft saved.');
           setSavedId(newId);
+          savedRev.current = at;
+          if (rev.current === at) setUnsynced(false);
+          setServerAt(Date.now());
+          onCreated?.(newId);
           // Apply any non-default feature settings chosen before saving
           if (features && !features.reactionsEnabled) SET_REACTIONS_ENABLED(newId, false).catch(() => {});
           if (features && !features.discussionEnabled) SET_DISCUSSION_ENABLED(newId, false).catch(() => {});
@@ -1547,8 +1621,17 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
     ? postPath(username, { id: savedId, title: currentTitle, slug })
     : null;
 
+  // A quiet line about where the work is kept.
+  const touched = unsynced || serverAt || localSavedAt;
+  let kept = '';
+  if (serverAt && !unsynced) kept = postPublished ? `Saved ${clock(serverAt)}` : `Draft saved ${clock(serverAt)}`;
+  else if (localSavedAt) kept = `Saved on this device ${clock(localSavedAt)}`;
+  else if (touched) kept = 'Not saved yet';
+  if (autoFailed && unsynced) kept += ' · autosave will retry';
+
   return (
     <>
+      {kept && <span className="autosave-status" role="status">{kept}</span>}
       {saveStatus && (
         <span className={`toolbar-save-status${saveStatus.error ? ' toolbar-save-status--error' : ''}`}>
           {saveStatus.msg}
@@ -1685,7 +1768,73 @@ function ToolPanel({ rows, children }) {
   );
 }
 
-function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, postPublished, onPublishedChange, features, onFeaturesChange, titleRef, onSaved, folder, onFolderChange, slug, summary }) {
+/** Whether the editor holds nothing yet: an empty page is not worth a draft. */
+function blankState(editor) {
+  return editor.getEditorState().read(() => {
+    const root = $getRoot();
+    return root.getTextContent().trim() === '' && root.getChildren().every(n => $isParagraphNode(n));
+  });
+}
+
+/**
+ * Keeps the post as a draft on this device (never the server) a moment after
+ * each change, and offers it back when the editor opens and finds one that the
+ * saved post does not match. Renders the offer, above the tools.
+ */
+function PostAutosavePlugin({ draftKey, getFields, applyFields, bus, notify, flushRef, clearRef, onLocalSaved, ready, loaded }) {
+  const [editor] = useLexicalComposerContext();
+  const [offer, setOffer] = useState(null);      // { savedAt, data }
+  const checked = useRef(false);
+  const restoredNow = useRef(false);
+
+  // Serialised only when a write happens (see useAutosave), not per keystroke.
+  const auto = useAutosave(draftKey, () => {
+    const f = getFields();
+    if (!f.title && !f.summary && blankState(editor)) return null;
+    return { ...f, editorState: editor.getEditorState().toJSON() };
+  }, { enabled: ready && !offer });   // not before the post has loaded: blank would erase a kept draft
+
+  useEffect(() => {
+    const set = bus.current;
+    set.add(auto.touch);
+    return () => set.delete(auto.touch);
+  }, [bus, auto.touch]);
+  useEffect(() => { flushRef.current = auto.flush; clearRef.current = auto.clear; });
+  useEffect(() => { onLocalSaved(auto.savedAt); }, [auto.savedAt, onLocalSaved]);
+  // A restored draft is a change like any other, announced once writing is back on.
+  useEffect(() => {
+    if (!offer && restoredNow.current) { restoredNow.current = false; notify(); }
+  }, [offer, notify]);
+
+  // Once the post is loaded (at once for a new one), compare it with a kept draft.
+  useEffect(() => {
+    if (!ready || checked.current) return;
+    checked.current = true;
+    const d = auto.restore();
+    if (!d || !d.data || typeof d.data !== 'object') return;
+    const base = loaded();
+    if (base.savedAt && d.savedAt <= base.savedAt) { auto.clear(); return; }
+    let same = false;
+    try {
+      same = d.data.title === base.title && d.data.summary === base.summary
+        && (d.data.slug ?? null) === base.slug && d.data.folder === base.folder
+        && d.data.wallpaper === base.wallpaper
+        && JSON.stringify(d.data.editorState) === JSON.stringify(JSON.parse(base.description));
+    } catch { same = false; }
+    if (same) auto.clear(); else setOffer(d);
+  }, [ready, auto, loaded]);
+
+  if (!offer) return null;
+  return (
+    <div className="draft-found" role="status">
+      <span>Unsaved changes from {clock(offer.savedAt)} were found.</span>
+      <button type="button" onClick={() => { applyFields(offer.data, editor); restoredNow.current = true; setOffer(null); }}>Restore</button>
+      <button type="button" onClick={() => { auto.clear(); setOffer(null); }}>Discard</button>
+    </div>
+  );
+}
+
+function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, postPublished, onPublishedChange, features, onFeaturesChange, titleRef, onSaved, folder, onFolderChange, slug, summary, bus, localSavedAt, onAutoSaved, onCreated }) {
   // The post-theme editor: opened from the Page row, and shown over the page.
   const [themeOpen, setThemeOpen] = useState(false);
   const savedPost = postid && postid > 0;
@@ -1755,7 +1904,7 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
         document.body,
       )}
       <ToolPanel rows={rows}>
-        <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} titleRef={titleRef} onSaved={onSaved} username={username} folder={folder} onFolderChange={onFolderChange} features={features} slug={slug} summary={summary} />
+        <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} titleRef={titleRef} onSaved={onSaved} username={username} folder={folder} onFolderChange={onFolderChange} features={features} slug={slug} summary={summary} bus={bus} localSavedAt={localSavedAt} onAutoSaved={onAutoSaved} onCreated={onCreated} />
       </ToolPanel>
 
     </>
@@ -1815,6 +1964,24 @@ export default function RichTextEditor() {
   const [isDirty, setIsDirty] = useState(false);
   const savedOnceRef = useRef(false);
 
+  // Autosave plumbing. Every change goes through markChanged, which tells the
+  // listeners (local draft writer, server autosave) without re-rendering.
+  const bus = useRef(new Set());
+  const flushRef = useRef(null);          // writes the local draft now; true when it is safe
+  const clearRef = useRef(null);          // drops the local draft
+  const loadedRef = useRef({});           // what the server had when the post opened
+  const fieldsRef = useRef({});
+  const [localSavedAt, setLocalSavedAt] = useState(null);
+  const [createdId, setCreatedId] = useState(null);
+  const [titleKey, setTitleKey] = useState(0);
+  const markChanged = useCallback(() => {
+    setIsDirty(true);
+    bus.current.forEach(f => f());
+  }, []);
+  // Leaving: anything not yet written locally is written now; only work that
+  // is safe neither here nor on the server asks first.
+  const needsPrompt = () => !(flushRef.current ? flushRef.current() : false);
+
   // Intercept in-app link clicks when there are unsaved changes
   useEffect(() => {
     if (!isDirty) return;
@@ -1823,6 +1990,7 @@ export default function RichTextEditor() {
       if (!link) return;
       const href = link.getAttribute('href');
       if (!href || href.startsWith('http') || href.startsWith('#')) return;
+      if (!needsPrompt()) return;
       // Can't use async dialog here since we need synchronous prevent/allow;
       // fall back to native confirm for navigation-intercept only
       if (!window.confirm('You have unsaved changes. Leave anyway? All unsaved data will be lost.')) {
@@ -1839,7 +2007,7 @@ export default function RichTextEditor() {
   // Warn on browser close/refresh when there are unsaved changes
   useEffect(() => {
     if (!isDirty) return;
-    const handler = (e) => { e.preventDefault(); e.returnValue = ''; };
+    const handler = (e) => { if (needsPrompt()) { e.preventDefault(); e.returnValue = ''; } };
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
   }, [isDirty]);
@@ -1849,6 +2017,7 @@ export default function RichTextEditor() {
   // once a post holds a grid's pixels.
   const onChange = useCallback(() => {
     if (savedOnceRef.current || dataReady > 0) setIsDirty(true);
+    bus.current.forEach(f => f());   // a new post is not "dirty" yet, but its draft is kept
   }, [dataReady]);
 
   // For new posts, seed localStorage with the initial title so SaveToolbarPlugin has it
@@ -1872,6 +2041,16 @@ export default function RichTextEditor() {
       setPostSlug(data.slug && data.slug !== slugify(data.title || '') ? data.slug : null);
       setPostSummary(data.summary || '');
       localStorage.setItem("currentPostData", data.description);
+      loadedRef.current = {
+        title: titlehtml.current,
+        summary: data.summary || '',
+        slug: data.slug && data.slug !== slugify(data.title || '') ? data.slug : null,
+        folder: data.folder || '',
+        wallpaper: data.backgroundPattern || '',
+        description: data.description,
+        // The server's own last-saved time, when it sends one.
+        savedAt: Date.parse(data.updatedAt || data.updated_at || data.lastSaved || '') || 0,
+      };
       setDataReady(v => v + 1);
       GET_USER_FROM_POST(id).then((author) => {
         setPostAuthor(author);
@@ -1893,16 +2072,41 @@ export default function RichTextEditor() {
 
   // Settings saved with the post, not by themselves: changing one is an
   // unsaved change like an edit to the text.
-  const changePattern = useCallback(v => { setBackgroundPattern(v); setIsDirty(true); }, []);
-  const changeFolder = useCallback(v => { setPostFolder(v); setIsDirty(true); }, []);
-  const changeSlug = useCallback(v => { setPostSlug(v); setIsDirty(true); }, []);
-  const changeSummary = useCallback(v => { setPostSummary(v); setIsDirty(true); }, []);
+  const changePattern = useCallback(v => { setBackgroundPattern(v); markChanged(); }, [markChanged]);
+  const changeFolder = useCallback(v => { setPostFolder(v); markChanged(); }, [markChanged]);
+  const changeSlug = useCallback(v => { setPostSlug(v); markChanged(); }, [markChanged]);
+  const changeSummary = useCallback(v => { setPostSummary(v); markChanged(); }, [markChanged]);
 
-  // After a successful save, mark clean and note that at least one save has happened
+  // After a successful save, mark clean and note that at least one save has happened.
+  // What is on the server now makes the local draft redundant.
   const handleSaved = useCallback(() => {
     savedOnceRef.current = true;
     setIsDirty(false);
+    clearRef.current?.();
   }, []);
+  // A server autosave covers the edits only if nothing was typed while it ran.
+  const handleAutoSaved = useCallback((unchanged) => {
+    if (!unchanged) return;
+    setIsDirty(false);
+    clearRef.current?.();
+  }, []);
+
+  // Draft fields for the local copy, and putting a kept copy back.
+  fieldsRef.current = {
+    title: titlehtml.current, summary: postSummary, slug: postSlug, folder: postFolder, wallpaper: backgroundPattern,
+  };
+  const getFields = useCallback(() => fieldsRef.current, []);
+  const applyFields = useCallback((d, editor) => {
+    titlehtml.current = d.title || '';
+    try { localStorage.setItem("currentPostTitle", titlehtml.current); } catch { /* not kept */ }
+    setTitleKey(k => k + 1);              // the title box is uncontrolled: show the restored one
+    setPostSummary(d.summary || '');
+    setPostSlug(d.slug ?? null);
+    setPostFolder(d.folder || '');
+    setBackgroundPattern(d.wallpaper || '');
+    if (d.editorState) editor.setEditorState(editor.parseEditorState(d.editorState));
+  }, []);
+  const getLoaded = useCallback(() => loadedRef.current, []);
 
   // Warn the browser's own "close tab / navigate away" dialog when dirty
   useEffect(() => {
@@ -1944,12 +2148,13 @@ export default function RichTextEditor() {
         <div className="editor-centered">
           <div className="editor-post-card">
             <TitleBar
+              key={titleKey}
               postdata={{ id: id, title: titlehtml.current, published: postPublished, date: postDate, author: postAuthor }}
               handleEditTitleCallback={(event) => {
                 const val = event.target.value ?? '';
                 titlehtml.current = val;
                 localStorage.setItem("currentPostTitle", val);
-                setIsDirty(true);
+                markChanged();
               }}
               editMode={true}
             />
@@ -1963,7 +2168,13 @@ export default function RichTextEditor() {
               postId={id > 0 ? id : null}
             />
             <PostSummaryField summary={postSummary} onSummaryChange={changeSummary} />
-            <ToolbarPlugin postid={id} backgroundPattern={backgroundPattern} onPatternChange={changePattern} username={postAuthor || me} postPublished={postPublished} onPublishedChange={setPostPublished} features={features} onFeaturesChange={setFeatures} titleRef={titlehtml} onSaved={handleSaved} folder={postFolder} onFolderChange={changeFolder} slug={postSlug} onSlugChange={changeSlug} summary={cleanSummary(postSummary)} />
+            <PostAutosavePlugin
+              draftKey={`post:${id > 0 ? id : createdId || 'new'}`}
+              getFields={getFields} applyFields={applyFields} bus={bus} notify={markChanged}
+              flushRef={flushRef} clearRef={clearRef} onLocalSaved={setLocalSavedAt}
+              ready={!id || dataReady > 0} loaded={getLoaded}
+            />
+            <ToolbarPlugin postid={id} backgroundPattern={backgroundPattern} onPatternChange={changePattern} username={postAuthor || me} postPublished={postPublished} onPublishedChange={setPostPublished} features={features} onFeaturesChange={setFeatures} titleRef={titlehtml} onSaved={handleSaved} folder={postFolder} onFolderChange={changeFolder} slug={postSlug} onSlugChange={changeSlug} summary={cleanSummary(postSummary)} bus={bus} localSavedAt={localSavedAt} onAutoSaved={handleAutoSaved} onCreated={setCreatedId} />
             {/* The post itself, in its theme's fonts; the controls above stay in the app's. */}
             <div className="th-scope" style={{ position: 'relative' }}>
               <RichTextPlugin

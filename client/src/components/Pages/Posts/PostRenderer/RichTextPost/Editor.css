@@ -423,6 +423,36 @@
 
 .toolbar-save-status--error { color: #b71c1c; }
 
+/* Where the work is kept: quiet, in the page's own text colour. */
+.autosave-status {
+  font: 12px var(--app-font);
+  color: var(--th-ink, #3c3c3c);
+  opacity: 0.8;
+  padding: 2px 6px;
+}
+
+/* Found a draft on this device: a bar above the tools, not a dialog. */
+.draft-found {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  margin: 0 0 6px;
+  font: 13px var(--app-font);
+  color: var(--th-ink, #111);
+  border: 1px solid currentColor;
+}
+.draft-found button {
+  font: 600 12px var(--app-font);
+  padding: 3px 10px;
+  background: transparent;
+  color: inherit;
+  border: 1px solid currentColor;
+  cursor: pointer;
+}
+.draft-found button:hover { opacity: 0.7; }
+
 .toolbar-view-link { text-decoration: none; }
 
 /* ── Format buttons (bold/italic/underline/etc.) ─────────────────────────── */

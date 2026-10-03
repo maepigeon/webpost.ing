@@ -15,6 +15,7 @@ const RichTextViewer = lazy(() => import('./components/Pages/Posts/PostRenderer/
 import Home from './components/Pages/Home/Home';
 import ScrollToTop from './components/ScrollToTop/ScrollToTop';
 import CursorGlow from './components/CursorGlow/CursorGlow.jsx';
+import MiniPlayer from './components/AudioPlayer/MiniPlayer.jsx';
 const InboxPage = lazy(() => import('./components/Social/InboxPage.jsx'));
 const FollowingPage = lazy(() => import('./components/Social/FollowingPage.jsx'));
 const MessagesPage = lazy(() => import('./components/Social/MessagesPage.jsx'));
@@ -121,6 +122,9 @@ function App() {
         </Routes>
       </Suspense>
         </AppErrorBoundary>
+
+      {/* Outside the routes so a playing track survives navigation. */}
+      <MiniPlayer />
     </div>
   )
 }

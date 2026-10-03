@@ -11,6 +11,7 @@ import { postPath } from '../../utils/postUrl.js';
 import { useResolvedPostId } from '../../utils/useResolvedPostId.js';
 import { usePostTheme } from '../PageTheme/PageTheme.jsx';
 import { useDialog } from '../Dialog/Dialog.jsx';
+import { useTextDraft } from '../../utils/useAutosave.js';
 
 function flattenTree(comments) {
   const result = [];
@@ -34,7 +35,8 @@ function DiscussionPageBody({ id }) {
   const [loaded, setLoaded] = useState(false);
   const [comments, setComments] = useState([]);
   const [sort, setSort] = useState('recent');
-  const [newComment, setNewComment] = useState('');
+  // The unsent comment is kept on this device, per post.
+  const [newComment, setNewComment, commentSent] = useTextDraft(`comment:${id}`);
   const [submitting, setSubmitting] = useState(false);
 
   const loggedIn = !!localStorage.getItem('userName');
@@ -83,7 +85,7 @@ function DiscussionPageBody({ id }) {
     setSubmitting(true);
     try {
       await ADD_COMMENT(id, newComment);
-      setNewComment('');
+      commentSent(`comment:${id}`);
       loadComments();
     } catch {
       showError('Could not post your comment. Try again.');

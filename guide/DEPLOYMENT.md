@@ -380,3 +380,38 @@ old worker and updates arrive late:
 location = /sw.js { add_header Cache-Control "no-cache"; }
 location = /manifest.webmanifest { add_header Cache-Control "no-cache"; }
 ```
+
+## 8. Security headers in nginx
+
+Spring only sets headers on API responses; the HTML and `/uploads/` are served by
+nginx, so the headers go there (security review M10). The origin list below was
+taken from `client/index.html` and the client code: Google Fonts (stylesheet from
+`fonts.googleapis.com`, files from `fonts.gstatic.com`) and `api.github.com` (the
+admin build check). Nothing else is loaded from outside.
+
+Roll the policy out as `Content-Security-Policy-Report-Only` first, load every page
+type (home, a post with images, a themed post, settings, admin, the editor) with
+the browser console open, fix anything it reports, then rename the header to
+`Content-Security-Policy`. Remember that `add_header` in a `location` replaces
+every header inherited from the `server` block, so each location repeats them.
+
+```nginx
+# inside the server { } block that serves the site
+add_header X-Content-Type-Options "nosniff" always;
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+add_header X-Frame-Options "DENY" always;
+add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; media-src 'self'; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://api.github.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+
+location /uploads/ {
+    # user-supplied files: never executed or rendered as a page
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Content-Security-Policy "default-src 'none'; sandbox" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    # ...existing alias / expires lines...
+}
+```
+
+`'unsafe-inline'` is for styles only, because the app and the Lexical editor use
+inline `style=` attributes; scripts stay `'self'`. If the page uses an inline
+`<script>` (for example JSON-LD is fine, it is not executed, but a real script is
+not) the report-only phase will show it.

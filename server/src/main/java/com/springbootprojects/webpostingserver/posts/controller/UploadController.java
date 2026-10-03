@@ -4,6 +4,8 @@ import com.springbootprojects.webpostingserver.posts.model.AuthSession;
 import com.springbootprojects.webpostingserver.posts.repository.JdbcLoginRepository;
 import com.springbootprojects.webpostingserver.posts.repository.LoginRepository;
 import com.springbootprojects.webpostingserver.posts.service.ImageProcessingService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -38,6 +40,17 @@ public class UploadController {
 
     @Autowired
     private com.springbootprojects.webpostingserver.posts.service.StorageAccountService storageAccount;
+
+    private static final Logger log = LoggerFactory.getLogger(UploadController.class);
+
+    /**
+     * IOException text contains absolute server paths. Log it, return a fixed
+     * message.
+     */
+    private static String storeFailure(IOException e) {
+        log.error("Upload could not be stored", e);
+        return "Failed to store file";
+    }
 
     @Autowired LoginRepository loginRepository;
     @Autowired JdbcTemplate jdbc;
@@ -138,7 +151,7 @@ public class UploadController {
             return ResponseEntity.ok(body);
         } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Failed to store file: " + e.getMessage());
+                    .body(storeFailure(e));
         }
         }
     }
@@ -204,6 +217,10 @@ public class UploadController {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body("Busy, try again in a moment");
         }
 
+        // Original JPEGs are stored byte-for-byte, so remove EXIF (GPS, camera
+        // serial) here. Other formats are left as is (see stripJpegMetadata).
+        data = imageService.stripJpegMetadata(data, ext);
+
         // Lookup uploader's user ID and role
         List<Integer> ids = jdbc.queryForList("SELECT id FROM users WHERE username=?", Integer.class, username);
         if (ids.isEmpty()) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not found");
@@ -212,7 +229,7 @@ public class UploadController {
         // Check and record under the user's lock (see USER_LOCKS).
         synchronized (lockFor(userId)) {
         // Enforce the storage quota (see StorageAccountService).
-        if (!storageAccount.fitsQuota(userId, file.getSize(), 0)) {
+        if (!storageAccount.fitsQuota(userId, data.length, 0)) {
             Long limit = storageAccount.fileLimitBytes(userId);
             long usedMb = storageAccount.filesChargedBytes(userId) / 1048576;
             return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
@@ -257,7 +274,7 @@ public class UploadController {
             return ResponseEntity.ok(describeUpload(filename, width, height, variants));
         } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Failed to store file: " + e.getMessage());
+                    .body(storeFailure(e));
         }
         }
     }

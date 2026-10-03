@@ -58,6 +58,63 @@ public class EmailSettingsController {
     private static final RateLimiter RESET_LIMITER =
             new RateLimiter(3, 15 * 60 * 1000L, 15 * 60 * 1000L);
 
+    /**
+     * Per-key send budget over an hour and a day, in memory. The IP limits above
+     * do nothing against an attacker with many IPs or accounts who aims every
+     * mail at one victim, so the budget is also counted per recipient address
+     * and per account. The map is bounded: expired timestamps are dropped on use
+     * and the whole map is swept when it grows large.
+     */
+    public static final class SendBudget {
+        private static final long HOUR = 60 * 60 * 1000L, DAY = 24 * HOUR;
+        private static final int MAX_KEYS = 50_000;
+        private final int perHour, perDay;
+        private final java.util.Map<String, java.util.ArrayDeque<Long>> hits = new java.util.HashMap<>();
+
+        public SendBudget(int perHour, int perDay) { this.perHour = perHour; this.perDay = perDay; }
+
+        /** True if one more send is allowed now. Does not record it. */
+        public synchronized boolean allows(String key) { return allows(key, System.currentTimeMillis()); }
+
+        public synchronized boolean allows(String key, long now) {
+            java.util.ArrayDeque<Long> q = hits.get(key);
+            if (q == null) return true;
+            while (!q.isEmpty() && now - q.peekFirst() > DAY) q.pollFirst();
+            if (q.size() >= perDay) return false;
+            int lastHour = 0;
+            for (long t : q) if (now - t <= HOUR) lastHour++;
+            return lastHour < perHour;
+        }
+
+        public synchronized void record(String key) { record(key, System.currentTimeMillis()); }
+
+        public synchronized void record(String key, long now) {
+            if (hits.size() >= MAX_KEYS) {
+                hits.values().removeIf(d -> d.isEmpty() || now - d.peekLast() > DAY);
+                if (hits.size() >= MAX_KEYS) hits.clear();   // still full of live keys: fail open rather than grow
+            }
+            hits.computeIfAbsent(key, k -> new java.util.ArrayDeque<>()).addLast(now);
+        }
+    }
+
+    /** Mail to one address, whatever asked for it: 3 an hour, 6 a day. */
+    public static final SendBudget RECIPIENT_BUDGET = new SendBudget(3, 6);
+    /** Verification requests by one account: 5 an hour. */
+    public static final SendBudget ACCOUNT_BUDGET = new SendBudget(5, 50);
+
+    private static String recipientKey(String email) { return email.trim().toLowerCase(java.util.Locale.ROOT); }
+
+    /** Checks both budgets and, only if both allow, spends from both. */
+    private static synchronized boolean takeVerificationSlot(int userId, String email) {
+        String rk = recipientKey(email), ak = "u:" + userId;
+        if (!RECIPIENT_BUDGET.allows(rk) || !ACCOUNT_BUDGET.allows(ak)) return false;
+        RECIPIENT_BUDGET.record(rk);
+        ACCOUNT_BUDGET.record(ak);
+        return true;
+    }
+
+    private static final String VERIFY_BUDGET_MSG = "Too many verification emails for that address or account. Try again later.";
+
     @Autowired private LoginRepository loginRepository;
     @Autowired private JdbcTemplate jdbc;
     @Autowired private EmailService emailService;
@@ -234,6 +291,8 @@ public class EmailSettingsController {
         Integer userId = userIdOf(username);
         if (userId == null) return ResponseEntity.notFound().build();
         VERIFY_LIMITER.recordUse(clientIp(request));
+        if (!takeVerificationSlot(userId, email))
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of("message", VERIFY_BUDGET_MSG));
 
         // The address is NOT written to the account here. It lives only on the
         // token until the person who owns it clicks the link.
@@ -282,6 +341,8 @@ public class EmailSettingsController {
         if (email == null)
             return ResponseEntity.badRequest().body(Map.of("message",
                     "No address is waiting to be confirmed. Enter one above."));
+        if (!takeVerificationSlot(userId, email))
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of("message", VERIFY_BUDGET_MSG));
 
         EmailTokenService.IssuedToken issued =
                 tokenService.issue(userId, email, EmailTokenService.PURPOSE_VERIFY);
@@ -372,6 +433,16 @@ public class EmailSettingsController {
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                     .body(Map.of("message", "Too many reset requests. Try again in a few minutes."));
         RESET_LIMITER.recordUse(clientIp(request));
+
+        // Per recipient, shared with verification mail so one address cannot be
+        // flooded by mixing the two. Counted whether or not the address is
+        // registered, and a limited request gets the SAME reply as any other,
+        // so this cannot be used to probe addresses.
+        synchronized (EmailSettingsController.class) {
+            String rk = recipientKey(email);
+            if (!RECIPIENT_BUDGET.allows(rk)) return ResponseEntity.ok(alwaysTheSame);
+            RECIPIENT_BUDGET.record(rk);
+        }
 
         // Only confirmed addresses. Otherwise anyone could put someone else's
         // address on their own account and use this to mail them reset links.

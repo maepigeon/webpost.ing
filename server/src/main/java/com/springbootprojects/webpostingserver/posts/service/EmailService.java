@@ -70,6 +70,7 @@ public class EmailService {
     @Async
     public void send(String to, String subject, String body) {
         if (to == null || to.isBlank()) return;
+        subject = oneLine(subject, SUBJECT_MAX);   // last line of defence for any caller
 
         JavaMailSender sender = enabled ? mailSender.getIfAvailable() : null;
         if (sender == null) {
@@ -92,6 +93,28 @@ public class EmailService {
         }
     }
 
+    // ── Untrusted text in mail ────────────────────────────────────────────────
+
+    /** Subject length cap. */
+    static final int SUBJECT_MAX = 150;
+
+    /**
+     * Makes one user-controlled string safe for a subject, a header or a single
+     * line of a plain-text body: every control character (CR, LF, tab, NUL...)
+     * and Unicode line/paragraph separator becomes a space, runs of spaces
+     * collapse, and the result is capped. A title can then neither inject
+     * headers nor start a new line that looks like the site's own text.
+     * (All mail here is plain text, so there is no HTML to escape.)
+     */
+    public static String oneLine(String s, int max) {
+        if (s == null) return "";
+        String t = s.replaceAll("[\\p{Cntrl}\\u0085\\u2028\\u2029]", " ").replaceAll(" {2,}", " ").trim();
+        return t.length() > max ? t.substring(0, max - 1) + "\u2026" : t;
+    }
+
+    /** A name or title inside a body line. */
+    private static String field(String s) { return oneLine(s, 100); }
+
     // ── Message templates ─────────────────────────────────────────────────────
 
     public void sendVerification(String to, String username, String token) {
@@ -107,7 +130,7 @@ public class EmailService {
                 The link is good for 24 hours. If you did not ask for this, you
                 can ignore this message — nothing will change, and we will not
                 email this address again.
-                """.formatted(username, link));
+                """.formatted(field(username), link));
     }
 
     public void sendPasswordReset(String to, String username, String token) {
@@ -123,10 +146,11 @@ public class EmailService {
 
                 If you did not request this, ignore this message — your password
                 has not changed, and nobody can change it without this link.
-                """.formatted(username, link));
+                """.formatted(field(username), link));
     }
 
     public void sendDirectMessageAlert(String to, String username, String sender, String unsubscribeToken) {
+        sender = field(sender);
         send(to, sender + " sent you a message on webpost.ing", """
                 Hi %s,
 
@@ -135,10 +159,11 @@ public class EmailService {
                 Read it: %s/messages
 
                 %s
-                """.formatted(username, sender, baseUrl, unsubscribeFooter(unsubscribeToken, "messages")));
+                """.formatted(field(username), sender, baseUrl, unsubscribeFooter(unsubscribeToken, "messages")));
     }
 
     public void sendNewFollowerAlert(String to, String username, String follower, String unsubscribeToken) {
+        follower = field(follower);
         send(to, follower + " followed you on webpost.ing", """
                 Hi %s,
 
@@ -147,12 +172,14 @@ public class EmailService {
                 Their profile: %s/users/%s
 
                 %s
-                """.formatted(username, follower, baseUrl, follower,
+                """.formatted(field(username), follower, baseUrl, java.net.URLEncoder.encode(follower, java.nio.charset.StandardCharsets.UTF_8),
                               unsubscribeFooter(unsubscribeToken, "followers")));
     }
 
     public void sendFollowedPostAlert(String to, String username, String author,
                                       String postTitle, long postId, String unsubscribeToken) {
+        author = field(author);
+        postTitle = field(postTitle);
         send(to, author + " published \"" + postTitle + "\"", """
                 Hi %s,
 
@@ -161,18 +188,19 @@ public class EmailService {
                 Read it: %s/posts/%d
 
                 %s
-                """.formatted(username, author, postTitle, baseUrl, postId,
+                """.formatted(field(username), author, postTitle, baseUrl, postId,
                               unsubscribeFooter(unsubscribeToken, "posts")));
     }
 
     public void sendPublishReceipt(String to, String username, String postTitle, long postId) {
+        postTitle = field(postTitle);
         send(to, "Your post is live: " + postTitle, """
                 Hi %s,
 
                 "%s" has been published.
 
                 View it: %s/posts/%d
-                """.formatted(username, postTitle, baseUrl, postId));
+                """.formatted(field(username), postTitle, baseUrl, postId));
     }
 
     /**
@@ -209,7 +237,7 @@ public class EmailService {
                 limit on how much email webpost.ing will send you in a day.)
 
                 %s
-                """.formatted(username, String.join("\n", lines), baseUrl,
+                """.formatted(field(username), lines.stream().map(l -> oneLine(l, 200)).collect(java.util.stream.Collectors.joining("\n")), baseUrl,
                               unsubscribeFooter(unsubscribeToken, "all")));
     }
 }

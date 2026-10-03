@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Allow: /api/seo/
+Disallow: /api/
+Disallow: /editor
+Disallow: /settings
+Disallow: /messages
+Disallow: /inbox
+Disallow: /routes/
+
+Sitemap: https://webpost.ing/api/seo/sitemap.xml

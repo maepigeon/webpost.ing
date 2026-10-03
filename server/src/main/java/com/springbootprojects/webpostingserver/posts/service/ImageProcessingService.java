@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.imageio.ImageIO;
+import java.io.ByteArrayOutputStream;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
 import java.awt.Graphics2D;
@@ -131,6 +132,44 @@ public class ImageProcessingService {
         if (dims == null) return true;
         if (dims.width() <= 0 || dims.height() <= 0) return false;
         return (long) dims.width() * dims.height() <= MAX_PIXELS;
+    }
+
+    /**
+     * Removes the EXIF (APP1 "Exif") segments from a JPEG, which is where GPS
+     * position and camera serial numbers live. Only segment headers are walked;
+     * entropy-coded image data is copied untouched, so the picture is
+     * bit-identical. Anything malformed, or any other format (PNG, WebP, GIF
+     * are left as is), is returned unchanged.
+     */
+    public byte[] stripJpegMetadata(byte[] data, String extension) {
+        if (!"jpg".equals(extension) && !"jpeg".equals(extension)) return data;
+        if (data.length < 4 || (data[0] & 0xFF) != 0xFF || (data[1] & 0xFF) != 0xD8) return data;
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream(data.length);
+        out.write(0xFF); out.write(0xD8);
+        int pos = 2;
+        boolean stripped = false;
+        while (pos + 4 <= data.length) {
+            if ((data[pos] & 0xFF) != 0xFF) return data;          // not at a marker: bail out
+            int marker = data[pos + 1] & 0xFF;
+            if (marker == 0xFF) { out.write(0xFF); pos++; continue; }   // fill byte
+            // Start of scan, end of image, or a marker without a length: the rest is image data.
+            if (marker == 0xDA || marker == 0xD9) break;
+            if (marker == 0x01 || (marker >= 0xD0 && marker <= 0xD7)) {
+                out.write(0xFF); out.write(marker); pos += 2; continue;
+            }
+            int len = ((data[pos + 2] & 0xFF) << 8) | (data[pos + 3] & 0xFF);
+            if (len < 2 || pos + 2 + len > data.length) return data;   // corrupt: leave alone
+            boolean exif = marker == 0xE1 && len >= 8
+                    && data[pos + 4] == 'E' && data[pos + 5] == 'x'
+                    && data[pos + 6] == 'i' && data[pos + 7] == 'f';
+            if (exif) stripped = true;
+            else out.write(data, pos, 2 + len);
+            pos += 2 + len;
+        }
+        if (!stripped) return data;
+        out.write(data, pos, data.length - pos);
+        return out.toByteArray();
     }
 
     /**

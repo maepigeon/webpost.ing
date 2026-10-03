@@ -14,6 +14,7 @@ import { useDialog } from '../../../Dialog/Dialog.jsx';
 import '../PostWindow.css';
 import {useParams, Link, useNavigate} from "react-router-dom";
 import { usePageTitle } from '../../../../utils/usePageTitle.js';
+import { usePageMeta } from '../../../../utils/pageMeta.js';
 import { describeUploadError } from '../../../../utils/responsiveImage.js';
 import { GET_PROFILE_HEADER, GET_PROFILE_BANNER } from '../BasicTextPostServerApi.js';
 import ProfileBanner from './ProfileBanner.jsx';
@@ -109,6 +110,7 @@ function PostsViewer() {
     const { username } = useParams();
     useAuthorTheme(username);
     usePageTitle(username ? `${username}'s profile` : null);
+    usePageMeta(username ? { title: username, description: bio, type: 'profile', canonicalPath: `/${username}` } : null);
     const navigate = useNavigate();
     const isOwner = hasModifyPermissions(username);
     // Owner controls follow `canEdit`; previewing switches them all off at once.

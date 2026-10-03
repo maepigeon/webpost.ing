@@ -15,6 +15,7 @@ import './MessagesPage.css';
 import Icon from '../Icon/Icon.jsx';
 import { useDialog } from '../Dialog/Dialog.jsx';
 import { errorMessage } from '../../utils/errorMessage.js';
+import { useTextDraft } from '../../utils/useAutosave.js';
 import { splitPacks } from '../../utils/packMessage.js';
 import { splitPosts, plainMessageText } from '../../utils/postMessage.js';
 import PostMessageCard from './PostMessageCard.jsx';
@@ -44,7 +45,9 @@ export default function MessagesPage() {
   const [activeConvId, setActiveConvId]   = useState(null);
   const [activeGroupId, setActiveGroupId] = useState(null);
   const [messages, setMessages]           = useState([]);
-  const [input, setInput]                 = useState('');
+  // The unsent text, kept per conversation on this device.
+  const draftKey = activeConvId ? `message:c${activeConvId}` : activeGroupId ? `message:g${activeGroupId}` : null;
+  const [input, setInput, messageSent]    = useTextDraft(draftKey);
   const [sending, setSending]             = useState(false);
   const [error, setError]                 = useState('');
   const [newTarget, setNewTarget]         = useState('');
@@ -200,13 +203,14 @@ export default function MessagesPage() {
     if (!input.trim() || (!activeConvId && !activeGroupId)) return;
     setSending(true);
     setError('');
+    const sentFrom = draftKey;
     let content = input.trim();
     if (replyTo) {
       content = `> @${replyTo.sender_username}: ${truncate(plainMessageText(replyTo.content), 100)}\n\n${content}`;
     }
     try {
       await postToThread(content);
-      setInput('');
+      messageSent(sentFrom);
       setReplyTo(null);
     } catch (e) {
       setError(errorMessage(e, 'Failed to send.'));

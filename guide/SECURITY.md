@@ -229,3 +229,43 @@ Worth recording so the next review can skip them:
 - [ ] Add a LICENSE file, and decide whether the schema (`db/migrations/V001__schema.sql`) should ship
       with the `role_limits` seed only (it currently creates no users, which is
       correct).
+
+---
+
+## 2026-10-03 open sign-ups hardening
+
+Context: `guide/security-review-2026-10-03-open-signups.md`. Fixed today across
+the codebase (see `git log`):
+
+- Sign-in: sessions capped per user, lockouts per address, attempts counted per
+  address, sign-up limits per network, no username timing leak (15baed9).
+- Messaging and groups: blocks honoured in conversations, reactions only by
+  participants, group caps and consent, one follow notification, post authors can
+  delete comments (d1138f0).
+- Posts page in SQL; stored files count toward the allowance; request bodies
+  capped; image decoding bounded; a post is announced to followers once (09dbbbf).
+- Email: verification and reset mail limited per recipient address (3 an hour,
+  6 a day, case-insensitive, shared by both kinds) and per account (5
+  verification requests an hour), on top of the per-IP limits; "forgot password"
+  gives the same reply when limited. Tokens are redeemed with one atomic
+  `UPDATE ... RETURNING`, so a link works once even under parallel requests.
+  Subjects and body fields built from usernames and post titles lose control
+  characters and newlines and are length-capped (subject 150); all mail is plain
+  text, so there is no HTML to escape.
+- Uploads: EXIF (including GPS) is removed from JPEG originals before they are
+  stored (APP1 segment removal, image data untouched). PNG, WebP and GIF are
+  stored as uploaded. Upload errors no longer return file paths or exception text.
+- CSRF defence in depth: `OriginCheckFilter` refuses POST, PUT, PATCH and DELETE
+  under `/api/` whose `Origin` (or `Referer`, when there is no `Origin`) is not in
+  `ALLOWED_ORIGINS`; requests with neither header pass. The dev profile also
+  accepts any localhost origin.
+- nginx security headers and CSP are documented in `DEPLOYMENT.md` section 8.
+
+Still open:
+
+- Bot barrier and verified email before posting (H1 to H4 in the review).
+  Keep the daily cap, IP block and invite code until they ship.
+- Server-side post content validation (M1) is being added separately.
+- No Content-Security-Policy is live until the nginx config is updated and
+  tested in report-only mode.
+- The email limiters are in memory and reset on restart.

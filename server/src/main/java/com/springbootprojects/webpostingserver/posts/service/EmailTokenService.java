@@ -111,22 +111,24 @@ public class EmailTokenService {
     public Redemption redeem(String plaintext, String purpose) {
         if (plaintext == null || plaintext.isBlank()) return Redemption.invalid("missing");
 
-        List<Map<String, Object>> rows = jdbc.queryForList("""
-                SELECT id, user_id, email, expires_at, used_at
-                  FROM email_tokens
-                 WHERE token_hash = ? AND purpose = ?
+        // Check-and-spend in ONE statement. A separate SELECT then UPDATE let two
+        // parallel requests both see the token unused and both succeed. Here the
+        // database lets exactly one UPDATE match the row; the other gets nothing.
+        List<Map<String, Object>> won = jdbc.queryForList("""
+                UPDATE email_tokens SET used_at = NOW()
+                 WHERE token_hash = ? AND purpose = ? AND used_at IS NULL AND expires_at > NOW()
+                RETURNING user_id, email
                 """, hash(plaintext), purpose);
+        if (won.size() == 1)
+            return Redemption.ok((Integer) won.get(0).get("user_id"), (String) won.get(0).get("email"));
 
+        // Lost (or never valid): only now look, purely to say why.
+        List<Map<String, Object>> rows = jdbc.queryForList(
+                "SELECT used_at FROM email_tokens WHERE token_hash = ? AND purpose = ?",
+                hash(plaintext), purpose);
         if (rows.isEmpty()) return Redemption.invalid("unknown");
-
-        Map<String, Object> row = rows.get(0);
-        if (row.get("used_at") != null) return Redemption.invalid("already used");
-
-        Instant expiresAt = ((java.sql.Timestamp) row.get("expires_at")).toInstant();
-        if (Instant.now().isAfter(expiresAt)) return Redemption.invalid("expired");
-
-        jdbc.update("UPDATE email_tokens SET used_at = NOW() WHERE id = ?", row.get("id"));
-        return Redemption.ok((Integer) row.get("user_id"), (String) row.get("email"));
+        if (rows.get(0).get("used_at") != null) return Redemption.invalid("already used");
+        return Redemption.invalid("expired");
     }
 
     /**

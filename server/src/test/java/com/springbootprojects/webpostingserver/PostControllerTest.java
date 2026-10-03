@@ -50,7 +50,7 @@ class PostControllerTest {
     void setUp() {
         samplePost = new Post();
         samplePost.setTitle("Updated title");
-        samplePost.setDescription("Updated body");
+        samplePost.setDescription("{\"root\":{\"children\":[]}}");   // 24 bytes
         samplePost.setPublished(true);
 
         validSession = new AuthSession("kittycat");
@@ -409,7 +409,7 @@ class PostControllerTest {
     @Test
     void createPost_overTheStorageLimit_is413AndNothingIsSaved() throws Exception {
         when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
-        when(storage.fitsQuota(eq(1), eq(12L), eq(0L))).thenReturn(false);   // "Updated body" is 12 bytes
+        when(storage.fitsQuota(eq(1), eq(24L), eq(0L))).thenReturn(false);   // the sample body is 24 bytes
 
         ResponseEntity<String> resp = postController.createPost(samplePost, "kittycat", "tok");
 
@@ -428,7 +428,7 @@ class PostControllerTest {
         existing.setId(10);
         existing.setDescription("old text");   // 8 bytes
         when(postRepository.findById(10L)).thenReturn(existing);
-        when(storage.fitsQuota(eq(1), eq(12L), eq(8L))).thenReturn(false);
+        when(storage.fitsQuota(eq(1), eq(24L), eq(8L))).thenReturn(false);
 
         ResponseEntity<String> resp = postController.updatePost(10L, samplePost, "kittycat", "tok");
 

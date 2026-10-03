@@ -1,0 +1,92 @@
+/* Solid white panel, hard offset shadow: the app's house style, no blur. Sits
+   below the navbar menus and dialogs (z-index 400+). */
+.mini-player {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 250;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  background: #fff;
+  color: #111;
+  border: 1.5px solid #000;
+  border-radius: 3px;
+  box-shadow: 3px 3px 0 #000;
+  font-family: var(--app-font);
+  font-size: 12px;
+}
+.mp-btn {
+  flex: none;
+  width: 32px; height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0;
+  background: #fff;
+  border: 1.5px solid #000;
+  border-radius: 3px;
+  color: #000;
+  cursor: pointer;
+  transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.mp-btn:hover { transform: scale(1.06); }
+.mp-btn:active { transform: scale(0.94); background: #eee; }
+.mp-btn:focus-visible, .mp-seek:focus-visible, .mp-volume-range:focus-visible, .mp-title a:focus-visible {
+  outline: 2px solid #000; outline-offset: 2px;
+}
+.mp-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.mp-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mp-title a, .mp-title span { color: inherit; text-decoration: none; }
+.mp-title a:hover { text-decoration: underline; }
+.mp-progress { display: flex; align-items: center; gap: 8px; }
+.mp-seek {
+  position: relative; flex: 1 1 auto; height: 16px;
+  display: flex; align-items: center; cursor: pointer; touch-action: none;
+}
+.mp-seek::before { content: ''; position: absolute; left: 0; right: 0; height: 4px; background: #ddd; border: 1px solid #000; box-sizing: border-box; }
+.mp-seek-fill { position: relative; height: 4px; background: #000; }
+.mp-time { flex: none; font-variant-numeric: tabular-nums; color: #444; white-space: nowrap; }
+
+.mp-volume { flex: none; display: flex; align-items: center; gap: 4px; }
+.mp-volume-range { width: 64px; accent-color: #000; margin: 0; height: 24px; cursor: pointer; }
+.mp-volume-toggle { display: none; }
+
+/* Drawn with CSS so there is no font or emoji dependence. */
+.mp-icon-play { width: 0; height: 0; border-left: 10px solid #000; border-top: 6px solid transparent; border-bottom: 6px solid transparent; margin-left: 3px; }
+.mp-icon-pause { width: 10px; height: 12px; border-left: 3px solid #000; border-right: 3px solid #000; box-sizing: border-box; }
+.mp-icon-vol { width: 6px; height: 8px; background: #000; position: relative; margin-right: 6px; }
+.mp-icon-vol::after { content: ''; position: absolute; left: 6px; top: -3px; border-right: 6px solid #000; border-top: 7px solid transparent; border-bottom: 7px solid transparent; }
+.mp-icon-mute { width: 6px; height: 8px; background: #000; position: relative; margin-right: 6px; opacity: 0.45; }
+.mp-icon-mute::after { content: ''; position: absolute; left: 6px; top: -3px; border-right: 6px solid #000; border-top: 7px solid transparent; border-bottom: 7px solid transparent; }
+.mp-icon-x { position: relative; width: 14px; height: 14px; }
+.mp-icon-x::before, .mp-icon-x::after {
+  content: ''; position: absolute; left: 50%; top: 50%;
+  width: 16px; height: 2px; margin: -1px 0 0 -8px; background: #000;
+}
+.mp-icon-x::before { transform: rotate(45deg); }
+.mp-icon-x::after { transform: rotate(-45deg); }
+
+@media (pointer: coarse) {
+  .mp-btn { width: 40px; height: 40px; }
+  .mp-seek { height: 32px; }
+  .mp-volume-range { height: 40px; }
+}
+
+@media (max-width: 600px) {
+  .mini-player {
+    right: 16px; left: 16px; width: auto; max-width: none;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+  .mp-volume { position: relative; }
+  .mp-volume-toggle { display: inline-flex; }
+  /* Collapsed behind the speaker button; opens upward as a small popover. */
+  .mp-volume-range {
+    display: none; position: absolute; bottom: calc(100% + 8px); right: 0;
+    width: 140px; padding: 4px 8px; box-sizing: border-box;
+    background: #fff; border: 1.5px solid #000; border-radius: 3px; box-shadow: 3px 3px 0 #000;
+  }
+  .mp-volume.open .mp-volume-range { display: block; }
+}
