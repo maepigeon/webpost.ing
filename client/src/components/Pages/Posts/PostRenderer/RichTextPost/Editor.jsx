@@ -64,6 +64,7 @@ const FONT_FAMILIES = [
   // Choco Cooky ships with the site; Comic Sans and Papyrus show where the
   // reader's device has them, otherwise the nearest free font.
   { label: 'Choco Cooky', value: '"Choco cooky", "ChocoCooky", "Sniglet", "Arial Rounded MT Bold", sans-serif' },
+  { label: 'Cool Jazz', value: '"Cool jazz", "CoolJazz", "Cooljazz", "Patrick Hand", "Comic Neue", cursive' },
   { label: 'Comic Sans', value: '"Comic Sans MS", "Comic Neue", "Chalkboard SE", "Patrick Hand", cursive' },
   { label: 'Papyrus', value: 'Papyrus, Herculanum, "Luminari", "IM Fell English", fantasy' },
 ];

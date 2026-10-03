@@ -196,6 +196,14 @@ just before that happens.
 
 ---
 
+### Cool Jazz
+
+Optional, and handled like Choco Cooky below: Samsung's Cool Jazz is served
+from `client/public/fonts/Cooljazz.woff2` when that file exists (gitignored;
+make it from the TrueType file the same way). Without it the Cool Jazz
+choices (post editor, themes, the grid's "Cool Jazz pixel") fall back to a
+casual hand, and `release.sh` does not stop.
+
 ### Choco Cooky
 
 The Cute theme font and the grid's Cute typeface use Samsung's Choco Cooky,

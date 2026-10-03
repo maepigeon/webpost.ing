@@ -34,6 +34,7 @@ export const FONTS = {
   // Samsung's Choco Cooky, served with the site (index.css @font-face);
   // Sniglet, in the same round, bubbly spirit, while it loads.
   cookie:        { label: 'Choco Cooky',      css: '"Choco cooky", "ChocoCooky", "Sniglet", "Arial Rounded MT Bold", sans-serif' },
+  cooljazz:      { label: 'Cool Jazz',        css: '"Cool jazz", "CoolJazz", "Cooljazz", "Patrick Hand", "Comic Neue", cursive' },
   // Comic Sans and Papyrus are system fonts: shown where the device has them
   // (they are not licensed for the web), otherwise the closest free font.
   comic:         { label: 'Comic Sans',       css: '"Comic Sans MS", "Comic Neue", "Chalkboard SE", "Patrick Hand", cursive' },
