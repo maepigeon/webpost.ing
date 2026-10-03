@@ -2,7 +2,6 @@ package com.springbootprojects.webpostingserver;
 
 import com.springbootprojects.webpostingserver.posts.controller.PostController;
 import com.springbootprojects.webpostingserver.posts.model.AuthSession;
-import com.springbootprojects.webpostingserver.posts.model.LoginInfo;
 import com.springbootprojects.webpostingserver.posts.model.Post;
 import com.springbootprojects.webpostingserver.posts.repository.LoginRepository;
 import com.springbootprojects.webpostingserver.posts.repository.PostRepository;
@@ -15,11 +14,14 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
@@ -31,17 +33,14 @@ class PostAuthorizationTest {
     @Mock PostRepository postRepository;
     @Mock LoginRepository loginRepository;
     @Mock SocialRepository social;
+    @Mock JdbcTemplate jdbc;
 
     @InjectMocks PostController postController;
 
-    private LoginInfo whiskersOwnership;
     private AuthSession whiskersSession;
 
     @BeforeEach
     void setUp() {
-        whiskersOwnership = new LoginInfo();
-        whiskersOwnership.setUsername("whiskers");
-
         whiskersSession = new AuthSession("whiskers");
         whiskersSession.userId = 1;
     }
@@ -82,7 +81,7 @@ class PostAuthorizationTest {
     void getPostById_draftReturnedToOwner() throws Exception {
         Post draft = post(5, "My Draft", false);
         when(postRepository.findById(5L)).thenReturn(draft);
-        when(postRepository.getUsernameFromPostId(5)).thenReturn(whiskersOwnership);
+        whiskersWroteIt(5);
         when(loginRepository.authorize("whiskers", "tok")).thenReturn(whiskersSession);
 
         ResponseEntity<Post> resp = postController.getPostById(5L, "whiskers", "tok");
@@ -94,7 +93,6 @@ class PostAuthorizationTest {
     void getPostById_draftHiddenFromGuest() {
         Post draft = post(5, "My Draft", false);
         when(postRepository.findById(5L)).thenReturn(draft);
-        when(postRepository.getUsernameFromPostId(5)).thenReturn(whiskersOwnership);
 
         // No cookies — guest request
         ResponseEntity<Post> resp = postController.getPostById(5L, null, null);
@@ -105,11 +103,8 @@ class PostAuthorizationTest {
     @Test
     void getPostById_draftHiddenFromOtherUser() throws Exception {
         Post draft = post(5, "Alice Draft", false);
-        LoginInfo mittensOwnership = new LoginInfo();
-        mittensOwnership.setUsername("mittens");
-
         when(postRepository.findById(5L)).thenReturn(draft);
-        when(postRepository.getUsernameFromPostId(5)).thenReturn(whiskersOwnership);
+        whiskersWroteIt(5);
         AuthSession mittensSession = new AuthSession("mittens");
         mittensSession.userId = 2;
         when(loginRepository.authorize("mittens", "btok")).thenReturn(mittensSession);
@@ -120,7 +115,20 @@ class PostAuthorizationTest {
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 
+    @Test
+    void getPostById_aPublishedPostNeverLooksUpItsAuthor() {
+        when(postRepository.findById(6L)).thenReturn(post(6, "Out in the open", true));
+
+        assertThat(postController.getPostById(6L, null, null).getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        verifyNoInteractions(jdbc);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private void whiskersWroteIt(long postId) {
+        when(jdbc.queryForList(contains("SELECT u.username"), eq(String.class), eq(postId))).thenReturn(List.of("whiskers"));
+    }
 
     private Post post(int id, String title, boolean published) {
         Post p = new Post();

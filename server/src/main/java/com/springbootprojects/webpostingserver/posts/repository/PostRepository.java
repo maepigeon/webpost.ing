@@ -14,6 +14,7 @@ public interface PostRepository {
 
     public LoginInfo getUsernameFromPostId(int postId);
 
+    /** Every post of the author's "profile" section, as cards (see getPostsPage). */
     List<Post> getPostsFromUsername(String username);
 
     /** One page of an author's profile order, cut in SQL; drafts only when includeDrafts. */
@@ -24,6 +25,8 @@ public interface PostRepository {
     /**
      * One page of a section: "profile", "notes", "subscribers" or "drafts"
      * (every unpublished post). What a non-owner may see is decided here.
+     * The posts are cards: no description or backgroundPattern, and the
+     * card's grid under preview. findById returns the whole post.
      */
     List<Post> getPostsPage(String username, String section, boolean owner, int limit, int offset);
 

@@ -1,6 +1,9 @@
 package com.springbootprojects.webpostingserver.posts.model;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonRawValue;
 
 //import java.sql.Timestamp;
 import java.util.Date;
@@ -42,6 +45,25 @@ public class Post {
 
     /** Whether the profile card previews the post's first grid (V010). */
     private boolean cardGrid = true;
+
+    /**
+     * In lists only: the grid the card shows, as JSON (posts.card_preview,
+     * V020), written out as an object. A list item carries this and no body.
+     *
+     * Left out of the JSON when null, on purpose. The client takes a present
+     * "preview", null included, as the server's word on the card and does not
+     * look in the body; a whole post (findById: the post page, the pinned
+     * post) has a body and no preview, and "preview": null there would take
+     * the grid off its card. A list item without a grid has neither, which
+     * the client also reads as "no grid".
+     *
+     * Never read from a request, so a client that sends a post back cannot
+     * set it.
+     */
+    @JsonRawValue
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    private String preview;
 
 
     public Post() {
@@ -137,6 +159,10 @@ public class Post {
     public boolean isCardGrid() { return cardGrid; }
 
     public void setCardGrid(boolean cardGrid) { this.cardGrid = cardGrid; }
+
+    public String getPreview() { return preview; }
+
+    public void setPreview(String preview) { this.preview = preview; }
 
 
     @Override

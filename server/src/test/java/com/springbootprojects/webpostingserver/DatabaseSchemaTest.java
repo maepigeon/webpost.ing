@@ -94,6 +94,45 @@ class DatabaseSchemaTest {
         assertColumnExists("posts", "section");         // V017
         for (String c : List.of("user_id", "kind", "detail", "ip_prefix", "user_agent", "created_at"))
             assertColumnExists("security_events", c);       // V018
+        for (String c : List.of("card_preview", "search_text", "preview_version"))
+            assertColumnExists("posts", c);                 // V020
+    }
+
+    // ── V020: card previews and search text ───────────────────────────────────
+
+    @Test
+    void postPreviews_startUncomputedAndSearchIsIndexed() {
+        // Rows that existed before V020, and rows an import inserts, are at 0: "the sweep has this to do".
+        String versionDefault = jdbc.queryForObject("""
+                SELECT column_default FROM information_schema.columns
+                 WHERE table_schema = 'public' AND table_name = 'posts' AND column_name = 'preview_version'""", String.class);
+        assertThat(versionDefault).isEqualTo("0");
+        assertIndexExists("idx_posts_search_trgm", true);
+        String definition = jdbc.queryForObject(
+                "SELECT indexdef FROM pg_indexes WHERE schemaname = 'public' AND indexname = 'idx_posts_search_trgm'", String.class);
+        assertThat(definition).contains("gin").contains("search_text").contains("gin_trgm_ops").contains("WHERE published");
+    }
+
+    /** A migration half-applied before a crash is retried whole: V020 must pass over what is there and keep what was computed. */
+    @Test
+    void postPreviews_migrationCanRunAgainWithoutLosingAnything() throws Exception {
+        String tracking = "test_v020_again_junit";
+        String sql = new String(getClass().getResourceAsStream("/db/migrations/V020__post_previews.sql").readAllBytes(),
+                java.nio.charset.StandardCharsets.UTF_8);
+        int id = jdbc.queryForObject("""
+                INSERT INTO posts (title, description, published, card_preview, search_text, preview_version)
+                VALUES ('v020 again', 'body', false, '{"cols":1}', 'body', 1) RETURNING id""", Integer.class);
+        try {
+            new com.springbootprojects.webpostingserver.migration.DatabaseMigrator(jdbc, tracking).migrate(List.of(
+                    new com.springbootprojects.webpostingserver.migration.DatabaseMigrator.MigrationScript("V020__post_previews", "again", sql)));
+
+            assertThat(jdbc.queryForObject("SELECT card_preview || '|' || search_text || '|' || preview_version FROM posts WHERE id = ?",
+                    String.class, id)).isEqualTo("{\"cols\":1}|body|1");
+            assertIndexExists("idx_posts_search_trgm", true);
+        } finally {
+            jdbc.update("DELETE FROM posts WHERE id = ?", id);
+            jdbc.execute("DROP TABLE IF EXISTS " + tracking);
+        }
     }
 
     // ── Indexes added by V019 ─────────────────────────────────────────────────

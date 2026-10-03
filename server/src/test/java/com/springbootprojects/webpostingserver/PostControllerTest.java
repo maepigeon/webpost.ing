@@ -2,7 +2,6 @@ package com.springbootprojects.webpostingserver;
 
 import com.springbootprojects.webpostingserver.posts.controller.PostController;
 import com.springbootprojects.webpostingserver.posts.model.AuthSession;
-import com.springbootprojects.webpostingserver.posts.model.LoginInfo;
 import com.springbootprojects.webpostingserver.posts.model.Post;
 import com.springbootprojects.webpostingserver.posts.repository.JdbcLoginRepository;
 import com.springbootprojects.webpostingserver.posts.repository.LoginRepository;
@@ -59,56 +58,106 @@ class PostControllerTest {
         lenient().when(storage.fitsQuota(anyInt(), anyLong(), anyLong())).thenReturn(true);
     }
 
+    /** The save path asks the database who wrote a post, not the repository (no whole user row). */
+    private void ownerIs(long postId, String username) {
+        when(jdbc.queryForList(contains("SELECT u.username"), eq(String.class), eq(postId)))
+                .thenReturn(java.util.List.of(username));
+    }
+
+    /** What updatePost reads about the stored post: whether it was public and the bytes it holds. */
+    private void storedRow(long postId, boolean published, long bytes) {
+        when(jdbc.queryForList(contains("octet_length(description)"), eq(postId)))
+                .thenReturn(java.util.List.of(java.util.Map.of("published", published, "stored", bytes)));
+    }
+
+    /** What setVisibility reads: the flag, the section and the title, never the body. */
+    private static java.util.Map<String, Object> flagRow(boolean published) {
+        return java.util.Map.of("published", published, "section", "profile", "title", "T");
+    }
+
     @Test
     void updatePost_validOwner_returns200() throws Exception {
         when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
-        LoginInfo owner = new LoginInfo();
-        owner.setUsername("kittycat");
-        when(postRepository.getUsernameFromPostId(10)).thenReturn(owner);
-        Post existing = new Post();
-        existing.setId(10);
-        when(postRepository.findById(10L)).thenReturn(existing);
+        ownerIs(10, "kittycat");
+        storedRow(10, false, 0);
 
         ResponseEntity<String> resp = postController.updatePost(10L, samplePost, "kittycat", "tok");
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
-        verify(postRepository).update(existing);
+        // The request is the row: the id comes from the address, and the old body is never loaded.
+        verify(postRepository).update(argThat(p -> p.getId() == 10 && "Updated title".equals(p.getTitle())));
+        verify(postRepository, never()).findById(any());
+        verify(social).parseAndSaveHashtags(10, samplePost.getDescription());
+    }
+
+    @Test
+    void updatePost_aDraftSaveLeavesHashtagsAlone() throws Exception {
+        when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
+        ownerIs(10, "kittycat");
+        storedRow(10, false, 0);
+        samplePost.setPublished(false);
+
+        assertThat(postController.updatePost(10L, samplePost, "kittycat", "tok").getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        verify(postRepository).update(any());
+        verify(social, never()).parseAndSaveHashtags(anyInt(), any());
+    }
+
+    @Test
+    void updatePost_theNameOfTheAuthorIsComparedExactly() throws Exception {
+        when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
+        ownerIs(10, "Kittycat");   // the same rule as LoginInfo.compareUsername: case counts
+
+        assertThat(postController.updatePost(10L, samplePost, "kittycat", "tok").getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        verify(postRepository, never()).update(any());
+    }
+
+    @Test
+    void updatePost_linksUploadsInOneStatement() throws Exception {
+        when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
+        ownerIs(10, "kittycat");
+        storedRow(10, false, 0);
+        samplePost.setDescription("{\"root\":{\"children\":[{\"src\":\"/uploads/abc.png\"}]}}");
+
+        assertThat(postController.updatePost(10L, samplePost, "kittycat", "tok").getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        verify(jdbc).update("DELETE FROM post_uploads WHERE post_id=?", 10L);
+        verify(jdbc).update(contains("string_to_array"), eq(10L), eq("abc.png"));
+        verify(jdbc, never()).queryForList(contains("SELECT id FROM uploads"), eq(Integer.class), any());   // no query per file
     }
 
     @Test
     void setVisibility_ownerMakesItPrivateOrPublic() throws Exception {
         when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
-        LoginInfo owner = new LoginInfo();
-        owner.setUsername("kittycat");
-        when(postRepository.getUsernameFromPostId(10)).thenReturn(owner);
-        Post existing = new Post();
-        existing.setId(10);
-        existing.setPublished(true);
-        when(postRepository.findById(10L)).thenReturn(existing);
+        ownerIs(10, "kittycat");
+        when(jdbc.queryForList(contains("SELECT published, section, title"), eq(10L)))
+                .thenReturn(java.util.List.of(flagRow(true)), java.util.List.of(flagRow(false)));
+        when(jdbc.queryForList(contains("SELECT description"), eq(String.class), eq(10L)))
+                .thenReturn(java.util.List.of("the body"));
 
         var resp = postController.setVisibility(10L, java.util.Map.of("published", false), "kittycat", "tok");
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(existing.isPublished()).isFalse();
-        verify(postRepository).update(existing);
+        // One column changes; the post is neither loaded nor saved whole.
+        verify(jdbc).update("UPDATE posts SET published = ? WHERE id = ?", false, 10L);
+        verify(postRepository, never()).update(any());
+        verify(postRepository, never()).findById(any());
         verifyNoInteractions(emailNotifications);   // going private tells nobody
+        verify(social, never()).parseAndSaveHashtags(anyInt(), any());
 
         postController.setVisibility(10L, java.util.Map.of("published", true), "kittycat", "tok");
-        assertThat(existing.isPublished()).isTrue();
-        verify(emailNotifications).notifyFollowersOfPost(eq("kittycat"), any(), eq(10L));   // a draft made public is published
+        verify(jdbc).update("UPDATE posts SET published = ? WHERE id = ?", true, 10L);
+        verify(emailNotifications).notifyFollowersOfPost(eq("kittycat"), eq("T"), eq(10L));   // a draft made public is published
+        verify(social).parseAndSaveHashtags(10, "the body");   // its tags appear when it goes public
     }
 
     @Test
     void setVisibility_notTheOwnerOrNotSignedIn() throws Exception {
         when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
-        Post existing = new Post();
-        existing.setId(10);
-        when(postRepository.findById(10L)).thenReturn(existing);
-        LoginInfo owner = new LoginInfo();
-        owner.setUsername("mittens");
-        when(postRepository.getUsernameFromPostId(10)).thenReturn(owner);
+        when(jdbc.queryForList(contains("SELECT published, section, title"), eq(10L))).thenReturn(java.util.List.of(flagRow(false)));
+        ownerIs(10, "mittens");
         assertThat(postController.setVisibility(10L, java.util.Map.of("published", true), "kittycat", "tok").getStatusCode())
             .isEqualTo(HttpStatus.FORBIDDEN);
-        verify(postRepository, never()).update(any());
+        verify(jdbc, never()).update(contains("SET published"), eq(true), eq(10L));
 
         when(loginRepository.authorize("kittycat", "bad")).thenReturn(null);
         assertThat(postController.setVisibility(10L, java.util.Map.of("published", true), "kittycat", "bad").getStatusCode())
@@ -116,11 +165,17 @@ class PostControllerTest {
     }
 
     @Test
+    void setVisibility_aMissingPostIsNotFound() throws Exception {
+        when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
+
+        assertThat(postController.setVisibility(99L, java.util.Map.of("published", true), "kittycat", "tok").getStatusCode())
+            .isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
     void updatePost_wrongOwner_returns403() throws Exception {
         when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
-        LoginInfo owner = new LoginInfo();
-        owner.setUsername("mittens");
-        when(postRepository.getUsernameFromPostId(10)).thenReturn(owner);
+        ownerIs(10, "mittens");
 
         ResponseEntity<String> resp = postController.updatePost(10L, samplePost, "kittycat", "tok");
 
@@ -153,10 +208,7 @@ class PostControllerTest {
     @Test
     void updatePost_postNotFound_returns404() throws Exception {
         when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
-        LoginInfo owner = new LoginInfo();
-        owner.setUsername("kittycat");
-        when(postRepository.getUsernameFromPostId(99)).thenReturn(owner);
-        when(postRepository.findById(99L)).thenReturn(null);
+        ownerIs(99, "kittycat");   // the author row is there; the post row is gone (a race)
 
         ResponseEntity<String> resp = postController.updatePost(99L, samplePost, "kittycat", "tok");
 
@@ -265,7 +317,7 @@ class PostControllerTest {
 
     private static java.util.Map<String, Object> cardRow(boolean published) {
         return java.util.Map.of("id", 13, "title", "Secret plans", "slug", "secret-plans",
-                "published", published, "description", "{}", "username", "kittycat");
+                "published", published, "username", "kittycat");
     }
 
     @Test
@@ -291,6 +343,37 @@ class PostControllerTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void card_carriesThePreviewAndNeverTheBody() throws Exception {
+        java.util.Map<String, Object> row = new java.util.HashMap<>(cardRow(true));
+        row.put("card_preview", "{\"cols\":2,\"rows\":1}");
+        row.put("body", null);
+        when(jdbc.queryForList(contains("WHERE p.id = ?"), eq(13L))).thenReturn(java.util.List.of(row));
+
+        java.util.Map<String, Object> card = (java.util.Map<String, Object>) postController.postCard(13L, null, null).getBody();
+
+        assertThat(card).doesNotContainKeys("description", "body", "card_preview");
+        assertThat(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(card.get("preview")))
+                .isEqualTo("{\"cols\":2,\"rows\":1}");
+        assertThat(card).containsEntry("username", "kittycat").containsEntry("title", "Secret plans");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void card_ofARowNotYetComputedFindsTheGridInTheBody() throws Exception {
+        java.util.Map<String, Object> row = new java.util.HashMap<>(cardRow(true));
+        row.put("card_preview", null);
+        row.put("body", "{\"root\":{\"children\":[{\"type\":\"tilegrid\",\"grid\":{\"cols\":3,\"rows\":1}}]}}");
+        when(jdbc.queryForList(contains("WHERE p.id = ?"), eq(13L))).thenReturn(java.util.List.of(row));
+
+        java.util.Map<String, Object> card = (java.util.Map<String, Object>) postController.postCard(13L, null, null).getBody();
+
+        assertThat(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(card.get("preview")))
+                .isEqualTo("{\"cols\":3,\"rows\":1}");
+        assertThat(card).doesNotContainKey("body");
+    }
+
+    @Test
     void card_ofAMissingPostIsNotFound() {
         when(jdbc.queryForList(contains("WHERE p.id = ?"), eq(99L))).thenReturn(java.util.List.of());
 
@@ -309,15 +392,23 @@ class PostControllerTest {
 
     @Test
     void userFromPostId_hidesADraftsAuthor() {
-        Post draft = new Post();
-        draft.setId(13);
-        draft.setPublished(false);
-        when(postRepository.findById(13L)).thenReturn(draft);
-        LoginInfo owner = new LoginInfo();
-        owner.setUsername("kittycat");
-        when(postRepository.getUsernameFromPostId(13)).thenReturn(owner);
+        when(jdbc.queryForList(contains("WHERE p.id = ?"), eq(13L)))
+                .thenReturn(java.util.List.of(java.util.Map.of("published", false, "section", "profile", "username", "kittycat")));
 
         assertThat(postController.getUserByPostID(13L, null, null).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        verify(postRepository, never()).findById(any());   // the body is not loaded to answer this
+    }
+
+    @Test
+    void userFromPostId_namesTheAuthorOfAPublishedPost() {
+        when(jdbc.queryForList(contains("WHERE p.id = ?"), eq(14L)))
+                .thenReturn(java.util.List.of(java.util.Map.of("published", true, "section", "profile", "username", "kittycat")));
+
+        ResponseEntity<String> resp = postController.getUserByPostID(14L, null, null);
+
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(resp.getBody()).isEqualTo("kittycat");
+        assertThat(postController.getUserByPostID(15L, null, null).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 
     // ── Pinned post ───────────────────────────────────────────────────────────
@@ -346,44 +437,36 @@ class PostControllerTest {
 
     // ── Description (summary) ─────────────────────────────────────────────────
 
-    private Post existingPostOwnedByKittycat() throws Exception {
+    private void existingPostOwnedByKittycat() throws Exception {
         when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
-        LoginInfo owner = new LoginInfo();
-        owner.setUsername("kittycat");
-        when(postRepository.getUsernameFromPostId(10)).thenReturn(owner);
-        Post existing = new Post();
-        existing.setId(10);
-        when(postRepository.findById(10L)).thenReturn(existing);
-        return existing;
+        ownerIs(10, "kittycat");
+        storedRow(10, false, 0);
     }
 
     @Test
     void updatePost_savesTheSummaryTrimmedOnOneLine() throws Exception {
-        Post existing = existingPostOwnedByKittycat();
+        existingPostOwnedByKittycat();
         samplePost.setSummary("  First line\nsecond line \r\n third  ");
 
         assertThat(postController.updatePost(10L, samplePost, "kittycat", "tok").getStatusCode()).isEqualTo(HttpStatus.OK);
 
-        assertThat(existing.getSummary()).isEqualTo("First line second line third");
+        verify(postRepository).update(argThat(p -> "First line second line third".equals(p.getSummary())));
     }
 
     @Test
     void updatePost_anEmptySummaryClearsIt() throws Exception {
-        Post existing = existingPostOwnedByKittycat();
-        existing.setSummary("old");
+        existingPostOwnedByKittycat();
         samplePost.setSummary("  \n ");
 
         assertThat(postController.updatePost(10L, samplePost, "kittycat", "tok").getStatusCode()).isEqualTo(HttpStatus.OK);
 
-        assertThat(existing.getSummary()).isNull();
+        verify(postRepository).update(argThat(p -> p.getSummary() == null));
     }
 
     @Test
     void updatePost_aSummaryOver300CharactersIsRejected() throws Exception {
         when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
-        LoginInfo owner = new LoginInfo();
-        owner.setUsername("kittycat");
-        when(postRepository.getUsernameFromPostId(10)).thenReturn(owner);
+        ownerIs(10, "kittycat");
         samplePost.setSummary("x".repeat(301));
 
         ResponseEntity<String> resp = postController.updatePost(10L, samplePost, "kittycat", "tok");
@@ -422,13 +505,8 @@ class PostControllerTest {
     @Test
     void updatePost_chargesTheNewTextAndFreesTheOld() throws Exception {
         when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
-        LoginInfo owner = new LoginInfo();
-        owner.setUsername("kittycat");
-        when(postRepository.getUsernameFromPostId(10)).thenReturn(owner);
-        Post existing = new Post();
-        existing.setId(10);
-        existing.setDescription("old text");   // 8 bytes
-        when(postRepository.findById(10L)).thenReturn(existing);
+        ownerIs(10, "kittycat");
+        storedRow(10, false, 8);   // "old text" is 8 bytes
         when(storage.fitsQuota(eq(1), eq(24L), eq(8L))).thenReturn(false);
 
         ResponseEntity<String> resp = postController.updatePost(10L, samplePost, "kittycat", "tok");
@@ -446,14 +524,8 @@ class PostControllerTest {
     @Test
     void republishingAnAlreadyAnnouncedPost_doesNotNotifyFollowersAgain() throws Exception {
         when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
-        LoginInfo owner = new LoginInfo();
-        owner.setUsername("kittycat");
-        when(postRepository.getUsernameFromPostId(10)).thenReturn(owner);
-        Post hidden = new Post();
-        hidden.setId(10);
-        hidden.setTitle("T");
-        hidden.setPublished(false);
-        when(postRepository.findById(10L)).thenReturn(hidden);
+        ownerIs(10, "kittycat");
+        when(jdbc.queryForList(contains("SELECT published, section, title"), eq(10L))).thenReturn(java.util.List.of(flagRow(false)));
         postWasAnnounced(true);
 
         postController.setVisibility(10L, java.util.Map.of("published", true), "kittycat", "tok");
@@ -465,23 +537,16 @@ class PostControllerTest {
     @Test
     void firstPublishNotifiesFollowers_throughVisibilityAndThroughTheEditor() throws Exception {
         when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
-        LoginInfo owner = new LoginInfo();
-        owner.setUsername("kittycat");
-        when(postRepository.getUsernameFromPostId(10)).thenReturn(owner);
+        ownerIs(10, "kittycat");
         when(social.getUserIdByUsername("kittycat")).thenReturn(1);
         postWasAnnounced(false);
 
-        Post hidden = new Post();
-        hidden.setId(10);
-        hidden.setTitle("T");
-        when(postRepository.findById(10L)).thenReturn(hidden);
+        when(jdbc.queryForList(contains("SELECT published, section, title"), eq(10L))).thenReturn(java.util.List.of(flagRow(false)));
         postController.setVisibility(10L, java.util.Map.of("published", true), "kittycat", "tok");
         verify(social).notifyFollowers(1, "kittycat", 10);
 
         // The editor path: a draft saved as published for the first time.
-        Post draft = new Post();
-        draft.setId(10);
-        when(postRepository.findById(10L)).thenReturn(draft);
+        storedRow(10, false, 0);
         postController.updatePost(10L, samplePost, "kittycat", "tok");
         verify(social, times(2)).notifyFollowers(1, "kittycat", 10);
     }
@@ -489,18 +554,56 @@ class PostControllerTest {
     @Test
     void editorRepublishOfAnAnnouncedPost_doesNotNotifyFollowersAgain() throws Exception {
         when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
-        LoginInfo owner = new LoginInfo();
-        owner.setUsername("kittycat");
-        when(postRepository.getUsernameFromPostId(10)).thenReturn(owner);
-        Post draft = new Post();
-        draft.setId(10);
-        when(postRepository.findById(10L)).thenReturn(draft);
+        ownerIs(10, "kittycat");
+        storedRow(10, false, 0);
         postWasAnnounced(true);
 
         postController.updatePost(10L, samplePost, "kittycat", "tok");
 
         verify(social, never()).notifyFollowers(anyInt(), any(), any());
         verify(emailNotifications, never()).notifyFollowersOfPost(any(), any(), anyLong());
+    }
+
+    // ── Creating a post ───────────────────────────────────────────────────────
+
+    @Test
+    void createPost_hashtagsAreSavedOnlyForAPublishedPost() throws Exception {
+        when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
+        when(postRepository.save(any(), eq(1))).thenReturn(7);
+
+        samplePost.setPublished(false);
+        assertThat(postController.createPost(samplePost, "kittycat", "tok").getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        verify(social, never()).parseAndSaveHashtags(anyInt(), any());
+
+        samplePost.setPublished(true);
+        assertThat(postController.createPost(samplePost, "kittycat", "tok").getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        verify(social).parseAndSaveHashtags(7, samplePost.getDescription());
+    }
+
+    @Test
+    void createPost_theDailyLimitIsOneLookupAndACount() throws Exception {
+        when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
+        when(jdbc.queryForObject(contains("max_posts_per_day"), eq(Integer.class), eq(1))).thenReturn(2);
+        when(jdbc.queryForObject(contains("COUNT(*) FROM posts"), eq(Integer.class), eq(1))).thenReturn(2);
+
+        ResponseEntity<String> resp = postController.createPost(samplePost, "kittycat", "tok");
+
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+        verify(postRepository, never()).save(any(), anyInt());
+        verify(jdbc, never()).queryForObject(contains("SELECT role FROM users"), eq(String.class), any());
+    }
+
+    // ── Search ────────────────────────────────────────────────────────────────
+
+    @Test
+    void searchPosts_looksInTheStoredTextNotInTheBody() {
+        postController.searchPosts("kitten", null);
+        postController.searchPosts("kitten", "kittycat");
+
+        org.mockito.ArgumentCaptor<String> sql = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(jdbc, times(2)).queryForList(sql.capture(), any(Object[].class));
+        assertThat(sql.getAllValues()).allSatisfy(q ->
+                assertThat(q).contains("p.search_text ILIKE ?").doesNotContain("p.description"));
     }
 
     // ── Profile paging ────────────────────────────────────────────────────────
