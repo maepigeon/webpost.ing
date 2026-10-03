@@ -72,6 +72,8 @@ perf-ops (JVM cap, Tomcat/Hikari, compression, nginx example), perf-polling
 17. Launched: `senior-engineer-sso` (Opus; V021), `implementer-private-repo`, `implementer-cross-platform-menu`; backups worker told the off-box copy is Mae's computer (`tools/download-backup.sh`). After SSO: S1 sessions in the database (same repository file).
 18. Mae's repo for webpaint is `/Users/mae/workspace/webpainting` (remote `github.com/maepigeon/webpaint.ing`, private); phase 0 builds there, no pushing until the lead has looked.
 
+19. `implementer-private-repo` committed EXCEPT `tools/deploy.sh` and `tools/release.sh` (the cross-platform-menu worker is editing them too: commit both workers' changes to those two files together when it reports). `guide/PLAN-OCTOBER.md` is the day-by-day plan; Mae's target is 100 users by Nov 3.
+
 ## Answers owed to Mae (give in the next status message)
 - Electron wrapping the Godot web build works, but Godot's native desktop
   export is the better downloadable (smaller, faster, better pen input); the

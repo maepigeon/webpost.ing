@@ -6,6 +6,13 @@ make it worth arriving at, then invite people in small groups and fix what
 they hit. webpaint.ing runs alongside but is not what November depends on.
 Update this file as days slip or finish.
 
+**Mae's target (2026-10-03): 100 users by November 3.** That needs invites
+to go out earlier and wider than a cautious plan would: the first five people
+on the 17th, the first community on the 20th (not the 26th), a second
+community by the 27th, and open sign-ups by the 30th if mail and the bot
+check are on. Count "users" as accounts that confirmed an email and posted or
+followed at least once. Review the number every Sunday.
+
 ## Week 1 — safe and solid (Oct 4–10)
 | Day | Workers | You |
 |---|---|---|
