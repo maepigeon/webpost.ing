@@ -68,9 +68,11 @@ button {
   transition: border-color 0.25s;
 }
 
-button:focus,
+/* Keyboard focus only: the house grey ring. A mouse click leaves no ring. */
+button:focus { outline: none; }
 button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 @media (prefers-color-scheme: light) {

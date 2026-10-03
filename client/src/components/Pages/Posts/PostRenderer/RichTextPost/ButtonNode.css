@@ -13,7 +13,7 @@
 .pb-wrap.is-editing { flex: 1 0 100%; max-width: 560px; margin-right: auto; }
 
 .pb-wrap { max-width: 100%; }
-.pb-wrap.is-selected { outline: 2px solid #5ea0ff; outline-offset: 4px; border-radius: 6px; }
+.pb-wrap.is-selected { outline: 2px solid color-mix(in srgb, var(--th-ink, #666) 45%, transparent); outline-offset: 4px; border-radius: 6px; }
 
 .pb {
   display: inline-flex;
@@ -26,7 +26,7 @@
   padding: 0 20px;
   border: 1.5px solid var(--th-link, var(--th-accent, #2b6cb0));
   border-radius: 8px;
-  font: 600 15px var(--app-font);
+  font: 600 15px var(--th-font-body, var(--app-font));
   text-decoration: none;
   text-align: center;
   cursor: pointer;
@@ -37,7 +37,7 @@
 .pb-label { color: inherit; overflow-wrap: anywhere; }
 .pb:hover { transform: translateY(-1px); }
 .pb:active { transform: translateY(1px) scale(0.98); }
-.pb:focus-visible { outline: 3px solid #5ea0ff; outline-offset: 3px; }
+.pb:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--th-ink, #666) 45%, transparent); }
 
 /* Solid: a strong tint of the link colour under the theme's ink, so the text
    stays readable whatever colour the theme picks. */
@@ -46,30 +46,34 @@
 .pb--outline .pb-label { color: var(--th-link, var(--th-accent, inherit)); }
 .pb--outline:hover { background: color-mix(in srgb, var(--th-link, var(--th-accent, #2b6cb0)) 10%, transparent); }
 
-/* Pixel: the grid editor's own button, dark with a light label. */
-.pb--pixel {
+/* Pixel: the grid editor's button shape, inked from the theme: the theme's
+   text colour as the fill and the card's colour as the label, so it reads on a
+   light card and on a dark one. Doubled class so the post-button rule in
+   App.css does not repaint it. */
+.pb.pb--pixel {
   border: none;
   border-radius: 3px;
-  background: #1c1c1c;
-  color: #f2f2f2;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 -2px 0 rgba(0, 0, 0, 0.5);
+  background: var(--th-ink, #1c1c1c);
+  color: var(--th-card-solid, #f2f2f2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 -2px 0 rgba(0, 0, 0, 0.35);
   font-family: var(--app-font);
 }
-.pb--pixel:hover { background: #333333; }
-.pb--pixel .pb-label { color: #f2f2f2; }
+.pb.pb--pixel:hover { background: color-mix(in srgb, var(--th-ink, #1c1c1c) 82%, var(--th-card-solid, #ffffff)); }
+.pb.pb--pixel:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--th-ink, #666) 45%, transparent); }
+.pb.pb--pixel .pb-label { color: var(--th-card-solid, #f2f2f2); }
 
 /* The form shown while writing. */
 .pb-form { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; padding: 8px; border-radius: 3px; background: #111; color: #f2f2f2; font: 600 12px var(--app-font); text-align: left; }
 .pb-field { display: flex; flex-direction: column; gap: 4px; }
 .pb-field-name { color: #9a9a9a; }
 .pb-input { box-sizing: border-box; width: 100%; min-height: 32px; padding: 4px 8px; border: 1px solid #333; border-radius: 3px; background: #1c1c1c; color: #f2f2f2; font: 13px var(--app-font); }
-.pb-input:focus-visible { outline: 2px solid #5ea0ff; outline-offset: 1px; }
+.pb-input:focus-visible { outline: 2px solid #f2f2f2; outline-offset: 1px; }
 .pb-pills { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .pb-pill { min-height: 32px; padding: 0 12px; border: none; border-radius: 16px; background: #1c1c1c; color: #f2f2f2; font: 600 12px var(--app-font); cursor: pointer; transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.1s ease; }
 .pb-pill:hover { background: #333; transform: translateY(-1px); }
 .pb-pill:active { transform: translateY(1px); }
 .pb-pill.is-on { background: #f2f2f2; color: #111; }
-.pb-pill:focus-visible { outline: 2px solid #5ea0ff; outline-offset: 2px; }
+.pb-pill:focus-visible { outline: 2px solid #f2f2f2; outline-offset: 2px; }
 .pb-file { color: #cfcfcf; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
 .pb-problem { color: #ff8a8a; }
 .pb-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; padding: 6px 8px; background: #111; border-radius: 3px; border-top: 1px solid #333; }

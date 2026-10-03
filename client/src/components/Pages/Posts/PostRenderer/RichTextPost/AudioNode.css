@@ -39,6 +39,6 @@
 }
 .audio-range::-moz-range-thumb { width: 10px; height: 18px; border: none; border-radius: 2px; background: #f2f2f2; }
 .audio-range:hover:not(:disabled)::-webkit-slider-thumb { transform: scaleY(1.15); }
-.audio-range:focus-visible { outline: 2px solid #5ea0ff; outline-offset: 2px; }
+.audio-range:focus-visible { outline: 2px solid #f2f2f2; outline-offset: 2px; }
 
 .audio-edit { padding-top: 6px; border-top: 1px solid #333; }
