@@ -23,6 +23,13 @@ without Mae having to explain it again. Last updated 2026-10-03.
    browser, commit. Give implementation to cheaper subagents (Sonnet mostly,
    Haiku for small mechanical edits). Launch as many as have separate files
    to work on.
+   **More Sonnet, less lead** (Mae, 2026-10-03: "i want to see more sonnet
+   usage next time"). The lead (Opus) should not write code, CSS, scripts or
+   documents itself, nor run ad-hoc browser checks: give those to Sonnet
+   workers too (`implementer` for small fixes and reverts, `screen-checker`
+   for looking at screens, `integrator` for builds and full test runs). The
+   lead's own turns are for deciding, briefing, reading reports and
+   committing. If a fix is "quick", it is still a Sonnet task.
 3. **Be frugal with tokens.** Short briefs with exact file lists; one combined
    build and browser check per batch rather than one per change; contact
    sheets instead of many screenshots; grep before reading whole files.
