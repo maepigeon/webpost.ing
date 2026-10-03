@@ -1,10 +1,18 @@
 # Deploying webpost.ing
 
-Last checked against the code: 2026-10-02, branch
-`claude/ui-fixes-2026-10-01-clean` (82 commits ahead of `main`; migrations
-V008 to V014). The release scripts were rehearsed locally, including both
-rollback paths, but **have not yet run against the real server**: the first
-real release is their first real test (see "Before you release").
+Last checked against the code: 2026-10-03, on `main` (migrations V008 to
+V014 are new since the last release). The release scripts were rehearsed
+locally, including both rollback paths, but **have not yet run against the
+real server**: the first real release is their first real test (see "Before
+you release").
+
+**The short way, on a Mac.** `./tools/mac-app/build.sh` makes
+`~/Applications/Webposting.app`: a small menu to build and view what is
+checked out (`tools/run-local.sh`, at http://localhost:5174) and to deploy it
+(`tools/deploy.sh`: commit if needed, push `main` to GitHub, then
+`tools/release.sh`). Each runs in a Terminal window, where the release asks
+for your passwords. Everything below still applies; the app only runs the
+scripts for you.
 
 **Two rules.**
 
