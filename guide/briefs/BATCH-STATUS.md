@@ -68,6 +68,10 @@ perf-ops (JVM cap, Tomcat/Hikari, compression, nginx example), perf-polling
 
 15. `guide/webpaint-architecture.md` is in (Opus). **Phase 0 has started**: `senior-engineer-webpaint-phase0` (Opus area lead with Sonnet helpers) is building in a NEW local repository `/Users/mae/workspace/webpaint` (no GitHub yet; it commits there itself). Its package P0-I edits `tools/mac-app/*` in THIS repository: commit those when it reports. Mae has been given the architecture's 15 questions with defaults; phase 0 uses the defaults. webpost.ing will need a phase 1 package for webpaint (SSO bridge controller, loopback-only `/internal/` routes with a shared secret, a `webpaint` post block). Domain steps for Mae are in section 10.5 of the architecture: do not ask her to do them until a first page is on the droplet.
 
+16. Committed: accounts readiness (`guide/accounts-readiness.md`), editor fixes, WP-4 cards, smoke suite, smoke bug fixes. WP-2 is finished but NOT committed (it needs WP-1's `PostPreview`/V020; commit both together). Small follow-ups to hand to an implementer: `EmailActionPage.jsx` reset form needs placeholders "New password" / "Confirm new password" (labels are now visually hidden); `App.css:114` still names `.cursor-glow`; docs still mention CursorGlow; `react-contenteditable` is unused in package.json; AdminPanel caps an admin-set password at 32 characters.
+17. Launched: `senior-engineer-sso` (Opus; V021), `implementer-private-repo`, `implementer-cross-platform-menu`; backups worker told the off-box copy is Mae's computer (`tools/download-backup.sh`). After SSO: S1 sessions in the database (same repository file).
+18. Mae's repo for webpaint is `/Users/mae/workspace/webpainting` (remote `github.com/maepigeon/webpaint.ing`, private); phase 0 builds there, no pushing until the lead has looked.
+
 ## Answers owed to Mae (give in the next status message)
 - Electron wrapping the Godot web build works, but Godot's native desktop
   export is the better downloadable (smaller, faster, better pen input); the

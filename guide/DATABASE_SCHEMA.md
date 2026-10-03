@@ -110,9 +110,23 @@ CREATE TABLE posts (
   slug               VARCHAR,                 -- /{username}/{slug}
   votes_enabled      BOOLEAN      NOT NULL DEFAULT false, -- up/down votes and score (V007)
   page_theme         TEXT,                    -- the post's own theme, copied from the author's at creation (V009)
-  card_grid          BOOLEAN      NOT NULL DEFAULT true   -- profile card previews the first grid (V010)
+  card_grid          BOOLEAN      NOT NULL DEFAULT true,  -- profile card previews the first grid (V010)
+  card_preview       TEXT,                    -- the first grid's JSON, for cards; NULL for none or over the size cap (V020)
+  search_text        TEXT,                    -- the body's plain text, at most 20 000 characters; what search reads (V020)
+  preview_version    SMALLINT     NOT NULL DEFAULT 0      -- 0 = the two above are not computed yet (V020)
 );
 ```
+
+`card_preview`, `search_text` and `preview_version` (V020) are derived from
+`description` by `PostPreview` so that lists and search never read the body.
+`JdbcPostRepository.save`/`update` write them with the body; rows inserted any
+other way (an import, posts older than V020) start at `preview_version = 0`
+and are filled by the background `PreviewSweep`, a few rows every two seconds.
+A row below `PostPreview.VERSION` is "not computed": lists find its grid in
+the body on the fly and search finds it by title only. Anything that changes
+`description` outside the repository must also set `preview_version = 0`.
+They do not count toward the author's quota. `idx_posts_search_trgm` is a
+trigram GIN index over `search_text` for published posts.
 
 **Common queries:**
 ```sql

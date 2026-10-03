@@ -127,6 +127,7 @@ COMMIT;
 | V017 | `posts.section` (`profile`, `notes` or `subscribers`, default `profile`): where a post belongs; drafts are just unpublished posts |
 | V018 | `security_events` (user_id, kind, detail, shortened ip_prefix, user_agent, created_at): the member's own security log, pruned on write (200 rows, 90 days), cascades with the account |
 | V019 | Performance indexes (published-post date order, unread notifications, per-user counts, username trigram, and more); drops two duplicate indexes. No data or columns change |
+| V020 | `posts.card_preview`, `posts.search_text`, `posts.preview_version` (default 0) and a trigram index on `search_text` for published posts: what cards and search need, kept beside the body. Adds only; existing rows are filled afterwards by the server's background sweep (`PreviewSweep`), not by the migration |
 
 V002 to V007 are already on the server. V008 to V014 go live with the next
 release. Every one is in a transaction and safe to run again, except V007's
