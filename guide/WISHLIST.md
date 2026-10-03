@@ -63,7 +63,9 @@ each lives in the linked guide. Last updated 2026-10-03.
   Godot 4, on the same droplet with its own domain, repository and data and
   the same accounts; based partly on her Drawing-app; 3D reference models,
   shaders and scripts, a real timeline, export to standard video formats,
-  and a direct link with webpost.ing. → [webpaint-plan.md](webpaint-plan.md)
+  and a direct link with webpost.ing. Also comic and manga creation, with
+  batch page updates for a webcomic and works-in-progress for animation,
+  especially for subscribers. → [webpaint-plan.md](webpaint-plan.md)
 - **Video on the sites**: uploads encoded in the browser, served with range
   requests, counted in the storage allowance; no transcoding on the server.
   Standard codecs only: Mae dropped the "AI compression" idea on 2026-10-03.

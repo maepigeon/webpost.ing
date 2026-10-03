@@ -56,6 +56,23 @@ have well made timeline features and well placed UI considerations."
 4. Only then start a spike. A half-built native-web animator prototype from
    2026-10-03 was stopped early and left uncommitted; it is not the plan now.
 
+## Added 2026-10-03: comics and works in progress
+
+Mae: "id like webpaint.ing to also have comic/manga creation features, with
+immediate webcomic batch page updating, especially for subscribers. same with
+animation wips".
+
+- **Comic and manga tools**: pages and panels, page order, reading direction
+  (left-to-right and right-to-left), lettering/speech balloons, a series with
+  chapters. To design; nothing chosen yet.
+- **Batch page updates**: upload or publish several pages at once and have
+  the series update immediately (one action, pages in order), rather than one
+  post per page.
+- **Subscribers first**: new pages, and animation works in progress, can go
+  to subscribers (early or only). This depends on the Subscribers feature,
+  which today is a private section with no subscriptions behind it.
+- **Animation WIPs**: the same quick-update flow for unfinished animation.
+
 ## Dropped
 
 - **"AI compression" for video.** Mae dropped it on 2026-10-03. Use standard
