@@ -73,3 +73,58 @@ export function destinationLabel(section) {
   if (section === 'subscribers') return 'Subscribers';
   return 'Post';
 }
+
+/**
+ * Whether the normal (not arranging) list drops unpublished posts. The owner's
+ * Posts and Notes tabs list what is published, so the list is as long as the
+ * tab's count; a draft lives under Drafts. The arrange view is not asked: it
+ * needs the drafts, for Make public and for the order.
+ */
+export function hidesDrafts(tab, canEdit) {
+  return Boolean(canEdit) && (tab === 'posts' || tab === 'notes');
+}
+
+/** The posts the normal view of this tab lists. */
+export function listedPosts(posts, { tab, canEdit }) {
+  if (!Array.isArray(posts) || !hidesDrafts(tab, canEdit)) return posts;
+  return posts.filter(p => p && p.published);
+}
+
+/**
+ * True when what is loaded has nothing to show but the list goes on: a page
+ * made only of drafts. The profile then asks for the next page itself rather
+ * than leaving the owner looking at an empty tab with more to load.
+ */
+export function listRunsOn({ listedCount, loadedCount, hasMore }) {
+  return listedCount === 0 && loadedCount > 0 && Boolean(hasMore);
+}
+
+const NO_BANNER = { joined: null, publicPosts: 0, grid: null };
+
+/**
+ * The profile's state, read from one profile-summary answer. Every field has
+ * the shape the page already keeps, with its empty value when the answer
+ * lacks it (an older server, a missing part).
+ */
+export function profileFromSummary(data) {
+  const d = data || {};
+  const bioLinks = Array.isArray(d.bioLinks) ? d.bioLinks : [];
+  return {
+    bgPattern: d.background || '',
+    header: { headerPath: d.header?.headerPath || null, headerInk: d.header?.headerInk || 'auto' },
+    bio: d.bio || '',
+    bioLinks,
+    avatar: d.avatarPath || '',
+    onlineStatus: d.online === undefined ? null : { online: Boolean(d.online), lastSeen: d.lastSeen || '' },
+    banner: d.banner
+      ? { joined: d.banner.joined || null, publicPosts: d.banner.publicPosts || 0, grid: d.banner.grid || null }
+      : NO_BANNER,
+    counts: d.counts || {},
+    publicNotes: typeof d.publicNotes === 'number' ? d.publicNotes : null,
+    followCounts: { followers: d.follows?.followers || 0, following: d.follows?.following || 0 },
+    followsMe: Boolean(d.follows?.followsMe),
+    pinnedPost: d.pinnedPost || null,
+    dmBlocked: Boolean(d.dm?.blocked),
+    dmBlockedByThem: Boolean(d.dm?.blockedByThem),
+  };
+}

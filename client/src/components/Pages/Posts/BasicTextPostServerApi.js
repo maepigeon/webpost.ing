@@ -72,6 +72,25 @@ export function GET_POST_SECTIONS(username) {
     .then(r => r.data);
 }
 
+/**
+ * Everything a profile page draws, in one request (bio, links, banner, header,
+ * counts, follows, pinned post as a card, DM state). 404 for an unknown user.
+ */
+export function GET_PROFILE_SUMMARY(username) {
+  return axios.get(baseUrl + `/api/users/${encodeURIComponent(username)}/profile-summary`, { withCredentials: true })
+    .then(r => r.data);
+}
+
+/** Admin: { version, remaining, processed, tooBig, failed, lastError, lastRunAt } of the card-preview sweep. */
+export function ADMIN_PREVIEW_STATUS() {
+  return axios.get(baseUrl + '/api/admin/previews', { withCredentials: true }).then(r => r.data);
+}
+
+/** Admin: runs one sweep batch now; resolves to the status after it. */
+export function ADMIN_PREVIEW_RUN() {
+  return axios.post(baseUrl + '/api/admin/previews/run', {}, { withCredentials: true }).then(r => r.data);
+}
+
 const asJson = { headers: { 'Content-Type': 'application/json' }, withCredentials: true };
 
 // ── Pixel font libraries ─────────────────────────────────────────────────────
@@ -924,4 +943,48 @@ export function END_OTHER_SESSIONS() {
 /** Deletes the signed-in member's account for good, after re-checking the password. */
 export function DELETE_MY_ACCOUNT(password) {
   return axios.post(baseUrl + '/api/account/delete', { password }, { withCredentials: true }).then(r => r.data);
+}
+
+// ── Sign in with Google / Microsoft ───────────────────────────────────────────
+
+/**
+ * Where "Continue with ..." sends the browser: a page load, not a request,
+ * because the server answers with a redirect to the provider. `intent`
+ * 'reauth' (from Settings) comes back to Settings with a fresh sign-in.
+ */
+export function SSO_START_URL(provider, intent) {
+  return baseUrl + '/api/auth/sso/' + encodeURIComponent(provider) + '/start' + (intent ? '?intent=' + encodeURIComponent(intent) : '');
+}
+
+/** The provider account waiting for a username: { provider, providerName, email, inviteRequired }. 404 when there is none. */
+export function GET_SSO_PENDING() {
+  return axios.get(baseUrl + '/api/auth/sso/pending', { withCredentials: true }).then(r => r.data);
+}
+
+/** Makes the account under the chosen username and signs it in; resolves { username, signedIn }. */
+export function COMPLETE_SSO_SIGNUP(username, inviteCode) {
+  const body = inviteCode ? { username, inviteCode } : { username };
+  return axios.post(baseUrl + '/api/auth/sso/complete', body, { withCredentials: true }).then(r => r.data);
+}
+
+/** The signed-in member's ways to sign in: { hasPassword, fresh, methods: [{ provider, name, enabled, linked, email, canUnlink }] }. */
+export function GET_SIGN_IN_METHODS() {
+  return axios.get(baseUrl + '/api/auth/sso/methods', { withCredentials: true }).then(r => r.data);
+}
+
+/** Starts linking a provider; resolves { redirect } (the provider address to go to). */
+export function LINK_SSO_PROVIDER(provider, password) {
+  return axios.post(baseUrl + '/api/auth/sso/' + encodeURIComponent(provider) + '/link',
+    password ? { password } : {}, { withCredentials: true }).then(r => r.data);
+}
+
+/** Unlinks a provider; refused (409) when it is the only way to sign in. */
+export function UNLINK_SSO_PROVIDER(provider, password) {
+  return axios.post(baseUrl + '/api/auth/sso/' + encodeURIComponent(provider) + '/unlink',
+    password ? { password } : {}, { withCredentials: true }).then(r => r.data);
+}
+
+/** Sets the first password of an account made through a provider. */
+export function SET_FIRST_PASSWORD(newPassword) {
+  return axios.post(baseUrl + '/api/auth/sso/password', { newPassword }, { withCredentials: true }).then(r => r.data);
 }

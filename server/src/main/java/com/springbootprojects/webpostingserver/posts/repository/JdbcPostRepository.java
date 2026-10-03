@@ -146,24 +146,25 @@ public class JdbcPostRepository implements PostRepository {
     }
 
     /**
-     * What a profile's tabs count, as the reader may see them: published posts
-     * of "profile" and "notes" for everyone; for the owner also every
-     * "subscribers" post and every unpublished post ("drafts"), with
-     * "profile" and "notes" counting everything of theirs, drafts included.
-     * Keys the reader may not see are left out.
+     * What a profile's tabs count, as the reader may see them. "profile" and
+     * "notes" are published posts only, for the owner as for anyone, so a
+     * tab's number is how many posts it lists; a draft is counted under
+     * "drafts" (every unpublished post) and lives in the Drafts tab. For the
+     * owner also every "subscribers" post. Keys the reader may not see are
+     * left out.
      */
     @Override
     public java.util.Map<String, Integer> countSections(String username, boolean owner) {
         java.util.Map<String, Object> row = jdbcTemplate.queryForMap("""
-            SELECT COUNT(*) FILTER (WHERE post.section = 'profile' AND (? OR post.published)) AS profile,
-                   COUNT(*) FILTER (WHERE post.section = 'notes'   AND (? OR post.published)) AS notes,
+            SELECT COUNT(*) FILTER (WHERE post.section = 'profile' AND post.published) AS profile,
+                   COUNT(*) FILTER (WHERE post.section = 'notes'   AND post.published) AS notes,
                    COUNT(*) FILTER (WHERE post.section = 'subscribers') AS subscribers,
                    COUNT(*) FILTER (WHERE NOT post.published) AS drafts
               FROM posts post
               JOIN users_posts_junctions junction ON junction.post_id = post.id
               JOIN users selected_user ON selected_user.id = junction.user_id
              WHERE selected_user.username = ?
-            """, owner, owner, username);
+            """, username);
         java.util.Map<String, Integer> out = new java.util.LinkedHashMap<>();
         out.put("profile", ((Number) row.get("profile")).intValue());
         out.put("notes", ((Number) row.get("notes")).intValue());

@@ -169,7 +169,8 @@ class PostSectionTest {
     @Test
     void countsDifferForTheOwnerAndAVisitor() {
         Map<String, Integer> mine = controller.getSectionCounts(OWNER, OWNER, ownerToken).getBody();
-        assertThat(mine).containsEntry("profile", 2).containsEntry("notes", 2)
+        // A tab counts what it lists: published posts. Drafts are counted under "drafts".
+        assertThat(mine).containsEntry("profile", 1).containsEntry("notes", 1)
                 .containsEntry("subscribers", 2).containsEntry("drafts", 3);
 
         Map<String, Integer> visitor = controller.getSectionCounts(OWNER, OTHER, otherToken).getBody();
