@@ -338,6 +338,14 @@ public class SocialRepository {
 
     // ── Notifications ─────────────────────────────────────────────────────────
 
+    private static final Set<String> COMMENT_TYPES = Set.of("comment", "reply", "mention");
+
+    /**
+     * Maps one row of {@link #getNotifications}. What the recipient may not see
+     * (a post that is gone, a draft or subscribers-only post that is not theirs,
+     * a comment that is gone or whose author and the recipient have blocked each
+     * other) comes out as subjectGone with no title, owner or excerpt.
+     */
     private static final RowMapper<Notification> NOTIF_MAPPER = (rs, rowNum) -> {
         Notification n = new Notification();
         n.setId(rs.getInt("id"));
@@ -349,8 +357,28 @@ public class SocialRepository {
         n.setMessage(rs.getString("message"));
         n.setRead(rs.getBoolean("is_read"));
         n.setCreatedAt(rs.getTimestamp("created_at"));
-        n.setPostTitle(rs.getString("post_title"));
-        n.setPostOwner(rs.getString("post_owner"));
+
+        boolean aboutPost = n.getPostId() != null;
+        boolean aboutComment = aboutPost && COMMENT_TYPES.contains(n.getType());
+        boolean gone = false;
+        if (aboutPost) {
+            int ownerId = rs.getInt("post_owner_id"); boolean hasOwner = !rs.wasNull();
+            boolean postExists = rs.getObject("post_exists") != null;
+            boolean open = postExists && (hasOwner && ownerId == n.getRecipientId()
+                || (rs.getBoolean("post_published") && !"subscribers".equals(rs.getString("post_section"))));
+            gone = !open;
+            if (!gone && aboutComment && n.getCommentId() != null) {
+                boolean found = rs.getObject("comment_found") != null
+                    && rs.getInt("comment_post_id") == n.getPostId();
+                gone = !found || rs.getBoolean("comment_blocked");
+                if (!gone) n.setCommentExcerpt(Notification.excerptOf(rs.getString("comment_text")));
+            }
+            if (!gone) {
+                n.setPostTitle(rs.getString("post_title"));
+                n.setPostOwner(rs.getString("post_owner"));
+            }
+        }
+        n.setSubjectGone(gone);
         return n;
     };
 
@@ -384,14 +412,32 @@ public class SocialRepository {
         return r != null ? r : 0L;
     }
 
+    /**
+     * One page of the user's notifications, newest first, in one query: the post
+     * (title, owner, visibility) and, for comment types, the comment's text and
+     * whether its author and the recipient have blocked each other. Uses
+     * idx_notif_recipient (recipient_id, created_at DESC) for the page, then
+     * primary-key lookups on posts, users, comments and discussions,
+     * idx_upj_post_id for the post's owner, and the dm_blocks primary key for the
+     * block check. Only the first 2000 characters of a comment are fetched.
+     */
     public List<Notification> getNotifications(int userId, int limit, int offset) {
         return jdbc.query(
-            "SELECT n.*, p.title AS post_title, u.username AS post_owner " +
+            "SELECT n.id, n.recipient_id, n.type, n.actor_username, n.post_id, n.comment_id, n.message, " +
+            "  n.is_read, n.created_at, " +
+            "  p.id AS post_exists, p.title AS post_title, p.published AS post_published, p.section AS post_section, " +
+            "  u.username AS post_owner, u.id AS post_owner_id, " +
+            "  c.id AS comment_found, left(c.content, 2000) AS comment_text, d.post_id AS comment_post_id, " +
+            "  EXISTS (SELECT 1 FROM dm_blocks b WHERE " +
+            "    (b.blocker_id = c.user_id AND b.blocked_id = n.recipient_id) OR " +
+            "    (b.blocker_id = n.recipient_id AND b.blocked_id = c.user_id)) AS comment_blocked " +
             "FROM notifications n " +
             "LEFT JOIN posts p ON p.id = n.post_id " +
             "LEFT JOIN users_posts_junctions j ON j.post_id = p.id " +
             "LEFT JOIN users u ON u.id = j.user_id " +
-            "WHERE n.recipient_id=? ORDER BY n.created_at DESC LIMIT ? OFFSET ?",
+            "LEFT JOIN comments c ON c.id = n.comment_id AND n.type IN ('comment','reply','mention') " +
+            "LEFT JOIN discussions d ON d.id = c.discussion_id " +
+            "WHERE n.recipient_id=? ORDER BY n.created_at DESC, n.id DESC LIMIT ? OFFSET ?",
             NOTIF_MAPPER, userId, limit, offset);
     }
 
