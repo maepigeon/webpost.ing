@@ -12,6 +12,9 @@
 }
 .postsViewerContainer {
     max-width: 1000px;
+    /* As wide as a post card even with no posts, so an empty profile is the
+       same size as a full one instead of shrinking to its few lines of text. */
+    min-width: min(624px, 100%);
 }
 
 /* Liquid-glass profile header card — matches post card glass level */
