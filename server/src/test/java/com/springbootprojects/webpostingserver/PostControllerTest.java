@@ -23,6 +23,8 @@ import static org.mockito.Mockito.*;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 
 @ExtendWith(MockitoExtension.class)
 class PostControllerTest {
@@ -37,6 +39,7 @@ class PostControllerTest {
     @Mock LoginRepository loginRepository;
     @Mock SocialRepository social;
     @Mock JdbcTemplate jdbc;
+    @Mock com.springbootprojects.webpostingserver.posts.service.StorageAccountService storage;
 
     @InjectMocks PostController postController;
 
@@ -52,6 +55,7 @@ class PostControllerTest {
 
         validSession = new AuthSession("kittycat");
         validSession.userId = 1;
+        lenient().when(storage.fitsQuota(anyInt(), anyLong(), anyLong())).thenReturn(true);
     }
 
     @Test
@@ -398,5 +402,116 @@ class PostControllerTest {
         samplePost.setSummary(" A blurb ");
         postController.createPost(samplePost, "kittycat", "tok");
         verify(postRepository).save(argThat(p -> "A blurb".equals(p.getSummary())), eq(1));
+    }
+
+    // ── Storage limit ─────────────────────────────────────────────────────────
+
+    @Test
+    void createPost_overTheStorageLimit_is413AndNothingIsSaved() throws Exception {
+        when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
+        when(storage.fitsQuota(eq(1), eq(12L), eq(0L))).thenReturn(false);   // "Updated body" is 12 bytes
+
+        ResponseEntity<String> resp = postController.createPost(samplePost, "kittycat", "tok");
+
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE);
+        assertThat(resp.getBody()).contains("Storage limit reached");
+        verify(postRepository, never()).save(any(), anyInt());
+    }
+
+    @Test
+    void updatePost_chargesTheNewTextAndFreesTheOld() throws Exception {
+        when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
+        LoginInfo owner = new LoginInfo();
+        owner.setUsername("kittycat");
+        when(postRepository.getUsernameFromPostId(10)).thenReturn(owner);
+        Post existing = new Post();
+        existing.setId(10);
+        existing.setDescription("old text");   // 8 bytes
+        when(postRepository.findById(10L)).thenReturn(existing);
+        when(storage.fitsQuota(eq(1), eq(12L), eq(8L))).thenReturn(false);
+
+        ResponseEntity<String> resp = postController.updatePost(10L, samplePost, "kittycat", "tok");
+
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE);
+        verify(postRepository, never()).update(any());
+    }
+
+    // ── Followers are told once ───────────────────────────────────────────────
+
+    private void postWasAnnounced(boolean announced) {
+        when(jdbc.queryForObject(contains("new_post"), eq(Integer.class), any(Object.class))).thenReturn(announced ? 1 : 0);
+    }
+
+    @Test
+    void republishingAnAlreadyAnnouncedPost_doesNotNotifyFollowersAgain() throws Exception {
+        when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
+        LoginInfo owner = new LoginInfo();
+        owner.setUsername("kittycat");
+        when(postRepository.getUsernameFromPostId(10)).thenReturn(owner);
+        Post hidden = new Post();
+        hidden.setId(10);
+        hidden.setTitle("T");
+        hidden.setPublished(false);
+        when(postRepository.findById(10L)).thenReturn(hidden);
+        postWasAnnounced(true);
+
+        postController.setVisibility(10L, java.util.Map.of("published", true), "kittycat", "tok");
+
+        verify(social, never()).notifyFollowers(anyInt(), any(), any());
+        verify(emailNotifications, never()).notifyFollowersOfPost(any(), any(), anyLong());
+    }
+
+    @Test
+    void firstPublishNotifiesFollowers_throughVisibilityAndThroughTheEditor() throws Exception {
+        when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
+        LoginInfo owner = new LoginInfo();
+        owner.setUsername("kittycat");
+        when(postRepository.getUsernameFromPostId(10)).thenReturn(owner);
+        when(social.getUserIdByUsername("kittycat")).thenReturn(1);
+        postWasAnnounced(false);
+
+        Post hidden = new Post();
+        hidden.setId(10);
+        hidden.setTitle("T");
+        when(postRepository.findById(10L)).thenReturn(hidden);
+        postController.setVisibility(10L, java.util.Map.of("published", true), "kittycat", "tok");
+        verify(social).notifyFollowers(1, "kittycat", 10);
+
+        // The editor path: a draft saved as published for the first time.
+        Post draft = new Post();
+        draft.setId(10);
+        when(postRepository.findById(10L)).thenReturn(draft);
+        postController.updatePost(10L, samplePost, "kittycat", "tok");
+        verify(social, times(2)).notifyFollowers(1, "kittycat", 10);
+    }
+
+    @Test
+    void editorRepublishOfAnAnnouncedPost_doesNotNotifyFollowersAgain() throws Exception {
+        when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
+        LoginInfo owner = new LoginInfo();
+        owner.setUsername("kittycat");
+        when(postRepository.getUsernameFromPostId(10)).thenReturn(owner);
+        Post draft = new Post();
+        draft.setId(10);
+        when(postRepository.findById(10L)).thenReturn(draft);
+        postWasAnnounced(true);
+
+        postController.updatePost(10L, samplePost, "kittycat", "tok");
+
+        verify(social, never()).notifyFollowers(anyInt(), any(), any());
+        verify(emailNotifications, never()).notifyFollowersOfPost(any(), any(), anyLong());
+    }
+
+    // ── Profile paging ────────────────────────────────────────────────────────
+
+    @Test
+    void profilePageIsCutInSqlAndTheLimitIsCappedAtFifty() {
+        when(postRepository.getPostsPage("kittycat", false, 50, 0)).thenReturn(new java.util.ArrayList<>());
+        postController.getPostsByUser("kittycat", 5000, 0, null, null);
+        verify(postRepository).getPostsPage("kittycat", false, 50, 0);
+
+        postController.getPostsByUser("kittycat", -3, -9, null, null);
+        verify(postRepository).getPostsPage("kittycat", false, 1, 0);
+        verify(postRepository, never()).getPostsFromUsername(any());   // never the whole list
     }
 }

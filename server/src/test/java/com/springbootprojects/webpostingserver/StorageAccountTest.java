@@ -71,17 +71,50 @@ class StorageAccountTest {
 
         long sections = 0;
         for (String s : new String[] {"files", "posts", "profile", "library", "social"}) sections += ((Number) at(u, "sections", s).get("bytes")).longValue();
-        assertThat(u.get("totalBytes")).isEqualTo(sections);
+        // The renditions are charged, so they are inside the total and the disk figure matches it.
+        assertThat(u.get("totalBytes")).isEqualTo(sections + 300L);
         assertThat(u.get("diskBytes")).isEqualTo(sections + 300L);
-        assertThat(at(u, "quota")).containsEntry("usedBytes", 2400L).containsEntry("counts", "files");
+        assertThat(at(u, "quota")).containsEntry("usedBytes", sections + 300L);
+    }
+
+    /** Everything a user stores counts: the total in usage() is what the limit is checked against. */
+    private long total() {
+        return ((Number) storage.usage(userId).get("totalBytes")).longValue();
     }
 
     @Test
-    void quotaChargesFilesAndFreesWhatIsReplaced() {
+    void quotaChargesEverythingAndFreesWhatIsReplaced() {
         Long limit = storage.fileLimitBytes(userId);
-        if (limit == null) return;   // a database whose user role has no limit
-        assertThat(storage.fitsQuota(userId, limit - 2400, 0)).isTrue();
-        assertThat(storage.fitsQuota(userId, limit - 2400 + 1, 0)).isFalse();
-        assertThat(storage.fitsQuota(userId, limit - 2400 + 1, 700)).isTrue();   // replacing the header frees its 700
+        assertThat(limit).isNotNull();
+        long used = total();
+        assertThat(used).isGreaterThan(2400L);   // files, renditions, the post, the sticker, the bio and banner
+        assertThat(storage.fitsQuota(userId, limit - used, 0)).isTrue();
+        assertThat(storage.fitsQuota(userId, limit - used + 1, 0)).isFalse();
+        assertThat(storage.fitsQuota(userId, limit - used + 1, 700)).isTrue();   // replacing the header frees its 700
+    }
+
+    @Test
+    void textKeptInTheDatabaseCountsTowardTheLimit() {
+        jdbc.update("UPDATE users SET role = 'restricted' WHERE id = ?", userId);   // a small limit keeps the test cheap
+        long limit = storage.fileLimitBytes(userId);
+        long room = limit - total();
+        assertThat(storage.fitsQuota(userId, room, 0)).isTrue();
+        // A sticker, the same size as the room left, no longer fits: it used to be free.
+        jdbc.update("INSERT INTO stickers (user_id, name, grid) VALUES (?, 'big', ?)", userId, "g".repeat((int) room));
+        assertThat(storage.fitsQuota(userId, 1, 0)).isFalse();
+    }
+
+    @Test
+    void renditionsAreChargedToTheQuota() {
+        long before = storage.filesChargedBytes(userId);
+        assertThat(before).isEqualTo(1000 + 500 + 200 + 700 + 300);   // a.png, b.png, avatar, header, a-480w.png
+    }
+
+    @Test
+    void aRoleWithNoLimitRowGetsTheDefaultLimitNotNoLimit() {
+        jdbc.update("UPDATE users SET role = 'no_such_role_row' WHERE id = ?", userId);
+        Long limit = storage.fileLimitBytes(userId);
+        assertThat(limit).isNotNull().isGreaterThan(0L);
+        assertThat(storage.fitsQuota(userId, limit, 0)).isFalse();
     }
 }

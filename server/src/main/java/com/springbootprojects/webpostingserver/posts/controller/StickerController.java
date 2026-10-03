@@ -33,6 +33,15 @@ public class StickerController {
 
     @Autowired private LoginRepository loginRepository;
     @Autowired private JdbcTemplate jdbc;
+    @Autowired private com.springbootprojects.webpostingserver.posts.service.StorageAccountService storage;
+
+    static final String STORAGE_FULL = "Storage limit reached. Free up some space first.";
+
+    /** Bytes a sticker takes in the database, as usage() counts them. */
+    static long bytesOf(Sticker s) {
+        return s.grid().getBytes(java.nio.charset.StandardCharsets.UTF_8).length
+                + s.name().getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+    }
 
     private Integer userIdOf(String username) {
         List<Integer> ids = jdbc.queryForList("SELECT id FROM users WHERE username = ?", Integer.class, username);
@@ -104,6 +113,9 @@ public class StickerController {
             return ResponseEntity.badRequest().body(Map.of("message", "You can keep at most " + MAX_STICKERS + " stickers."));
         Sticker s = parse(body);
         if (s.error() != null) return ResponseEntity.badRequest().body(Map.of("message", s.error()));
+        // Stickers count toward the storage limit like everything else a user keeps.
+        if (!storage.fitsQuota(userId, bytesOf(s), 0))
+            return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(Map.of("message", STORAGE_FULL));
         Integer id = jdbc.queryForObject("INSERT INTO stickers (user_id, name, grid) VALUES (?, ?, ?) RETURNING id",
                 Integer.class, userId, s.name(), s.grid());
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("id", id));
@@ -117,6 +129,11 @@ public class StickerController {
         if (userId == null) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         Sticker s = parse(body);
         if (s.error() != null) return ResponseEntity.badRequest().body(Map.of("message", s.error()));
+        long before = jdbc.queryForList(
+                "SELECT COALESCE(octet_length(grid) + octet_length(name), 0) FROM stickers WHERE id = ? AND user_id = ?",
+                Long.class, id, userId).stream().findFirst().orElse(0L);
+        if (!storage.fitsQuota(userId, bytesOf(s), before))
+            return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(Map.of("message", STORAGE_FULL));
         int n = jdbc.update("UPDATE stickers SET name = ?, grid = ?, updated_at = NOW() WHERE id = ? AND user_id = ?",
                 s.name(), s.grid(), id, userId);
         return n == 0 ? ResponseEntity.notFound().build() : ResponseEntity.ok(Map.of("id", id));

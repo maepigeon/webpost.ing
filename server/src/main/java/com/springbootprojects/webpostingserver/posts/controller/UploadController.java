@@ -46,6 +46,18 @@ public class UploadController {
     // Audio is kept to the size of a song, well under the general upload cap.
     static final long MAX_AUDIO_BYTES = 20L * 1024 * 1024;
 
+    /**
+     * One lock per user (hashed into a fixed set, so no map grows with users):
+     * the quota check and the row that records the upload happen under it, so
+     * two parallel uploads cannot both pass the check before either is counted.
+     */
+    private static final Object[] USER_LOCKS = new Object[64];
+    static { for (int i = 0; i < USER_LOCKS.length; i++) USER_LOCKS[i] = new Object(); }
+
+    static Object lockFor(int userId) {
+        return USER_LOCKS[Math.floorMod(userId, USER_LOCKS.length)];
+    }
+
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of(".jpg", ".jpeg", ".png", ".gif", ".webp");
 
     private static boolean hasValidImageMagicBytes(byte[] h) {
@@ -107,6 +119,7 @@ public class UploadController {
         if (ids.isEmpty()) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not found");
         int userId = ids.get(0);
 
+        synchronized (lockFor(userId)) {
         if (!storageAccount.fitsQuota(userId, data.length, 0))
             return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body("Storage quota exceeded");
 
@@ -126,6 +139,7 @@ public class UploadController {
         } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Failed to store file: " + e.getMessage());
+        }
         }
     }
 
@@ -177,20 +191,26 @@ public class UploadController {
         //    so this has to be refused before anything is allocated.
         ImageProcessingService.Dimensions dims = imageService.readDimensions(data);
         if (!imageService.isWithinPixelBudget(dims))
-            return ResponseEntity.badRequest().body("Image dimensions are too large (40 megapixel limit)");
+            return ResponseEntity.badRequest().body("Image dimensions are too large (16 megapixel limit)");
 
         // 3. Full decode. Magic bytes only prove the first few bytes look right;
         //    decoding proves the whole file is a real image, which rejects
         //    truncated uploads and polyglots — a valid GIF header followed by
         //    something else entirely.
-        if (!imageService.decodesCleanly(data, ext))
-            return ResponseEntity.badRequest().body("File is not a readable image");
+        try {
+            if (!imageService.decodesCleanly(data, ext))
+                return ResponseEntity.badRequest().body("File is not a readable image");
+        } catch (ImageProcessingService.BusyException busy) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body("Busy, try again in a moment");
+        }
 
         // Lookup uploader's user ID and role
         List<Integer> ids = jdbc.queryForList("SELECT id FROM users WHERE username=?", Integer.class, username);
         if (ids.isEmpty()) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not found");
         int userId = ids.get(0);
 
+        // Check and record under the user's lock (see USER_LOCKS).
+        synchronized (lockFor(userId)) {
         // Enforce the storage quota (see StorageAccountService).
         if (!storageAccount.fitsQuota(userId, file.getSize(), 0)) {
             Long limit = storageAccount.fileLimitBytes(userId);
@@ -219,8 +239,12 @@ public class UploadController {
             // Downscaled renditions so the browser can fetch one that suits its
             // viewport and connection. Best-effort: if none can be produced the
             // original is still perfectly usable.
-            List<ImageProcessingService.Variant> variants =
-                    imageService.writeVariants(data, uploadPath, baseName, ext);
+            List<ImageProcessingService.Variant> variants;
+            try {
+                variants = imageService.writeVariants(data, uploadPath, baseName, ext);
+            } catch (ImageProcessingService.BusyException busy) {
+                variants = List.of();   // the file is already stored and recorded; it just has no smaller copies
+            }
 
             for (ImageProcessingService.Variant v : variants) {
                 jdbc.update(
@@ -228,10 +252,13 @@ public class UploadController {
                     uploadId, v.filename(), v.width(), v.sizeBytes());
             }
 
+            // The renditions are charged too: StorageAccountService adds
+            // upload_variants.size_bytes to what the user has used.
             return ResponseEntity.ok(describeUpload(filename, width, height, variants));
         } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Failed to store file: " + e.getMessage());
+        }
         }
     }
 

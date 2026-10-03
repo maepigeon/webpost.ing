@@ -33,9 +33,9 @@ export default function StorageSummary({ storage }) {
   return (
     <div className="storage-summary">
       <div className="storage-quota">
-        <span>Files: <strong>{fmtBytes(used)}</strong>{limit > 0 ? ` of ${fmtBytes(limit)}` : ''}</span>
+        <span>Storage: <strong>{fmtBytes(used)}</strong>{limit > 0 ? ` of ${fmtBytes(limit)}` : ''}</span>
         {pct !== null && (
-          <span className="storage-meter" role="meter" aria-label="Files used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)}>
+          <span className="storage-meter" role="meter" aria-label="Storage used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)}>
             <span className={`storage-meter-fill${pct > 85 ? ' is-high' : ''}`} style={{ width: `${pct}%` }} />
           </span>
         )}
@@ -44,8 +44,9 @@ export default function StorageSummary({ storage }) {
         <details className="storage-details">
           <summary>All your storage: {fmtBytes(storage.totalBytes)}</summary>
           <p className="storage-note">
-            Only files count toward your allowance. The site also keeps smaller copies of your
-            images ({fmtBytes(sections.files?.renditionBytes)}), which don&rsquo;t count.
+            Everything you keep here counts toward your allowance: files, posts, stickers and
+            packs, and the smaller copies the site keeps of your images
+            ({fmtBytes(sections.files?.renditionBytes)}).
           </p>
           <dl className="storage-sections">
             {SECTIONS.map(([key, title, names]) => {

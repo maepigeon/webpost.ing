@@ -65,6 +65,20 @@ public class JdbcPostRepository implements PostRepository {
      * folder is a block of one.
      */
     public List<Post> getPostsFromUsername(String username) {
+        return getPostsPage(username, true, Integer.MAX_VALUE, 0);
+    }
+
+    /**
+     * One page of the same order, cut in SQL (LIMIT/OFFSET) so a profile with
+     * many large posts is never loaded whole into memory.
+     *
+     * Visitors do not see drafts, but the blocks and their order are still
+     * worked out over all the author's posts and only then are drafts dropped,
+     * exactly as filtering the full list afterwards did: a folder's place
+     * does not move because its first post is a draft.
+     */
+    @Override
+    public List<Post> getPostsPage(String username, boolean includeDrafts, int limit, int offset) {
         return jdbcTemplate.query("""
             SELECT id, title, description, published, date, background_pattern, folder, slug, summary, sort_order, card_grid
               FROM (
@@ -81,9 +95,11 @@ public class JdbcPostRepository implements PostRepository {
                                CASE WHEN NULLIF(post.folder, '') IS NULL THEN post.id END
                   ORDER BY post.sort_order, post.date DESC, post.id DESC)
               ) post
+             WHERE (? OR post.published)
              ORDER BY block_sort, block_date DESC, block_id DESC,
                       post.sort_order, post.date DESC, post.id DESC
-            """, POST_MAPPER, username);
+             LIMIT ? OFFSET ?
+            """, POST_MAPPER, username, includeDrafts, limit, offset);
     }
 
     public LoginInfo getUsernameFromPostId(int postId) {

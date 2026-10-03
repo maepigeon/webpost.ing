@@ -16,10 +16,11 @@ import java.util.Map;
  * as stored: file sizes for uploads, octet_length for text kept in the
  * database.
  *
- * The quota covers files (the images a user uploads, their audio, their profile
- * picture and header image); the downscaled copies the site makes of an upload are
- * shown but not charged, being the site's choice. Text kept in the database
- * is shown by category and not charged.
+ * The quota covers everything usage() adds up: files (the images a user
+ * uploads, their audio, their profile picture and header image, and the
+ * downscaled copies made of an upload, which take real disk) and the text
+ * kept in the database (posts, stickers, packs and so on). Charging only the
+ * files let one account fill the database through posts, stickers and packs.
  */
 @Service
 public class StorageAccountService {
@@ -86,28 +87,46 @@ public class StorageAccountService {
                 .sum();
     }
 
-    /** Bytes of files charged to the user: what counts toward their quota. */
-    public long filesChargedBytes(int userId) {
-        recordOldHeader(userId);
-        return sum("SELECT COALESCE(SUM(size_bytes), 0) FROM uploads WHERE user_id = ?", userId);
+    /** Used when a role has no role_limits row: the limit of the ordinary "user" role (V001). */
+    static final long DEFAULT_LIMIT_BYTES = 52_428_800L;
+
+    /** The downscaled copies of a user's uploads, in bytes (headers keep theirs inside their own row). */
+    private long renditionBytes(int userId) {
+        return sum("""
+                SELECT COALESCE(SUM(v.size_bytes), 0) FROM upload_variants v JOIN uploads u ON u.id = v.upload_id
+                 WHERE u.user_id = ?""", userId);
     }
 
-    /** The user's file quota in bytes, or null for no limit. */
+    /** Bytes of files charged to the user, renditions included: the file part of their quota. */
+    public long filesChargedBytes(int userId) {
+        recordOldHeader(userId);
+        return sum("SELECT COALESCE(SUM(size_bytes), 0) FROM uploads WHERE user_id = ?", userId) + renditionBytes(userId);
+    }
+
+    /** The user's quota in bytes, or null for no limit (a negative limit, as the admin role has). */
     public Long fileLimitBytes(int userId) {
         List<Long> r = jdbc.queryForList("""
                 SELECT rl.max_storage_bytes FROM users u JOIN role_limits rl ON rl.role = COALESCE(u.role, 'user')
                  WHERE u.id = ?""", Long.class, userId);
-        Long limit = r.isEmpty() ? null : r.get(0);
-        return limit == null || limit < 0 ? null : limit;
+        // No row for the role used to mean no limit at all; it now means the default.
+        if (r.isEmpty() || r.get(0) == null) {
+            List<Long> base = jdbc.queryForList("SELECT max_storage_bytes FROM role_limits WHERE role = 'user'", Long.class);
+            Long limit = base.isEmpty() ? null : base.get(0);
+            return limit == null ? DEFAULT_LIMIT_BYTES : (limit < 0 ? null : limit);
+        }
+        Long limit = r.get(0);
+        return limit < 0 ? null : limit;
     }
 
     /**
-     * Whether adding `addBytes` of files, after freeing `freedBytes` (a
-     * picture being replaced), stays within the quota.
+     * Whether adding `addBytes`, after freeing `freedBytes` (a picture or post
+     * being replaced), keeps everything the user stores within their quota.
      */
     public boolean fitsQuota(int userId, long addBytes, long freedBytes) {
         Long limit = fileLimitBytes(userId);
-        return limit == null || filesChargedBytes(userId) - freedBytes + addBytes <= limit;
+        if (limit == null) return true;
+        long used = ((Number) usage(userId).get("totalBytes")).longValue();
+        return used - freedBytes + addBytes <= limit;
     }
 
     /** The full breakdown, by section, with totals and the quota. */
@@ -126,10 +145,9 @@ public class StorageAccountService {
         files.put("audio", item(
                 count("SELECT COUNT(*) FROM uploads WHERE user_id = ? AND filename LIKE 'audio/%'", userId),
                 sum("SELECT COALESCE(SUM(size_bytes), 0) FROM uploads WHERE user_id = ? AND filename LIKE 'audio/%'", userId)));
-        long charged = bytesOf(files);
-        long renditions = sum("""
-                SELECT COALESCE(SUM(v.size_bytes), 0) FROM upload_variants v JOIN uploads u ON u.id = v.upload_id
-                 WHERE u.user_id = ?""", userId);
+        long itemBytes = bytesOf(files);
+        long renditions = renditionBytes(userId);
+        long charged = itemBytes + renditions;
 
         String mine = "FROM posts p JOIN users_posts_junctions j ON j.post_id = p.id WHERE j.user_id = ?";
         Map<String, Object> posts = new LinkedHashMap<>();
@@ -168,7 +186,7 @@ public class StorageAccountService {
                 sum("SELECT COALESCE(SUM(octet_length(COALESCE(message, ''))), 0) FROM notifications WHERE recipient_id = ?", userId)));
 
         Map<String, Object> sections = new LinkedHashMap<>();
-        sections.put("files", Map.of("items", files, "bytes", charged, "renditionBytes", renditions));
+        sections.put("files", Map.of("items", files, "bytes", itemBytes, "renditionBytes", renditions));
         sections.put("posts", Map.of("items", posts, "bytes", bytesOf(posts)));
         sections.put("profile", Map.of("items", profile, "bytes", bytesOf(profile)));
         sections.put("library", Map.of("items", library, "bytes", bytesOf(library)));
@@ -177,15 +195,15 @@ public class StorageAccountService {
         long total = charged + bytesOf(posts) + bytesOf(profile) + bytesOf(library) + bytesOf(social);
         Long limit = fileLimitBytes(userId);
         Map<String, Object> quota = new LinkedHashMap<>();
-        quota.put("counts", "files");
-        quota.put("usedBytes", charged);
+        quota.put("counts", "everything");
+        quota.put("usedBytes", total);
         quota.put("limitBytes", limit);
-        quota.put("remainingBytes", limit == null ? null : Math.max(0, limit - charged));
+        quota.put("remainingBytes", limit == null ? null : Math.max(0, limit - total));
 
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("sections", sections);
         out.put("totalBytes", total);
-        out.put("diskBytes", total + renditions);
+        out.put("diskBytes", total);   // renditions are inside the total now
         out.put("quota", quota);
         return out;
     }

@@ -52,7 +52,8 @@ class PostAuthorizationTest {
     void getPostsByUser_draftHiddenFromNonOwner() throws Exception {
         Post published = post(1, "Published", true);
         Post draft     = post(2, "Draft",     false);
-        when(postRepository.getPostsFromUsername("whiskers")).thenReturn(new ArrayList<>(List.of(published, draft)));
+        // Drafts are now left out by the query itself: a visitor asks for no drafts.
+        when(postRepository.getPostsPage("whiskers", false, 20, 0)).thenReturn(new ArrayList<>(List.of(published)));
 
         // Bob requests Alice's posts (different user — no auth cookies passed)
         ResponseEntity<List<Post>> resp = postController.getPostsByUser(
@@ -67,7 +68,7 @@ class PostAuthorizationTest {
     void getPostsByUser_ownerSeesOwnDrafts() throws Exception {
         Post published = post(1, "Published", true);
         Post draft     = post(2, "Draft",     false);
-        when(postRepository.getPostsFromUsername("whiskers")).thenReturn(new ArrayList<>(List.of(published, draft)));
+        when(postRepository.getPostsPage("whiskers", true, 20, 0)).thenReturn(new ArrayList<>(List.of(published, draft)));
         when(loginRepository.authorize("whiskers", "tok")).thenReturn(whiskersSession);
 
         ResponseEntity<List<Post>> resp = postController.getPostsByUser(

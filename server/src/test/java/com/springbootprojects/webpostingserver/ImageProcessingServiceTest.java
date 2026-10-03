@@ -96,7 +96,35 @@ class ImageProcessingServiceTest {
 
     @Test
     void acceptsAnOrdinaryPhoto() {
-        assertThat(service.isWithinPixelBudget(new ImageProcessingService.Dimensions(6000, 4000))).isTrue();
+        assertThat(service.isWithinPixelBudget(new ImageProcessingService.Dimensions(4000, 3000))).isTrue();
+    }
+
+    @Test
+    void budgetIsSixteenMegapixels() {
+        assertThat(service.isWithinPixelBudget(new ImageProcessingService.Dimensions(4000, 4000))).isTrue();
+        assertThat(service.isWithinPixelBudget(new ImageProcessingService.Dimensions(4001, 4000))).isFalse();
+        assertThat(service.isWithinPixelBudget(new ImageProcessingService.Dimensions(6000, 4000))).isFalse();
+    }
+
+    @Test
+    void atMostTwoDecodesRunAtOnceAndTheRestAreTurnedAway() throws Exception {
+        ReflectionTestUtils.setField(service, "decodeWaitMillis", 50L);
+        java.util.concurrent.Semaphore slots = (java.util.concurrent.Semaphore) ReflectionTestUtils.getField(service, "decodeSlots");
+        assertThat(slots.availablePermits()).isEqualTo(2);
+        byte[] png = image(40, 40, "png");
+
+        slots.acquire(2);   // two decodes in progress
+        try {
+            assertThatThrownBy(() -> service.decodesCleanly(png, "png"))
+                    .isInstanceOf(ImageProcessingService.BusyException.class)
+                    .hasMessage("Busy, try again in a moment");
+            assertThatThrownBy(() -> service.writeVariants(image(2400, 1600, "jpg"), uploadDir, "busy", "jpg"))
+                    .isInstanceOf(ImageProcessingService.BusyException.class);
+        } finally {
+            slots.release(2);
+        }
+        assertThat(service.decodesCleanly(png, "png")).isTrue();
+        assertThat(slots.availablePermits()).isEqualTo(2);   // each decode gives its slot back
     }
 
     @Test

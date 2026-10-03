@@ -840,7 +840,7 @@ public class SocialRepository {
             "JOIN users_posts_junctions j ON j.post_id=p.id " +
             "JOIN users u ON u.id=j.user_id " +
             "WHERE h.tag=? AND p.published=TRUE " +
-            "ORDER BY p.date DESC LIMIT 100",
+            "ORDER BY p.date DESC LIMIT 50",
             tag.toLowerCase());
     }
 

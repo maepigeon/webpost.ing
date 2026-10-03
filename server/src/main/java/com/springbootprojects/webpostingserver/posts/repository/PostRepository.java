@@ -16,6 +16,9 @@ public interface PostRepository {
 
     List<Post> getPostsFromUsername(String username);
 
+    /** One page of an author's profile order, cut in SQL; drafts only when includeDrafts. */
+    List<Post> getPostsPage(String username, boolean includeDrafts, int limit, int offset);
+
     int deleteById(Long id);
 
     int reorder(int userId, List<Integer> orderedIds, java.util.Map<Integer, String> folders);

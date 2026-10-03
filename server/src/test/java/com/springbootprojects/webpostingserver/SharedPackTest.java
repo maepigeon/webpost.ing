@@ -112,6 +112,38 @@ class SharedPackTest {
         assertThat((String) copy.get("glyphs")).contains("\"A\"");
     }
 
+    @Test
+    void aUserCannotShareMoreThanAHundredPacksInAll() {
+        String token = signIn(SENDER);
+        stickers.create(SENDER, STICKER, SENDER, token);
+        int stickerId = jdbc.queryForObject("SELECT id FROM stickers WHERE user_id = ?", Integer.class, senderId);
+        for (int i = 0; i < SharedPackController.MAX_PACKS_PER_USER; i++)
+            jdbc.update("INSERT INTO shared_packs (id, sender_id, kind, name, body) VALUES (?, ?, 'stickers', 'n', '[]')",
+                    java.util.UUID.randomUUID(), senderId);
+
+        ResponseEntity<?> over = packs.share(Map.of("kind", "stickers", "name", "One more", "stickerIds", List.of(stickerId)), SENDER, token);
+
+        assertThat(over.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM shared_packs WHERE sender_id = ?", Integer.class, senderId)).isEqualTo(100);
+    }
+
+    @Test
+    void stickersAndPacksAreRefusedWith413WhenTheStorageLimitIsReached() {
+        String token = signIn(SENDER);
+        assertThat(stickers.create(SENDER, STICKER, SENDER, token).getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        int stickerId = jdbc.queryForObject("SELECT id FROM stickers WHERE user_id = ?", Integer.class, senderId);
+
+        jdbc.update("UPDATE users SET role = 'frozen' WHERE id = ?", senderId);   // a limit of 0 bytes
+
+        ResponseEntity<?> sticker = stickers.create(SENDER, STICKER, SENDER, token);
+        assertThat(sticker.getStatusCode()).isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE);
+        assertThat(String.valueOf(sticker.getBody())).contains("Storage limit reached");
+        assertThat(stickers.update(SENDER, stickerId, STICKER, SENDER, token).getStatusCode()).isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE);
+        ResponseEntity<?> pack = packs.share(Map.of("kind", "stickers", "name", "Dots", "stickerIds", List.of(stickerId)), SENDER, token);
+        assertThat(pack.getStatusCode()).isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM shared_packs WHERE sender_id = ?", Integer.class, senderId)).isZero();
+    }
+
     @SuppressWarnings("unchecked")
     private static List<Map<String, Object>> listOf(ResponseEntity<?> r) {
         return (List<Map<String, Object>>) r.getBody();

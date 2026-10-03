@@ -32,11 +32,16 @@ import java.util.UUID;
 public class SharedPackController {
 
     public static final int MAX_STICKERS_PER_PACK = 50;
+    /** Packs one user may have shared in all: each is a full copy of its stickers, kept for good. */
+    public static final int MAX_PACKS_PER_USER = 100;
     private static final RateLimiter SHARE_LIMITER = new RateLimiter(30, 60 * 60 * 1000L, 60 * 60 * 1000L);
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     @Autowired private LoginRepository loginRepository;
     @Autowired private JdbcTemplate jdbc;
+    @Autowired private com.springbootprojects.webpostingserver.posts.service.StorageAccountService storage;
+
+    private static final String STORAGE_FULL = "Storage limit reached. Free up some space first.";
 
     private AuthSession authorize(String username, String token) {
         if (username == null || token == null) return null;
@@ -69,6 +74,11 @@ public class SharedPackController {
         if (SHARE_LIMITER.isBlocked(key))
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of("message", "Too many packs shared. Try again later."));
 
+        Integer shared = jdbc.queryForObject("SELECT COUNT(*) FROM shared_packs WHERE sender_id = ?", Integer.class, session.userId);
+        if (shared != null && shared >= MAX_PACKS_PER_USER)
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(Map.of("message", "You have shared " + MAX_PACKS_PER_USER + " packs already."));
+
         String kind = String.valueOf(body.get("kind"));
         String name;
         String packBody;
@@ -97,6 +107,11 @@ public class SharedPackController {
         } else {
             return bad("A pack is either stickers or symbols.");
         }
+
+        long packBytes = packBody.getBytes(java.nio.charset.StandardCharsets.UTF_8).length
+                + name.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+        if (!storage.fitsQuota(session.userId, packBytes, 0))
+            return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(Map.of("message", STORAGE_FULL));
 
         UUID id = UUID.randomUUID();
         jdbc.update("INSERT INTO shared_packs (id, sender_id, kind, name, body) VALUES (?, ?, ?, ?, ?)",
@@ -154,6 +169,9 @@ public class SharedPackController {
         try { body = MAPPER.readTree((String) rows.get(0).get("body")); }
         catch (Exception e) { return bad("That pack could not be read."); }
         if (hasSaved(uuid, session.userId)) return ResponseEntity.ok(Map.of("saved", 0, "alreadySaved", true));
+        // Saving copies the pack into the reader's own collection, so it is charged to them.
+        if (!storage.fitsQuota(session.userId, body.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8).length, 0))
+            return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(Map.of("message", STORAGE_FULL));
 
         if ("symbols".equals(kind)) {
             Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM pixel_fonts WHERE user_id = ?", Integer.class, session.userId);

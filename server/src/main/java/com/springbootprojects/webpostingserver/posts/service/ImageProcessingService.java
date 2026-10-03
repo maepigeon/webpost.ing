@@ -53,11 +53,37 @@ public class ImageProcessingService {
     public static final int[] VARIANT_WIDTHS = { 480, 960, 1600 };
 
     /**
-     * Largest image accepted, in total pixels (~40 megapixels). Guards against
-     * decompression bombs: a few-KB PNG can declare 50000x50000 and cost 10 GB
-     * of heap to decode.
+     * Largest image accepted, in total pixels (16 megapixels, about 64 MB
+     * decoded). Guards against decompression bombs: a few-KB PNG can declare
+     * 50000x50000 and cost 10 GB of heap to decode. It was 40 megapixels, so a
+     * few parallel uploads could use up the heap.
      */
-    private static final long MAX_PIXELS = 40_000_000L;
+    static final long MAX_PIXELS = 16_000_000L;
+
+    /** Thrown when every decode slot stayed taken for the whole wait: the caller answers 503. */
+    @org.springframework.web.bind.annotation.ResponseStatus(
+            value = org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, reason = "Busy, try again in a moment")
+    public static class BusyException extends RuntimeException {
+        public BusyException() { super("Busy, try again in a moment"); }
+    }
+
+    /**
+     * At most two images are decoded or resized at once, whoever asks. Each
+     * decode can take tens of megabytes; unbounded parallel uploads exhausted
+     * the heap. Others wait a moment, then are refused with BusyException.
+     */
+    final java.util.concurrent.Semaphore decodeSlots = new java.util.concurrent.Semaphore(2);
+    long decodeWaitMillis = 5_000;
+
+    private void acquireSlot() {
+        try {
+            if (!decodeSlots.tryAcquire(decodeWaitMillis, java.util.concurrent.TimeUnit.MILLISECONDS))
+                throw new BusyException();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BusyException();
+        }
+    }
 
     /** Formats ImageIO can reliably decode and re-encode on a stock JDK. */
     private static final Set<String> RESIZABLE = Set.of("jpg", "jpeg", "png", "gif");
@@ -115,12 +141,15 @@ public class ImageProcessingService {
      */
     public boolean decodesCleanly(byte[] data, String extension) {
         if (!RESIZABLE.contains(extension)) return true;   // no reader; cannot verify
+        acquireSlot();
         try {
             BufferedImage img = ImageIO.read(new ByteArrayInputStream(data));
             return img != null && img.getWidth() > 0 && img.getHeight() > 0;
         } catch (IOException | RuntimeException e) {
             log.debug("Upload failed to decode as {}: {}", extension, e.toString());
             return false;
+        } finally {
+            decodeSlots.release();
         }
     }
 
@@ -136,6 +165,7 @@ public class ImageProcessingService {
      * @return the result, or null if the image cannot be decoded here (WebP)
      */
     public Compressed compressSquare(byte[] data, int maxSide) {
+        acquireSlot();
         try {
             BufferedImage src = ImageIO.read(new ByteArrayInputStream(data));
             if (src == null || src.getWidth() <= 0 || src.getHeight() <= 0) return null;
@@ -183,6 +213,8 @@ public class ImageProcessingService {
         } catch (IOException | RuntimeException e) {
             log.debug("Could not compress image: {}", e.toString());
             return null;
+        } finally {
+            decodeSlots.release();
         }
     }
 
@@ -203,6 +235,16 @@ public class ImageProcessingService {
         // first, so they are stored as-is.
         if (extension.equals("gif")) return written;
 
+        acquireSlot();
+        try {
+            return writeVariantsHeld(data, uploadPath, baseName, extension, written);
+        } finally {
+            decodeSlots.release();
+        }
+    }
+
+    private List<Variant> writeVariantsHeld(byte[] data, Path uploadPath, String baseName, String extension,
+                                            List<Variant> written) {
         BufferedImage source;
         try {
             source = ImageIO.read(new ByteArrayInputStream(data));

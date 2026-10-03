@@ -30,6 +30,31 @@ import com.springbootprojects.webpostingserver.posts.repository.SocialRepository
 public class PostController {
 
     private static final Logger log = LoggerFactory.getLogger(PostController.class);
+
+    /** Counts what a post stores in the database against the author's quota (see StorageAccountService). */
+    @Autowired private com.springbootprojects.webpostingserver.posts.service.StorageAccountService storage;
+
+    private static final String STORAGE_FULL = "Storage limit reached. Free up some space first.";
+
+    /** Bytes a post's text columns take: its content and its wallpaper. */
+    private static long storedBytes(String description, String wallpaper) {
+        long n = 0;
+        if (description != null) n += description.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+        if (wallpaper != null) n += wallpaper.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+        return n;
+    }
+
+    /**
+     * Followers are told about a post once, when it is first published. A
+     * notification row for the post is the record that they were: unpublishing
+     * and publishing again (which anyone can loop) must not notify and email
+     * them every time.
+     */
+    private boolean alreadyAnnounced(long postId) {
+        Integer n = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM notifications WHERE type = 'new_post' AND post_id = ?", Integer.class, postId);
+        return n != null && n > 0;
+    }
     // ── Resolving a post from a URL segment ───────────────────────────────────
 
     /**
@@ -316,9 +341,6 @@ public class PostController {
             @RequestParam(defaultValue = "0") int offset,
             @CookieValue(name = "username", required = false) String authUsername,
             @CookieValue(name = "authToken", required = false) String authToken) {
-        List<Post> posts = postRepository.getPostsFromUsername(username);
-        if (posts == null) return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-
         boolean isOwner = false;
         if (authUsername != null && authUsername.equals(username) && authToken != null) {
             try {
@@ -326,16 +348,16 @@ public class PostController {
             } catch (JdbcLoginRepository.TokenExpiredException ignored) {}
         }
 
-        if (!isOwner) posts = posts.stream().filter(Post::isPublished).collect(java.util.stream.Collectors.toList());
-
-        // Already in profile order (the author's arrangement, then newest
-        // first). Paging slices that same order: sorting pages by date while
-        // the page showed them by arrangement repeated some posts across pages
-        // and skipped others.
+        // The page is cut in SQL, in profile order (the author's arrangement,
+        // then newest first), and drafts are dropped there for visitors. The
+        // same order is what paging slices: sorting pages by date while the
+        // page showed them by arrangement repeated some posts across pages and
+        // skipped others. Loading every post to slice it here let one author
+        // with big posts exhaust the server's memory for anyone's request.
         int safeLimit  = Math.min(Math.max(limit, 1), 50);
         int safeOffset = Math.max(offset, 0);
-        int end = Math.min(safeOffset + safeLimit, posts.size());
-        List<Post> page = safeOffset >= posts.size() ? List.of() : posts.subList(safeOffset, end);
+        List<Post> page = postRepository.getPostsPage(username, isOwner, safeLimit, safeOffset);
+        if (page == null) return new ResponseEntity<>(HttpStatus.NOT_FOUND);
 
         return new ResponseEntity<>(page, HttpStatus.OK);
     }
@@ -394,6 +416,8 @@ public class PostController {
         if (loginResult != null) {
             ResponseEntity<String> invalid = validatePost(post);
             if (invalid != null) return invalid;
+            if (!storage.fitsQuota(loginResult.userId, storedBytes(post.getDescription(), post.getBackgroundPattern()), 0))
+                return new ResponseEntity<>(STORAGE_FULL, HttpStatus.PAYLOAD_TOO_LARGE);
             // Enforce daily post limit from role_limits
             try {
                 String role = jdbc.queryForObject("SELECT role FROM users WHERE id=?", String.class, loginResult.userId);
@@ -456,6 +480,10 @@ public class PostController {
         if (invalid != null) return invalid;
         Post _post = postRepository.findById(id);
         if (_post != null) {
+            // What the post held is freed as the new version is stored.
+            if (!storage.fitsQuota(loginResult.userId, storedBytes(post.getDescription(), post.getBackgroundPattern()),
+                    storedBytes(_post.getDescription(), _post.getBackgroundPattern())))
+                return new ResponseEntity<>(STORAGE_FULL, HttpStatus.PAYLOAD_TOO_LARGE);
             boolean wasPublished = _post.isPublished();
             _post.setId((int) id);
             _post.setTitle(post.getTitle());
@@ -471,9 +499,11 @@ public class PostController {
             social.parseAndSaveHashtags((int) id, post.getDescription());
             // Notify followers when a draft is published for the first time
             if (!wasPublished && post.isPublished()) {
-                int authorId = social.getUserIdByUsername(username);
-                if (authorId > 0) social.notifyFollowers(authorId, username, (int) id);
-                emailNotifications.notifyFollowersOfPost(username, post.getTitle(), id);
+                if (!alreadyAnnounced(id)) {
+                    int authorId = social.getUserIdByUsername(username);
+                    if (authorId > 0) social.notifyFollowers(authorId, username, (int) id);
+                    emailNotifications.notifyFollowersOfPost(username, post.getTitle(), id);
+                }
                 emailNotifications.sendPublishReceipt(username, post.getTitle(), id);
             }
             return new ResponseEntity<>("Post was updated successfully.", HttpStatus.OK);
@@ -508,7 +538,7 @@ public class PostController {
         boolean was = post.isPublished();
         post.setPublished(published);
         postRepository.update(post);
-        if (!was && published) {
+        if (!was && published && !alreadyAnnounced(id)) {
             int authorId = social.getUserIdByUsername(username);
             if (authorId > 0) social.notifyFollowers(authorId, username, (int) id);
             emailNotifications.notifyFollowersOfPost(username, post.getTitle(), id);

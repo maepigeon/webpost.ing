@@ -140,4 +140,41 @@ class UploadControllerTest {
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE);
     }
+
+    @Test
+    void upload_quotaCheckAndRecordAreAtomicPerUser() throws Exception {
+        when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
+        when(jdbc.queryForList(anyString(), eq(Integer.class), any())).thenReturn(List.of(1));
+        java.util.concurrent.atomic.AtomicInteger inside = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicInteger most = new java.util.concurrent.atomic.AtomicInteger();
+        when(storageAccount.fitsQuota(eq(1), anyLong(), eq(0L))).thenAnswer(inv -> {
+            most.accumulateAndGet(inside.incrementAndGet(), Math::max);
+            Thread.sleep(150);   // long enough for a second upload to arrive between check and record
+            return true;
+        });
+        // The row that records the upload ends the critical section.
+        when(jdbc.queryForObject(startsWith("INSERT INTO uploads"), eq(Integer.class), any(Object[].class)))
+                .thenAnswer(inv -> { inside.decrementAndGet(); return 7; });
+        byte[] jpeg = realJpeg(64, 48);
+
+        Runnable one = () -> uploadController.uploadFile("kittycat", "tok",
+                new MockMultipartFile("file", "p.jpg", "image/jpeg", jpeg));
+        Thread a = new Thread(one), b = new Thread(one);
+        a.start(); b.start(); a.join(); b.join();
+
+        assertThat(most.get()).isEqualTo(1);   // never two uploads between the check and the record
+    }
+
+    @Test
+    void upload_whenDecodingIsBusy_answers503() throws Exception {
+        when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
+        doThrow(new com.springbootprojects.webpostingserver.posts.service.ImageProcessingService.BusyException())
+                .when(imageService).decodesCleanly(any(), anyString());
+
+        ResponseEntity<?> resp = uploadController.uploadFile("kittycat", "tok",
+                new MockMultipartFile("file", "p.jpg", "image/jpeg", realJpeg(64, 48)));
+
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        assertThat(resp.getBody()).isEqualTo("Busy, try again in a moment");
+    }
 }
