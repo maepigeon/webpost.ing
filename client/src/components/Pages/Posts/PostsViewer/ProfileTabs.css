@@ -1,64 +1,85 @@
-/* Tabs under the header card. A solid backing from the theme's card, so the
-   row reads on any wallpaper; the active tab is marked by a heavy underline
-   and bold text, not by colour alone. */
+/* Tabs under the header card: one segmented control the width of a post,
+   drawn from the theme's card and ink so it reads on any wallpaper. The
+   chosen segment is filled; the rest are plain. */
 .profile-tabs {
   display: flex;
-  gap: 2px;
   max-width: min(600px, calc(100vw - 40px));
   margin: 16px auto 0;
-  padding: 0 6px;
+  padding: 3px;
+  gap: 3px;
+  box-sizing: border-box;
   overflow-x: auto;
   background: var(--th-card-background, #ffffff);
   color: var(--th-ink, #111111);
-  border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  border: 1.5px solid var(--th-ink, #111111);
+  border-radius: 10px;
 }
 .profile-tab {
   display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  flex: 0 0 auto;
-  min-height: 40px;
-  padding: 0 14px;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  flex: 1 1 0;
+  min-width: max-content;
+  min-height: 36px;
+  padding: 0 12px;
   border: 0;
-  border-bottom: 3px solid transparent;
-  border-radius: 0;
+  border-radius: 7px;
   background: transparent;
   color: var(--th-ink, #111111);
-  font: 500 14px var(--app-font);
-  opacity: 0.75;
+  font: 600 13px var(--app-font);
+  line-height: 36px;
   cursor: pointer;
-  transition: opacity 0.12s, transform 0.12s;
+  box-shadow: none;
+  transition: background 0.12s, transform 0.12s;
 }
-.profile-tab:hover { opacity: 1; }
-.profile-tab:active { transform: scale(0.96); }
-.profile-tab:focus-visible { outline: 2px solid var(--th-ink, #111111); outline-offset: -4px; }
-.profile-tab.is-active {
-  opacity: 1;
-  font-weight: 700;
-  border-bottom-color: var(--th-ink, #111111);
+.profile-tab:hover { background: color-mix(in srgb, var(--th-ink, #111111) 10%, transparent); filter: none; }
+.profile-tab:active { transform: scale(0.97); }
+.profile-tab:focus-visible { outline: 2px solid var(--th-ink, #111111); outline-offset: 2px; }
+.profile-tab.is-active,
+.profile-tab.is-active:hover {
+  background: var(--th-ink, #111111);
+  /* The card's colour on the ink: the same pair the card uses, turned round. */
+  color: var(--th-card-solid, #ffffff);
 }
-.profile-tab-count {
-  min-width: 20px;
-  padding: 1px 6px;
-  border: 1px solid currentColor;
-  border-radius: 10px;
-  font-size: 12px;
-  line-height: 16px;
-  text-align: center;
-}
+/* The count is a small plain number after the name. */
+.profile-tab-count { font-size: 11px; font-weight: 500; opacity: 0.7; }
+@media (pointer: coarse) { .profile-tab { min-height: 40px; line-height: 40px; } }
 
-/* One quiet line above a tab's list, and the empty message, on the card. */
-.profile-tab-note {
+/* An empty tab: one panel the width of a post, on the theme's card. */
+.profile-tab-panel {
   max-width: min(600px, calc(100vw - 40px));
   margin: 12px auto 0;
-  padding: 8px 12px;
+  padding: 22px 20px;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
   background: var(--th-card-background, #ffffff);
   color: var(--th-ink, #111111);
-  border-radius: 6px;
-  font: 400 13px var(--app-font);
+  border: 1.5px dashed color-mix(in srgb, var(--th-ink, #111111) 40%, transparent);
+  border-radius: 10px;
+  font-family: var(--app-font);
 }
+.profile-tab-empty { margin: 0; font-size: 15px; font-weight: 600; }
+.profile-tab-sub { margin: 0; font-size: 13px; color: color-mix(in srgb, var(--th-ink, #111111) 70%, transparent); }
+/* Above a list of posts, the same note sits on its own small backing. */
+.profile-tab-sub--bar {
+  max-width: min(600px, calc(100vw - 40px));
+  margin: 12px auto 0;
+  padding: 6px 12px;
+  box-sizing: border-box;
+  background: var(--th-card-background, #ffffff);
+  border-radius: 6px;
+  font-family: var(--app-font);
+}
+/* The two ways to start something here, side by side and alike. */
+.profile-tab-actions { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px; margin-top: 8px; }
+.profile-tab-actions .new-grid-post { width: auto; margin: 0; }
+.profile-tab-actions .new-grid-post button,
+.profile-tab-actions .profile-owner-btn { height: 34px; border-style: solid; border-radius: 6px; }
 
 /* On the Drafts tab: where the post will go once published. */
 .profile-post-destination {

@@ -370,6 +370,8 @@ export function themeVariables(theme, images = {}) {
     '--th-heading-scale': String(t.type.headingScale),
     '--th-text-glow': t.fx.glow ? `0 0 4px currentColor, 0 0 14px rgba(${accentRgb}, 0.45)` : 'none',
     '--th-card-background': cardBackground(t, t.card.texture ? images.card : null),
+    // The card as one flat colour, for text drawn on an ink-filled control.
+    '--th-card-solid': surface || t.card.bg,
     '--th-card-border-top': top,
     '--th-card-border-side': side,
     '--th-card-border-bottom': bottom,

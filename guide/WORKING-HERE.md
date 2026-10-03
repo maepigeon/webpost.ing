@@ -103,6 +103,14 @@ without Mae having to explain it again. Last updated 2026-10-03.
 - **Say the design, not just the wish.** Briefs that carry the lead's
   analysis (why, the rules, the edge cases, what not to build) come back
   right the first time; briefs that only quote the request come back vague.
+- **Nothing a user sees ships unseen.** On 2026-10-03 a new home page and
+  the profile tabs were pushed on test results alone and Mae found both ugly
+  on the live site; the home page was reverted. Before a deploy hand-over,
+  every new or changed screen is looked at in a screenshot by the lead (or an
+  Opus reviewer when there are many), at desktop and phone width, and judged
+  against the design taste section: would Mae call it clean? A worker's
+  "tests pass, not seen in a browser" is not done. Do not replace a screen
+  she already likes (home page) without showing her first.
 - **Watch usage.** Ten workers can use a tenth of a 5-hour limit in minutes.
   Check `get_usage` after each batch and stop launching well before the
   agreed deploy stop.

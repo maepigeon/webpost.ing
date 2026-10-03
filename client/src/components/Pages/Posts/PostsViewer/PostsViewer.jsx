@@ -607,21 +607,40 @@ function PostsViewer() {
           </div>
           <ProfileTabs tabs={tabs} active={tab} onSelect={selectTab} />
           <div id="profile-tabpanel" role="tabpanel" aria-labelledby={`profile-tab-${tab}`}>
-          {tab === 'subscribers' && (
-            <p className="profile-tab-note">Only you can see these for now. Subscriptions are coming later.</p>
-          )}
-          {canEdit && (tab === 'notes' || tab === 'subscribers') && (
-            <div className="profile-list-bar">
-              <Link className="profile-owner-btn" to={`/editor?section=${tab}`}>
-                {tab === 'notes' ? '+ New note' : '+ New post for subscribers'}
-              </Link>
+          {/* An empty tab is one quiet panel: what this place is, then what
+              you can do here, side by side. A tab with posts keeps only its
+              "new" button above the list. */}
+          {(!Array.isArray(visiblePosts) || !visiblePosts.length) && !loadingMore ? (
+            <div className="profile-tab-panel">
+              <p className="profile-tab-empty">{emptyText}</p>
+              {tab === 'subscribers' && (
+                <p className="profile-tab-sub">Only you can see these for now. Subscriptions are coming later.</p>
+              )}
+              {canEdit && tab !== 'drafts' && (
+                <div className="profile-tab-actions">
+                  <Link className="profile-owner-btn" to={tab === 'posts' ? '/editor' : `/editor?section=${tab}`}>
+                    {tab === 'notes' ? '+ New note' : '+ New post'}
+                  </Link>
+                  <NewGridPost section={tab === 'notes' || tab === 'subscribers' ? tab : 'profile'} />
+                </div>
+              )}
             </div>
+          ) : (
+            <>
+              {tab === 'subscribers' && (
+                <p className="profile-tab-sub profile-tab-sub--bar">Only you can see these for now. Subscriptions are coming later.</p>
+              )}
+              {canEdit && (tab === 'notes' || tab === 'subscribers') && (
+                <div className="profile-list-bar">
+                  <Link className="profile-owner-btn" to={`/editor?section=${tab}`}>
+                    {tab === 'notes' ? '+ New note' : '+ New post'}
+                  </Link>
+                </div>
+              )}
+            </>
           )}
-          {/* With posts, the button lives in the list's owner bar beside
-              "Arrange posts"; without, on its own. */}
-          {canEdit && (!Array.isArray(visiblePosts) || !visiblePosts.length) && <NewGridPost section={tab === 'notes' || tab === 'subscribers' ? tab : 'profile'} />}
           {(!Array.isArray(visiblePosts) || !visiblePosts.length) && !loadingMore
-            ? <p className="profile-tab-note">{emptyText}</p>
+            ? null
             : <ProfilePostList
                 key={tab}
                 posts={visiblePosts}

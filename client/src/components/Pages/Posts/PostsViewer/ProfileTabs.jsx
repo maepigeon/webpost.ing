@@ -38,7 +38,7 @@ export default function ProfileTabs({ tabs, active, onSelect }) {
           className={`profile-tab${t.id === active ? ' is-active' : ''}`}
           onClick={() => onSelect(t.id)}>
           <span>{t.label}</span>
-          {typeof t.count === 'number' && <span className="profile-tab-count">{t.count}</span>}
+          {typeof t.count === 'number' && t.count > 0 && <span className="profile-tab-count">{t.count}</span>}
         </button>
       ))}
     </div>
