@@ -1,4 +1,4 @@
-# 2026-10-03-implementer-perf-render  (implementer, Sonnet)
+# 2026-10-03-senior-engineer-perf-render  (senior-engineer, Opus)
 Batch context: other workers run at the same time, each with its own files (see "Others own"). The standing rules are in your agent definition. The performance findings are in `guide/performance-review-2026-10-03.md` (PR below).
 **Task:** PR item 12 / WP-D, client render cost. Each with evidence in the review:
 1. `TileGrid/TileGrid.jsx` draw effect has no dependency array (redraws every render): give it the right dependencies; the grid must still redraw on data, selection, cursor, moveBy, tool, lasso, fonts-ready and size changes. Be careful: this is the editor's core; list every state the draw reads.
