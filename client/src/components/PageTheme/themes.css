@@ -27,7 +27,8 @@ html { background-color: #eeede9; }
 /* A theme with its own wallpaper hides the profile's: its image and its
    colour too. The colour alone, left on <body>, is painted over the theme's
    backdrop (which sits behind the page at z-index -1) and blanks it. */
-html[data-th-hide-wallpaper] body { background-image: none !important; background-color: transparent !important; }
+html[data-th-hide-wallpaper]:not([data-own-wallpaper]) body { background-image: none !important; background-color: transparent !important; }
+/* A post with a wallpaper of its own keeps it, over its theme's. */
 
 /* The page wallpaper; its image and tiling are set inline from the grid. */
 .th-backdrop {
@@ -264,3 +265,7 @@ html[data-th-hide-wallpaper] body { background-image: none !important; backgroun
   border-color: var(--danger-fill);
   color: #fff;
 }
+
+/* The post's text sits straight on its card: the pale wash behind it turned
+   a dark card grey and dulled a textured one. */
+#appBody .editor-post-card .editor-contenteditable { background: transparent; }

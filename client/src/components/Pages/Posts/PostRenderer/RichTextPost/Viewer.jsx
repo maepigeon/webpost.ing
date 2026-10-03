@@ -230,7 +230,7 @@ function RichTextViewerBody({ id }) {
   }, [postLoaded, postPublished, me, postAuthor, navigate]);
 
   // The author's wallpaper, behind the whole page.
-  useBodyWallpaper(backgroundPattern);
+  useBodyWallpaper(backgroundPattern, { overTheme: true });
 
   // Intercept external link clicks in post content to show a warning dialog.
   useEffect(() => {

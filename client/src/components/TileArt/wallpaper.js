@@ -225,8 +225,12 @@ export function useWallpaperStyle(raw) {
 /**
  * Puts a wallpaper on <body> while the calling page is mounted — a profile, a
  * post, a discussion — and takes it off again after.
+ *
+ * `overTheme`: this wallpaper was chosen for this very page (a post's own),
+ * so it shows even when the page's theme brings a wallpaper; a profile's
+ * wallpaper, by contrast, gives way to the theme unless the theme asks for it.
  */
-export function useBodyWallpaper(raw) {
+export function useBodyWallpaper(raw, { overTheme = false } = {}) {
   const style = useWallpaperStyle(raw);
   useEffect(() => {
     const b = document.body.style;
@@ -235,9 +239,12 @@ export function useBodyWallpaper(raw) {
     b.backgroundSize = style.backgroundSize || '';
     b.backgroundRepeat = style.backgroundRepeat || '';
     b.backgroundPosition = style.backgroundPosition || '';
+    const own = overTheme && Boolean(style.backgroundImage || style.backgroundColor);
+    document.documentElement.toggleAttribute('data-own-wallpaper', own);
     return () => {
       b.backgroundColor = ''; b.backgroundImage = ''; b.backgroundSize = '';
       b.backgroundRepeat = ''; b.backgroundPosition = '';
+      document.documentElement.removeAttribute('data-own-wallpaper');
     };
-  }, [style]);
+  }, [style, overTheme]);
 }

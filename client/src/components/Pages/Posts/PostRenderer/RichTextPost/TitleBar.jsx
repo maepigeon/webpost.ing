@@ -57,10 +57,10 @@ function TitleBar(props) {
 
     const dateline = postDateline(postdata.date);
 
-    // In the editor the title and author are in the app's own font, like the
-    // controls around them; on the post's page they take its theme's fonts.
+    // The title and author are in the post's theme while writing too, so the
+    // editor shows the post as it will be read.
     return (
-        <div className={`post basicTextPost${editMode ? ' title-bar--editing' : ' th-scope'}`}>
+        <div className={`post basicTextPost th-scope${editMode ? ' title-bar--editing' : ''}`}>
             <div className="datestring">
                 {dateline.text && <p><time dateTime={dateline.iso} title={dateline.full}>{dateline.text}</time></p>}
              </div>

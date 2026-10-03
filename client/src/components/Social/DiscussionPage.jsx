@@ -76,7 +76,7 @@ function DiscussionPageBody({ id }) {
 
 
   // The author's wallpaper, behind the whole page.
-  useBodyWallpaper(backgroundPattern);
+  useBodyWallpaper(backgroundPattern, { overTheme: true });
 
   const submitComment = async () => {
     if (!newComment.trim() || submitting) return;

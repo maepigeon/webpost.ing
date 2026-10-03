@@ -130,5 +130,13 @@ body {
     font-size: 0.85rem;
 }
 
-/* The editor's title and author: the app's font, not the theme's. */
-.title-bar--editing, .title-bar--editing :is(h1, h2, p, input, .title-input) { font-family: var(--app-font) !important; }
+/* The title being typed looks like the heading it becomes: the theme's
+   heading font, colour, case and size. */
+.title-bar--editing .title-input {
+    font-family: var(--th-font-heading);
+    color: var(--th-heading-ink, #111);
+    text-transform: var(--th-heading-case, none);
+    font-size: calc(2rem * var(--th-heading-scale, 1));
+    font-weight: 700;
+}
+.title-bar--editing .title-input::placeholder { color: color-mix(in srgb, var(--th-heading-ink, #111) 35%, transparent); }

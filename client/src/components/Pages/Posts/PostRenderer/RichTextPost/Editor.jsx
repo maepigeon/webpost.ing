@@ -42,7 +42,8 @@ import { MathNode, $createMathNode } from './MathNode.jsx';
 import { TileGridNode, $createTileGridNode } from './TileGrid/TileGridNode.jsx';
 import axios from 'axios';
 import { BASE_URL } from '../../../../../config.js';
-import { useBodyWallpaper, serialiseWallpaper } from '../../../../TileArt/wallpaper.js';
+import { useBodyWallpaper, serialiseWallpaper } from '../../../../TileArt/wallpaper.js'
+import { usePostTheme, useAuthorTheme } from '../../../../PageTheme/PageTheme.jsx';;
 import WallpaperEditor from '../../../../TileArt/WallpaperEditor.jsx';
 import { normaliseUploadResponse, describeUploadError } from '../../../../../utils/responsiveImage.js';
 import ImageCropDialog from '../../../../ImageCrop/ImageCropDialog.jsx';
@@ -1876,8 +1877,13 @@ export default function RichTextEditor() {
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
   }, [isDirty]);
 
-  // The author's wallpaper, behind the whole page.
-  useBodyWallpaper(backgroundPattern);
+  // The post is written in its own look: a saved post's theme, or for a new
+  // one the author's profile theme, which is what it will start with.
+  usePostTheme(Number(id) > 0 ? id : null);
+  useAuthorTheme(Number(id) > 0 ? null : me);
+
+  // The post's wallpaper, behind the whole page.
+  useBodyWallpaper(backgroundPattern, { overTheme: true });
 
   return (
     <div style={{ minHeight: '100vh' }}>
