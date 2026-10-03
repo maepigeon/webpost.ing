@@ -15,14 +15,14 @@ on runInTerminal(command)
 	end tell
 end runInTerminal
 
-on isRunning()
+on siteIsUp()
 	try
 		do shell script "curl -fs -o /dev/null --max-time 2 " & localSite
 		return true
 	on error
 		return false
 	end try
-end isRunning
+end siteIsUp
 
 on currentBuild()
 	try
@@ -33,16 +33,16 @@ on currentBuild()
 end currentBuild
 
 repeat
-	set running to isRunning()
-	if running then
+	set siteUp to siteIsUp()
+	if siteUp then
 		set viewChoice to "Open the local site"
-		set status to "Running at " & localSite
+		set siteStatus to "Running at " & localSite
 	else
 		set viewChoice to "Build and view locally"
-		set status to "Not running"
+		set siteStatus to "Not running"
 	end if
 	set choices to {viewChoice, "Rebuild and restart locally", "Stop the local site", "Deploy to webpost.ing…"}
-	set picked to choose from list choices with title "Webposting" with prompt "Current build: " & currentBuild() & return & "Local site: " & status OK button name "Go" cancel button name "Quit"
+	set picked to choose from list choices with title "Webposting" with prompt "Current build: " & currentBuild() & return & "Local site: " & siteStatus OK button name "Go" cancel button name "Quit"
 	if picked is false then exit repeat
 	set choice to item 1 of picked
 	

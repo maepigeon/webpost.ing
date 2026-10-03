@@ -24,7 +24,10 @@
 /* ── Page ──────────────────────────────────────────────────────────────────── */
 
 html { background-color: #eeede9; }
-html[data-th-hide-wallpaper] body { background-image: none !important; }
+/* A theme with its own wallpaper hides the profile's: its image and its
+   colour too. The colour alone, left on <body>, is painted over the theme's
+   backdrop (which sits behind the page at z-index -1) and blanks it. */
+html[data-th-hide-wallpaper] body { background-image: none !important; background-color: transparent !important; }
 
 /* The page wallpaper; its image and tiling are set inline from the grid. */
 .th-backdrop {
