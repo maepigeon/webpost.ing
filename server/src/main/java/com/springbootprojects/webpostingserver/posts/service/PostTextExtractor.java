@@ -148,6 +148,15 @@ public final class PostTextExtractor {
             }
             case "math" -> st.add("code", n.path("equation").asText(""), null);
             case "tilegrid" -> grid(n.path("grid"), st);
+            case "button" -> {
+                // Crawlers see a link's label and where it goes; audio buttons are just the label.
+                String label = n.path("label").asText("").trim();
+                String act = n.path("action").asText("");
+                String target = n.path("target").asText("");
+                boolean goes = (act.equals("link") || act.equals("post")) && !target.isEmpty();
+                st.add("p", goes ? (label.isEmpty() ? target : label + " (" + target + ")") : label, null);
+                if (goes && st.links.size() < 200) st.links.add(new String[]{ label, target });
+            }
             case "audio", "linebreak" -> { }
             default -> blocks(n.path("children"), st, depth + 1);
         }

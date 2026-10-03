@@ -88,4 +88,14 @@ class PostTextExtractorTest {
         assertThat(ex.length()).isLessThanOrEqualTo(161);
         assertThat(ex).endsWith("word…");
     }
+
+    @Test
+    void aLinkButtonShowsItsLabelAndTarget() {
+        Extracted e = PostTextExtractor.extract(doc(
+                "{\"type\":\"button\",\"label\":\"Read more\",\"action\":\"post\",\"target\":\"/mae/hello\"},"
+                + "{\"type\":\"button\",\"label\":\"Song\",\"action\":\"audio\",\"target\":\"/uploads/a.mp3\"}"));
+        assertThat(e.plain()).isEqualTo("Read more (/mae/hello)\nSong");
+        assertThat(e.links()).hasSize(1);
+        assertThat(e.links().get(0)[1]).isEqualTo("/mae/hello");
+    }
 }

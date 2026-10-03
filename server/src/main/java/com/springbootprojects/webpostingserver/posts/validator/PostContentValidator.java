@@ -54,6 +54,8 @@ public final class PostContentValidator {
     private static final String BAD_IMAGE = "Images must be uploaded to this site.";
     private static final String BAD_AUDIO = "Audio must be uploaded to this site.";
     private static final String BAD_LINK = "Links must start with http://, https://, mailto: or /.";
+    private static final String BAD_BUTTON_LINK = "A button's link must start with http://, https:// or /.";
+    private static final String BAD_BUTTON_POST = "A button that opens a post needs a path on this site, like /name/post.";
     private static final String BAD_CONTENT = "This post could not be saved because its content is not valid.";
 
     private static final Pattern UPLOAD = Pattern.compile("^/uploads/[A-Za-z0-9._/-]{1,200}$");
@@ -102,6 +104,10 @@ public final class PostContentValidator {
                 JsonNode url = n.get("url");
                 if (url != null && !url.isNull() && (!url.isTextual() || !safeLink(url.asText())))
                     throw new InvalidPostContentException(BAD_LINK);
+            }
+            case "button" -> {
+                cleanButtonNode(n);
+                return; // rebuilt from known fields; nothing else to walk
             }
             case "math" -> {
                 JsonNode eq = n.get("equation");
@@ -183,6 +189,46 @@ public final class PostContentValidator {
         if (url.startsWith("/")) return url.length() == 1 || (url.charAt(1) != '/' && url.charAt(1) != '\\');
         String lower = url.toLowerCase();
         return lower.startsWith("http://") || lower.startsWith("https://") || lower.startsWith("mailto:");
+    }
+
+    // ── Buttons ──────────────────────────────────────────────────────────────
+
+    static final int MAX_BUTTON_LABEL = 60;
+    private static final Set<String> BUTTON_STYLES = Set.of("solid", "outline", "pixel");
+    private static final Set<String> BUTTON_ALIGNS = Set.of("left", "center", "right");
+
+    /** A site path: starts with one slash, not "//" or "/\\" (those leave the site). */
+    private static boolean sitePath(String s) {
+        return s.startsWith("/") && safeLink(s) && s.length() > 1;
+    }
+
+    /** Rebuilds a button from known fields: bad targets are refused, bad style or alignment fall back. */
+    private static void cleanButtonNode(ObjectNode n) throws InvalidPostContentException {
+        String label = n.path("label").isTextual() ? n.get("label").asText().replaceAll("\\p{Cntrl}", "").trim() : "";
+        if (label.length() > MAX_BUTTON_LABEL) throw new InvalidPostContentException("A button's label can be at most " + MAX_BUTTON_LABEL + " characters.");
+        String action = n.path("action").isTextual() ? n.get("action").asText() : "";
+        String target = n.path("target").isTextual() ? n.get("target").asText() : "";
+        switch (action) {
+            case "link" -> {
+                String lower = target.toLowerCase();
+                boolean web = (lower.startsWith("http://") || lower.startsWith("https://")) && safeLink(target);
+                if (!web && !sitePath(target)) throw new InvalidPostContentException(BAD_BUTTON_LINK);
+            }
+            case "post" -> { if (!sitePath(target)) throw new InvalidPostContentException(BAD_BUTTON_POST); }
+            case "audio" -> { if (!uploadPath(target)) throw new InvalidPostContentException(BAD_AUDIO); }
+            default -> throw new InvalidPostContentException("A button must open a web page, open a post, or play audio.");
+        }
+        String style = n.path("style").asText("");
+        String align = n.path("align").asText("");
+        int version = n.path("version").isInt() ? n.get("version").asInt() : 1;
+        n.removeAll();
+        n.put("type", "button");
+        n.put("version", version);
+        n.put("label", label);
+        n.put("action", action);
+        n.put("target", target);
+        n.put("style", BUTTON_STYLES.contains(style) ? style : "solid");
+        n.put("align", BUTTON_ALIGNS.contains(align) ? align : "left");
     }
 
     // ── Tile grid ────────────────────────────────────────────────────────────

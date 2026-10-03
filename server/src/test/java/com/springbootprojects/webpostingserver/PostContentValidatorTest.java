@@ -248,4 +248,46 @@ class PostContentValidatorTest {
     void aGridWithoutAGridObjectIsRefused() {
         rejects(doc("{\"type\":\"tilegrid\",\"version\":1}"), "tile grid");
     }
+
+    private static String button(String label, String action, String target, String style, String align) {
+        return "{\"type\":\"button\",\"version\":1,\"label\":\"" + label + "\",\"action\":\"" + action
+                + "\",\"target\":\"" + target + "\",\"style\":\"" + style + "\",\"align\":\"" + align + "\",\"extra\":\"x\"}";
+    }
+
+    @Test
+    void buttonsKeepValidTargetsAndDropExtraFields() throws Exception {
+        for (String[] ok : new String[][]{
+                {"link", "https://example.com/a"}, {"link", "/mae"}, {"post", "/mae/hello"}, {"audio", "/uploads/audio/a.mp3"}}) {
+            JsonNode b = M.readTree(clean(doc(button("Go", ok[0], ok[1], "outline", "center")))).path("root").path("children").get(0);
+            assertThat(b.path("target").asText()).isEqualTo(ok[1]);
+            assertThat(b.path("style").asText()).isEqualTo("outline");
+            assertThat(b.path("align").asText()).isEqualTo("center");
+            assertThat(b.has("extra")).isFalse();
+        }
+    }
+
+    @Test
+    void buttonStyleAndAlignFallBack() throws Exception {
+        JsonNode b = M.readTree(clean(doc(button("Go", "link", "/mae", "red", "middle")))).path("root").path("children").get(0);
+        assertThat(b.path("style").asText()).isEqualTo("solid");
+        assertThat(b.path("align").asText()).isEqualTo("left");
+    }
+
+    @Test
+    void buttonTargetsMustBeAllowed() {
+        rejects(doc(button("Go", "link", "javascript:alert(1)", "solid", "left")), "http");
+        rejects(doc(button("Go", "link", "mailto:a@b.c", "solid", "left")), "http");
+        rejects(doc(button("Go", "link", "//evil.example", "solid", "left")), "http");
+        rejects(doc(button("Go", "post", "https://example.com/x", "solid", "left")), "path");
+        rejects(doc(button("Go", "audio", "https://example.com/a.mp3", "solid", "left")), "uploaded");
+        rejects(doc(button("Go", "audio", "/uploads/../etc/passwd", "solid", "left")), "uploaded");
+        rejects(doc(button("Go", "dance", "/mae", "solid", "left")), "button");
+    }
+
+    @Test
+    void buttonLabelIsCappedAndCleaned() throws Exception {
+        rejects(doc(button("a".repeat(61), "link", "/mae", "solid", "left")), "60");
+        JsonNode b = M.readTree(clean(doc(button("Go\\u0007now", "link", "/mae", "solid", "left")))).path("root").path("children").get(0);
+        assertThat(b.path("label").asText()).isEqualTo("Gonow");
+    }
 }

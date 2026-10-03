@@ -38,6 +38,7 @@ import ThemeEditor from '../../../../PageTheme/ThemeEditor.jsx';
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { ImageNode, $createImageNode } from './ImageNode.jsx';
 import { AudioNode, $createAudioNode } from './AudioNode.jsx';
+import { ButtonNode, $createButtonNode } from './ButtonNode.jsx';
 import { MathNode, $createMathNode } from './MathNode.jsx';
 import { TileGridNode, $createTileGridNode } from './TileGrid/TileGridNode.jsx';
 import axios from 'axios';
@@ -54,7 +55,7 @@ import ColourPicker from '../../../../TileArt/ColourPicker.jsx';
 import { useAutosave } from '../../../../../utils/useAutosave.js';
 import { StickerCenter } from '../../../../TileArt/StickerCenter.jsx';
 
-const EDITOR_NODES = [HeadingNode, ListNode, ListItemNode, CustomCodeNode, CodeHighlightNode, ImageNode, AudioNode, MathNode, TileGridNode, LinkNode];
+const EDITOR_NODES = [HeadingNode, ListNode, ListItemNode, CustomCodeNode, CodeHighlightNode, ImageNode, AudioNode, ButtonNode, MathNode, TileGridNode, LinkNode];
 
 const FONT_SIZES   = ['12px', '14px', '16px', '18px', '24px', '32px', '48px'];
 const LINE_HEIGHTS = ['1', '1.25', '1.5', '1.75', '2', '2.5'];
@@ -859,6 +860,15 @@ function AudioToolbarPlugin() {
   );
 }
 
+// A custom button block (link, post or audio); its form opens in the block itself.
+function ButtonToolbarPlugin() {
+  const [editor] = useLexicalComposerContext();
+  return (
+    <GridButton symbol="button" label="Button" title="Add a button: a link, a post, or play audio"
+      onClick={() => insertBlock(editor, () => $createButtonNode())} />
+  );
+}
+
 function ImageToolbarPlugin() {
   const [editor] = useLexicalComposerContext();
   const [infoOpen, setInfoOpen] = useState(false);
@@ -1605,7 +1615,7 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
       const hasContent = editor.getEditorState().read(() => {
         const root = $getRoot();
         return root.getTextContent().trim().length > 0
-          || root.getChildren().some(n => ['image', 'audio', 'tilegrid', 'math'].includes(n.getType()));
+          || root.getChildren().some(n => ['image', 'audio', 'button', 'tilegrid', 'math'].includes(n.getType()));
       });
       if (!hasContent) { showStatus('Add some content before uploading.', true); return; }
     }
@@ -1902,6 +1912,7 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
           <ListToolbarPlugin />
           <ImageToolbarPlugin />
           <AudioToolbarPlugin />
+          <ButtonToolbarPlugin />
           <CodeToolbarPlugin />
           <MathToolbarPlugin />
           <TileGridToolbarPlugin />
