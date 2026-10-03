@@ -38,7 +38,8 @@ public final class ThemeValidator {
     public static final Set<String> FONTS = Set.of(
             "news-serif", "headline", "blackletter", "fell", "typewriter", "handwriting",
             "marker", "notebook", "terminal", "mono", "cookie", "cooljazz", "sans", "comic", "papyrus",
-            "times", "outfit", "nunito", "plexmono", "orbitron", "caveat", "bebas");
+            "times", "outfit", "nunito", "plexmono", "orbitron", "caveat", "bebas",
+            "josefin", "pirata", "sacramento", "pixelify", "rubikdirt");
     public static final Set<String> BORDERS = Set.of("none", "rule", "double", "dashed", "glow", "rainbow");
     public static final Set<String> SHADOWS = Set.of("none", "soft", "lifted", "curl", "glow");
     public static final Set<String> CASES = Set.of("none", "upper");

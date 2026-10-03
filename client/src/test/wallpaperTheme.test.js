@@ -43,7 +43,7 @@ describe('themes', () => {
   });
 
   it('accepts the newer font ids and the restyled presets use them', () => {
-    for (const f of ['times', 'outfit', 'nunito', 'plexmono', 'orbitron', 'caveat', 'bebas']) {
+    for (const f of ['times', 'outfit', 'nunito', 'plexmono', 'orbitron', 'caveat', 'bebas', 'josefin', 'pirata', 'sacramento', 'pixelify', 'rubikdirt']) {
       expect(sanitiseTheme({ type: { heading: f, body: f } }).type).toMatchObject({ heading: f, body: f });
     }
     expect(sanitiseTheme(getPresets().neon.theme).type).toMatchObject({ heading: 'orbitron', body: 'plexmono' });

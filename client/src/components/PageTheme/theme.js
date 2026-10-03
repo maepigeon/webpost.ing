@@ -47,6 +47,12 @@ export const FONTS = {
   orbitron:      { label: 'Orbitron',         css: '"Orbitron", "Eurostile", "Arial Black", sans-serif' },
   caveat:        { label: 'Caveat',           css: '"Caveat", "Patrick Hand", "Comic Sans MS", cursive' },
   bebas:         { label: 'Bebas Neue',       css: '"Bebas Neue", Impact, "Arial Narrow", sans-serif' },
+  // Free look-alikes for fonts that could not be hosted (see guide/fonts-dafont-licences.md).
+  josefin:       { label: 'Josefin Sans',     css: '"Josefin Sans", "Century Gothic", sans-serif' },
+  pirata:        { label: 'Pirata One',       css: '"Pirata One", "UnifrakturMaguntia", serif' },
+  sacramento:    { label: 'Sacramento',       css: '"Sacramento", "Great Vibes", cursive' },
+  pixelify:      { label: 'Pixelify Sans',    css: '"Pixelify Sans", "VT323", monospace' },
+  rubikdirt:     { label: 'Rubik Dirt',       css: '"Rubik Dirt", "Permanent Marker", sans-serif' },
   sans:          { label: 'Clean sans',       css: 'system-ui, -apple-system, "Segoe UI", sans-serif' },
 };
 

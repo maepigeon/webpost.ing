@@ -397,7 +397,7 @@ describe('pixel font variants', () => {
 
 describe('typefaces', () => {
   it('serif, script, cute and comic are fonts the format keeps, each with a family', () => {
-    for (const id of ['serif', 'script', 'cute', 'jazz', 'comic', 'papyrus']) {
+    for (const id of ['serif', 'script', 'cute', 'jazz', 'comic', 'papyrus', 'pixelify']) {
       expect(FONT_NAMES[id]).toBeTruthy();
       expect(TYPEFACES[id].family).toContain(',');
       const d = normaliseGrid({ layers: [{ id: 'a', kind: 'pixel', style: { '0,0': { font: id } } }] });

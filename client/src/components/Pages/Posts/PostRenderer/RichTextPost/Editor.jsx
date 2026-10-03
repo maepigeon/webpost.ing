@@ -69,6 +69,11 @@ const FONT_FAMILIES = [
   { label: 'Orbitron', value: '"Orbitron", "Eurostile", "Arial Black", sans-serif' },
   { label: 'Caveat', value: '"Caveat", "Patrick Hand", "Comic Sans MS", cursive' },
   { label: 'Bebas Neue', value: '"Bebas Neue", Impact, "Arial Narrow", sans-serif' },
+  { label: 'Josefin Sans', value: '"Josefin Sans", "Century Gothic", sans-serif' },
+  { label: 'Pirata One', value: '"Pirata One", "UnifrakturMaguntia", serif' },
+  { label: 'Sacramento', value: '"Sacramento", "Great Vibes", cursive' },
+  { label: 'Pixelify Sans', value: '"Pixelify Sans", "VT323", monospace' },
+  { label: 'Rubik Dirt', value: '"Rubik Dirt", "Permanent Marker", sans-serif' },
   { label: 'Elegant', value: '"Playfair Display", "Garamond", serif' },
   // Choco Cooky ships with the site; Comic Sans and Papyrus show where the
   // reader's device has them, otherwise the nearest free font.
