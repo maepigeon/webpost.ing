@@ -36,9 +36,9 @@ have well made timeline features and well placed UI considerations."
   https://github.com/maepigeon/Drawing-app. Read it first and reuse its
   architecture where it fits.
 - **Link between the sites**: a direct "upload/post to webpost.ing" (and
-  into webpaint.ing) button for finished work. She wrote "direct upload to
-  webpaint.ing button" for webpaint.ing content; confirm which direction(s)
-  she means before building.
+  into webpaint.ing) button for finished work. **Both directions, confirmed
+  by Mae on 2026-10-03**: finished work can be posted to webpost.ing, and
+  saved or published into webpaint.ing itself.
 - Must have: a well-made timeline, careful UI/UX, 3D model reference, export
   to standard video formats, scripting and shaders in the animation editor.
 
