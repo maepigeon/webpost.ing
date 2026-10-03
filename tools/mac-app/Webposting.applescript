@@ -53,7 +53,7 @@ repeat
 	else if choice is "Stop the local site" then
 		do shell script "cd " & quoted form of repoPath & " && ./tools/run-local.sh stop"
 	else if choice is "Deploy to webpost.ing…" then
-		set answer to button returned of (display dialog "Deploy this build to the live site?" & return & return & currentBuild() & return & return & "This pushes main to GitHub, then tests, builds, uploads and installs it on the server. Terminal will ask for your SSH and sudo passwords." buttons {"Cancel", "Deploy"} default button "Cancel" cancel button "Cancel" with title "Webposting" with icon caution)
+		set answer to button returned of (display dialog "Deploy this build to the live site?" & return & return & currentBuild() & return & return & "This pushes main to GitHub, then logs in to the server and updates it. A Terminal window opens and asks for your server password. The first time, it also asks where the server is." buttons {"Cancel", "Deploy"} default button "Cancel" cancel button "Cancel" with title "Webposting" with icon caution)
 		if answer is "Deploy" then runInTerminal("./tools/deploy.sh")
 	end if
 end repeat
