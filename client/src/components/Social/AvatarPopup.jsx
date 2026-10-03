@@ -48,7 +48,7 @@ export default function AvatarPopup({ src, username, profileUrl, onClose }) {
 
         <div className="avatar-popup-actions">
           <button className="avatar-popup-copy-btn" onClick={handleCopy}>
-            {copied ? '✓ Copied!' : '🔗 Copy profile link'}
+            {copied ? '✓ Copied!' : 'Copy profile link'}
           </button>
         </div>
 

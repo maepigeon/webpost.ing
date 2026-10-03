@@ -30,7 +30,7 @@ function FolderSection({ name, posts, collapsed, onToggle, children }) {
       <div className="profile-folder-header">
         <div className="profile-folder-header-inner">
           <div className="profile-folder-title-row">
-            <span className="profile-folder-icon">📁</span>
+            <span className="profile-folder-icon"><Icon name="folder" size={15} /></span>
             <span className="profile-folder-name">{name}</span>
             <span className="profile-folder-badge">{posts.length}</span>
           </div>
@@ -103,7 +103,7 @@ function ProfilePost({ post, canEdit, username, onRefresh, folderNames, onMoveTo
               title={post.folder ? `In folder: ${post.folder}` : 'Add to folder'}
               onClick={() => setShowFolderMenu(v => !v)}
             >
-              {post.folder ? `📁 ${post.folder}` : '📁'}
+              <Icon name="folder" size={13} />{post.folder ? ` ${post.folder}` : ''}
             </button>
             {showFolderMenu && (
               <div className="profile-post-folder-menu">
@@ -114,7 +114,7 @@ function ProfilePost({ post, canEdit, username, onRefresh, folderNames, onMoveTo
                       <button key={name} type="button"
                         className={`profile-post-folder-menu-item${post.folder === name ? ' active' : ''}`}
                         onClick={() => { onMoveToFolder(post.id, name); setShowFolderMenu(false); }}>
-                        📁 {name}
+                        <Icon name="folder" size={13} /> {name}
                       </button>
                     ))}
                     <div className="profile-post-folder-menu-divider" />

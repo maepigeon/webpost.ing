@@ -1111,7 +1111,7 @@ function LinkToolbarPlugin() {
               <button onClick={removeLink} title="Remove link">Remove</button>
             </>
           ) : (
-            <button onClick={addLink} title="Add link">🔗 Link</button>
+            <button onClick={addLink} title="Add link">Link</button>
           )}
         </div>
       )}

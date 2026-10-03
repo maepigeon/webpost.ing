@@ -144,7 +144,7 @@ function ImageComponent({ src, altText, nodeKey, alignment = 'center', width = n
               className={alignment === 'left' ? 'active' : ''}
               onMouseDown={(e) => { e.preventDefault(); updateNode({ __alignment: 'left' }); }}
               title="Align left"
-            >⬅</button>
+            >←</button>
             <button
               type="button"
               className={alignment === 'center' ? 'active' : ''}
@@ -156,7 +156,7 @@ function ImageComponent({ src, altText, nodeKey, alignment = 'center', width = n
               className={alignment === 'right' ? 'active' : ''}
               onMouseDown={(e) => { e.preventDefault(); updateNode({ __alignment: 'right' }); }}
               title="Align right"
-            >➡</button>
+            >→</button>
             <button
               type="button"
               className={alignment === 'full' ? 'active' : ''}

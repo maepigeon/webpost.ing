@@ -548,7 +548,7 @@ export default function MessagesPage() {
                 <button className="messages-members-btn"
                   onClick={() => setShowMembersPanel(s => !s)}
                   title="Members">
-                  👥 {groupMembersInfo.length}
+                  {groupMembersInfo.length} {groupMembersInfo.length === 1 ? 'member' : 'members'}
                 </button>
               )}
             </div>
@@ -642,7 +642,7 @@ export default function MessagesPage() {
                             setPickerBelow(!!(wrap && body) && wrap.getBoundingClientRect().top - body.getBoundingClientRect().top < 56);
                             setShowEmojiPicker(p => p === m.id ? null : m.id);
                           }}>
-                          😊
+                          +
                         </button>
                       </div>
                     )}

@@ -219,7 +219,7 @@ export default function ThemeEditor({ username, postId = null }) {
             <Field label="Body"><Select value={t.type.body} options={FONTS} onChange={set('type', 'body')} /></Field>
             <Field label="Text"><Colour value={t.type.ink} onChange={set('type', 'ink')} /></Field>
             <Field label="Headings colour"><Colour value={t.type.headingInk} onChange={set('type', 'headingInk')} /></Field>
-            <Field label="Accent"><Colour value={t.type.accent} onChange={set('type', 'accent')} /></Field>
+            <Field label="Links and accent"><Colour value={t.type.accent} onChange={set('type', 'accent')} /></Field>
             <Field label="Heading case"><Select value={t.type.headingCase} options={CASES} onChange={set('type', 'headingCase')} /></Field>
             <Field label="Heading size">
               <Steps label="Heading size" value={t.type.headingScale} options={[0.8, 0.9, 1, 1.15, 1.35, 1.6]} onChange={set('type', 'headingScale')} format={pct} />

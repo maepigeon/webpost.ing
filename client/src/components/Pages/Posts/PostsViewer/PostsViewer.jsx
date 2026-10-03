@@ -278,7 +278,7 @@ function PostsViewer() {
       <div className="PostContainer profile-pinned">
         {/* A label above the card, not laid over it: on the card it covered
             the date and the title. */}
-        <div className="profile-pinned-label">📌 Pinned</div>
+        <div className="profile-pinned-label">Pinned</div>
         <BasicTextPost postdata={pinnedPost} updatePostsFlagCallback={() => loadPosts(true)}
           uploaded={true} hasModifyPermissions={canEdit} ownerUsername={username}/>
       </div>

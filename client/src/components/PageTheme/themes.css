@@ -206,8 +206,9 @@ html[data-th-hide-wallpaper] body { background-image: none !important; }
 
 /* Delete looks different from Edit beside it. */
 #appBody .basicTextPost .bottom-nav button.post-delete-btn {
-  color: var(--danger);
-  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+  /* Red leaning toward the ink, so it reads on a dark card as well as a light one. */
+  color: color-mix(in srgb, var(--danger-fill) 65%, var(--th-ink));
+  border-color: color-mix(in srgb, var(--danger-fill) 55%, transparent);
 }
 
 /* On the profile header the owner's pills, the storage line and the status
@@ -224,3 +225,15 @@ html[data-th-hide-wallpaper] body { background-image: none !important; }
   box-shadow: none;
 }
 #appBody .profile-header-card a.edit-bio-btn { margin: 0 auto 4px; }
+
+/* A folder on a profile is a themed card, so everything in it takes the
+   theme's Text colour and stays readable whatever the card's colour. */
+#appBody .profile-folder-section :is(.profile-folder-name, .profile-folder-icon, .profile-folder-preview-more) { color: var(--th-ink); }
+#appBody .profile-folder-header { background: color-mix(in srgb, var(--th-ink) 5%, transparent); }
+#appBody .profile-folder-header::before { background: color-mix(in srgb, var(--th-ink) 50%, transparent); }
+#appBody .profile-folder-section :is(.profile-folder-badge, .profile-folder-preview-chip, .profile-folder-toggle-btn) {
+  color: var(--th-ink);
+  background: color-mix(in srgb, var(--th-ink) 10%, transparent);
+  border-color: color-mix(in srgb, var(--th-ink) 22%, transparent);
+  box-shadow: none;
+}
