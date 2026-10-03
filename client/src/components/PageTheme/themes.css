@@ -101,7 +101,7 @@ html[data-th-hide-wallpaper] body { background-image: none !important; }
 #appBody :is(
   .profile-header-card, .basicTextPost, .editor-post-card, .profile-folder-section,
   .search-card, .search-user-card, .settings-card, .login-card, .logout-card,
-  .activity-card, .app-error-card
+  .activity-card, .app-error-card, .inbox-page, .messages-page
 ),
 .theme-preview .theme-card {
   position: relative;

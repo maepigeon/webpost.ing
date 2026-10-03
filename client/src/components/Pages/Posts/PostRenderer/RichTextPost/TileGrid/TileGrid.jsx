@@ -1290,6 +1290,8 @@ export default function TileGrid({
 
       {editing && (
         <div className="tg-panel" onMouseDown={keepTypingFocus}>
+          {/* Says whose tools these are: a post's own tools sit just above. */}
+          <div className="tg-panel-title"><PixelText text="Grid tools" px={1.5} /></div>
           <div className="tg-main">
             <div className="tg-group" role="group" aria-label="Draw">
               <span className="tg-group-label"><PixelText text="Draw" px={1.25} /></span>
@@ -1297,11 +1299,11 @@ export default function TileGrid({
               <Tile icon="wand" label="Magic wand (⌥W): select joined tiles that match" on={tool === 'wand'} onClick={() => setTool('wand')} />
               <Tile icon="move" label="Move (⌥M)" on={tool === 'move'} onClick={() => setTool('move')} />
               <Tile icon="pixel" label="Paint pixels (⌥P)" on={tool === 'pixel'} onClick={() => setTool('pixel')} />
-              <GridButton symbol="pixelPerfect" label="Pixel perfect" on={pixelPerfect} onClick={() => setPixelPerfect(v => !v)}
-                title="Pixel perfect: keep freehand lines one pixel thick" />
               <Tile icon="tile" label="Paint tiles (⌥B)" on={tool === 'tile'} onClick={() => setTool('tile')} />
               <Tile icon="erase" label="Erase (⌥E)" on={tool === 'erase'} onClick={() => setTool('erase')} />
               <Tile icon="fill" label="Fill (⌥F)" on={tool === 'fill'} onClick={() => setTool('fill')} />
+              <Tile icon="texture" label="Fill with a texture" on={panel === 'texture'} disabled={!isPixel}
+                onClick={() => setPanel(p => (p === 'texture' ? null : 'texture'))} />
               <Tile icon="line" label="Line (⌥L)" on={tool === 'line'} onClick={() => setTool('line')} />
               <Tile icon="rect" label="Rectangle (⌥R): drag a box. Hold Shift to fill it." on={tool === 'rect'} onClick={() => setTool('rect')} />
               <Tile icon="ellipse" label="Ellipse (⌥O): drag a box. Hold Shift to fill it." on={tool === 'ellipse'} onClick={() => setTool('ellipse')} />
@@ -1310,8 +1312,10 @@ export default function TileGrid({
               <button type="button" className={`tg-tile tg-clear${clear ? ' is-on' : ''}`} aria-pressed={clear}
                 data-tip="Clear: painting and filling make tiles transparent" aria-label="Clear (transparent)"
                 onClick={() => setClear(v => !v)} />
-              <Tile icon="texture" label="Fill with a texture" on={panel === 'texture'} disabled={!isPixel}
-                onClick={() => setPanel(p => (p === 'texture' ? null : 'texture'))} />
+              {/* A switch, not a tool: named, and apart from the tools. */}
+              <span className="tg-gap" />
+              <GridButton symbol="pixelPerfect" showLabel text="1px" label="Pixel perfect" on={pixelPerfect} onClick={() => setPixelPerfect(v => !v)}
+                title="Pixel perfect: keep freehand lines one pixel thick" />
             </div>
 
             <div className="tg-group tg-group--type" role="group" aria-label="Text">
@@ -1334,7 +1338,7 @@ export default function TileGrid({
               <span className="tg-gap" />
               <Tile icon="star" label="Symbols: type ★ ♥ ✓ → and more, in the Symbols font" on={panel === 'symbols'}
                 onClick={() => setPanel(p => (p === 'symbols' ? null : 'symbols'))} />
-              <Tile icon="glyph" label="Custom characters" on={panel === 'glyphs'}
+              <Tile icon="glyph" label="Draw your own characters" on={panel === 'glyphs'}
                 onClick={() => setPanel(p => (p === 'glyphs' ? null : 'glyphs'))} />
               <Tile icon="skip" label={`Avoid overdraw (Insert): typing skips filled tiles. ${skipFilled ? 'On' : 'Off'}`} on={skipFilled} onClick={() => setSkipFilled(v => !v)} />
               <span className="tg-gap" />
@@ -1372,8 +1376,8 @@ export default function TileGrid({
 
             <div className="tg-group" role="group" aria-label="Edit">
               <span className="tg-group-label"><PixelText text="Edit" px={1.25} /></span>
-              <Tile icon="undo" label="Undo (⌘Z)" onClick={undo} disabled={!past.current.length} />
-              <Tile icon="redo" label="Redo (⇧⌘Z)" onClick={redo} disabled={!future.current.length} />
+              <Tile icon="undo" label="Undo in this grid (⌘Z)" onClick={undo} disabled={!past.current.length} />
+              <Tile icon="redo" label="Redo in this grid (⇧⌘Z)" onClick={redo} disabled={!future.current.length} />
               <span className="tg-gap" />
               <Tile icon="all" label="Select all (⌘A)" onClick={selectAll} />
               <Tile icon="none" label="Deselect (Esc)" onClick={() => setSelection(EMPTY)} disabled={!hasSel} />

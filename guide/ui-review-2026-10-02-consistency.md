@@ -102,6 +102,6 @@ I did not post, save, upload or delete anything; the editor was left unsaved. No
 
 ## Progress (2026-10-03)
 
-Done: 1, 2, 3 (one shared label, kept on screen, shown on press), 4 (text overlap), 6, 7, 13 (tips shortened), 18 (post cards), 21 (active tab), 22 (active nav pill), 24, 26, 33; 16 in part (Customize no longer takes the accent; the two outlined buttons take the profile's own accent by design).
-Left as is: 19 and 25 (white means "on" across every dark grid panel).
-Open: 5, 8, 9, 10, 11, 12, 14 (Upload vs Publish: Mae's call), 15, 17, 20, 23, 27, 28, 29, 30, 31, 32, 34, 35.
+Done: 1, 2, 3 (one shared label, kept on screen, shown on press), 4, 6, 7, 8 (named switches on the Page row), 9 (grid panel titled "Grid tools"; its undo says "in this grid"), 10 and 11 (Draw row reordered; pixel perfect is a named switch), 12 (Style row uses the grid dropdowns), 13, 14 (Publish / Save changes), 15 in part (Hide/Show; "+ Sticker"), 16, 17 (sticker buttons are pills like the rest of the owner row), 18, 20, 21, 22, 23 (Notifications and Messages on the page card), 24, 26, 27, 28 (styles/touch.css), 29 (Insert open on phones), 30, 31 (menu button named), 32, 33.
+Left as is: 19 and 25 (white means "on" across every dark grid panel); 5 (a sticker sits where its owner put it); 34 and 35 (by design); the two outlined buttons above the posts take the profile's own accent.
+Not reproduced: 36.

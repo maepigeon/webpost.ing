@@ -24,9 +24,10 @@ function MessagesBell({ className }) {
     }, 30000);
     return () => clearInterval(id);
   }, []);
+  const active = useLocation().pathname.startsWith('/messages');
   if (!authorize()) return null;
   return (
-    <Link to="/messages" className={`navButton navButton--purple${className ? ` ${className}` : ''}`}>
+    <Link to="/messages" className={`navButton navButton--purple${active ? ' navButton--active' : ''}${className ? ` ${className}` : ''}`}>
       Messages
       {/* Inline after the label, the same badge the Notifications button uses. */}
       {unread > 0 && <span className="notif-badge">{unread > 99 ? '99+' : unread}</span>}
@@ -114,7 +115,8 @@ function Navbar() {
             <button
               className="nav-hamburger-btn"
               onClick={() => setMenuOpen(o => !o)}
-              aria-label={`${hiddenItems.length} more`}
+              aria-label={`Menu: ${hiddenItems.length} more`}
+              title="Menu"
               aria-expanded={menuOpen}
             >
               <span className="nav-hamburger-icon"><span /><span /><span /></span>
@@ -123,7 +125,7 @@ function Navbar() {
             {menuOpen && (
               <div className="nav-mobile-popup" role="dialog" aria-modal="true">
                 <button className="nav-mobile-popup-close" onClick={() => setMenuOpen(false)} aria-label="Close menu"><Icon name="close" size={16} /></button>
-                {loggedIn && <div className="nav-mobile-popup-welcome">Welcome, {username}!</div>}
+                {loggedIn && <div className="nav-mobile-popup-welcome">Welcome, {username}</div>}
                 <div className="nav-mobile-popup-items">
                   {hiddenItems.map(item => (
                     <span className="nav-popup-item" key={`o-${item.key}`}>{item.node}</span>

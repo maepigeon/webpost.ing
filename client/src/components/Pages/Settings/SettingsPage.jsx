@@ -251,7 +251,7 @@ export default function SettingsPage() {
               maxLength={255}
             />
             <button type="submit" className="settings-btn settings-btn--primary"
-                    disabled={saving || !addressChanged}>
+                    disabled={saving || !addressChanged} title={addressChanged ? undefined : 'No changes yet'}>
               {saving ? 'Saving…' : 'Save'}
             </button>
           </form>

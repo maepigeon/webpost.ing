@@ -163,10 +163,11 @@ export default function ProfileStickies({ username, canEdit, editing, onEditingC
     <>
       {canEdit && barSlot && createPortal(
         <div className="stickies-bar">
-          <GridButton symbol="sticker" showLabel label="Add sticker" onClick={() => setChoosing(true)} />
+          {/* Pills like the owner's other controls above them. */}
+          <button type="button" className="edit-bio-btn" onClick={() => setChoosing(true)}>+ Sticker</button>
           {stickies.length > 0 && (
-            <GridButton symbol={editing ? 'check' : 'pencil'} showLabel label={editing ? 'Done arranging' : 'Arrange stickers'}
-              on={editing} onClick={() => onEditingChange?.(!editing)} />
+            <button type="button" className={`edit-bio-btn${editing ? ' profile-header-ink-btn--active' : ''}`} aria-pressed={editing}
+              onClick={() => onEditingChange?.(!editing)}>{editing ? 'Done arranging' : 'Arrange stickers'}</button>
           )}
           {editing && <span className="stickies-hint">Drag a sticker onto any post to stick it there.</span>}
           {error && <span className="profile-inline-error" role="alert">{error}</span>}

@@ -19,6 +19,8 @@
   box-shadow: none;
   cursor: pointer;
 }
+/* A dotted line under the counts says they can be pressed. */
+.profile-banner-hit { border-bottom: 1px dotted color-mix(in srgb, currentColor 55%, transparent); border-radius: 0; }
 .profile-banner-hit:hover { background: rgba(128, 128, 128, 0.16); filter: none; }
 .profile-banner-hit:active,
 .profile-banner-avatar:active { transform: none !important; }

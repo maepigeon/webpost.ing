@@ -171,7 +171,7 @@ export default function CustomizePage() {
           <div className="settings-wallpaper-panel">
             <WallpaperEditor value={wallpaperDraft} onChange={w => setWallpaperDraft(serialiseWallpaper(w))} />
             <button type="button" className="settings-btn settings-btn--primary"
-              disabled={wallpaperDraft === profileWallpaper} onClick={() => saveWallpaper(wallpaperDraft)}>
+              disabled={wallpaperDraft === profileWallpaper} title={wallpaperDraft === profileWallpaper ? 'No changes yet' : undefined} onClick={() => saveWallpaper(wallpaperDraft)}>
               Save wallpaper
             </button>
           </div>

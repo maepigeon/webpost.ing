@@ -1,0 +1,36 @@
+/* Touch screens: controls a finger can hit. A mouse keeps the compact sizes.
+   Each rule starts at html so it wins over the component's own size, whichever loads last.
+   Kept in one place so the sizes stay consistent across the app. */
+@media (pointer: coarse) {
+  /* Top bar and its menu button. */
+  html .navBar .navButton { min-height: 40px; }
+  html .nav-hamburger-btn { min-width: 44px; min-height: 40px; }
+
+  /* Grid tool tiles and word buttons, in every dark tool panel. */
+  html .tg-tile { width: 34px; height: 34px; }
+  html .tg-text-btn, html .grid-select-btn { min-height: 34px; }
+  html .grid-select-option { min-height: 36px; }
+  html .tg-swatch, html .tg-colours button { min-width: 30px; min-height: 30px; }
+  html .tg-layer-eye { min-width: 32px; min-height: 32px; }
+
+  /* Profile owner pills, post card buttons. */
+  html .edit-bio-btn { box-sizing: border-box; min-height: 36px; padding: 6px 14px; display: inline-flex; align-items: center; justify-content: center; line-height: 1.2; vertical-align: middle; }
+  html .basicTextPost .bottom-nav button { min-height: 38px; }
+  html .profile-owner-btn, html .profile-list-bar .new-grid-post button { height: 40px; }
+
+  /* Messages, activity, settings, customize. */
+  html .messages-new-btn { min-height: 38px; min-width: 38px; }
+  html .activity-tab { min-height: 40px; }
+  html .activity-item a { display: inline-block; padding: 8px 0; }
+  html .settings-link-btn { padding: 10px 6px; }
+  html .settings-info-btn { width: 32px; height: 32px; }
+  html .wp-editor .wp-chip { height: 36px; padding: 0 12px; }
+  html .theme-step { min-height: 36px; min-width: 36px; }
+  html .footer a, html footer a { display: inline-block; padding: 10px 6px; }
+}
+
+/* Keyboard focus: one clear ring on every kind of button. Dark panels get a
+   light ring, the rest the ink colour. */
+.gb:focus-visible, .tg-tile:focus-visible, .tg-text-btn:focus-visible { outline: 2px solid #5ea0ff; outline-offset: 2px; }
+.edit-bio-btn:focus-visible, .profile-owner-btn:focus-visible, .navButton:focus-visible,
+.activity-tab:focus-visible, .settings-info-btn:focus-visible { outline: 2px solid #1a73e8; outline-offset: 2px; }

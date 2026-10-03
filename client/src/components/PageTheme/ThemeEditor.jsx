@@ -255,11 +255,11 @@ export default function ThemeEditor({ username, postId = null }) {
       </div>
 
       <div className="theme-actions">
-        <button type="button" className="settings-btn settings-btn--primary" disabled={busy || !dirty}
+        <button type="button" className="settings-btn settings-btn--primary" disabled={busy || !dirty} title={dirty ? undefined : 'No changes yet'}
           onClick={() => persist(draft)}>
           {busy ? 'Saving…' : 'Save theme'}
         </button>
-        <button type="button" className="settings-btn" disabled={busy || !dirty}
+        <button type="button" className="settings-btn" disabled={busy || !dirty} title={dirty ? undefined : 'No changes yet'}
           onClick={() => setDraft(saved || defaultTheme())}>
           Undo changes
         </button>

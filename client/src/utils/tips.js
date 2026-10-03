@@ -42,15 +42,17 @@ const tipped = (node) => (node instanceof Element ? node.closest('[data-tip]') :
 
 export function installTips() {
   if (typeof document === 'undefined') return;
-  let touching = false;
+  // A touch also fires mouse events a moment later; the press already showed
+  // the label, so those are ignored.
+  let touchedAt = 0;
+  const afterTouch = () => Date.now() - touchedAt < 800;
   document.addEventListener('touchstart', e => {
-    touching = true;
+    touchedAt = Date.now();
     const el = tipped(e.target);
     if (el) show(el, 1600); else hide();
   }, { passive: true });
   document.addEventListener('mouseover', e => {
-    // A touch also fires mouse events; the press already showed the label.
-    if (touching) { touching = false; return; }
+    if (afterTouch()) return;
     const el = tipped(e.target);
     if (el !== shownFor) { if (el) show(el); else hide(); }
   });
@@ -58,8 +60,8 @@ export function installTips() {
     const el = tipped(e.target);
     if (el && el.matches(':focus-visible')) show(el);
   });
-  document.addEventListener('focusout', hide);
-  document.addEventListener('mousedown', hide);
+  document.addEventListener('focusout', () => { if (!afterTouch()) hide(); });
+  document.addEventListener('mousedown', () => { if (!afterTouch()) hide(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') hide(); });
   window.addEventListener('scroll', hide, true);
 }

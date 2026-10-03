@@ -27,3 +27,6 @@
 @media (max-width: 700px) {
     .username { display: none; }
 }
+
+.username-link { text-decoration: none; }
+.username-link:hover .username, .username-link:focus-visible .username { text-decoration: underline; }

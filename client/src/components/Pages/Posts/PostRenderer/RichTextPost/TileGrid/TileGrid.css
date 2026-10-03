@@ -460,3 +460,6 @@ span.tg-layer-name { overflow: hidden; text-overflow: ellipsis; white-space: now
 .tg-hint .pixel-words, .tg-keys-note .pixel-words { color: #8c8c8c; }
 .tg-done-btn.gb { background: #f2f2f2; color: #111; }
 .tg-layer-name svg { display: block; }
+
+/* The panel's name, across both columns. */
+.tg-panel-title { grid-column: 1 / -1; color: #9a9a9a; line-height: 0; padding: 2px 0 0; }

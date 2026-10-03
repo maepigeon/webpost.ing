@@ -197,9 +197,10 @@
 /* ── Inbox page ──────────────────────────────────────────────────────────── */
 
 .inbox-page {
+  /* A card like Settings and Activity; the theme draws its paper and rules. */
   max-width: 600px;
-  margin: 40px auto;
-  padding: 0 16px;
+  margin: 28px auto 60px;
+  padding: 22px 24px 24px;
 }
 
 .inbox-header {

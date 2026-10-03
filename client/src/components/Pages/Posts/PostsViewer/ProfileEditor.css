@@ -66,7 +66,7 @@
   align-items: center;
 }
 
-.profile-owner-group { display: flex; gap: 5px; }
+.profile-owner-group { display: flex; gap: 5px; align-items: center; }
 
 .profile-owner-divider {
   width: 1px;

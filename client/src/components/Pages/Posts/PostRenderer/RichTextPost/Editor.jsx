@@ -13,6 +13,7 @@ import { createPortal } from 'react-dom';
 import './Editor.css'
 import TitleBar from "./TitleBar"
 import GridButton from './TileGrid/GridButton.jsx';
+import { GridSelect } from './TileGrid/GridUI.jsx';
 import PixelText from './TileGrid/PixelText.jsx';
 
 import { exampleTheme } from './exampleTheme';
@@ -227,46 +228,22 @@ function InlineStylePlugin() {
   return (
     <>
       <ColourPicker value={color} onChange={applyColor} label="Text colour" className="tg-swatch" />
-      <label className="toolbar-label">
+      {/* The same tile dropdowns as the grid editor's, so one panel has one kind of control. */}
+      <span className="toolbar-label">
         <PixelText text="Font" px={1.25} />
-        <select
-          value={fontFamily}
-          onChange={(e) => applyFontFamily(e.target.value)}
-          className="toolbar-select"
-          title="Font family"
-          style={{ fontFamily: fontFamily || 'inherit' }}
-        >
-          {FONT_FAMILIES.map(({ label, value }) => (
-            <option key={label} value={value} style={{ fontFamily: value || 'inherit' }}>{label}</option>
-          ))}
-        </select>
-      </label>
-      <label className="toolbar-label">
+        <GridSelect label="Font" value={FONT_FAMILIES.some(f => f.value === fontFamily) ? fontFamily : ''}
+          options={FONT_FAMILIES.map(f => [f.value, f.label])} onChange={applyFontFamily} />
+      </span>
+      <span className="toolbar-label">
         <PixelText text="Size" px={1.25} />
-        <select
-          value={fontSize}
-          onChange={(e) => applyFontSize(e.target.value)}
-          className="toolbar-select"
-          title="Font size"
-        >
-          {FONT_SIZES.map((s) => (
-            <option key={s} value={s}>{s.replace('px', '')}</option>
-          ))}
-        </select>
-      </label>
-      <label className="toolbar-label">
+        <GridSelect label="Font size" value={fontSize}
+          options={FONT_SIZES.map(v => [v, v.replace('px', '')])} onChange={applyFontSize} />
+      </span>
+      <span className="toolbar-label">
         <PixelText text="Spacing" px={1.25} />
-        <select
-          value={lineHeight}
-          onChange={(e) => applyLineHeight(e.target.value)}
-          className="toolbar-select"
-          title="Line spacing"
-        >
-          {LINE_HEIGHTS.map((lh) => (
-            <option key={lh} value={lh}>{lh}×</option>
-          ))}
-        </select>
-      </label>
+        <GridSelect label="Line spacing" value={lineHeight}
+          options={LINE_HEIGHTS.map(v => [v, `${v}x`])} onChange={applyLineHeight} />
+      </span>
     </>
   );
 }
@@ -1366,10 +1343,12 @@ function FeatureTogglePlugin({ postid, features, onFeaturesChange }) {
     ['votesEnabled', 'Voting', 'Upvotes, downvotes and the score on this post', 'vote'],
     ['cardGrid', 'Grid on card', "Show this post's first grid on its card in your profile", 'grid'],
   ];
+  // Named switches, lit when on, set apart from the tools before them.
   return (
     <>
+      <span className="tg-gap" />
       {TOGGLES.map(([key, label, title, symbol]) => (
-        <GridButton key={key} symbol={symbol} label={label} on={Boolean(features[key])}
+        <GridButton key={key} symbol={symbol} showLabel label={label} on={Boolean(features[key])}
           title={`${title}: ${features[key] ? 'on' : 'off'}`} onClick={() => toggle(key)} />
       ))}
     </>
@@ -1549,7 +1528,7 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
       </button>
       <button className="toolbar-btn-save" onClick={() => save(true)} disabled={saving}
               title={postPublished ? 'Save and keep it published' : 'Make this post public'}>
-        {saving ? '…' : 'Upload'}
+        {saving ? '…' : postPublished ? 'Save changes' : 'Publish'}
       </button>
       {viewUrl && (
         <button type="button" className="toolbar-btn-view" onClick={() => navigate(viewUrl)}>View post →</button>
@@ -1636,7 +1615,7 @@ function ToolRow({ label, open, onToggle, children }) {
   return (
     <div className={`tg-group pe-section ${open ? 'is-open' : 'is-folded'}`} role="group" aria-label={label}>
       <button type="button" className="pe-section-head" aria-expanded={open} onClick={onToggle}
-        title={`${open ? 'Fold' : 'Show'} ${label}`}>
+        title={`${open ? 'Hide' : 'Show'} ${label}`}>
         <PixelText symbol={open ? 'open' : 'closed'} px={1.5} />
         <PixelText text={label} px={1.5} />
       </button>
@@ -1648,7 +1627,7 @@ function ToolRow({ label, open, onToggle, children }) {
 /**
  * The tools, laid out like the grid editor's: a dark panel of named sections
  * of grid buttons, each folding on its own, then the save actions. On a
- * phone only Edit and Text start open.
+ * phone Edit, Text and Insert start open.
  */
 function ToolPanel({ rows, children }) {
   const [kept, setKept] = useState(readOpen);
@@ -1664,7 +1643,7 @@ function ToolPanel({ rows, children }) {
       <div className="pe-panel" role="toolbar" aria-label="Post tools">
         {rows.map(r => <ToolRow key={r.label} label={r.label} open={isOpen(r)} onToggle={() => toggle(r)}>{r.node}</ToolRow>)}
       </div>
-      {/* Save draft, Upload, View post: on a row of their own. */}
+      {/* Save draft, Publish, View post: on a row of their own. */}
       <div className="toolbar-actions">{children}</div>
     </div>
   );
@@ -1691,7 +1670,7 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
     },
     { label: 'Style', node: <InlineStylePlugin /> },
     {
-      label: 'Insert',
+      label: 'Insert', always: true,
       node: (
         <>
           <ListToolbarPlugin />

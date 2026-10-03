@@ -1,6 +1,6 @@
 /* Following: the reading list. */
 .following-page { text-align: left; max-width: 640px; margin: 0 auto; padding: 24px 16px 64px; }
-.following-title { margin: 0 0 16px; font-size: 1.6rem; }
+.following-title { margin: 0 0 16px; font-size: 1.6rem; text-align: center; }
 .following-note { color: #555; }
 .following-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 28px; }
 .following-author {
