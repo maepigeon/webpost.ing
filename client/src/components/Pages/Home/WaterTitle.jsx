@@ -1,4 +1,9 @@
 import { useEffect, useRef } from 'react';
+import { createFrameLoop, atRest } from '../../../utils/frameLoop.js';
+
+// The water counts as still once no wave is taller than this: it then moves no
+// pixel by more than a hundredth of one, and the loop can stop.
+const STILL = 1e-4;
 
 export default function WaterTitle({ text = 'webpost.ing', className }) {
   const canvasRef = useRef(null);
@@ -68,15 +73,27 @@ export default function WaterTitle({ text = 'webpost.ing', className }) {
     // the logo stays black and white like the rest of the UI.
     const TEAL_R = 140, TEAL_G = 140, TEAL_B = 140;
 
-    let animId;
     let srcPixels = null;
     let mounted   = true;
+
+    // The title at rest: the text as it was drawn, exactly what a frame with no waves gives.
+    const drawRest = () => {
+      if (!srcPixels) {
+        try { srcPixels = octx.getImageData(0, 0, W, H); } catch { /* drawn from the canvas instead */ }
+      }
+      if (srcPixels) ctx.putImageData(srcPixels, 0, 0);
+      else { ctx.clearRect(0, 0, W, H); ctx.drawImage(off, 0, 0); }
+    };
+    const settle = () => { cur.fill(0); prv.fill(0); drawRest(); };
 
     // For cursor interpolation: track previous canvas-space position
     let prevCX = null, prevCY = null, prevT = null;
 
+    // One frame of the water. True while it is still moving; once it has
+    // settled the title is drawn at rest and the loop sleeps until the next
+    // ripple. (It used to run every frame for as long as the page was open.)
     const tick = () => {
-      if (!mounted) return;
+      if (!mounted) return false;
       if (!srcPixels) {
         try { srcPixels = octx.getImageData(0, 0, W, H); } catch {}
       }
@@ -99,6 +116,8 @@ export default function WaterTitle({ text = 'webpost.ing', className }) {
           cur[i] = cur[i] + (avg4 - cur[i]) * DIFFUSE;
         }
       }
+
+      if (atRest([cur, prv], STILL)) { settle(); return false; }
 
       // ── Gradient field ──────────────────────────────────────────────────
       for (let y = 1; y < GH - 1; y++) {
@@ -194,12 +213,18 @@ export default function WaterTitle({ text = 'webpost.ing', className }) {
         ctx.putImageData(dstData, 0, 0);
       }
 
-      animId = requestAnimationFrame(tick);
+      return true;
     };
+
+    // Runs only while there are ripples, the title is on screen and the tab is
+    // showing; never when the visitor asks for reduced motion (the title then
+    // stays at rest, and touching it scrolls the page as usual).
+    const loop = createFrameLoop(tick, { element: canvas, onStill: settle });
 
     let isPressed = false;
 
     const onMouseMove = (e) => {
+      if (!loop.wake()) return;
       const r  = canvas.getBoundingClientRect();
       const cx = (e.clientX - r.left) / r.width  * W;
       const cy = (e.clientY - r.top)  / r.height * H;
@@ -235,6 +260,7 @@ export default function WaterTitle({ text = 'webpost.ing', className }) {
 
     const onMouseDown = (e) => {
       isPressed = true;
+      if (!loop.wake()) return;
       const r = canvas.getBoundingClientRect();
       addRipple(
         (e.clientX - r.left) / r.width  * W,
@@ -249,6 +275,7 @@ export default function WaterTitle({ text = 'webpost.ing', className }) {
     // ── Touch support (mobile) ────────────────────────────────────────────
     const onTouchStart = (e) => {
       isPressed = true;
+      if (!loop.wake()) return;
       const t = e.touches[0];
       const r = canvas.getBoundingClientRect();
       addRipple(
@@ -259,6 +286,7 @@ export default function WaterTitle({ text = 'webpost.ing', className }) {
     };
 
     const onTouchMove = (e) => {
+      if (!loop.wake()) return;
       e.preventDefault();
       const touch = e.touches[0];
       const r = canvas.getBoundingClientRect();
@@ -291,7 +319,7 @@ export default function WaterTitle({ text = 'webpost.ing', className }) {
 
       // The title renders at rest. Hover and click still ripple it; there is
       // deliberately no on-load animation and no ambient movement.
-      animId = requestAnimationFrame(tick);
+      drawRest();
     });
 
     canvas.addEventListener('mousemove',  onMouseMove);
@@ -305,7 +333,7 @@ export default function WaterTitle({ text = 'webpost.ing', className }) {
 
     return () => {
       mounted = false;
-      cancelAnimationFrame(animId);
+      loop.stop();
       canvas.removeEventListener('mousemove',  onMouseMove);
       canvas.removeEventListener('mousedown',  onMouseDown);
       canvas.removeEventListener('mouseleave', onMouseLeave);

@@ -53,6 +53,7 @@ import { postPath, slugify } from '../../../../../utils/postUrl.js';
 import { cleanSummary, SUMMARY_MAX } from '../../../../../utils/postSummary.js';
 import ColourPicker from '../../../../TileArt/ColourPicker.jsx';
 import { useAutosave } from '../../../../../utils/useAutosave.js';
+import { ensureFontsIn, watchFontsIn } from '../../../../../utils/fontLoader.js';
 import { StickerCenter } from '../../../../TileArt/StickerCenter.jsx';
 
 const EDITOR_NODES = [HeadingNode, ListNode, ListItemNode, CustomCodeNode, CodeHighlightNode, ImageNode, AudioNode, ButtonNode, MathNode, TileGridNode, LinkNode];
@@ -184,6 +185,13 @@ function InlineStylePlugin() {
     });
   }, [editor]);
 
+  // Fonts already in the text (a loaded draft, pasted text) are loaded as it appears.
+  useEffect(() => {
+    let stop = () => {};
+    const off = editor.registerRootListener((root) => { stop(); stop = watchFontsIn(root); });
+    return () => { off(); stop(); };
+  }, [editor]);
+
   const applyColor = (value) => {
     setColor(value);
     editor.update(() => {
@@ -202,6 +210,7 @@ function InlineStylePlugin() {
 
   const applyFontFamily = (value) => {
     setFontFamily(value);
+    ensureFontsIn(value);
     editor.update(() => {
       const selection = $getSelection();
       if ($isRangeSelection(selection)) $patchStyleText(selection, { 'font-family': value || '' });
@@ -1984,16 +1993,20 @@ function onError(error) {
   console.error(error);
 }
 
-function LoadEditorStatePlugin({ ready }) {
+// The loaded body comes through a ref, in memory. It used to go through
+// localStorage ("currentPostData"), where a full store stopped the post from
+// opening and another tab loading a different post at that moment could put
+// its text here, to be saved over this post.
+function LoadEditorStatePlugin({ ready, bodyRef }) {
   const [editor] = useLexicalComposerContext();
   useEffect(() => {
     if (!ready) return;
-    const saved = localStorage.getItem("currentPostData");
+    const saved = bodyRef.current;
     if (saved) {
       const state = editor.parseEditorState(saved);
       editor.setEditorState(state, { tag: LOAD_TAG });
     }
-  }, [editor, ready]);
+  }, [editor, ready, bodyRef]);
   return null;
 }
 
@@ -2026,6 +2039,7 @@ export default function RichTextEditor() {
   const flushRef = useRef(null);          // writes the local draft now; true when it is safe
   const clearRef = useRef(null);          // drops the local draft
   const loadedRef = useRef({});           // what the server had when the post opened
+  const bodyRef = useRef(null);           // its body, for LoadEditorStatePlugin
   const fieldsRef = useRef({});
   const [localSavedAt, setLocalSavedAt] = useState(null);
   const [createdId, setCreatedId] = useState(null);
@@ -2097,7 +2111,9 @@ export default function RichTextEditor() {
       setPostSlug(data.slug && data.slug !== slugify(data.title || '') ? data.slug : null);
       setPostSummary(data.summary || '');
       setPostSection(sectionFromParam(data.section));
-      localStorage.setItem("currentPostData", data.description);
+      bodyRef.current = data.description;
+      // The copy earlier versions kept in localStorage is no longer read: drop it, local drafts need the room.
+      try { localStorage.removeItem("currentPostData"); } catch { /* storage blocked: nothing kept */ }
       loadedRef.current = {
         title: titlehtml.current,
         summary: data.summary || '',
@@ -2202,7 +2218,7 @@ export default function RichTextEditor() {
         <DecoratorKeyboardPlugin />
         <ImageDragPastePlugin />
         <MyOnChangePlugin onChange={onChange} />
-        <LoadEditorStatePlugin ready={dataReady} />
+        <LoadEditorStatePlugin ready={dataReady} bodyRef={bodyRef} />
         <EnterScrollPlugin />
         <HeadingEnterPlugin />
         <div className="editor-centered">

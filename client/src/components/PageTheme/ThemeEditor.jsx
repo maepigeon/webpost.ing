@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useUnsavedGuard } from '../../utils/useUnsavedGuard.js';
 import {
-  getPresets, defaultTheme, FONTS, BORDERS, SHADOWS, CASES, EFFECTS, MAX_STICKER_TILES, sanitiseTheme,
+  getPresets, defaultTheme, FONTS, BORDERS, SHADOWS, CASES, EFFECTS, MAX_STICKER_TILES, sanitiseTheme, ensureThemeFont,
 } from './theme.js';
 import { ThemePreview } from './PageTheme.jsx';
 import WallpaperEditor from '../TileArt/WallpaperEditor.jsx';
@@ -162,11 +162,15 @@ export default function ThemeEditor({ username, postId = null }) {
     }
   };
 
-  const set = (group, key) => (value) => setDraft(d => ({
-    ...d,
-    preset: 'custom',
-    [group]: { ...d[group], [key]: value },
-  }));
+  const set = (group, key) => (value) => {
+    // A font chosen here is loaded now, so the preview does not wait for it.
+    if (group === 'type' && (key === 'heading' || key === 'body')) ensureThemeFont(value);
+    setDraft(d => ({
+      ...d,
+      preset: 'custom',
+      [group]: { ...d[group], [key]: value },
+    }));
+  };
 
   const persist = async (theme) => {
     setBusy(true);

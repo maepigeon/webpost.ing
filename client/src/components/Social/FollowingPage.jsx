@@ -53,7 +53,7 @@ export default function FollowingPage() {
           <li key={post.id} className="following-item">
             <Link to={`/${post.username}`} className="following-author">
               {post.avatarPath
-                ? <img src={IMAGES_BASE_URL + post.avatarPath} alt="" className="squircle following-avatar" />
+                ? <img loading="lazy" decoding="async" width="28" height="28" src={IMAGES_BASE_URL + post.avatarPath} alt="" className="squircle following-avatar" />
                 : <span className="squircle following-avatar following-avatar--initial" aria-hidden="true">{post.username[0].toUpperCase()}</span>}
               <span>{post.username}</span>
             </Link>

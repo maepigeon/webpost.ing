@@ -492,7 +492,7 @@ export default function MessagesPage() {
           >
             <div className="messages-conv-avatar">
               {c.other_avatar
-                ? <img src={IMAGES_BASE_URL + c.other_avatar} alt={c.other_username} className="messages-conv-avatar-img" />
+                ? <img loading="lazy" decoding="async" width="38" height="38" src={IMAGES_BASE_URL + c.other_avatar} alt={c.other_username} className="messages-conv-avatar-img" />
                 : <span className="messages-conv-avatar-fallback">{c.other_username?.[0]?.toUpperCase()}</span>
               }
             </div>
@@ -675,7 +675,7 @@ export default function MessagesPage() {
                       <div className="messages-group-sender-row">
                         <div className="messages-group-sender-avatar">
                           {m.avatar_path
-                            ? <img src={IMAGES_BASE_URL + m.avatar_path} alt={m.sender_username} className="messages-group-sender-avatar-img" />
+                            ? <img loading="lazy" decoding="async" width="22" height="22" src={IMAGES_BASE_URL + m.avatar_path} alt={m.sender_username} className="messages-group-sender-avatar-img" />
                             : <span>{m.sender_username?.[0]?.toUpperCase()}</span>
                           }
                         </div>

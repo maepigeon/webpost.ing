@@ -1,9 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { usePageTitle } from '../../../utils/usePageTitle.js';
 import WaterTitle from './WaterTitle.jsx';
-import TileGrid from '../Posts/PostRenderer/RichTextPost/TileGrid/TileGrid.jsx';
 import { textGrid } from '../../../utils/gridText.js';
 import './Home.css';
+
+// The grid component is the whole grid editor; the welcome only shows a grid,
+// so it is fetched on its own, after the page, and not with the first script.
+const TileGrid = lazy(() => import('../Posts/PostRenderer/RichTextPost/TileGrid/TileGrid.jsx'));
 
 const ABOUT = "Hi! This is Mae Pigeon's blog authoring website. I created this to be my own, custom, personal blog platform. I began by coding it myself, but switched to vibecoding it using AI to get it into more practical form and develop features when I don't have the time to.";
 
@@ -32,7 +35,10 @@ function Home() {
       <section className="home-hero">
         <WaterTitle text="webpost.ing" className="home-water-title" />
         <div className="home-hero-sub" role="group" aria-label={ABOUT}>
-          <TileGrid data={grid} editable={false} onChange={() => {}} />
+          {/* Until it arrives, an empty box of the grid's own shape, so nothing below moves. */}
+          <Suspense fallback={<div style={{ aspectRatio: `${grid.cols} / ${grid.rows}` }} aria-hidden="true" />}>
+            <TileGrid data={grid} editable={false} onChange={() => {}} />
+          </Suspense>
         </div>
       </section>
 

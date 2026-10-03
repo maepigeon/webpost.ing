@@ -39,6 +39,7 @@ import SharePostDialog from '../../../../Social/SharePostDialog.jsx';
 import { usePostTheme } from '../../../../PageTheme/PageTheme.jsx';
 import Icon from '../../../../Icon/Icon.jsx';
 import PostStickies from '../../PostsViewer/PostStickies.jsx';
+import { watchFontsIn } from '../../../../../utils/fontLoader.js';
 
 const VIEWER_NODES = [HeadingNode, ListNode, ListItemNode, CustomCodeNode, CodeHighlightNode, ImageNode, AudioNode, ButtonNode, MathNode, TileGridNode, LinkNode];
 
@@ -59,13 +60,18 @@ function CodeHighlightPlugin() {
 }
 
 
-function LoadEditorStatePlugin({ ready }) {
+// The post's body reaches the page through a ref, in memory. It used to go
+// through localStorage ('currentPostData'): a write of the whole body, up to
+// megabytes, on every view; a full or blocked store made the post look
+// missing; and another tab loading a different post at that moment could
+// swap the two.
+function LoadEditorStatePlugin({ ready, bodyRef }) {
   const [editor] = useLexicalComposerContext();
   useEffect(() => {
     if (!ready) return;
-    const saved = localStorage.getItem('currentPostData');
+    const saved = bodyRef.current;
     if (saved) editor.setEditorState(editor.parseEditorState(saved));
-  }, [editor, ready]);
+  }, [editor, ready, bodyRef]);
   return null;
 }
 
@@ -156,6 +162,7 @@ function RichTextViewerBody({ id }) {
   usePostTheme(id);
   const [backgroundPattern, setBackgroundPattern] = useState('');
   const [dataReady, setDataReady] = useState(false);
+  const bodyRef = useRef(null);   // the post's body as loaded, for LoadEditorStatePlugin
   const [postLoaded, setPostLoaded] = useState(false);
   // The post doesn't exist, or is someone else's draft (the server answers
   // 404 for both, so a draft's existence isn't given away).
@@ -214,7 +221,9 @@ function RichTextViewerBody({ id }) {
       setPostBlurb(data.summary || excerptFromContent(data.description));
       setPostPublished(data.published);
       setBackgroundPattern(data.backgroundPattern || '');
-      localStorage.setItem('currentPostData', data.description);
+      bodyRef.current = data.description;
+      // The copy earlier versions kept in localStorage is no longer read: drop it (it can be megabytes).
+      try { localStorage.removeItem('currentPostData'); } catch { /* storage blocked: nothing kept */ }
       setDataReady(true);
       GET_USER_FROM_POST(id).then(author => {
         setPostAuthor(author);
@@ -262,6 +271,8 @@ function RichTextViewerBody({ id }) {
   // Bars are appended to document.body with position:fixed so Lexical's
   // reconciler never touches them, and overflow:auto on .editor-code never clips them.
   const contentRef = useRef(null);
+  // The post's own fonts (inline font-family in its text) load as the content appears.
+  useEffect(() => watchFontsIn(contentRef.current), [dataReady]);
   useEffect(() => {
     if (!dataReady) return;
     const bars = [];
@@ -334,7 +345,7 @@ function RichTextViewerBody({ id }) {
         <LinkPlugin />
         <ClickableLinkPlugin />
         <HistoryPlugin />
-        <LoadEditorStatePlugin ready={dataReady} />
+        <LoadEditorStatePlugin ready={dataReady} bodyRef={bodyRef} />
         <HashtagLinkerPlugin contentRef={contentRef} navigate={navigate} />
         <div className="editor-centered">
           <div className="editor-post-card viewer-post-card">

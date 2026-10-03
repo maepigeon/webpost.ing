@@ -16,6 +16,7 @@
  */
 import { pixelGlyph } from './tileFont.js';
 import { bitmapGlyph } from './bitmapFonts.js';
+import { ensureFontsIn } from '../../../../../../utils/fontLoader.js';
 
 export const TILE = 16;
 /** Canvas pixels per grid pixel. High enough for the smooth font to render crisply. */
@@ -61,12 +62,32 @@ export const TYPEFACES = {
   pixelify: { family: '"Pixelify Sans", "VT323", monospace', weight: 700, size: 15 },
 };
 
-/** Asks the browser for the typefaces now, so a grid drawn before they arrive is redrawn by fonts.ready. */
-let typefacesRequested = false;
-function requestTypefaces() {
-  if (typefacesRequested || typeof document === 'undefined' || !document.fonts?.load) return;
-  typefacesRequested = true;
-  for (const t of Object.values(TYPEFACES)) document.fonts.load(`${t.weight} 16px ${t.family}`).catch(() => {});
+/**
+ * Asks for one typeface when a grid first draws with it (or the editor picks
+ * it): its web font is added (fontLoader) and then loaded, so a grid drawn
+ * before it arrives is redrawn once fontsSettled() resolves. Only the
+ * typefaces a grid really uses are ever fetched.
+ */
+const typefacesRequested = new Set();
+const typefacesPending = new Set();
+export function requestTypefaces(font = 'smooth') {
+  // Every font without a typeface of its own (smooth, or a pixel font's missing glyph) is drawn in SMOOTH_FONT.
+  const face = TYPEFACES[font];
+  const key = face ? font : 'smooth';
+  if (typeof document === 'undefined' || typefacesRequested.has(key)) return;
+  const family = face ? face.family : SMOOTH_FONT;
+  typefacesRequested.add(key);
+  const spec = `${face ? face.weight : 500} 16px ${family}`;
+  const p = ensureFontsIn(family)
+    .then(() => document.fonts?.load?.(spec))
+    .catch(() => {})
+    .finally(() => typefacesPending.delete(p));
+  typefacesPending.add(p);
+}
+
+/** Resolves once the typefaces asked for so far, and any other font loading, have arrived: the moment to redraw. */
+export function fontsSettled() {
+  return Promise.all([...typefacesPending]).then(() => document.fonts?.ready);
 }
 
 /**
@@ -1096,7 +1117,7 @@ function drawPixelatedChar(ctx, ch, x, y, sw, font) {
       }
     }
     // Kept only once the font has loaded; until then it is the fallback's shape.
-    if (document.fonts?.status !== 'loading') {
+    if (document.fonts?.status !== 'loading' && !typefacesPending.size) {
       if (pixelatedChars.size > 2000) pixelatedChars.clear();
       pixelatedChars.set(key, mask);
     }
@@ -1106,7 +1127,7 @@ function drawPixelatedChar(ctx, ch, x, y, sw, font) {
 
 function drawSmoothChar(ctx, ch, x, y, sw, font) {
   const face = TYPEFACES[font];
-  if (face) requestTypefaces();
+  requestTypefaces(font);
   // A monospace advance is about 0.6em, so these sizes fill the cell width.
   const size = face ? (sw === TILE ? face.size : face.size * 0.9) : (sw === TILE ? 14 : 12.5);
   ctx.font = face ? `${face.weight} ${size}px ${face.family}` : `500 ${size}px ${SMOOTH_FONT}`;

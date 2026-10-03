@@ -8,7 +8,7 @@ import { normaliseUploadResponse, describeUploadError } from '../../../../../../
 import {
   TILE, SCALE, LIMITS, FONT_NAMES, DIRECTIONS, normaliseGrid, pixelLayer, photoLayer,
   SLOTS_PER_TILE, SLOT_W, slotsPerRow, rowChars, writeSlot, writeChar, writeXl, xlTiles, setTileWidths, isWide, restyleSlots, resizeLayerText,
-  EDGES, floodTiles, floodPixels, lassoTiles, takeText, drawLayerText, isElbow, linePixels, rectPixels, ellipsePixels, readableText, mergeText, cleanHref, isExternalHref, setLink, linkAt, linkTiles, orderSlots, slotsIn, renderGrid, pixelatePhoto, photoRect, resizePhoto, zoomPhoto, tileKey, parseTileKey, rectTiles, combineSelection, orderedTiles,
+  requestTypefaces, fontsSettled, EDGES, floodTiles, floodPixels, lassoTiles, takeText, drawLayerText, isElbow, linePixels, rectPixels, ellipsePixels, readableText, mergeText, cleanHref, isExternalHref, setLink, linkAt, linkTiles, orderSlots, slotsIn, renderGrid, pixelatePhoto, photoRect, resizePhoto, zoomPhoto, tileKey, parseTileKey, rectTiles, combineSelection, orderedTiles,
 } from './tileGrid.js';
 import { TEXTURES, fillTexture, texturePreview, DEFAULT_PAW_OPTIONS } from './textures.js';
 import PawOptions from '../../../../../TileArt/PawOptions.jsx';
@@ -203,7 +203,7 @@ export default function TileGrid({
   dataRef.current = data;
   const past = useRef([]);
   const future = useRef([]);
-  const [, setHistoryTick] = useState(0);
+  const [historyTick, setHistoryTick] = useState(0);
 
   const commit = useCallback((next) => {
     past.current.push(dataRef.current);
@@ -236,7 +236,7 @@ export default function TileGrid({
   const paints = useRef({});    // layer id → { src, canvas }
   const photos = useRef({});    // layer id → { key, photo, natural }
   const clipboard = useRef(null);
-  const [, redraw] = useState(0);
+  const [drawTick, redraw] = useState(0);
   const bump = () => redraw(n => n + 1);
 
   const [editing, setEditing] = useState(startEditing);
@@ -332,9 +332,21 @@ export default function TileGrid({
     }
   }, [data]);
 
+  // Draws the grid when something it shows has changed, and not otherwise (it
+  // used to draw on every render: any other state here, any re-render of the
+  // page around it). What the picture reads, all of it in the list below:
+  //  - the grid itself (data: size, layers, text, glyphs, links, photo edges);
+  //  - the editing marks: grid lines and link tints (editing), the cursor
+  //    (cursor, width, tool, the active layer), the selection, a move in
+  //    progress (moveBy) and the lasso's loop;
+  //  - each layer's painted canvas and each photo, which are kept in refs and
+  //    changed in place: drawTick counts those changes (bump()), and
+  //    historyTick every commit, undo and redo, whose pixels are already on
+  //    the layer canvas before the new grid comes back from the owner.
+  // Anything new that changes a layer canvas or a photo must bump() or commit().
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) return undefined;
     const w = data.cols * TILE * SCALE, h = data.rows * TILE * SCALE;
     if (canvas.width !== w) canvas.width = w;
     if (canvas.height !== h) canvas.height = h;
@@ -343,18 +355,31 @@ export default function TileGrid({
       if (l.kind === 'pixel') assets[l.id] = { paint: paints.current[l.id]?.canvas };
       else assets[l.id] = { photo: photos.current[l.id]?.photo };
     }
-    const draw = () => renderGrid(canvas.getContext('2d'), data, assets, {
-      cursor: editing && (tool === 'text' || tool === 'select') && active?.kind === 'pixel' ? cursor : null,
-      cursorWide: width === 'full',
-      selection: editing ? selection : null,
-      moveBy, activeId: active?.id,
-      showGrid: editing,
-      showLinks: editing,
-      lasso: editing ? lasso : null,
-    });
+    // Only the latest state may draw: a font arriving late must not paint an
+    // earlier picture over a newer one, now that nothing would draw after it.
+    let live = true;
+    const draw = () => {
+      if (!live) return;
+      renderGrid(canvas.getContext('2d'), data, assets, {
+        cursor: editing && (tool === 'text' || tool === 'select') && active?.kind === 'pixel' ? cursor : null,
+        cursorWide: width === 'full',
+        selection: editing ? selection : null,
+        moveBy, activeId: active?.id,
+        showGrid: editing,
+        showLinks: editing,
+        lasso: editing ? lasso : null,
+      });
+    };
     draw();
-    document.fonts?.ready?.then(draw).catch(() => {});
-  });
+    fontsSettled().then(draw).catch(() => {});
+    // A browser may drop a canvas's pixels (a lost graphics context) and hand
+    // it back blank; a grid at rest would otherwise stay blank.
+    canvas.addEventListener('contextrestored', draw);
+    return () => {
+      live = false;
+      canvas.removeEventListener('contextrestored', draw);
+    };
+  }, [data, editing, tool, active, cursor, width, selection, moveBy, lasso, drawTick, historyTick]);
 
   // ── Layer helpers ──────────────────────────────────────────────────────────
 
@@ -1035,6 +1060,7 @@ export default function TileGrid({
   // thing painted (colour) or typed (font).
   const chooseFont = (f) => {
     setFont(f);
+    requestTypefaces(f);
     if (tool === 'text' || tool === 'select') restyle({ font: f });
     // Symbols brings up its keyboard, so you can see what each key types.
     if (f === 'symbols') setPanel('symbols');

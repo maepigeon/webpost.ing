@@ -31,7 +31,7 @@ function UserAvatar({ username }) {
   return (
     <>
       {fullSrc
-        ? <img src={fullSrc} alt={username} className="comment-avatar" onClick={() => setShowPopup(true)} style={{ cursor: 'pointer' }} />
+        ? <img loading="lazy" decoding="async" width="34" height="34" src={fullSrc} alt={username} className="comment-avatar" onClick={() => setShowPopup(true)} style={{ cursor: 'pointer' }} />
         : <span className="comment-avatar comment-avatar--fallback">{initials}</span>
       }
       {showPopup && fullSrc && <AvatarPopup src={fullSrc} username={username} onClose={() => setShowPopup(false)} />}

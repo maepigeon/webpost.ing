@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
-import { defaultTheme, sanitiseTheme, applyThemeToDocument, themeVariables } from './theme.js';
+import { defaultTheme, sanitiseTheme, applyThemeToDocument, themeVariables, ensureThemeFonts } from './theme.js';
 import { wallpaperStyle, renderGridImage, useWallpaperStyle } from '../TileArt/wallpaper.js';
 import { TILE } from '../Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
 import { GET_PAGE_THEME, GET_POST_THEME } from '../Pages/Posts/BasicTextPostServerApi.js';
@@ -163,6 +163,8 @@ export function DocumentThemeLayers() {
 /** A box that shows a theme regardless of the page around it. */
 export function ThemePreview({ theme, children, className = '' }) {
   const images = useThemeImages(theme);
+  // A preview shows its own fonts, so it loads them (the page's theme may differ).
+  useEffect(() => { ensureThemeFonts(theme); }, [theme?.type?.heading, theme?.type?.body]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className={`theme-preview ${className}`} style={themeVariables(theme, images)}>
       <ThemeLayers theme={theme} />

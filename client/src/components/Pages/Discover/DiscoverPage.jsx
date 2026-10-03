@@ -10,9 +10,9 @@ import './DiscoverPage.css';
 
 const PAGE = 20;
 
-function Avatar({ username, avatarPath, className }) {
+function Avatar({ username, avatarPath, className, size }) {
   return avatarPath
-    ? <img src={IMAGES_BASE_URL + avatarPath} alt="" className={`squircle ${className}`} />
+    ? <img loading="lazy" decoding="async" width={size} height={size} src={IMAGES_BASE_URL + avatarPath} alt="" className={`squircle ${className}`} />
     : <span className={`squircle ${className} discover-avatar--initial`} aria-hidden="true">{username[0].toUpperCase()}</span>;
 }
 
@@ -51,7 +51,7 @@ function PostsTab() {
         {posts.map(post => (
           <li key={post.id} className="following-item">
             <Link to={`/${post.username}`} className="following-author">
-              <Avatar username={post.username} avatarPath={post.avatarPath} className="following-avatar" />
+              <Avatar username={post.username} avatarPath={post.avatarPath} className="following-avatar" size={28} />
               <span>{post.username}</span>
             </Link>
             <BasicTextPost postdata={post} ownerUsername={post.username} hasModifyPermissions={false}
@@ -90,7 +90,7 @@ function PeopleTab() {
         {people.map(p => (
           <li key={p.username} className="discover-person">
             <Link to={`/${p.username}`} className="discover-person-main">
-              <Avatar username={p.username} avatarPath={p.avatarPath} className="discover-person-avatar" />
+              <Avatar username={p.username} avatarPath={p.avatarPath} className="discover-person-avatar" size={44} />
               <span className="discover-person-text">
                 <strong>{p.username}</strong>
                 {p.bio && <span className="discover-person-bio">{p.bio}</span>}

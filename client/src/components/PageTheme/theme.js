@@ -18,6 +18,7 @@
 import { sanitiseWallpaper, textureWallpaper } from '../TileArt/wallpaper.js';
 import { STICKERS } from '../TileArt/stickers.js';
 import { normaliseGrid } from '../Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
+import { ensureFontsIn } from '../../utils/fontLoader.js';
 
 // ── Vocabulary ────────────────────────────────────────────────────────────────
 
@@ -58,6 +59,17 @@ export const FONTS = {
 
 /** Themes saved with the old Handwriting font now use Choco Cooky, which replaced it. */
 const legacyFont = (id) => (id === 'handwriting' ? 'cookie' : id);
+
+/** Loads the web fonts a font id (a FONTS key) stands for. Unknown ids are ignored. */
+export function ensureThemeFont(id) {
+  const font = FONTS[legacyFont(id)];
+  return font ? ensureFontsIn(font.css) : Promise.resolve();
+}
+
+/** Loads a theme's heading and body fonts. */
+export function ensureThemeFonts(theme) {
+  return Promise.all([ensureThemeFont(theme?.type?.heading), ensureThemeFont(theme?.type?.body)]).then(() => undefined);
+}
 
 export const BORDERS = { none: 'None', rule: 'Thin rule', double: 'Double rule', dashed: 'Dashed', glow: 'Neon glow', rainbow: 'Rainbow' };
 export const SHADOWS = { none: 'None', soft: 'Soft', lifted: 'Lifted', curl: 'Paper curl', glow: 'Glow' };
@@ -397,6 +409,7 @@ export function applyThemeToDocument(theme, images = {}, { isDefault = false } =
   const root = document.documentElement;
   const t = sanitiseTheme(theme);
   const vars = themeVariables(t, images);
+  ensureThemeFonts(t);
   for (const [k, v] of Object.entries(vars)) root.style.setProperty(k, v);
   root.toggleAttribute('data-th-hide-wallpaper', !isDefault && !t.page.useProfileWallpaper);
   return () => {
