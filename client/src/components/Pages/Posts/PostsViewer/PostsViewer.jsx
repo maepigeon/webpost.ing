@@ -19,7 +19,7 @@ import { describeUploadError } from '../../../../utils/responsiveImage.js';
 import { GET_PROFILE_HEADER, GET_PROFILE_BANNER } from '../BasicTextPostServerApi.js';
 import ProfileBanner from './ProfileBanner.jsx';
 import ProfileTabs from './ProfileTabs.jsx';
-import { tabFromSearch, searchForTab, sectionForTab, visibleTabs } from './profileTabs.js';
+import { tabFromSearch, searchForTab, sectionForTab, visibleTabs, showTabBar, publicPostCount } from './profileTabs.js';
 import StorageSummary from './StorageSummary.jsx';
 import ProfileStickies from './ProfileStickies.jsx';
 import BannerEditor from './BannerEditor.jsx';
@@ -346,8 +346,10 @@ function PostsViewer() {
       </div>
     ) : null;
 
+    // Top-aligned: the window centres its children, which moved the header
+    // down whenever the list was short.
     return (
-      <div className="window th-scope" style={{ minHeight: '100vh' }}>
+      <div className="window th-scope" style={{ minHeight: '100vh', justifyContent: 'flex-start' }}>
         {previewing && (
           <div className="view-as-bar" role="status">
             <span>Viewing your profile as a visitor</span>
@@ -380,7 +382,7 @@ function PostsViewer() {
               followers={followCounts.followers}
               following={followCounts.following}
               joined={banner.joined}
-              publicPosts={banner.publicPosts}
+              publicPosts={publicPostCount(counts, banner.publicPosts)}
               grid={banner.grid}
               avatarSrc={avatar ? IMAGES_BASE_URL + avatar : null}
               online={Boolean(onlineStatus?.online)}
@@ -455,8 +457,8 @@ function PostsViewer() {
                   placeholder="Write a short bio..."
                 />
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button type="button" onClick={saveBio}>Save</button>
-                  <button type="button" onClick={() => { setEditingBio(false); setBioError(''); }}>Cancel</button>
+                  <button type="button" className="edit-bio-btn" onClick={saveBio}>Save</button>
+                  <button type="button" className="edit-bio-btn" onClick={() => { setEditingBio(false); setBioError(''); }}>Cancel</button>
                 </div>
                 {bioError && <p style={{ margin: '4px 0 0', color: '#d32f2f', fontSize: '12px' }}>{bioError}</p>}
               </div>
@@ -581,7 +583,7 @@ function PostsViewer() {
               {(!isOwner || previewing) && loggedIn && (
                 <>
                   {!dmBlockedByThem && (
-                    <button type="button" disabled={previewing} title={previewing ? 'Shown as a visitor sees it' : undefined} onClick={() => navigate(`/messages?with=${username}`)}>Send message</button>
+                    <button type="button" className="edit-bio-btn" disabled={previewing} title={previewing ? 'Shown as a visitor sees it' : undefined} onClick={() => navigate(`/messages?with=${username}`)}>Send message</button>
                   )}
                   <button
                     type="button"
@@ -606,7 +608,7 @@ function PostsViewer() {
             {canEdit && storage && <StorageSummary storage={storage} />}
           </div>
           <ProfileTabs tabs={tabs} active={tab} onSelect={selectTab} />
-          <div id="profile-tabpanel" role="tabpanel" aria-labelledby={`profile-tab-${tab}`}>
+          <div id="profile-tabpanel" {...(showTabBar(tabs) ? { role: 'tabpanel', 'aria-labelledby': `profile-tab-${tab}` } : {})}>
           {/* An empty tab is one quiet panel: what this place is, then what
               you can do here, side by side. A tab with posts keeps only its
               "new" button above the list. */}

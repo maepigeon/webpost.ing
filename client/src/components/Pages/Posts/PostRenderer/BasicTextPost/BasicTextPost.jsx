@@ -33,7 +33,7 @@ function BasicTextPost(props) {
         else {
             return(
                 <button type="button" className="post-delete-btn" onClick={async () => {
-                        if (!(await confirm('Are you sure you want to delete this post? This cannot be undone.'))) return;
+                        if (!(await confirm('Delete this post? This cannot be undone.', 'Delete post', 'Delete'))) return;
                         DELETE_POST(postdata.id).then(
                         () => {
                             props.updatePostsFlagCallback();

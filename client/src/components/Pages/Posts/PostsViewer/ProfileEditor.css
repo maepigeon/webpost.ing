@@ -66,7 +66,7 @@
   align-items: center;
 }
 
-.profile-owner-group { display: flex; gap: 5px; align-items: center; }
+.profile-owner-group { display: flex; gap: 8px; align-items: center; }
 
 .profile-owner-divider {
   width: 1px;
@@ -326,18 +326,67 @@
   padding: 6px 16px;
   background: #111;
   color: #fff;
-  font-family: inherit;
+  font-family: var(--app-font);
   font-size: 14px;
 }
 .view-as-bar-btn {
-  font: inherit;
-  font-size: 13px;
-  padding: 3px 12px;
+  box-sizing: border-box;
+  height: 32px;
+  font: 600 13px/1 var(--app-font);
+  padding: 0 14px;
   border: 1px solid #fff;
-  border-radius: 999px;
+  border-radius: 6px;
   background: #fff;
   color: #111;
   cursor: pointer;
 }
 .view-as-bar-btn:hover { background: #ddd; }
 .view-as-bar-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+/* ── One button look on the profile ─────────────────────────────────────────
+   The owner's pills, Follow, Send message, Block DMs, the bio's Save and
+   Cancel, the sticker buttons and the banner editor's buttons are all the
+   size of the .profile-owner-btn on the tabs (32px, 13px 600, 6px corners).
+   Colours stay each button's own (themes.css); Follow is the filled one.
+   The id and the doubled card class beat the theme's older, smaller pills
+   (one of which, on a link, ties with a single class). */
+#appBody .profile-header-card.profile-header-card :is(.edit-bio-btn, .follow-btn, .btn-block-dm, .btn-unblock-dm, .profile-link-add):is(button, a) {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  min-height: 32px;
+  margin: 0;
+  padding: 0 14px;
+  border-radius: 6px;
+  font: 600 13px/1 var(--app-font);
+  letter-spacing: 0;
+  white-space: nowrap;
+  text-decoration: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+#appBody .profile-header-card :is(.edit-bio-btn, .btn-block-dm, .btn-unblock-dm):disabled { opacity: 0.55; cursor: default; }
+
+/* A finger needs more: at least 36px, whatever the label. */
+@media (max-width: 520px), (pointer: coarse) {
+  #appBody .profile-header-card.profile-header-card :is(.edit-bio-btn, .follow-btn, .btn-block-dm, .btn-unblock-dm, .profile-link-add):is(button, a) {
+    height: auto;
+    min-height: 36px;
+  }
+  .view-as-bar-btn { height: auto; min-height: 36px; }
+}
+
+/* On a phone the owner's pills sit in two even columns, three tidy rows,
+   rather than wrapping raggedly; the two groups run on into one grid. */
+@media (max-width: 520px) {
+  .profile-owner-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .profile-owner-group { display: contents; }
+  #appBody .profile-header-card .profile-owner-actions .edit-bio-btn { width: 100%; min-width: 0; }
+}

@@ -82,11 +82,11 @@ export default function BannerEditor({ username, saved, onSaved, onClose }) {
         <button type="button" className="edit-bio-btn" disabled={busy} onClick={() => save(draft)}>
           {busy ? 'Saving…' : 'Save banner'}
         </button>
-        {dirty && !busy && <span className="banner-editor-unsaved" role="status">Not saved yet</span>}
         <button type="button" className="edit-bio-btn" disabled={busy} onClick={cancel}>Cancel</button>
         {saved && (
           <button type="button" className="edit-bio-btn" disabled={busy} onClick={() => save(null)}>Remove my rows</button>
         )}
+        {dirty && !busy && <span className="banner-editor-unsaved" role="status">Not saved yet</span>}
         {error && <span className="profile-inline-error" role="alert">{error}</span>}
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import './ProfileTabs.css';
+import { showTabBar } from './profileTabs.js';
 
 /**
  * The row of tabs under a profile's header card: Posts, Notes and, for the
@@ -26,6 +27,8 @@ export default function ProfileTabs({ tabs, active, onSelect }) {
     onSelect(id);
     refs.current[id]?.focus();
   };
+
+  if (!showTabBar(tabs)) return null;
 
   return (
     <div className="profile-tabs" role="tablist" aria-label="Profile sections" onKeyDown={onKeyDown}>

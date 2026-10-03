@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { DialogProvider } from '../components/Dialog/Dialog.jsx';
 
@@ -47,5 +47,14 @@ describe('the post card in lists', () => {
     card({}, { hasModifyPermissions: true });
     expect(screen.getByText('Edit')).toBeTruthy();
     expect(screen.getByText('Delete')).toBeTruthy();
+  });
+
+  it('asks "Delete this post?" and the button says Delete, not Continue', () => {
+    card({}, { hasModifyPermissions: true });
+    fireEvent.click(screen.getByText('Delete'));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.textContent).toContain('Delete this post?');
+    const buttons = Array.from(dialog.querySelectorAll('.dialog-btn')).map(b => b.textContent);
+    expect(buttons).toEqual(['Delete', 'Cancel']);
   });
 });

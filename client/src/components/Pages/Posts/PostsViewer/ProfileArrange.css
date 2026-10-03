@@ -16,6 +16,31 @@
     inset 0 1.5px 0 rgba(255, 255, 255, 0.9),
     0 8px 24px rgba(0, 0, 0, 0.12);
   text-align: left;
+  /* A tool of the site, not the author's page: the app's font throughout. */
+  font-family: var(--app-font);
+}
+
+/* Every button in the panel has the owner-button look of the profile: 32px,
+   13px 600, 6px corners. Done is the filled one; the rest are outlined. */
+.arrange :is(.arrange-done, .arrange-info, .arrange-new-folder, .arrange-action, .arrange-folder-form button) {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 14px;
+  border: 1.5px solid #2c2c2c;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #2c2c2c;
+  font: 600 13px/1 var(--app-font);
+  letter-spacing: 0;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
+}
+@media (pointer: coarse) {
+  .arrange :is(.arrange-done, .arrange-info, .arrange-new-folder, .arrange-action, .arrange-folder-form button) { min-height: 36px; }
 }
 
 .arrange-head {
@@ -47,32 +72,16 @@
 .arrange-status--saved { color: #2b8a52; }
 .arrange-status--error { color: #a01515; text-align: left; }
 
-.arrange-done {
+.arrange .arrange-done,
+.arrange .arrange-action.is-on {
   background: #2c2c2c;
-  color: #fff;
-  font-weight: 700;
-  border: none;
-  border-radius: 10px;
-  padding: 8px 20px;
-  box-shadow:
-    inset 0 1.5px 0 rgba(255, 255, 255, 0.22),
-    inset 0 -2px 0 rgba(0, 0, 0, 0.35),
-    0 2px 6px rgba(0, 0, 0, 0.2);
+  color: #ffffff;
 }
+.arrange .arrange-done:disabled { opacity: 0.45; cursor: default; }
 
 /* The "i" button: shows the keyboard keys. */
-.arrange-info {
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  border: 2px solid #2c2c2c;
-  border-radius: 10px;
-  background: #fff;
-  color: #2c2c2c;
-  font: italic 700 16px/1 Georgia, 'Times New Roman', serif;
-  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.12), 0 2px 5px rgba(0, 0, 0, 0.12);
-}
-.arrange-info.is-on { background: #2c2c2c; color: #fff; }
+.arrange .arrange-info { width: 32px; padding: 0; }
+.arrange .arrange-info.is-on { background: #2c2c2c; color: #ffffff; }
 
 .arrange-keys {
   display: grid;
@@ -254,20 +263,12 @@
 /* While arranging, the page's scroll-to-top button stays out of the way. */
 body.is-arranging .scroll-to-top { display: none; }
 
-.arrange-new-folder {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  font-size: 13px;
-}
+.arrange .arrange-new-folder { gap: 6px; }
 .arrange-folder-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 10px; }
 .arrange-folder-form input { flex: 1 1 200px; min-width: 0; padding: 6px 8px; border: 1px solid #999; font: inherit; }
 .arrange-folder-error { color: #b3261e; font-size: 12px; }
 
 /* Make public / private and delete, at the end of a post's row. */
 .arrange-actions { display: inline-flex; gap: 6px; margin-left: auto; flex-shrink: 0; }
-.arrange-action { padding: 2px 8px; font-size: 12px; border-radius: 6px; white-space: nowrap; }
-.arrange-action--danger { color: #b3261e; border-color: currentColor; }
+.arrange .arrange-action--danger { color: #b3261e; border-color: currentColor; background: #ffffff; }
 @media (max-width: 600px) { .arrange-actions { flex-wrap: wrap; justify-content: flex-end; } }
-.arrange-action.is-on { background: #1c1c1c; color: #fff; }

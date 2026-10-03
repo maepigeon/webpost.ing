@@ -53,6 +53,20 @@ export function visibleTabs({ isOwner, counts = {}, publicNotes = null }) {
   return tabs;
 }
 
+/** A bar of one tab says nothing: draw it only when there is a choice. */
+export function showTabBar(tabs) {
+  return Array.isArray(tabs) && tabs.length > 1;
+}
+
+/**
+ * The number the header's "public posts" and the Posts tab both show: the
+ * Posts tab's count for this reader. Until the counts arrive, the number the
+ * banner brought.
+ */
+export function publicPostCount(counts, fallback = 0) {
+  return typeof counts?.profile === 'number' ? counts.profile : fallback;
+}
+
 /** Where a draft will go once published. */
 export function destinationLabel(section) {
   if (section === 'notes') return 'Note';
