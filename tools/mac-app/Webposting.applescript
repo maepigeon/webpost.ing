@@ -8,11 +8,15 @@
 property repoPath : "__REPO__"
 property localSite : "http://localhost:5174"
 
+-- Opens a Terminal window running `command` in the repository. It is handed
+-- to Terminal as a small .command file with `open`, not through an Apple
+-- event: `tell application "Terminal" to do script` waits for Terminal to
+-- answer, and timed out ("AppleEvent timed out") when Terminal was slow to
+-- start or was asking for permission.
 on runInTerminal(command)
-	tell application "Terminal"
-		activate
-		do script "cd " & quoted form of repoPath & " && " & command
-	end tell
+	set scriptFile to do shell script "mktemp -t webposting"
+	set scriptFile to scriptFile & ".command"
+	do shell script "printf '%s\\n' '#!/bin/bash' " & quoted form of ("cd " & quoted form of repoPath & " && " & command) & " > " & quoted form of scriptFile & " && chmod +x " & quoted form of scriptFile & " && open -a Terminal " & quoted form of scriptFile
 end runInTerminal
 
 on siteIsUp()
