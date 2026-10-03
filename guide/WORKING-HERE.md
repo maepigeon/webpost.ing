@@ -63,6 +63,7 @@ task: the files, Mae's words, and the design.
 | `auditor` | Sonnet | Read-only security, performance, accessibility or code-health audit ending in ranked findings and work packages. |
 | `ui-reviewer` | Sonnet | Exploratory testing in a real browser; a bug report with evidence. |
 | `screen-checker` | Sonnet | Before a deploy hand-over: look at the changed screens and say Ship, Fix first, or Show Mae first. |
+| `design-guardian` | Sonnet | Enforces [DESIGN-RULES.md](DESIGN-RULES.md), Mae's own likes and dislikes collected from the sessions: reviews the diff and the built screens, pass/fail per screen with exact fixes. In every batch that changes what a user sees, before hand-over. |
 | `design-reviewer` | Fable | Occasionally: a feature's design before building, an architecture choice, a deep review of a risky change. Mae asked for this model on high-intelligence review and design tasks; it costs more, so use it where being wrong is expensive. |
 
 **Name every worker and keep its brief** (Mae, 2026-10-03: "name your
@@ -177,6 +178,8 @@ the lead commits and hands over.
   checked.
 
 ## Design taste (from Mae's feedback)
+
+The full list, in her words, is [DESIGN-RULES.md](DESIGN-RULES.md). Add to it the same day she gives new feedback. The short version:
 
 - Grayscale app chrome; tactile, springy controls; **no glass/blur panels**;
   never rotate or tilt posts.
