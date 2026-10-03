@@ -14,7 +14,6 @@ const RichTextEditor = lazy(() => import('./components/Pages/Posts/PostRenderer/
 const RichTextViewer = lazy(() => import('./components/Pages/Posts/PostRenderer/RichTextPost/Viewer'));
 import Home from './components/Pages/Home/Home';
 import ScrollToTop from './components/ScrollToTop/ScrollToTop';
-import CursorGlow from './components/CursorGlow/CursorGlow.jsx';
 import MiniPlayer from './components/AudioPlayer/MiniPlayer.jsx';
 const InboxPage = lazy(() => import('./components/Social/InboxPage.jsx'));
 const FollowingPage = lazy(() => import('./components/Social/FollowingPage.jsx'));
@@ -69,7 +68,6 @@ function App() {
 
   return (
     <div id="appBody">
-      <CursorGlow />
       <Navbar />
       <ScrollToTop />
 

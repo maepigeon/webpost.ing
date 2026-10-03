@@ -2010,6 +2010,21 @@ function LoadEditorStatePlugin({ ready, bodyRef }) {
   return null;
 }
 
+/**
+ * Puts a new post's address in the address bar once it has an id, so a reload
+ * opens that post instead of a blank one. Done on the browser's history, not
+ * through the router: a route change would restart the page (App's Fresh) and
+ * lose the cursor, undo history and the unsaved text. The router keeps its
+ * idea of the location until the next real navigation, which is harmless here.
+ */
+export function showSavedPostAddress(id, win = window) {
+  if (!(Number(id) > 0)) return false;
+  try {
+    win.history.replaceState(win.history.state, '', `/editor/${id}`);
+    return true;
+  } catch { return false; }
+}
+
 export default function RichTextEditor() {
   let { id } = useParams();
   const navigate = useNavigate();
@@ -2043,6 +2058,10 @@ export default function RichTextEditor() {
   const fieldsRef = useRef({});
   const [localSavedAt, setLocalSavedAt] = useState(null);
   const [createdId, setCreatedId] = useState(null);
+  const handleCreated = useCallback((newId) => {
+    setCreatedId(newId);
+    showSavedPostAddress(newId);
+  }, []);
   const [titleKey, setTitleKey] = useState(0);
   const markChanged = useCallback(() => {
     setIsDirty(true);
@@ -2101,7 +2120,7 @@ export default function RichTextEditor() {
     if (!id) return;
     READ_POST(id).then((data) => {
       titlehtml.current = (data.title || '').replace(/<[^>]*>/g, '').trim();
-      localStorage.setItem("currentPostTitle", titlehtml.current);
+      try { localStorage.setItem("currentPostTitle", titlehtml.current); } catch { /* not kept */ }
       setPostDate(data.date);
       setPostPublished(data.published);
       setBackgroundPattern(data.backgroundPattern || '');
@@ -2251,7 +2270,7 @@ export default function RichTextEditor() {
               flushRef={flushRef} clearRef={clearRef} onLocalSaved={setLocalSavedAt}
               ready={!id || dataReady > 0} loaded={getLoaded}
             />
-            <ToolbarPlugin postid={id} backgroundPattern={backgroundPattern} onPatternChange={changePattern} username={postAuthor || me} postPublished={postPublished} onPublishedChange={setPostPublished} features={features} onFeaturesChange={setFeatures} titleRef={titlehtml} onSaved={handleSaved} folder={postFolder} onFolderChange={changeFolder} slug={postSlug} onSlugChange={changeSlug} summary={cleanSummary(postSummary)} section={postSection} bus={bus} localSavedAt={localSavedAt} onAutoSaved={handleAutoSaved} onCreated={setCreatedId} />
+            <ToolbarPlugin postid={id} backgroundPattern={backgroundPattern} onPatternChange={changePattern} username={postAuthor || me} postPublished={postPublished} onPublishedChange={setPostPublished} features={features} onFeaturesChange={setFeatures} titleRef={titlehtml} onSaved={handleSaved} folder={postFolder} onFolderChange={changeFolder} slug={postSlug} onSlugChange={changeSlug} summary={cleanSummary(postSummary)} section={postSection} bus={bus} localSavedAt={localSavedAt} onAutoSaved={handleAutoSaved} onCreated={handleCreated} />
             {/* The post itself, in its theme's fonts; the controls above stay in the app's. */}
             <div className="th-scope" style={{ position: 'relative' }}>
               <RichTextPlugin

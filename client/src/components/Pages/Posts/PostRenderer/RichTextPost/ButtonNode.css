@@ -2,12 +2,15 @@
    button fits any theme; the label sits in a span because the theme sets link
    colours on the anchor with a rule too strong to override from here. */
 
-/* Left buttons sit in a row, each its own block. Centred and right ones stack,
-   because a post has one text alignment and blocks cannot share a row across it. */
-.pb-block { display: inline-block; vertical-align: top; max-width: 100%; margin: 6px 10px 6px 0; }
-.pb-block[data-align="center"] { display: block; width: fit-content; margin: 6px auto; }
-.pb-block[data-align="right"] { display: block; width: fit-content; margin: 6px 0 6px auto; }
-.pb-block:has(.is-editing) { display: block; width: 100%; max-width: 560px; margin-left: 0; margin-right: 0; }
+/* Consecutive buttons with the same alignment share a row. The first button of
+   a run is the row (a wrapping flex box, packed left, centre or right); the
+   others draw their content into it and leave only an empty block behind. A
+   button being edited takes a row of its own. */
+.pb-block { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 10px; max-width: 100%; margin: 6px 0; }
+.pb-block[data-align="center"] { justify-content: center; }
+.pb-block[data-align="right"] { justify-content: flex-end; }
+.pb-block[data-run="join"] { height: 0; margin: 0; overflow: hidden; }
+.pb-wrap.is-editing { flex: 1 0 100%; max-width: 560px; margin-right: auto; }
 
 .pb-wrap { max-width: 100%; }
 .pb-wrap.is-selected { outline: 2px solid #5ea0ff; outline-offset: 4px; border-radius: 6px; }

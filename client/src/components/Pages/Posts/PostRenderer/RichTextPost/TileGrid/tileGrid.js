@@ -85,8 +85,13 @@ export function requestTypefaces(font = 'smooth') {
   typefacesPending.add(p);
 }
 
-/** Resolves once the typefaces asked for so far, and any other font loading, have arrived: the moment to redraw. */
+/**
+ * Resolves once the typefaces asked for so far, and any other font loading,
+ * have arrived: the moment to redraw. Null when nothing is loading, so a grid
+ * does not draw a second identical time.
+ */
 export function fontsSettled() {
+  if (typefacesPending.size === 0 && document.fonts?.status !== 'loading') return null;
   return Promise.all([...typefacesPending]).then(() => document.fonts?.ready);
 }
 

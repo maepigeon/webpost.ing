@@ -9,6 +9,8 @@
  * without any component knowing the preference exists.
  */
 
+import { ensureFontsIn } from './fontLoader.js';
+
 /**
  * The families offered, keyed to match the server's allowlist.
  *
@@ -37,6 +39,7 @@ export function applyCodeDisplay({ codeFont, codeFontSize } = {}) {
   const root = document.documentElement;
   const font = CODE_FONTS[codeFont] || CODE_FONTS.default;
   root.style.setProperty('--code-font', font.stack);
+  ensureFontsIn(font.stack);   // web fonts load on demand: JetBrains Mono and IBM Plex Mono need asking for
 
   const size = Number(codeFontSize);
   const clamped = Number.isFinite(size)

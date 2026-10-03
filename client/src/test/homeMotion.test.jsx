@@ -3,7 +3,6 @@ import { render, fireEvent, act, cleanup, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom';
 import { DialogProvider } from '../components/Dialog/Dialog.jsx';
 import WaterTitle from '../components/Pages/Home/WaterTitle.jsx';
-import CursorGlow from '../components/CursorGlow/CursorGlow.jsx';
 import Home from '../components/Pages/Home/Home.jsx';
 import { REDUCED_MOTION } from '../utils/frameLoop.js';
 
@@ -103,30 +102,6 @@ describe('the home page title', () => {
     move.touches = [{ clientX: 5, clientY: 5 }];
     canvas.dispatchEvent(move);
     expect(move.defaultPrevented).toBe(false);
-    expect(pending()).toBe(0);
-  });
-});
-
-describe('the cursor glow', () => {
-  it('asks for no frames while the pointer rests, and one for a burst of movement', () => {
-    const { container } = render(<CursorGlow />);
-    const glow = container.querySelector('.cursor-glow');
-    expect(pending()).toBe(0);
-
-    fireEvent.mouseMove(document, { clientX: 10, clientY: 20 });
-    fireEvent.mouseMove(document, { clientX: 30, clientY: 40 });
-    expect(glow.style.opacity).toBe('1');
-    expect(pending()).toBe(1);
-    runFrame();
-    expect(glow.style.transform).toBe('translate(30px, 40px)');
-    expect(pending()).toBe(0);
-  });
-
-  it('stays hidden for a visitor who asks for reduced motion', () => {
-    reduced = true;
-    const { container } = render(<CursorGlow />);
-    fireEvent.mouseMove(document, { clientX: 10, clientY: 20 });
-    expect(container.querySelector('.cursor-glow').style.opacity).toBe('');
     expect(pending()).toBe(0);
   });
 });

@@ -371,7 +371,7 @@ export default function TileGrid({
       });
     };
     draw();
-    fontsSettled().then(draw).catch(() => {});
+    fontsSettled()?.then(draw).catch(() => {});
     // A browser may drop a canvas's pixels (a lost graphics context) and hand
     // it back blank; a grid at rest would otherwise stay blank.
     canvas.addEventListener('contextrestored', draw);

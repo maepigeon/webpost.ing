@@ -1,7 +1,8 @@
 import { DecoratorNode, $getNodeByKey } from 'lexical';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { useLexicalNodeSelection } from '@lexical/react/useLexicalNodeSelection';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
 import GridButton from './TileGrid/GridButton.jsx';
 import PixelText from './TileGrid/PixelText.jsx';
@@ -170,8 +171,53 @@ function ButtonEditor({ data, onChange }) {
   );
 }
 
+/**
+ * Where a button sits among its neighbours: a run is consecutive buttons with
+ * the same alignment, and they share one row. `leader` is the key of the run's
+ * first button, `index` this button's place in it. Call inside editor.read/update.
+ */
+export function $buttonRun(node) {
+  const align = node.getData().align;
+  let leader = node;
+  let index = 0;
+  for (let p = node.getPreviousSibling(); $isButtonNode(p) && p.getData().align === align; p = p.getPreviousSibling()) {
+    leader = p;
+    index += 1;
+  }
+  return { leader: leader.getKey(), index };
+}
+
+/**
+ * Follows this button's run as the document changes. Every button stays its
+ * own node (so moving, deleting and selecting work as before); the row is made
+ * by the run's first button, whose element is a flex row that the others draw
+ * their content into (see ButtonComponent).
+ */
+function useButtonRun(editor, nodeKey) {
+  const read = useCallback((state) => state.read(() => {
+    const node = $getNodeByKey(nodeKey);
+    return $isButtonNode(node) ? $buttonRun(node) : null;
+  }), [nodeKey]);
+  const [run, setRun] = useState(() => read(editor.getEditorState()) || { leader: nodeKey, index: 0 });
+  useEffect(() => {
+    const follow = (state) => {
+      const next = read(state);
+      if (next) setRun(prev => (prev.leader === next.leader && prev.index === next.index ? prev : next));
+    };
+    follow(editor.getEditorState());
+    return editor.registerUpdateListener(({ editorState }) => follow(editorState));
+  }, [editor, read]);
+  return run;
+}
+
 function ButtonComponent({ data, nodeKey, editable = true }) {
   const [editor] = useLexicalComposerContext();
+  const run = useButtonRun(editor, nodeKey);
+  const leads = run.leader === nodeKey;
+  // The element Lexical made for this block says whether it holds the row or only an empty place for a button drawn elsewhere.
+  useLayoutEffect(() => {
+    editor.getElementByKey(nodeKey)?.setAttribute('data-run', leads ? 'lead' : 'join');
+  });
   const [selected, setSelected, clearSelection] = useLexicalNodeSelection(nodeKey);
   // A button with no target yet is brand new: open its form straight away.
   const open = editable && (selected || Boolean(validateTarget(data.action, data.target)));
@@ -197,9 +243,10 @@ function ButtonComponent({ data, nodeKey, editable = true }) {
     setSelected(true);
   };
 
-  return (
+  const host = leads ? null : editor.getElementByKey(run.leader);
+  const content = (
     <div className={`pb-wrap pb-align--${data.align}${open ? ' is-editing' : ''}${selected ? ' is-selected' : ''}`}
-      onClick={select}>
+      style={{ order: run.index }} onClick={select}>
       <ButtonFace data={data} editable={editable} />
       {open && (
         <>
@@ -213,6 +260,8 @@ function ButtonComponent({ data, nodeKey, editable = true }) {
       )}
     </div>
   );
+  // Later buttons of a run are drawn inside the first one's row.
+  return host ? createPortal(content, host) : content;
 }
 
 export class ButtonNode extends DecoratorNode {
