@@ -1,14 +1,13 @@
-import { Link } from 'react-router-dom';
 import './Userdata.css'
 
-/** "Welcome, <name>" in the bar; for someone signed in it opens their profile. */
+/** The face of the account button: the user's initial and name. */
 const Username = () => {
-  const username = localStorage.getItem("userName");
-  if (!username) return <span><p className="username">Welcome, Guest</p></span>;
+  const username = localStorage.getItem("userName") || "";
   return (
-    <Link to={`/${username}`} className="username-link" title="Your profile">
-      <p className="username">Welcome, {username}</p>
-    </Link>
+    <>
+      <span className="nav-avatar squircle" aria-hidden="true">{username.charAt(0).toUpperCase()}</span>
+      <span className="username">{username}</span>
+    </>
   );
 };
 

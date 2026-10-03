@@ -1,54 +1,42 @@
+/* ── The top bar ────────────────────────────────────────────────────────────
+   Primary links on the left, the account button on the right. When the bar is
+   too narrow the lowest-priority links move into More (measured in JS, see
+   useBarFit, because a breakpoint cannot know how wide the labels are).
+   Greys only; the pill look comes from Navbutton.css. */
+
 .navBar {
     background-color: black;
     position: sticky;
     top: 0;
     left: 0;
     width: 100%;
+    /* Other pages offset their sticky parts by this, so the bar never goes
+       shorter than it. */
     min-height: var(--navbar-height);
     z-index: 300;
-    /* Buttons in the true centre of the bar; the greeting and menu sit in the
-       right-hand column. Equal side columns keep the middle centred however
-       wide the greeting is. */
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    display: flex;
     align-items: center;
+    gap: 8px;
+    padding: 4px 12px;
     box-sizing: border-box;
 }
 
-/* Left-aligned button cluster (all breakpoints) */
-
-/* Personal nav group — My Profile, Activity, Inbox, bell (desktop) */
-
-/* ── Overflow layout ────────────────────────────────────────────────────────
-   The bar shows as many items as fit and moves the rest into the menu, at every
-   width. Widths are measured in JS (useOverflowItems), because a breakpoint
-   cannot know how wide these labels are — the old fixed split hid the whole
-   desktop cluster below 860px whether or not it would have fitted. */
-
 .nav-items {
-    grid-column: 2;
+    flex: 1 1 auto;
     display: inline-flex;
     align-items: center;
-    gap: 2px;
+    gap: 0;
     flex-wrap: nowrap;
     min-width: 0;
-    overflow: hidden;
+    /* Clip anything that overflows before the first measurement, but leave
+       room for the pills' rims and focus rings. */
+    overflow: clip;
+    overflow-clip-margin: 6px;
 }
 
 .nav-item { display: inline-flex; align-items: center; flex-shrink: 0; }
 
-.nav-fixed {
-    grid-column: 3;
-    justify-self: end;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    flex-shrink: 0;
-    /* Clear of an overlay scrollbar, which sits on top of the content on macOS
-       and was clipping the last few characters of the greeting. */
-    padding-right: 2px;
-    min-width: 0;
-}
+.nav-account { flex: 0 0 auto; display: inline-flex; margin-left: auto; }
 
 /* Measured, never shown. Off-screen rather than display:none, because a hidden
    element has no width to measure. */
@@ -59,130 +47,152 @@
     visibility: hidden;
     pointer-events: none;
     display: flex;
-    gap: 2px;
     white-space: nowrap;
 }
 
-/* Shown whenever something did not fit, at any width. */
-.nav-hamburger-wrap {
-    display: block;
-    position: relative;
+/* ── Menu buttons (More, account) ───────────────────────────────────────────── */
+.nav-menu-wrap { position: relative; }
+
+.nav-menu-btn { position: relative; }
+
+/* Open: the same dark pill as the current page, so it reads as pressed in. */
+.navBar .navButton.nav-menu-btn[aria-expanded="true"] {
+    background: #111111;
+    color: #ffffff;
+    filter: none;
+    box-shadow: 0 0 0 2px #ffffff;
 }
+.navBar .nav-menu-btn[aria-expanded="true"] .nav-avatar { background: #fff; color: #111; }
 
-.nav-popup-item { display: block; }
+/* The account button is the one place the name appears, so it is a little
+   roomier than the link pills. */
+.nav-account-btn { padding-left: 8px; }
 
-/* ── Hamburger button ──────────────────────────────────────────────────────── */
-.nav-hamburger-btn {
-    background: rgba(255,255,255,0.12);
-    border: 1px solid rgba(255,255,255,0.25);
-    border-radius: 8px;
-    width: 38px;
-    height: 32px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    margin: 2px;
-}
-
-.nav-hamburger-icon {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    width: 18px;
-}
-
-.nav-hamburger-icon span {
-    display: block;
-    height: 2px;
-    background: #fff;
-    border-radius: 2px;
-}
-
-/* ── Mobile popup — frosted glass ──────────────────────────────────────────── */
-.nav-mobile-popup {
-    position: fixed;
-    top: 0;
-    right: 0;
-    width: min(280px, 85vw);
-    height: 100dvh;
-    background: #181818;   /* solid, not glass */
-    border-left: 1px solid rgba(255,255,255,0.14);
-    z-index: 400;
-    display: flex;
-    flex-direction: column;
-    padding: 20px 16px 32px;
-    box-shadow: -8px 0 32px rgba(0,0,0,0.45);
-    animation: nav-slide-in 0.2s ease;
-    overflow-x: hidden;
-    box-sizing: border-box;
-}
-
-@keyframes nav-slide-in {
-    from { transform: translateX(100%); opacity: 0; }
-    to   { transform: translateX(0);    opacity: 1; }
-}
-
-.nav-mobile-popup-close {
-    align-self: flex-end;
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.2);
-    border-radius: 50%;
-    color: #fff;
-    font-size: 16px;
-    width: 32px;
-    height: 32px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 20px;
+/* A chevron drawn with borders (no emoji, no icon font). */
+.nav-chevron {
+    width: 6px;
+    height: 6px;
+    margin: 0 2px 3px 9px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(45deg);
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
     flex-shrink: 0;
 }
+.nav-menu-btn[aria-expanded="true"] .nav-chevron { transform: rotate(225deg) translate(-1px, -1px); }
 
-.nav-mobile-popup-items {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    overflow-y: auto;
-    overflow-x: hidden;
-    min-width: 0;
-}
-
-/* Each item is the link itself, full width. (When a button sat inside a link,
-   padding on both pushed every button past the panel's right edge.) */
-.nav-mobile-popup-items .navButton {
-    display: flex;
-    margin: 0;
-    width: 100%;
-    max-width: 100%;
+/* Something unread is hiding in More. Black with a white ring so it shows on
+   the white pill and over its edge. */
+.nav-more-dot {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #111;
+    border: 2px solid #fff;
     box-sizing: border-box;
-    text-align: left;
-    padding: 10px 14px;
-    font-size: 1rem;
+}
+
+/* ── Unread count ───────────────────────────────────────────────────────────── */
+.nav-badge {
+    display: inline-block;
+    background: #111;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 1px 5px;
+    min-width: 16px;
+    text-align: center;
+    line-height: 14px;
+    margin-left: 6px;
+    box-sizing: border-box;
+    text-shadow: none;
+}
+/* On the dark current-page pill, flip it. */
+.navBar .navButton--active .nav-badge { background: #fff; color: #111; }
+
+/* ── The dropdown ───────────────────────────────────────────────────────────── */
+.nav-menu-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 210px;
+    background: #fff;
+    color: #111;
+    border: 1.5px solid #000;
     border-radius: 10px;
+    /* Hard offset, no blur. */
+    box-shadow: 4px 4px 0 #000;
+    overflow: hidden;
+    z-index: 400;
+    transform-origin: top right;
+    animation: nav-menu-in 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* Mobile log-in button — only shown on mobile when logged out */
-.nav-mobile-login { display: none; }
+@keyframes nav-menu-in {
+    from { transform: translateY(-6px) scale(0.96); opacity: 0; }
+    to   { transform: none; opacity: 1; }
+}
 
-/* ── Welcome line in mobile popup ─────────────────────────────────────────── */
-.nav-mobile-popup-welcome {
-    color: rgba(255,255,255,0.75);
-    font-size: 0.85rem;
+.nav-menu-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-sizing: border-box;
+    width: 100%;
+    height: 44px;
+    padding: 0 16px;
+    color: #111;
+    background: #fff;
+    text-decoration: none;
+    font-size: 15px;
     font-weight: 500;
-    padding: 0 4px 12px;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-    margin-bottom: 12px;
-    letter-spacing: 0.01em;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.1s ease, transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.nav-menu-item + .nav-menu-item { border-top: 1px solid #e2e2e2; }
+.nav-menu-item--separated { border-top: 1.5px solid #000 !important; }
+
+a.nav-menu-item:hover,
+a.nav-menu-item:focus-visible { background: #ececec; color: #111; outline: none; }
+a.nav-menu-item:focus-visible { box-shadow: inset 0 0 0 2px #111; }
+a.nav-menu-item:active { background: #d9d9d9; transform: scale(0.985); }
+a.nav-menu-item:visited { color: #111; }
+
+/* The page you are on: bold, with a bar down the left edge. */
+.nav-menu-item--active,
+a.nav-menu-item--active:hover { font-weight: 700; box-shadow: inset 4px 0 0 #000; }
+a.nav-menu-item--active:focus-visible { box-shadow: inset 4px 0 0 #000, inset 0 0 0 2px #111; }
+
+/* ── Phones ─────────────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+    .navBar { padding: 4px 8px; gap: 4px; }
+    .nav-items .navButton, .nav-account .navButton { padding: 8px 12px; font-size: 13px; min-height: 40px; }
+    .nav-account-btn { padding-left: 8px; }
+
+    /* The sheet hangs from the bar's bottom edge across the full width: the
+       wrapper stops being the positioning parent so the bar is. */
+    .nav-menu-wrap { position: static; }
+    .nav-menu-panel {
+        top: 100%;
+        left: 0;
+        right: 0;
+        min-width: 0;
+        border-radius: 0;
+        border-width: 0 0 1.5px 0;
+        box-shadow: 0 4px 0 #000;
+        max-height: calc(100dvh - var(--navbar-height));
+        overflow-y: auto;
+        transform-origin: top center;
+    }
+    .nav-menu-item { padding: 0 20px; }
 }
 
-/* ── Responsive breakpoint ─────────────────────────────────────────────────── */
-@media (max-width: 860px) {
-    .navBar { padding: 4px 8px; }
-
-    /* Thumb-sized buttons; whatever does not fit goes in the menu. */
-    .nav-items .navButton { padding: 8px 12px; font-size: 13px; min-height: 36px; }
+@media (prefers-reduced-motion: reduce) {
+    .nav-menu-panel { animation: none; }
+    .nav-chevron, .nav-menu-item { transition: none; }
 }
-

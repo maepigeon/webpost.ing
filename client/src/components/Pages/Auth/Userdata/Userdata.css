@@ -1,32 +1,36 @@
-/* "Welcome, <name>" in the navbar.
+/* The account button's contents: initial square, then the name.
 
-   It used to run to the very edge of the bar with no wrapping rules, so a long
-   name — or a narrow window, or an overlay scrollbar sitting on top of the
-   content — clipped it mid-character. It now truncates with an ellipsis, which
-   reads as deliberate, and steps aside entirely when the bar is short of room;
-   the name is still in the menu. */
+   The name truncates with an ellipsis rather than clipping mid-character, and
+   goes away on a phone, where the initial and the chevron are enough. */
+
+.nav-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    margin-right: 8px;
+    flex-shrink: 0;
+    background: #111;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1;
+}
 
 .username {
-    color: white;
-    font-size: 16px;
     display: inline-block;
-    margin: 0;
-    padding-right: 4px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 22ch;
+    max-width: 18ch;
 }
 
 @media (max-width: 900px) {
-    .username { max-width: 14ch; font-size: 15px; }
+    .username { max-width: 12ch; }
 }
 
-/* Below this the greeting is the first thing worth dropping: it is decoration,
-   and the same name is at the top of the menu. */
-@media (max-width: 700px) {
+@media (max-width: 520px) {
     .username { display: none; }
+    .nav-avatar { margin-right: 6px; }
 }
-
-.username-link { text-decoration: none; }
-.username-link:hover .username, .username-link:focus-visible .username { text-decoration: underline; }

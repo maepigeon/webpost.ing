@@ -57,7 +57,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #919191;
+  background: #707070;
   color: #fff;
   font-weight: 800;
   font-size: clamp(18px, 5vw, 36px);

@@ -105,7 +105,7 @@ html[data-th-hide-wallpaper]:not([data-own-wallpaper]) body { background-image: 
 #appBody :is(
   .profile-header-card, .basicTextPost, .editor-post-card, .profile-folder-section,
   .search-card, .search-user-card, .settings-card, .login-card, .logout-card,
-  .activity-card, .app-error-card, .inbox-page, .messages-page
+  .activity-card, .app-error-card, .inbox-page, .messages-page, .discussion-glass-panel
 ),
 .theme-preview .theme-card {
   position: relative;
@@ -269,3 +269,256 @@ html[data-th-hide-wallpaper]:not([data-own-wallpaper]) body { background-image: 
 /* The post's text sits straight on its card: the pale wash behind it turned
    a dark card grey and dulled a textured one. */
 #appBody .editor-post-card .editor-contenteditable { background: transparent; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Contrast pass: everything drawn on a themed card, or on the page behind it,
+   takes its colours from the theme so it stays readable on a dark card, a
+   light one or a loud one. The app's own chrome (top bar, Settings, Messages,
+   dialogs, the dark tool panels) keeps its fixed colours and is not touched.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* Shades of the card's ink, defined once per card so the rules below stay short. */
+#appBody :is(.profile-header-card, .basicTextPost, .editor-post-card, .profile-folder-section, .discussion-glass-panel) {
+  --th-ink-soft: color-mix(in srgb, var(--th-ink, #222) 68%, transparent);
+  --th-hair: color-mix(in srgb, var(--th-ink, #222) 22%, transparent);
+  --th-tint: color-mix(in srgb, var(--th-ink, #222) 8%, transparent);
+  --th-tint-strong: color-mix(in srgb, var(--th-ink, #222) 16%, transparent);
+}
+
+/* A profile header with a photo is drawn over a scrim, not over the card's
+   colour, so the theme's text colours (checked against the card) may not read
+   on it. Light ink on the dark scrim, dark ink on the light one. */
+#appBody .profile-header-card--image:is(.profile-header-card--ink-auto, .profile-header-card--ink-light) {
+  --th-ink: #ffffff; --th-heading-ink: #ffffff; --th-link: #ffffff; --th-accent: #ffffff; --th-danger: #ff8a80;
+  --th-heading-bg: none; --th-heading-anim: none;
+  --th-text-glow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+#appBody .profile-header-card--image.profile-header-card--ink-dark {
+  --th-ink: #151515; --th-heading-ink: #151515; --th-link: #151515; --th-accent: #151515; --th-danger: #b71c1c;
+  --th-heading-bg: none; --th-heading-anim: none;
+  --th-text-glow: 0 1px 2px rgba(255, 255, 255, 0.7);
+}
+
+/* ── Inputs on a themed card: ink text, a faint ink tint, an ink border ──── */
+#appBody :is(.profile-header-card, .editor-post-card, .discussion-glass-panel)
+  :is(textarea, input:is([type="text"], [type="url"], [type="search"], [type="email"], [type="number"], :not([type]))):not(.title-input):not(.toolbar-sticky *) {
+  color: var(--th-ink, #222) !important;
+  background: var(--th-tint);
+  border: 1px solid var(--th-hair) !important;
+  box-shadow: none;
+}
+#appBody :is(.profile-header-card, .editor-post-card, .discussion-glass-panel)
+  :is(textarea, input):not(.title-input):not(.toolbar-sticky *)::placeholder {
+  color: color-mix(in srgb, var(--th-ink, #222) 50%, transparent);
+  opacity: 1;
+}
+#appBody :is(.profile-header-card, .editor-post-card, .discussion-glass-panel)
+  :is(textarea, input):not(.title-input):not(.toolbar-sticky *):focus {
+  border-color: color-mix(in srgb, var(--th-ink, #222) 75%, transparent) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--th-ink, #222) 28%, transparent);
+  outline: none;
+}
+
+/* ── Post page: the footer row ────────────────────────────────────────────── */
+#appBody .editor-post-card .editor-contenteditable { color: var(--th-ink, #0e0e0e); }
+#appBody .editor-post-card .editor-placeholder { color: color-mix(in srgb, var(--th-ink, #222) 50%, transparent); }
+#appBody .editor-post-card .textCode { background: var(--th-tint-strong); }
+#appBody .editor-post-card :is(.editor-link, .editor-hashtag-token, .hashtag-link) { color: var(--th-link, var(--th-accent)); }
+#appBody .editor-post-card .editor-math-editing { background: var(--th-tint); border-color: var(--th-hair); }
+#appBody .editor-post-card .editor-math-editable:hover { background: var(--th-tint); }
+#appBody .editor-post-card .editor-math-controls-below button {
+  background: var(--th-tint);
+  border-color: var(--th-hair);
+  color: var(--th-ink, #222);
+}
+#appBody .editor-post-card .editor-math-controls-below button:hover { background: var(--th-tint-strong); color: var(--th-ink, #222); }
+
+#appBody .viewer-post-card :is(.viewer-edit-btn, .viewer-share-btn) {
+  background: var(--th-tint);
+  color: var(--th-ink, #222);
+  border-color: color-mix(in srgb, var(--th-ink, #222) 35%, transparent);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  text-shadow: none;
+}
+#appBody .viewer-post-card :is(.viewer-edit-btn, .viewer-share-btn):hover {
+  background: var(--th-tint-strong);
+  color: var(--th-ink, #222);
+  border-color: var(--th-ink, #222);
+}
+#appBody .viewer-post-card .report-trigger { color: var(--th-ink-soft); }
+#appBody .viewer-post-card .report-trigger:hover { color: var(--th-danger, #b71c1c); background: var(--th-tint); }
+/* The score and vote arrows. The upvote keeps the ink; the downvote the theme's red. */
+#appBody .viewer-post-card .post-vote-btn { color: var(--th-ink-soft); }
+#appBody .viewer-post-card .post-vote-btn:hover:not(:disabled) { background: var(--th-tint-strong); color: var(--th-ink, #222); }
+#appBody .viewer-post-card .post-vote-btn--up { color: var(--th-ink, #222); }
+#appBody .viewer-post-card .post-vote-btn--down { color: var(--th-danger, #dc2626); }
+#appBody .viewer-post-card .post-vote-score { color: var(--th-ink, #222); }
+#appBody .viewer-post-card .post-vote-caption { color: var(--th-ink-soft); }
+/* Reactions: tinted from the ink, no glass plate. */
+#appBody .viewer-post-card .reaction-btn {
+  background: var(--th-tint);
+  border: 1px solid var(--th-hair);
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  color: var(--th-ink, #222);
+}
+#appBody .viewer-post-card .reaction-btn:hover:not(:disabled) { background: var(--th-tint-strong); box-shadow: none; }
+#appBody .viewer-post-card .reaction-btn--active {
+  background: var(--th-tint-strong);
+  border-color: var(--th-ink, #222);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--th-ink, #222) 30%, transparent);
+}
+#appBody .viewer-post-card .reaction-count { color: var(--th-ink, #222); }
+#appBody .viewer-post-card .reaction-expand { color: var(--th-ink-soft); opacity: 1; }
+/* The footer's "Sent to", Discussion link and view count are styled inline. */
+#appBody .viewer-post-card .post-footer > span[role="status"] { color: var(--th-ink-soft) !important; }
+#appBody .viewer-post-card .post-footer > a[href$="/discussion"] { color: var(--th-link, var(--th-accent)) !important; text-decoration: underline !important; }
+#appBody .viewer-post-card .post-footer > span[style*="margin-left"] { color: var(--th-ink-soft) !important; }
+/* The post's own bars. */
+#appBody .basicTextPost .bottom-nav { border-top-color: var(--th-hair); }
+#appBody .basicTextPost .bottom-nav p { color: var(--th-ink-soft); }
+#appBody .basicTextPost .horizontalContentBox h3 { text-shadow: var(--th-text-glow); }
+
+/* ── Editor on a themed card: URL row, description, save strip ───────────── */
+#appBody .editor-post-card .post-slug-dim,
+#appBody .editor-post-card .post-slug-label { color: var(--th-ink-soft); }
+#appBody .editor-post-card .post-slug-value { color: var(--th-ink, #222); }
+#appBody .editor-post-card :is(.post-slug-edit, .post-slug-reset) {
+  color: var(--th-ink, #222);
+  background: var(--th-tint);
+  border-color: var(--th-hair);
+}
+#appBody .editor-post-card :is(.post-slug-edit, .post-slug-reset):hover { background: var(--th-tint-strong); color: var(--th-ink, #222); border-color: var(--th-ink, #222); }
+#appBody .editor-post-card :is(.post-summary-label, .post-summary-count) { color: var(--th-ink, #222); opacity: 0.75; }
+/* The tool band is a solid light strip of its own, so its text is fixed dark,
+   not the card's ink (which may be pale). */
+#appBody .editor-post-card .toolbar-sticky { color: var(--ink, #1c1c1c); background: var(--th-card-bg, #fbfaf6); }
+#appBody .editor-post-card .toolbar-sticky :is(span, p, a, label) { text-shadow: none; }
+
+/* ── Discussion page ──────────────────────────────────────────────────────── */
+#appBody .discussion-glass-panel .discussion-page-header { border-bottom-color: var(--th-hair); }
+#appBody .discussion-glass-panel :is(.discussion-back-btn, .discussion-sort button) {
+  background: var(--th-tint);
+  color: var(--th-ink, #222);
+  border: 1px solid var(--th-hair);
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  text-shadow: none;
+}
+#appBody .discussion-glass-panel :is(.discussion-back-btn, .discussion-sort button):hover { background: var(--th-tint-strong); color: var(--th-ink, #222); }
+#appBody .discussion-glass-panel .discussion-sort .sort-active {
+  background: var(--th-tint-strong);
+  border-color: var(--th-ink, #222);
+  color: var(--th-ink, #222);
+  font-weight: 700;
+  box-shadow: none;
+}
+#appBody .discussion-glass-panel .discussion-style-badge {
+  color: var(--th-ink, #222);
+  background: var(--th-tint);
+  border-color: var(--th-hair);
+}
+#appBody .discussion-glass-panel :is(.discussion-post-subtitle, .discussion-login-prompt, .discussion-empty, .discussion-disabled, .comment-time, .comment-edited, .comment-collapse) { color: var(--th-ink-soft); }
+#appBody .discussion-glass-panel .discussion-compose {
+  background: var(--th-tint);
+  border: 1px solid var(--th-hair);
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+/* Post buttons are solid and carry their own white text; the edge keeps them
+   apart from a mid-grey card. */
+#appBody .discussion-glass-panel .discussion-compose button { border: 1px solid color-mix(in srgb, var(--th-ink, #222) 45%, transparent); }
+#appBody .discussion-glass-panel .vote-btn { color: var(--th-ink-soft); }
+#appBody .discussion-glass-panel .vote-btn:hover:not(:disabled) { color: var(--th-ink, #222); }
+#appBody .discussion-glass-panel .vote-up--active { color: var(--th-ink, #222) !important; }
+#appBody .discussion-glass-panel .vote-down--active { color: var(--th-danger, #b71c1c) !important; }
+#appBody .discussion-glass-panel :is(.comment-score, .comment-content, .comment-reaction-count) { color: var(--th-ink, #222); }
+#appBody .discussion-glass-panel .comment-author { color: var(--th-link, var(--th-accent)); }
+#appBody .discussion-glass-panel .comment-actions button { color: var(--th-ink-soft); }
+#appBody .discussion-glass-panel .comment-actions button:hover { color: var(--th-ink, #222); }
+#appBody .discussion-glass-panel .comment-actions .comment-delete-btn:hover { color: var(--th-danger, #b71c1c) !important; }
+#appBody .discussion-glass-panel .comment-edit-actions button {
+  background: var(--th-tint);
+  color: var(--th-ink, #222);
+  border-color: var(--th-hair);
+}
+#appBody .discussion-glass-panel .comment-edit-actions button:first-child {
+  background: var(--th-tint-strong);
+  border-color: var(--th-ink, #222);
+  font-weight: 700;
+}
+#appBody .discussion-glass-panel .comment-reaction-btn { color: var(--th-ink, #222); }
+#appBody .discussion-glass-panel .comment-reaction-btn:hover:not(:disabled) { background: var(--th-tint-strong); border-color: var(--th-hair); }
+#appBody .discussion-glass-panel .comment-reaction-btn--active { background: var(--th-tint-strong); border-color: var(--th-ink, #222); }
+#appBody .discussion-glass-panel .reaction-expand { color: var(--th-ink-soft); opacity: 1; }
+#appBody .discussion-glass-panel .reaction-expand:hover:not(:disabled) { color: var(--th-ink, #222); }
+#appBody .discussion-glass-panel .comment-highlight { animation-name: comment-highlight-ink; }
+@keyframes comment-highlight-ink {
+  0%   { background: color-mix(in srgb, var(--th-ink, #222) 20%, transparent); }
+  100% { background: transparent; }
+}
+
+/* ── Profile header ───────────────────────────────────────────────────────── */
+#appBody .profile-header-card :is(.profile-links-count, .profile-wallpaper-panel-title) { color: var(--th-ink-soft); }
+#appBody .profile-header-card .profile-inline-error { color: var(--th-danger, #c62828); }
+#appBody .profile-header-card :is(.profile-link-add, .profile-link-remove) {
+  background: var(--th-tint);
+  color: var(--th-ink, #222);
+  border-color: var(--th-hair);
+}
+#appBody .profile-header-card :is(.profile-link-add, .profile-link-remove):hover:not(:disabled) { background: var(--th-tint-strong); color: var(--th-ink, #222); }
+#appBody .profile-header-card .profile-link-remove:hover { color: var(--th-danger, #b71c1c); }
+#appBody .profile-header-card .profile-bio-link:hover { background: color-mix(in srgb, var(--th-link, var(--th-accent)) 16%, transparent); color: var(--th-link, var(--th-accent)); }
+/* Inline-styled bits of the header: "follows you" and the bio error. */
+#appBody .profile-header-card span[style*="italic"] { color: var(--th-ink, #222) !important; }
+#appBody .profile-header-card div > p[style*="font-size: 12px"] { color: var(--th-danger, #c62828) !important; }
+#appBody .profile-header-card :is(.btn-block-dm, .btn-unblock-dm) { color: var(--th-ink, #222); background: var(--th-tint); border-color: var(--th-hair); }
+#appBody .profile-header-card .follow-btn--following {
+  background: var(--th-tint);
+  color: var(--th-ink, #222);
+  border: 1.5px solid color-mix(in srgb, var(--th-ink, #222) 40%, transparent);
+  box-shadow: none;
+}
+#appBody .profile-header-card .follow-btn--following:hover:not(:disabled) { background: var(--th-tint-strong); color: var(--th-danger, #b71c1c); border-color: var(--th-danger, #b71c1c); }
+#appBody .profile-header-card .follow-btn:not(.follow-btn--following) { border: 1px solid color-mix(in srgb, var(--th-ink, #222) 45%, transparent); }
+
+/* ── On the wallpaper, not on a card: each gets a solid backing of its own ──
+   The wallpaper's colour is unknown, so these carry the card's background and
+   ink and read on any of them. */
+#appBody .profile-pinned-label {
+  background: var(--th-card-background);
+  color: var(--th-ink, #222);
+  border: 1px solid color-mix(in srgb, var(--th-ink, #222) 30%, transparent);
+  text-shadow: none;
+}
+#appBody :is(.posts-viewer-empty, .profile-arrange-loading, .profile-list-error, .postsViewerContainer > p[style*="text-align: center"]) {
+  width: fit-content;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 6px 14px;
+  background: var(--th-card-background);
+  color: var(--th-ink, #222) !important;
+  border: 1px solid color-mix(in srgb, var(--th-ink, #222) 25%, transparent);
+  border-radius: 8px;
+  text-shadow: none;
+}
+#appBody .profile-list-error { color: var(--th-danger, #a01515) !important; flex: 0 1 auto; min-width: 0; }
+#appBody .new-grid-post-error { color: var(--th-danger, #a01515); background: var(--th-card-background); padding: 2px 8px; border-radius: 6px; }
+
+/* ── The arrange view is a tool with its own grays; the theme's heading ink
+   must not reach into it (a pale heading on its pale panel vanished). ──── */
+#appBody .arrange :is(h1, h2, h3) {
+  color: #1c1c1c;
+  background-image: none;
+  text-transform: none;
+  font-family: var(--app-font);
+  animation: none;
+  text-shadow: none;
+}
+#appBody .arrange :is(span, p, a, li, button, label) { text-shadow: none; }
