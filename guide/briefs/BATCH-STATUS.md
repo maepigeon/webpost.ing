@@ -81,3 +81,18 @@ perf-ops (JVM cap, Tomcat/Hikari, compression, nginx example), perf-polling
 - Offline and "add to home screen" for webpaint.ing: recorded in
   `guide/webpaint-plan.md`; webpost.ing already has an Install button
   (Settings → App).
+
+20. **Evening wave (2026-10-03).** Committed: reviews (`design-audit`, `ui-review`), tools (menu for Mac/Windows/Linux, backups S6, private-repo deploy), WP-1 + WP-2 (V020). Known red test until `integrator-batch-a` lands: `SharedPackTest…413…` (lead decision: a frozen account saves nothing; the code yields, not the test).
+    Running now (briefs in this folder, same names):
+    - `integrator-batch-a`: fitsQuota fix, insertions from menu/backups/WP-1, animator test run, stray local post 99.
+    - `implementer-design-a-font-focus`: font regression (F1), focus ring (F2), unreadable `.pb-input`, pixel button ink.
+    - `implementer-design-b-no-glass`: every `backdrop-filter` out (F3), `.is-on` beaten by the neo button rule, dead `.cursor-glow`.
+    - `implementer-design-c-editor`: first Publish leaves editor in draft state (data loss), sticky toolbar, native prompts, labels.
+    - `implementer-design-d-profile`: one button look, phone pills, one-tab bar hidden, header jump, counts agree.
+    - `implementer-design-h-small-screens-admin`: inbox wording, badge, phone clipping, mini player, admin switches, previews line (WP-5 admin part).
+    - `implementer-payloads-wp3`: feeds, Discover, SEO, hashtags on `PostPreview`.
+    - still running from before: `senior-engineer-sso` (V021), `senior-engineer-webpaint-phase0`, `visual-tester-core-flows`.
+    Held until SSO lands (shared files): design **WP-F** Settings and Customize (F8, F16, F18, password form keeps fields, Theme "Done" discards a preset), **WP-G** auth pages (labels, "Log In" vs "Sign in"), then **S1 sessions in the database**. Held until design-d lands: **WP-5 profile summary** (PostsViewer.jsx).
+    Uncommitted and unowned: `client/src/animator/` + `client/src/test/animator*.test.js` (phase 1 flipbook, not routed in App.jsx); integrator runs its tests, then the lead commits it as it is (inert).
+    For Mae to decide (asked 2026-10-03 evening): banner on a phone (F4), storage breakdown off the profile into Settings (F13), which owner pills a phone keeps (F7). Subscribers tab stays (her request).
+    Hand-over order once the wave reports: commit each by file list → integrator full suites + one build → restart local server from that build → `design-guardian` + `visual-tester` on the rebuilt site → only then push `main` and tell Mae. This deploy adds V019, V020 (and V021 if SSO is in).
