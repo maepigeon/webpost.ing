@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { sanitiseWallpaper, serialiseWallpaper, MAX_TILE_TILES } from '../components/TileArt/wallpaper.js';
-import { sanitiseTheme, themeVariables, readableOn, contrast, MAX_STICKER_TILES } from '../components/PageTheme/theme.js';
+import { sanitiseTheme, themeVariables, readableOn, contrast, MAX_STICKER_TILES, getPresets } from '../components/PageTheme/theme.js';
 import { pixelLayer } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
 
 const tile = (cols = 2, rows = 2) => ({ cols, rows, layers: [pixelLayer('T')] });
@@ -36,6 +36,17 @@ describe('wallpapers', () => {
 });
 
 describe('themes', () => {
+  it('includes sand and oak presets', () => {
+    const presets = Object.keys(getPresets());
+    expect(presets).toContain('sand');
+    expect(presets).toContain('oak');
+  });
+
+  it('sanitises oak preset correctly', () => {
+    const t = sanitiseTheme({ preset: 'oak' });
+    expect(t.preset).toBe('oak');
+  });
+
   it('fills a bare theme with Newspaper Life values', () => {
     const t = sanitiseTheme({});
     expect(t.type.heading).toBe('headline');

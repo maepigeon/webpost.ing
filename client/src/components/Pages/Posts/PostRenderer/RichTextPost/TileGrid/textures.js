@@ -159,14 +159,50 @@ export const TEXTURES = {
     draw(ctx, w, h) {
       const r = rng(7);
       const big = blotches(w, h, 9, 11);
-      const shades = ['#8f6232', '#a8763f', '#b8834a', '#c79560', '#d9ae78'];
+      // Narrower range of mid cork browns with reduced large-scale variation
+      const shades = ['#9d7240', '#a8784a', '#b3845b', '#be906b', '#c99a7b'];
       for (let y = 0; y < h; y++) {
         for (let x = 0; x < w; x++) {
-          const v = big(x, y) * 0.55 + r() * 0.45;
+          const v = big(x, y) * 0.2 + r() * 0.8;
           px(ctx, x, y, shades[Math.min(4, Math.floor(v * 5))]);
           if (r() < 0.035) px(ctx, x, y, r() < 0.5 ? '#5a3a1a' : '#e8c592');
         }
       }
+    },
+  },
+  sand: {
+    label: 'Sand',
+    draw(ctx, w, h) {
+      const r = rng(8);
+      const big = blotches(w, h, 9, 12);
+      // Warm sandy beige/tan shades with gentle large-scale drift
+      const shades = ['#c9a66b', '#d6b57c', '#e0c38e', '#e9d2a4', '#f1dfb8'];
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const v = big(x, y) * 0.4 + r() * 0.6;
+          px(ctx, x, y, shades[Math.min(4, Math.floor(v * 5))]);
+          if (r() < 0.04) px(ctx, x, y, '#a8854f');
+        }
+      }
+    },
+  },
+  oak: {
+    label: 'Oak',
+    draw(ctx, w, h) {
+      const shades = ['#b98a4e', '#c4975a', '#cfa468', '#d9b178', '#e2be88'];
+      const band = blotches(w, h, 6, 18);
+      const drift = blotches(w, h, 24, 30);
+      const r = rng(12);
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          // Stretched along x for grain running left to right, with oak colours
+          const v = band(x / 6, y + drift(x, y) * 5) * 0.75 + r() * 0.25;
+          px(ctx, x, y, shades[Math.min(4, Math.floor(v * 5))]);
+        }
+      }
+      // Darker grain lines between boards, slightly more visible
+      ctx.fillStyle = 'rgba(80, 50, 20, 0.4)';
+      for (let y = 7; y < h; y += 16) ctx.fillRect(0, y, w, 1);
     },
   },
   newsprint: {

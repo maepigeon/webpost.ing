@@ -34,7 +34,7 @@ public final class ThemeValidator {
     private static final Pattern HEX = Pattern.compile("^#[0-9a-fA-F]{6}$");
 
     public static final Set<String> PRESETS = Set.of(
-            "newspaper", "sticky", "notebook", "corkboard", "neon", "paw", "custom");
+            "newspaper", "sticky", "notebook", "corkboard", "neon", "paw", "sand", "oak", "custom");
     public static final Set<String> FONTS = Set.of(
             "news-serif", "headline", "blackletter", "fell", "typewriter", "handwriting",
             "marker", "notebook", "terminal", "mono", "cookie", "cooljazz", "sans", "comic", "papyrus");

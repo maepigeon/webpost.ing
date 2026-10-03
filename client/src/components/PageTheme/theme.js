@@ -139,6 +139,28 @@ function buildPresets() {
         fx: { glow: false, scanlines: false, flicker: false, rainbow: false },
       },
     },
+    sand: {
+      label: 'Sand',
+      blurb: 'Notes left on warm sand.',
+      theme: {
+        v: 2, preset: 'sand',
+        page: { wallpaper: textureWallpaper('sand', { cols: 8, rows: 8, scale: 2, bg: '#d6b57c' }), useProfileWallpaper: false },
+        type: { heading: 'marker', body: 'typewriter', ink: '#3a2c1a', headingInk: '#2c2012', accent: '#8a5a1c', link: '#b4531a', headingCase: 'none', headingScale: 1.05 },
+        card: { bg: '#fffaf0', opacity: 1, border: 'none', borderColor: '#000000', radius: 2, shadow: 'soft', texture: null, sticker: null },
+        fx: { glow: false, scanlines: false, flicker: false, rainbow: false },
+      },
+    },
+    oak: {
+      label: 'Oak',
+      blurb: 'Paper on an oak table.',
+      theme: {
+        v: 2, preset: 'oak',
+        page: { wallpaper: textureWallpaper('oak', { cols: 8, rows: 8, scale: 2, bg: '#cfa468' }), useProfileWallpaper: false },
+        type: { heading: 'headline', body: 'news-serif', ink: '#2a2118', headingInk: '#1e1812', accent: '#6b4a1f', link: '#9b3d12', headingCase: 'none', headingScale: 1.1 },
+        card: { bg: '#fffdf6', opacity: 1, border: 'rule', borderColor: '#d8c7a6', radius: 2, shadow: 'lifted', texture: null, sticker: null },
+        fx: { glow: false, scanlines: false, flicker: false, rainbow: false },
+      },
+    },
   };
 }
 
@@ -155,7 +177,7 @@ export const defaultTheme = () => getPresets().newspaper.theme;
 // ── Sanitising ────────────────────────────────────────────────────────────────
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
-const PRESET_KEYS = ['newspaper', 'sticky', 'notebook', 'corkboard', 'neon', 'paw', 'custom'];
+const PRESET_KEYS = ['newspaper', 'sticky', 'notebook', 'corkboard', 'neon', 'paw', 'sand', 'oak', 'custom'];
 const oneOf = (v, list, fallback) => (typeof v === 'string' && (Array.isArray(list) ? list.includes(v) : Object.hasOwn(list, v)) ? v : fallback);
 const colour = (v, fallback) => (typeof v === 'string' && HEX.test(v) ? v.toLowerCase() : fallback);
 const number = (v, lo, hi, fallback) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : fallback);
