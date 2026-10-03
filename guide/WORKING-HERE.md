@@ -155,6 +155,7 @@ without Mae having to explain it again. Last updated 2026-10-03.
 
 ## Where things stand
 
+- **Wishlist (what's still to do):** [WISHLIST.md](WISHLIST.md). Keep it current: add what Mae asks for and isn't done, tick what lands.
 - **Backlog:** [backlog-2026-10-03.md](backlog-2026-10-03.md) — her queue,
   ordered, ticked as it lands. Post-editing features come first; the animator
   last.
