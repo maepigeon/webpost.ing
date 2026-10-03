@@ -210,7 +210,8 @@ public class AdminController {
 
         if (authorize(username, token) == null || !isAdmin(username)) return forbidden();
 
-        String newPassword = body.get("password");
+        // The dashboard sends "newPassword"; "password" is the older name.
+        String newPassword = body.get("newPassword") != null ? body.get("newPassword") : body.get("password");
         if (newPassword == null || newPassword.isBlank())
             return ResponseEntity.badRequest().body("Password required.");
         String err = validatePassword(newPassword);
@@ -218,6 +219,8 @@ public class AdminController {
 
         int updated = jdbc.update("UPDATE users SET password=? WHERE username=?", bcrypt.encode(newPassword), targetUsername);
         if (updated == 0) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found.");
+        // Whoever was signed in with the old password is signed out.
+        loginRepository.evictSession(targetUsername);
         return ResponseEntity.ok("Password updated.");
     }
 

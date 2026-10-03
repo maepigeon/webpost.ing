@@ -452,6 +452,56 @@ public class AuthController {
         return ResponseEntity.ok("User deleted.");
     }
 
+    /**
+     * Changes the signed-in user's own password. They give the current one
+     * (so a borrowed, still-signed-in browser cannot lock them out) and a new
+     * one that meets the same rules as at sign-up. Every session of theirs is
+     * then ended, this one included, so they sign in again with the new one.
+     * Wrong guesses at the current password are limited like sign-in attempts.
+     */
+    @PutMapping("/users/{username}/password")
+    public ResponseEntity<?> changeOwnPassword(
+            @PathVariable("username") String username,
+            @RequestBody Map<String, String> body,
+            @CookieValue(name = "username", required = false) String authUsername,
+            @CookieValue(name = "authToken", required = false) String token) {
+        AuthSession session;
+        try {
+            session = loginRepository.authorize(authUsername, token);
+        } catch (JdbcLoginRepository.TokenExpiredException e) {
+            session = null;
+        }
+        if (session == null)
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Sign in first."));
+        if (!username.equals(authUsername))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "That is not your account."));
+
+        String limiterKey = "password:" + username;
+        if (LoginRateLimiter.isBlocked(limiterKey))
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(Map.of("message", "Too many wrong attempts. Try again in 15 minutes."));
+
+        String current = body.get("currentPassword");
+        String next = body.get("newPassword");
+        if (current == null || next == null)
+            return ResponseEntity.badRequest().body(Map.of("message", "Give your current password and a new one."));
+        if (loginRepository.authenticate(username, current) < 0) {
+            LoginRateLimiter.recordFailure(limiterKey);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "Your current password is not right."));
+        }
+        LoginRateLimiter.recordSuccess(limiterKey);
+        String problem = AdminController.validatePassword(next);
+        if (problem != null) return ResponseEntity.badRequest().body(Map.of("message", problem));
+        if (next.equals(current))
+            return ResponseEntity.badRequest().body(Map.of("message", "The new password is the same as the current one."));
+
+        jdbc.update("UPDATE users SET password = ? WHERE username = ?",
+                new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().encode(next), username);
+        loginRepository.evictSession(username);
+        log.info("Password changed by {}", username);
+        return ResponseEntity.ok(Map.of("message", "Password changed. Sign in again with the new one."));
+    }
+
     // ── Public registration (invite code required) ────────────────────────────
 
     @PostMapping("/register")

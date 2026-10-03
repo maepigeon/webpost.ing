@@ -13,6 +13,7 @@ import { Steps } from '../../PageTheme/ThemeEditor.jsx';
 
 /** Code text sizes offered as buttons (it used to be a slider). */
 const CODE_SIZE_STEPS = [11, 12, 13, 14, 16, 18, 20].filter(n => n >= MIN_CODE_SIZE && n <= MAX_CODE_SIZE);
+import ChangePassword from './ChangePassword.jsx';
 import './SettingsPage.css';
 import { errorMessage } from '../../../utils/errorMessage.js';
 
@@ -315,6 +316,11 @@ export default function SettingsPage() {
               </label>
             ))}
           </div>
+        </Section>
+
+        {/* ── Password ─────────────────────────────────────────────────────── */}
+        <Section id="password" title="Password">
+          <ChangePassword username={username} />
         </Section>
 
         {/* ── Site background ─────────────────────────────────────────────── */}

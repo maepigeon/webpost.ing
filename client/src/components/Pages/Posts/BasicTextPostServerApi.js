@@ -550,6 +550,12 @@ export function ADMIN_IMPORT_USER(targetUsername, exportJsonString) {
 
 // ── Admin: security ───────────────────────────────────────────────────────────
 
+/** Changes the signed-in user's own password; every session of theirs is then ended. */
+export function CHANGE_MY_PASSWORD(username, currentPassword, newPassword) {
+  return axios.put(baseUrl + `/api/users/${encodeURIComponent(username)}/password`,
+    { currentPassword, newPassword }, { withCredentials: true }).then(r => r.data);
+}
+
 export function ADMIN_CHANGE_PASSWORD(targetUsername, newPassword) {
   return axios.put(baseUrl + `/api/admin/users/${targetUsername}/password`,
     { newPassword }, { withCredentials: true }).then(r => r.data);

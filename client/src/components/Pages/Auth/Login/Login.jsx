@@ -58,6 +58,9 @@ function Login() {
         {justRegistered && (
           <div className="login-success">Account created! Sign in below.</div>
         )}
+        {typeof location.state?.notice === 'string' && (
+          <div className="login-success">{location.state.notice}</div>
+        )}
 
         {sessionExpired && (
           <div className="login-expired">
