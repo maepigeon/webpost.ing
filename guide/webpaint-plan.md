@@ -56,6 +56,11 @@ have well made timeline features and well placed UI considerations."
 4. Only then start a spike. A half-built native-web animator prototype from
    2026-10-03 was stopped early and left uncommitted; it is not the plan now.
 
+## Dropped
+
+- **"AI compression" for video.** Mae dropped it on 2026-10-03. Use standard
+  codecs (AV1 or VP9 in WebM, H.264 in MP4), encoded in the browser.
+
 ## Not decided
 
 - Storage allowance for video, maximum length and size.

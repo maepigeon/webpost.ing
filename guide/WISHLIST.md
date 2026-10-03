@@ -66,6 +66,7 @@ each lives in the linked guide. Last updated 2026-10-03.
   and a direct link with webpost.ing. → [webpaint-plan.md](webpaint-plan.md)
 - **Video on the sites**: uploads encoded in the browser, served with range
   requests, counted in the storage allowance; no transcoding on the server.
+  Standard codecs only: Mae dropped the "AI compression" idea on 2026-10-03.
   → [animator-design.md](animator-design.md)
 
 ## 5. Housekeeping
