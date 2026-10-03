@@ -57,6 +57,9 @@ perf-ops (JVM cap, Tomcat/Hikari, compression, nginx example), perf-polling
    tell her what the deploy adds. New migrations so far this batch: V019.
 8. Keep `guide/WISHLIST.md` and `guide/DESIGN-RULES.md` current.
 
+9. From the smoke suite (committed, `node tools/smoke/run.mjs`): a new post stays on `/editor` after its first Save draft, so a reload shows a blank post and the next save could duplicate it (`Editor.jsx` keeps the new id in state but never changes the URL). Assign once Editor.jsx is free (perf-render and perf-fonts both touched it). Also: at 390px the editor's sticky tools cover half the screen over a grid.
+10. `implementer-smoke-bugs` is fixing the banner editor's false "Not saved yet" and the owner profile column width.
+
 ## Answers owed to Mae (give in the next status message)
 - Electron wrapping the Godot web build works, but Godot's native desktop
   export is the better downloadable (smaller, faster, better pen input); the
