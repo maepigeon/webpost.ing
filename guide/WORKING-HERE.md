@@ -63,6 +63,7 @@ task: the files, Mae's words, and the design.
 | `auditor` | Sonnet | Read-only security, performance, accessibility or code-health audit ending in ranked findings and work packages. |
 | `ui-reviewer` | Sonnet | Exploratory testing in a real browser; a bug report with evidence. |
 | `screen-checker` | Sonnet | Before a deploy hand-over: look at the changed screens and say Ship, Fix first, or Show Mae first. |
+| `visual-tester` | Sonnet | Tests by watching: records user flows as video, captures steps and bursts of frames, pixel-compares against baselines in `tools/visual/`, and looks at the images. Leaves recordings Mae can watch. Run it after each rebuild in a batch. |
 | `design-guardian` | Opus | Enforces [DESIGN-RULES.md](DESIGN-RULES.md), Mae's own likes and dislikes collected from the sessions: works mostly in the browser, looking at every changed screen and state; pass/fail per screen with exact fixes. In every batch that changes what a user sees, before hand-over. |
 | `design-reviewer` | Fable | Occasionally: a feature's design before building, an architecture choice, a deep review of a risky change. Mae asked for this model on high-intelligence review and design tasks; it costs more, so use it where being wrong is expensive. |
 

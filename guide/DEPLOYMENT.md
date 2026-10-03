@@ -106,6 +106,9 @@ Once, after the smoke test passes:
    location). A release never changes nginx.
 4. Rotate the two old database passwords that are in the repository
    history (section 4).
+5. Memory limits and nginx caching (section 9): copy the new
+   `server-start.sh`, add the systemd memory limit and swap, paste the nginx
+   files. A release does none of this.
 
 ### Smoke test
 
@@ -383,6 +386,9 @@ location = /manifest.webmanifest { add_header Cache-Control "no-cache"; }
 
 ## 8. Security headers in nginx
 
+(Section 9.4 has these headers merged into one complete nginx example, with
+caching; use it when you paste, and keep this section for the reasons.)
+
 Spring only sets headers on API responses; the HTML and `/uploads/` are served by
 nginx, so the headers go there (security review M10). The origin list below was
 taken from `client/index.html` and the client code: Google Fonts (stylesheet from
@@ -421,3 +427,337 @@ sign-up page loads Cloudflare's script on demand; `index.html` is unchanged.
 inline `style=` attributes; scripts stay `'self'`. If the page uses an inline
 `<script>` (for example JSON-LD is fine, it is not executed, but a real script is
 not) the report-only phase will show it.
+
+---
+
+## 9. Memory and caching (do once on the server)
+
+Source: [performance-review-2026-10-03.md](performance-review-2026-10-03.md)
+(items 1 and 2). The repository now carries the app side of this (JVM
+flags in `server-start.sh`, thread and pool limits and response compression
+in `application.properties`). What is left is the server itself, in four
+steps. Nothing here needs a build, and none of it touches the database.
+Do them in this order.
+
+### 9.1 Get the new `server-start.sh` onto the server
+
+**A release does not ship `server-start.sh`** (`release.sh` packs the JAR,
+the website and the server tools only), so the copy in `$APP_HOME` stays
+as it is until you replace it. From your Mac, in the repository root, then
+on the server:
+
+```bash
+scp server-start.sh <you>@<server>:~/incoming/server-start.sh      # Mac
+```
+
+```bash
+# server; $ENV and $APP_HOME as at the top of section 2
+sudo install -m 755 --owner="$(stat -c %U $APP_HOME/server-start.sh)" \
+     --group="$(stat -c %G $APP_HOME/server-start.sh)" \
+     ~/incoming/server-start.sh $APP_HOME/server-start.sh
+```
+
+It takes effect at the next restart, which the next release does anyway.
+The new script runs the JVM with `-Xmx640m -Xms256m -XX:+UseSerialGC
+-XX:+ExitOnOutOfMemoryError -XX:MaxMetaspaceSize=192m`. To change them, set
+`JAVA_OPTS` in `deploy.env` (see `config/deploy.env.example`). If you would
+rather not copy the file: `JAVA_TOOL_OPTIONS=<the same flags>` in
+`deploy.env` reaches the JVM through the old script too.
+
+### 9.2 Memory limit for the service (systemd drop-in)
+
+A drop-in keeps your unit file as it is. If the JVM ever grows past the
+limit, systemd stops that one service instead of the machine running out of
+memory and taking PostgreSQL with it. `Restart=on-failure` (already in the
+unit) brings it back.
+
+```bash
+sudo systemctl edit webposting.service       # use your SERVICE_NAME
+```
+
+In the editor that opens, paste exactly this and save:
+
+```ini
+[Service]
+MemoryMax=1200M
+```
+
+```bash
+sudo systemctl restart webposting.service     # signs everyone out, like a release
+```
+
+Check:
+
+```bash
+systemctl show webposting.service -p MemoryMax          # MemoryMax=1258291200
+sudo journalctl -u webposting.service -n 20 | grep "java opts"   # shows the -Xmx640m flags
+ps -o rss=,args= -C java | cut -c1-120                  # RSS (KB) should sit well under 1,200,000
+curl -s https://webpost.ing/api/health
+```
+
+The `java opts` line only appears once 9.1 is done.
+
+### 9.3 One gigabyte of swap, as a safety net
+
+Look first: if `swapon --show` already lists something, skip this.
+
+```bash
+swapon --show; free -h
+sudo fallocate -l 1G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+echo 'vm.swappiness=10' | sudo tee /etc/sysctl.d/99-webposting-swap.conf
+sudo sysctl -p /etc/sysctl.d/99-webposting-swap.conf
+```
+
+Check: `swapon --show` lists `/swapfile` at 1G, `free -h` shows a Swap line of
+1.0Gi, `cat /proc/sys/vm/swappiness` says `10`, and
+`grep swapfile /etc/fstab` shows one line (so it survives a reboot).
+
+### 9.4 nginx: caching, compression, security headers, SEO in one place
+
+This replaces the scattered snippets in sections 7 and 8 and in
+[SEO.md](SEO.md) with one complete example. Three files, pasted once:
+two small header files and one server block. Paste, then `sudo nginx -t`;
+nginx refuses to reload a broken config, so a mistake costs nothing.
+
+**Read before pasting.**
+
+- **Keep your existing `/api/` block's `proxy_pass` form.** The README
+  sample has `proxy_pass http://127.0.0.1:8080/;` (trailing slash, which
+  strips the `/api` prefix), but the controllers are mapped under `/api/...`,
+  so a working server must pass the path through unchanged, or the real
+  config differs from the sample. The audit could not see the live file. In
+  the example below, `proxy_pass http://127.0.0.1:8080;` stands for **your
+  own form**: wherever it appears, copy the `proxy_pass` line from your
+  current `/api/` block, and the same for its `proxy_set_header` lines and
+  the port.
+- **`add_header` inside a `location` throws away every header the `server`
+  block set.** That is why the example puts the security headers into two
+  include files and includes them in every location that sets any
+  `add_header` of its own. If you add a location later that sets
+  `Cache-Control`, include the two files there as well, or its responses
+  lose the security headers.
+- Keep your own `ssl_*` lines, `server_name`, `root` and port-80 redirect
+  block. Remove the `add_header` lines you already have at the top of the
+  `server` block (they are in the include files now; leaving both sends
+  every header twice). If your current config has an HSTS line, keep it
+  as it is in the first file below.
+- Look for existing gzip lines first: `grep -rn gzip /etc/nginx/nginx.conf
+  /etc/nginx/conf.d/`. Debian and Ubuntu ship `gzip on;`. A second `gzip on;`
+  makes `nginx -t` fail with "directive is duplicate": then delete that
+  line from the file below and add the missing ones to the existing block.
+- Start the Content-Security-Policy as `Content-Security-Policy-Report-Only`
+  (section 8) if you have not already turned it on.
+
+**File 1: `/etc/nginx/snippets/webposting-headers.conf`**
+
+```nginx
+add_header Strict-Transport-Security "max-age=31536000" always;   # keep your existing value
+add_header X-Content-Type-Options "nosniff" always;
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+add_header X-Frame-Options "DENY" always;
+```
+
+**File 2: `/etc/nginx/snippets/webposting-csp.conf`** (the page policy from
+section 8; `/uploads/` has its own, stricter one below). Add the Turnstile
+origins described in section 8 only if you use it.
+
+```nginx
+add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; media-src 'self'; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://api.github.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+```
+
+**File 3: `/etc/nginx/conf.d/webposting-http.conf`** (`http` level: compression,
+the SEO cache, the crawler map; `conf.d` is already included by `nginx.conf`):
+
+```nginx
+gzip on;
+gzip_vary on;
+gzip_comp_level 5;
+gzip_min_length 1024;
+gzip_proxied any;
+gzip_types text/plain text/css application/javascript application/json application/xml
+           application/atom+xml image/svg+xml application/manifest+json;
+
+# Micro-cache for the public SEO endpoints: a crawler burst becomes one
+# backend hit per URL per 5 minutes. nginx creates the directory.
+proxy_cache_path /var/cache/nginx/webposting levels=1:2 keys_zone=seo:5m max_size=64m
+                 inactive=30m use_temp_path=off;
+
+# Crawlers get plain HTML pages (SEO.md, part b).
+map $http_user_agent $is_bot {
+    default 0;
+    ~*(Googlebot|bingbot|DuckDuckBot|GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|Claude-User|PerplexityBot|Applebot|facebookexternalhit|Twitterbot|Slackbot|Discordbot|LinkedInBot) 1;
+}
+```
+
+If your config already has the `map $http_user_agent $is_bot` block from
+SEO.md, leave it where it is and drop it from this file.
+
+**The server block** (HTTPS; your port-80 redirect block stays as is):
+
+```nginx
+server {
+    listen 443 ssl;
+    http2 on;                    # nginx 1.25.1 or newer. Older: write "listen 443 ssl http2;" instead
+    server_name webpost.ing;
+
+    # ... your existing ssl_certificate, ssl_certificate_key and other ssl_* lines ...
+    root /srv/webposting/html;   # WEB_ROOT
+    server_tokens off;
+
+    # Pages: any route that is not a file falls back to the app shell.
+    # The shell is re-checked on every visit, so a release shows up at once.
+    location / {
+        include /etc/nginx/snippets/webposting-headers.conf;
+        include /etc/nginx/snippets/webposting-csp.conf;
+        add_header Cache-Control "no-cache";
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Build output: Vite puts a content hash in every file name, so these
+    # never change under the same URL. A missing one is a 404, never the shell.
+    location /assets/ {
+        include /etc/nginx/snippets/webposting-headers.conf;
+        include /etc/nginx/snippets/webposting-csp.conf;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files $uri =404;
+        access_log off;
+    }
+
+    # Files that must update at once (section 7).
+    location = /index.html {
+        include /etc/nginx/snippets/webposting-headers.conf;
+        include /etc/nginx/snippets/webposting-csp.conf;
+        add_header Cache-Control "no-cache";
+    }
+    location = /sw.js {
+        include /etc/nginx/snippets/webposting-headers.conf;
+        add_header Cache-Control "no-cache";
+    }
+    location = /manifest.webmanifest {
+        include /etc/nginx/snippets/webposting-headers.conf;
+        add_header Cache-Control "no-cache";
+    }
+
+    # Fonts, icons, robots: not hashed, so only a day.
+    location ~* ^/(fonts/.*|icons/.*|favicon-.*\.png|vite\.svg|robots\.txt)$ {
+        include /etc/nginx/snippets/webposting-headers.conf;
+        include /etc/nginx/snippets/webposting-csp.conf;
+        add_header Cache-Control "public, max-age=86400";
+    }
+
+    # User uploads: names are random, a changed picture gets a new name, so
+    # they never change under the same URL. Audio seeking needs range
+    # requests: nginx serves them for static files; add no proxy buffering
+    # and nothing that strips Range or Accept-Ranges here.
+    location /uploads/ {
+        alias /srv/webposting/uploads/;                # UPLOAD_DIR
+        include /etc/nginx/snippets/webposting-headers.conf;
+        add_header Content-Security-Policy "default-src 'none'; sandbox" always;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+
+    # Root-level SEO files (SEO.md, part a), cached like /api/seo/ below.
+    location = /sitemap.xml {
+        proxy_pass http://127.0.0.1:8080/api/seo/sitemap.xml;
+        proxy_cache seo; proxy_cache_valid 200 5m; proxy_cache_lock on;
+        proxy_set_header Cookie "";
+    }
+    location = /llms.txt {
+        proxy_pass http://127.0.0.1:8080/api/seo/llms.txt;
+        proxy_cache seo; proxy_cache_valid 200 5m; proxy_cache_lock on;
+        proxy_set_header Cookie "";
+    }
+
+    # Public SEO endpoints. The app already says "public, max-age=300";
+    # here nginx keeps the answer for the same five minutes. Public content,
+    # so the session cookie is dropped and never part of the cache.
+    location /api/seo/ {
+        proxy_pass http://127.0.0.1:8080;              # YOUR form, as for /api/ below
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Cookie "";
+        proxy_cache seo;
+        proxy_cache_key "$scheme$host$request_uri";
+        proxy_cache_valid 200 5m;
+        proxy_cache_valid 404 1m;
+        proxy_cache_lock on;                           # one backend fetch for a rush of requests
+        proxy_cache_use_stale error timeout updating http_500 http_502 http_503;
+        add_header X-Cache-Status $upstream_cache_status;
+    }
+
+    # The API. Never cached: many answers depend on who is signed in.
+    # Replace the proxy_pass and proxy_set_header lines with the ones from
+    # your current /api/ block if they differ.
+    location /api/ {
+        proxy_pass http://127.0.0.1:8080;              # YOUR form
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        client_max_body_size 50m;                      # keep >= UPLOAD_MAX_SIZE (avatars 25 MB, audio 20 MB)
+    }
+
+    # Plain HTML for crawlers and link previews (SEO.md, part b). It must be
+    # placed so that it wins over "location /" for /{username} and
+    # /{username}/{slug}; the regex form does. Add any route of yours that is
+    # not in the list.
+    location ~ ^/(?!(?:api|uploads|assets|fonts|editor|settings|messages|inbox|routes|static|public|admin|login|signup|search)(?:/|$))[^/]+(?:/[^/]+)?/?$ {
+        include /etc/nginx/snippets/webposting-headers.conf;
+        include /etc/nginx/snippets/webposting-csp.conf;
+        add_header Cache-Control "no-cache";
+        if ($is_bot) { rewrite ^ /bot-page last; }
+        try_files $uri /index.html;
+    }
+    location = /bot-page {
+        internal;
+        proxy_pass http://127.0.0.1:8080/api/seo/page?path=$request_uri;   # as in SEO.md: adjust host/port only
+        proxy_set_header Cookie "";
+        proxy_cache seo;
+        proxy_cache_key "$scheme$host$request_uri";
+        proxy_cache_valid 200 5m;
+        proxy_cache_valid 404 1m;
+        proxy_cache_lock on;
+    }
+}
+```
+
+Test and reload:
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+Then check (replace the file name with a real one from
+`ls $WEB_ROOT/assets`):
+
+```bash
+curl -sI https://webpost.ing/assets/<file>.js | grep -iE "cache-control|content-encoding"   # immutable, gzip
+curl -sI https://webpost.ing/ | grep -iE "cache-control|x-content-type|strict-transport"     # no-cache + headers
+curl -sI https://webpost.ing/sw.js | grep -i cache-control                                   # no-cache
+curl -sI https://webpost.ing/uploads/<some-file> | grep -iE "cache-control|content-security|accept-ranges"
+curl -sI "https://webpost.ing/api/seo/sitemap.xml"; curl -sI "https://webpost.ing/api/seo/sitemap.xml" | grep -i x-cache-status   # MISS then HIT
+curl -s -A Googlebot https://webpost.ing/<user>/<post> | head -5                             # crawler HTML
+curl -s -H "Accept-Encoding: gzip" -o /dev/null -w "%{size_download}\n" https://webpost.ing/api/seo/sitemap.xml   # small; compare without the header
+```
+
+Then sign in in a browser and play a post with audio, dragging the
+playhead (range requests), and hard-refresh once. If something misbehaves,
+put the previous nginx files back and reload; no release is involved.
+
+Do not add `proxy_cache` to `/api/` in general: only `/api/seo/` and the
+cookie-less crawler page are safe to share between visitors.
+
+### What happens without you
+
+On the next release (JAR and website swapped, service restarted): Tomcat
+runs with 40 threads and a queue of 50, the database pool is 8 (set
+`DB_POOL_SIZE` in `deploy.env` to override), and the app compresses JSON and
+text answers of 1 KB or more. The JVM flags, the `MemoryMax` limit, swap and
+the nginx files do **not** arrive by themselves; sections 9.1 to 9.4 are the
+whole list.
