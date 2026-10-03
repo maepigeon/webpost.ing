@@ -602,6 +602,23 @@ export const BITMAP_FONTS = {
 export const SYMBOL_CHARS = Object.keys(BITMAP_FONTS.symbols.full);
 
 /** A character's bitmap in one of these fonts, full width in a wide tile; null if it has none. */
+/**
+ * The Symbols font, typed from an ordinary keyboard, wingdings-style: each
+ * printable key (! to ~, in ASCII order) stands for one symbol, in the order
+ * the on-screen keyboard shows them. A character that is already a symbol, or
+ * has none, is kept as it is.
+ */
+export function symbolForKey(ch) {
+  const code = ch.codePointAt(0);
+  if (ch.length !== 1 || code < 33 || code > 126) return ch;
+  return SYMBOL_CHARS[code - 33] || ch;
+}
+/** The key that types a symbol, or '' if none does. */
+export function keyForSymbol(symbol) {
+  const i = SYMBOL_CHARS.indexOf(symbol);
+  return i >= 0 && i < 94 ? String.fromCharCode(33 + i) : '';
+}
+
 export function bitmapGlyph(font, ch, wide) {
   const f = BITMAP_FONTS[font];
   if (!f) return null;

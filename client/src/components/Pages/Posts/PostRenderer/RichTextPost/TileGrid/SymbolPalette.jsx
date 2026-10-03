@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BITMAP_FONTS, SYMBOL_CHARS } from './bitmapFonts.js';
+import { BITMAP_FONTS, SYMBOL_CHARS, keyForSymbol } from './bitmapFonts.js';
 import { GlyphThumb } from '../../../../../TileArt/PackThumbs.jsx';
 import { GET_PIXEL_FONTS } from '../../../BasicTextPostServerApi.js';
 import GridButton from './GridButton.jsx';
@@ -41,7 +41,8 @@ export default function SymbolPalette({ onKey, onClose }) {
       </div>
       <div className="tg-symbols-grid">
         {keys.map(key => (
-          <button key={key.ch} type="button" className="tg-tile tg-symbol" aria-label={`Type ${key.ch}`} data-tip={key.ch}
+          <button key={key.ch} type="button" className="tg-tile tg-symbol" aria-label={`Type ${key.ch}`}
+            data-tip={!pack && keyForSymbol(key.ch) ? `${key.ch}   key: ${keyForSymbol(key.ch)}` : key.ch}
             onClick={press(key)}>
             <GlyphThumb ch={key.ch} hex={key.show} scale={1} />
           </button>

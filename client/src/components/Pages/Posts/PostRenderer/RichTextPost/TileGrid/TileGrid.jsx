@@ -14,6 +14,7 @@ import { TEXTURES, fillTexture, texturePreview, DEFAULT_PAW_OPTIONS } from './te
 import PawOptions from '../../../../../TileArt/PawOptions.jsx';
 import GlyphEditor from './GlyphEditor.jsx';
 import SymbolPalette from './SymbolPalette.jsx';
+import { symbolForKey } from './bitmapFonts.js';
 import { createPortal } from 'react-dom';
 import { StickerCenter } from '../../../../../TileArt/StickerCenter.jsx';
 import { renderGridImage } from '../../../../../TileArt/wallpaper.js';
@@ -880,8 +881,10 @@ export default function TileGrid({
     const order = typingOrder();
     let i = Math.max(0, order.findIndex(p => p.r === cursorRef.current.r && p.s === cursorRef.current.s));
     let l = layer;
-    for (const ch of Array.from(str)) {
-      if (ch === '\n' || ch === '\r') { i = nextLineIndex(order, i); continue; }
+    for (const typed of Array.from(str)) {
+      if (typed === '\n' || typed === '\r') { i = nextLineIndex(order, i); continue; }
+      // In the Symbols font an ordinary key types its symbol, like wingdings.
+      const ch = useFont === 'symbols' ? symbolForKey(typed) : typed;
       if (skipFilled) {
         while (i < order.length - 1 && slotFilled(d, l, order[i])) i += 1;
         if (slotFilled(d, l, order[i])) break;
@@ -1015,7 +1018,12 @@ export default function TileGrid({
   // Font and colour apply to what is selected, or the cursor's slot, whichever
   // tool is picked for text or selecting; with a drawing tool they set the next
   // thing painted (colour) or typed (font).
-  const chooseFont = (f) => { setFont(f); if (tool === 'text' || tool === 'select') restyle({ font: f }); };
+  const chooseFont = (f) => {
+    setFont(f);
+    if (tool === 'text' || tool === 'select') restyle({ font: f });
+    // Symbols brings up its keyboard, so you can see what each key types.
+    if (f === 'symbols') setPanel('symbols');
+  };
   const chooseColour = (c) => { setColour(c); setClear(false); if (tool === 'text' || tool === 'select') restyle({ color: c }); };
 
   // ── Grid settings ──────────────────────────────────────────────────────────

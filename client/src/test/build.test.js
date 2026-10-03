@@ -27,3 +27,20 @@ describe('comparing the live build with main', () => {
     await expect(compareWithMain('aaaa', github({}))).rejects.toThrow();
   });
 });
+
+import { symbolForKey, keyForSymbol, SYMBOL_CHARS } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/bitmapFonts.js';
+
+describe('typing in the Symbols font', () => {
+  it('turns each printable key into a symbol, and back', () => {
+    expect(symbolForKey('!')).toBe(SYMBOL_CHARS[0]);
+    expect(symbolForKey('a')).toBe(SYMBOL_CHARS['a'.charCodeAt(0) - 33]);
+    expect(keyForSymbol(symbolForKey('a'))).toBe('a');
+    expect(new Set(Array.from({ length: 94 }, (_, i) => symbolForKey(String.fromCharCode(33 + i)))).size).toBe(94);
+  });
+
+  it('leaves spaces, symbols themselves and other characters alone', () => {
+    expect(symbolForKey(' ')).toBe(' ');
+    expect(symbolForKey('★')).toBe('★');
+    expect(symbolForKey('é')).toBe('é');
+  });
+});
