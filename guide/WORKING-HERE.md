@@ -64,6 +64,18 @@ task: the files, Mae's words, and the design.
 | `screen-checker` | Sonnet | Before a deploy hand-over: look at the changed screens and say Ship, Fix first, or Show Mae first. |
 | `design-reviewer` | Fable | Occasionally: a feature's design before building, an architecture choice, a deep review of a risky change. Mae asked for this model on high-intelligence review and design tasks; it costs more, so use it where being wrong is expensive. |
 
+**Name every worker and keep its brief** (Mae, 2026-10-03: "name your
+subagents and keep them capable and reproducable"). Before launching, write
+the brief to `guide/briefs/YYYY-MM-DD-<type>-<task>.md` (see
+[briefs/README.md](briefs/README.md)); that file name is the worker's name
+everywhere, and the launch prompt just points at the file. Rerunning a task
+means launching the same brief again. When a worker goes wrong because a rule
+was missing, fix the agent definition, not just that one brief.
+
+**Use `ui-reviewer` every batch** (she asked not to forget it): one runs in
+the background against the local build while implementers work, and
+`screen-checker` gives the verdict on the changed screens before hand-over.
+
 Haiku (through `general-purpose` with `model: haiku`) is fine for small
 mechanical edits with an exact recipe. A batch usually runs: auditor or
 design-reviewer → implementers in parallel → integrator → screen-checker →
