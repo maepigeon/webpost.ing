@@ -96,6 +96,26 @@ class DatabaseSchemaTest {
             assertColumnExists("security_events", c);       // V018
     }
 
+    // ── Indexes added by V019 ─────────────────────────────────────────────────
+
+    @Test
+    void performanceIndexes_exist() {
+        for (String index : List.of("idx_posts_pub_date", "idx_notifications_unread",
+                "idx_notifications_new_post", "idx_conversations_user2", "idx_comments_user",
+                "idx_post_uploads_upload", "idx_hashtags_tag_prefix", "idx_users_username_trgm")) {
+            assertIndexExists(index, true);
+        }
+    }
+
+    @Test
+    void duplicateIndexes_areGone() {
+        assertIndexExists("idx_notifications_recipient", false);
+        assertIndexExists("idx_follows_follower", false);
+        // the copies they duplicated stay
+        assertIndexExists("idx_notif_recipient", true);
+        assertIndexExists("follows_pkey", true);
+    }
+
     // ── conversations columns ─────────────────────────────────────────────────
 
     @Test
@@ -257,6 +277,13 @@ class DatabaseSchemaTest {
                 "WHERE table_schema = 'public' AND table_name = ?",
                 Integer.class, table);
         assertThat(count).as("Table '%s' should exist", table).isEqualTo(1);
+    }
+
+    private void assertIndexExists(String index, boolean expected) {
+        Integer count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM pg_indexes WHERE schemaname = 'public' AND indexname = ?",
+                Integer.class, index);
+        assertThat(count).as("Index '%s' existence", index).isEqualTo(expected ? 1 : 0);
     }
 
     private void assertColumnExists(String table, String column) {

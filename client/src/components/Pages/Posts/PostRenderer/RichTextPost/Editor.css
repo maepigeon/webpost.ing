@@ -367,6 +367,7 @@
 /* ── Description, under the URL ──────────────────────────────────────────── */
 
 .post-summary-row {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -375,11 +376,20 @@
   font-family: inherit;
 }
 
+/* The Description and "Goes in" labels are for screen readers only: the
+   placeholder and the segmented control say what they are. Clipped, not
+   display:none, so they stay in the accessibility tree and take no room. */
 .post-summary-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--th-ink, #565656);
-  opacity: 0.7;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 .post-summary-input {
@@ -1378,6 +1388,7 @@
 /* ── Where the post goes: Post / Note / Subscribers ──────────────────────── */
 
 .post-section-row {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1386,31 +1397,49 @@
   font-family: inherit;
 }
 
-.post-section-choices { display: flex; flex-wrap: wrap; gap: 6px; }
+/* One segmented control, like the profile tabs: an ink outline, the chosen
+   segment filled with the ink and its text in the card's colour turned round. */
+.post-section-choices {
+  display: flex;
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 3px;
+  gap: 3px;
+  box-sizing: border-box;
+  overflow-x: auto;
+  border: 1.5px solid var(--th-ink, #1c1c1c);
+  border-radius: 10px;
+}
 
 .post-section-pill {
-  min-height: 32px;
+  flex: 0 0 auto;
+  min-height: 36px;
   padding: 0 14px;
-  border: 1.5px solid var(--th-ink, #1c1c1c);
-  border-radius: 16px;
+  border: 0;
+  border-radius: 7px;
   background: transparent;
   color: var(--th-ink, #1c1c1c);
-  font-size: 13px;
-  font-weight: 500;
   font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 36px;
   cursor: pointer;
-  transition: transform 0.12s;
+  transition: background 0.12s, transform 0.12s;
 }
-.post-section-pill:active { transform: scale(0.94); }
+.post-section-pill:hover { background: color-mix(in srgb, var(--th-ink, #1c1c1c) 10%, transparent); }
+.post-section-pill:active { transform: scale(0.97); }
 .post-section-pill:focus-visible { outline: 2px solid var(--th-ink, #1c1c1c); outline-offset: 2px; }
-.post-section-pill.is-on {
+.post-section-pill.is-on,
+.post-section-pill.is-on:hover {
   background: var(--th-ink, #1c1c1c);
-  color: var(--th-card-background, #ffffff);
-  font-weight: 700;
+  color: var(--th-card-solid, #ffffff);
 }
+@media (pointer: coarse) { .post-section-pill { min-height: 40px; line-height: 40px; } }
 
 .post-section-hint {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--th-ink, #565656);
-  opacity: 0.75;
+  opacity: 0.65;
 }
+/* Post is the first choice and the default; its hint says nothing new. */
+.post-section-row:has(.post-section-pill:first-child.is-on) .post-section-hint { display: none; }
