@@ -210,7 +210,7 @@ Format: [GRID-FORMAT.md](GRID-FORMAT.md) (v3: tiles, layers, text slots, links, 
 |---|---|
 | `audioPlayer.js` | Singleton player: `play`, `toggle`, `pause`, `seek`, `setVolume`, `subscribe`, `getState`, `formatClock`. |
 | `autosave.js`, `useAutosave.js` | localStorage drafts (`saveDraft`, `loadDraft`, `listDrafts`, caps), hooks `useAutosave`, `useTextDraft`. |
-| `build.js` | Build id and compare with GitHub main (`compareWithMain`) for the admin panel. |
+| `build.js` | Build id, and `fetchLatestBuild`: asks the server (`GET /api/admin/build/latest`, `BuildController` + `BuildCheck`) how far GitHub's main is ahead; the server holds the read-only token (`GITHUB_REPO`/`GITHUB_TOKEN`). |
 | `clickFlash.js`, `tips.js` | Global click effect; hover tips. |
 | `codeDisplay.js` | Code block font/size settings (`applyCodeDisplay`). |
 | `colours.js` | Hex/HSL helpers, palette rows, recent colours. |

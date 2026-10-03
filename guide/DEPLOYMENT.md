@@ -10,7 +10,11 @@ you release").
 `~/Applications/Webposting.app`: a small menu to build and view what is
 checked out (`tools/run-local.sh`, at http://localhost:5174) and to deploy it
 (`tools/deploy.sh`: commit if needed, push `main` to GitHub, then log in
-to the server and update it). The first time, `deploy.sh` asks for the
+to the server and update it). The repository is private, so `git push` and
+`git pull` there use the sign-in already on the Mac (a personal access token
+kept by `git credential`, or ssh); if GitHub refuses it, `deploy.sh` says so in
+plain words and stops. The server never pulls from GitHub: releases are built on
+the Mac and uploaded, so the server holds no GitHub credential. The first time, `deploy.sh` asks for the
 server login and where `deploy.env` is on the server, then it runs
 `tools/release.sh` (build here, upload, install). `./tools/deploy.sh
 --setup` asks again. Each runs in a Terminal window, where the release asks
@@ -222,7 +226,8 @@ casual hand, and `release.sh` does not stop.
 
 The Cute theme font and the grid's Cute typeface use Samsung's Choco Cooky,
 served with the site from `client/public/fonts/Chococooky.woff2`. The file is
-gitignored, because the repository is public, so each checkout that releases
+gitignored, because the font is licensed and must not be redistributed (the
+repository is private, but that does not change the licence), so each checkout that releases
 needs its own copy, and `release.sh` stops if it is missing. To make one from
 the TrueType file (`~/Library/Fonts/Chococooky.ttf` on the owner's Mac):
 
@@ -338,7 +343,8 @@ password-hash files, lists them, and deletes them when you say yes.
 
 ### Old passwords in git history
 
-Two old database passwords are in this public repository's history. See
+Two old database passwords are in this repository's history (it was public
+until 2026-10-03, so assume both are known). See
 [SECURITY.md](SECURITY.md) item 1. Rotate them wherever they were used. Then
 decide whether to rewrite the history, which changes every commit hash and
 needs a force-push.
@@ -400,8 +406,9 @@ caching; use it when you paste, and keep this section for the reasons.)
 Spring only sets headers on API responses; the HTML and `/uploads/` are served by
 nginx, so the headers go there (security review M10). The origin list below was
 taken from `client/index.html` and the client code: Google Fonts (stylesheet from
-`fonts.googleapis.com`, files from `fonts.gstatic.com`) and `api.github.com` (the
-admin build check). Nothing else is loaded from outside.
+`fonts.googleapis.com`, files from `fonts.gstatic.com`). Nothing else is loaded from
+outside: the admin build check goes through this site's own server (it needs no
+`api.github.com` entry in `connect-src`).
 
 Roll the policy out as `Content-Security-Policy-Report-Only` first, load every page
 type (home, a post with images, a themed post, settings, admin, the editor) with
@@ -414,7 +421,7 @@ every header inherited from the `server` block, so each location repeats them.
 add_header X-Content-Type-Options "nosniff" always;
 add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 add_header X-Frame-Options "DENY" always;
-add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; media-src 'self'; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://api.github.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; media-src 'self'; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
 
 location /uploads/ {
     # user-supplied files: never executed or rendered as a page
@@ -584,7 +591,7 @@ section 8; `/uploads/` has its own, stricter one below). Add the Turnstile
 origins described in section 8 only if you use it.
 
 ```nginx
-add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; media-src 'self'; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://api.github.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; media-src 'self'; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
 ```
 
 **File 3: `/etc/nginx/conf.d/webposting-http.conf`** (`http` level: compression,

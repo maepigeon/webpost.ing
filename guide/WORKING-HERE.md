@@ -169,7 +169,9 @@ the lead commits and hands over.
 - **Production:** never build, test or run extra processes on the server
   (that crashed it once). Never log in to it, never ask for or store
   passwords. Server details live only in her local `release.env` and the
-  server's `deploy.env`; the repository is public.
+  server's `deploy.env`. The repository is private (since 2026-10-03), and the
+  rule stays: private repositories leak, get cloned to laptops, and may be
+  opened again, so no secret or server detail is ever committed.
 - **Deploying** is Mae's: the Webposting app's Deploy button, or
   `tools/deploy.sh` → `tools/release.sh` (build on her Mac, upload, install
   with backup and rollback). See [DEPLOYMENT.md](DEPLOYMENT.md). nginx is

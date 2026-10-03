@@ -24,19 +24,27 @@ live credential:
 | `74a203e7`, `8a71fa24`, `8ddf14b3`, `95c1dbb1` … | `spring.datasource.password=…` |
 
 *(2026-10-01: the values themselves used to be written out in this table,
-so this document was publishing them too. The repository is public, so
+so this document was publishing them too. The repository was public, so
 assume both passwords are known: rotation is not optional.)*
 
 The file is gitignored *now*, but ignoring a file does not remove its history.
 **Publishing this repository publishes both passwords**, and credential
 scanners index new public repos within minutes.
 
+**Update 2026-10-03: the repository is private now.** That does not rotate
+anything. The two old database passwords are still in history, were readable
+while the repository was public, and are still in every clone, so **both must
+still be rotated** on every machine that used them. Making the repository
+private also keeps the rule that nothing secret or about the server is ever
+committed: private repositories leak, get cloned to laptops, and may be opened
+again later.
+
 Two things must happen, in this order:
 
 1. **Rotate both passwords on every machine that ever used them.** Do this
    first and regardless — assume they are already compromised. Especially the
    `postgres` superuser one.
-2. **Scrub them from history** before pushing publicly, with
+2. **Scrub them from history** before the repository is ever public again, with
    [`git-filter-repo`](https://github.com/newren/git-filter-repo):
 
    ```bash

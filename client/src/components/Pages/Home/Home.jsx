@@ -46,8 +46,6 @@ function Home() {
       <footer className="home-footer">
         <p style={{ margin: 0 }}>
           Created by <a href="https://www.maepigeon.com">Mae Pigeon</a>
-          {' · '}
-          <a href="https://github.com/maepigeon/webpost.ing/">GitHub</a>
         </p>
       </footer>
     </div>

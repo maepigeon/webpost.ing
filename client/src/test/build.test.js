@@ -1,30 +1,31 @@
 import { describe, it, expect } from 'vitest';
-import { compareWithMain } from '../utils/build.js';
+import { fetchLatestBuild } from '../utils/build.js';
 
-const github = (routes) => async (url) => {
-  const hit = Object.entries(routes).find(([path]) => url.endsWith(path));
-  return hit ? { ok: true, json: async () => hit[1] } : { ok: false, status: 404 };
-};
-const head = { sha: 'bbbb', commit: { message: 'Newest\n\nbody', committer: { date: '2026-10-03T00:00:00Z' } } };
+// The repository is private: the browser asks this site's own server, never GitHub.
+const server = (data) => ({ calls: [], get(url, opts) { this.calls.push({ url, opts }); return data instanceof Error ? Promise.reject(data) : Promise.resolve({ data }); } });
 
-describe('comparing the live build with main', () => {
-  it('is up to date when the build is main', async () => {
-    expect((await compareWithMain('bbbb', github({ '/commits/main': head }))).behind).toBe(0);
-  });
-
-  it('counts how far behind an older build is, and names the latest', async () => {
-    const r = await compareWithMain('aaaa', github({ '/commits/main': head, '/compare/aaaa...main': { ahead_by: 3 } }));
+describe('asking the server about the live build', () => {
+  it('sends the build commit to the site\'s own admin endpoint, with the session cookies', async () => {
+    const http = server({ available: true, repo: 'a/b', behind: 3, latest: { sha: 'bbbb', message: 'Newest', date: '' } });
+    const r = await fetchLatestBuild('aaaa', http);
     expect(r.behind).toBe(3);
-    expect(r.latest).toEqual({ sha: 'bbbb', message: 'Newest', date: '2026-10-03T00:00:00Z' });
+    expect(http.calls[0].url).toMatch(/\/api\/admin\/build\/latest$/);
+    expect(http.calls[0].url).not.toMatch(/github/);
+    expect(http.calls[0].opts).toMatchObject({ params: { commit: 'aaaa' }, withCredentials: true });
   });
 
-  it('cannot compare a build GitHub does not know, or one with no commit', async () => {
-    expect((await compareWithMain('zzzz', github({ '/commits/main': head }))).behind).toBeNull();
-    expect((await compareWithMain('', github({ '/commits/main': head }))).behind).toBeNull();
+  it('passes an empty commit when the build has none', async () => {
+    const http = server({ available: false });
+    await fetchLatestBuild('', http);
+    expect(http.calls[0].opts.params).toEqual({ commit: '' });
   });
 
-  it('fails when GitHub cannot be reached', async () => {
-    await expect(compareWithMain('aaaa', github({}))).rejects.toThrow();
+  it('hands back "not available" as it is, for the box to say the check is off', async () => {
+    expect(await fetchLatestBuild('aaaa', server({ available: false }))).toEqual({ available: false });
+  });
+
+  it('fails when the server cannot be reached', async () => {
+    await expect(fetchLatestBuild('aaaa', server(new Error('down')))).rejects.toThrow();
   });
 });
 

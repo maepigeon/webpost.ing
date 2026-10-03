@@ -13,8 +13,9 @@ matter that you have not asked for.
 
 Two database passwords sit in nine commits, one of them the `postgres`
 superuser. This is the only item here that is **irreversible**: once the
-repository is public, credential scanners index it within minutes, and deleting
-the repo afterwards does not help.
+repository is public (it was, until 2026-10-03; it is private now, but rotate
+anyway), credential scanners index it within minutes, and deleting the repo
+afterwards does not help.
 
 Rotate first, regardless of when you publish — assume both are already known.
 Details in [SECURITY.md](SECURITY.md).

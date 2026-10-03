@@ -132,6 +132,30 @@ these are set to. Persisting them is tracked in [tasks.md](tasks.md).
 | `MAIL_ENABLED` | `false` | Everything email is off unless `true`; then `MAIL_HOST` is required. |
 | `MAIL_FROM`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SMTP_AUTH`, `MAIL_SMTP_STARTTLS` | see [EMAIL.md](EMAIL.md) | `MAIL_PASSWORD` is a secret: `deploy.env` only. |
 
+### Admin update check (optional)
+
+The admin panel's "Live build" box can say whether `main` has commits the live
+build lacks. The repository is private, so only the server asks GitHub's API,
+with a read-only token; no browser talks to GitHub and the token is never sent
+to one. The route is `GET /api/admin/build/latest` (admin only). Answers are
+cached for ten minutes (a failed check for one minute), with a 3 second timeout.
+
+| Variable | Where | Notes |
+|---|---|---|
+| `GITHUB_REPO` | `deploy.env` | `owner/name` of the repository, for example `maepigeon/webpost.ing`. |
+| `GITHUB_TOKEN` | `deploy.env` | A secret (same rules as `DB_PASSWORD`). Fine-grained personal access token with read-only access to this one repository. |
+
+Both empty (the default) turns the check off: the box shows the live build and
+"Update check is off." Nothing else depends on it.
+
+To make the token: GitHub, Settings, Developer settings, Personal access tokens,
+Fine-grained tokens, Generate new token. Name it for the site, set an expiry,
+under Repository access choose "Only select repositories" and pick this one, and
+under Repository permissions set **Contents** to **Read-only** (Metadata read is
+added automatically; grant nothing else). Put the two lines in the server's
+`deploy.env` and restart the service. When the token expires the box says "Could
+not check" until a new one is put in.
+
 ### Logging
 
 | Variable | Default | Notes |
