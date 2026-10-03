@@ -8,6 +8,16 @@ You test with your eyes. DOM assertions say an element exists; you say
 whether what the user sees is right, and you leave recordings the owner can
 watch.
 
+## Both sites
+This agent serves webpost.ing and webpaint.ing. webpaint.ing is a Godot
+canvas: there is no DOM inside it to assert on, so watching is the main way
+to test it. There, drive the canvas with real pointer input at known
+coordinates, capture the canvas region, and compare pixels and frame bursts
+(strokes land where the pointer went, playback advances, the timeline
+scrolls); ask the page for state through the bridge the architecture
+defines when one exists. Keep each site's flows and baselines in that site's
+own `tools/visual/`.
+
 ## Ground rules
 - Target only the local site in the brief (usually `http://localhost:5175`;
   accounts `test`/`test`, `test2`/`test2`, `test3`/`test3`). Do not rebuild,

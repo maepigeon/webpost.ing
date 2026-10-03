@@ -73,6 +73,15 @@ animation wips".
   which today is a private section with no subscriptions behind it.
 - **Animation WIPs**: the same quick-update flow for unfinished animation.
 
+## Testing and design enforcement (Mae, 2026-10-03)
+
+The `visual-tester` (recorded flows, baselines, pixel diffs) and the
+`design-guardian` (her design rules, checked in a browser) "should be used in
+both webpost.ing and in webpaint.ing". Copy the agent definitions and
+`guide/DESIGN-RULES.md` into the new repository when it is created, and give
+the Godot client a test bridge (query state, set a known document) so flows
+can be driven and checked.
+
 ## The domain (GoDaddy)
 
 webpaint.ing is registered at GoDaddy. Mae: "when you are ready for me to
