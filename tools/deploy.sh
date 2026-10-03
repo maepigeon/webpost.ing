@@ -15,9 +15,15 @@
 #      password in this terminal; it goes nowhere else.
 #
 # Advanced: DEPLOY_COMMAND in release.env, if set, is run on the server
-# instead of step 4's upload (for a server that updates itself from GitHub).
+# instead of step 4's upload (a custom update command; nothing here needs it).
 #
-# Nothing about the server is written in this script.
+# The repository is private. Step 3 uses the git sign-in already on this
+# computer (a personal access token kept by `git credential`, or ssh); the
+# server never talks to GitHub: releases are built here and uploaded.
+#
+# Nothing about the server is written in this script, and nothing about it may
+# be: a private repository is still cloned to other machines and may be
+# opened again.
 
 set -euo pipefail
 
@@ -38,7 +44,7 @@ keep() {
 [ -f release.env ] && { set -a; . ./release.env; set +a; }
 looks_like_login() { [[ "$1" =~ ^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$ ]]; }
 if [ "${1:-}" = "--setup" ] || ! looks_like_login "${DEPLOY_HOST:-}" || { [ -z "${DEPLOY_COMMAND:-}" ] && [ -z "${SERVER_ENV:-}" ]; }; then
-  step "First-time setup: two facts about your server (saved on this Mac only)"
+  step "First-time setup: two facts about your server (saved on this computer only)"
   echo "1. The login you use for ssh: your username on the server, an @, and the"
   echo "   server's address. Example: mae@example.com"
   while :; do
@@ -76,8 +82,23 @@ if [ -n "$(git status --porcelain)" ]; then
 fi
 
 step "Pushing main to GitHub"
-git pull --ff-only origin main || fail "GitHub has changes this checkout cannot simply take. Sort that out by hand, then deploy again."
-git push origin main
+# Runs a git command, shows what it said, and on failure says which of the
+# usual problems it was in plain words instead of leaving git's own message.
+SIGN_IN_PROBLEM="GitHub did not accept the sign-in for this repository; sign in with \`git credential\` / a personal access token, then deploy again."
+git_or_explain() {
+  local out status=0
+  out="$("$@" 2>&1)" || status=$?
+  [ -z "$out" ] || echo "$out"
+  [ "$status" -eq 0 ] && return 0
+  if grep -qiE "authentication failed|could not read (username|password)|terminal prompts disabled|invalid username or password|repository not found|permission denied|requested URL returned error: 40[13]" <<<"$out"; then
+    fail "$SIGN_IN_PROBLEM"
+  elif grep -qiE "fast-forward|diverg|rejected|non-fast-forward" <<<"$out"; then
+    fail "GitHub has changes this checkout cannot simply take. Sort that out by hand, then deploy again."
+  fi
+  fail "git could not reach GitHub. Its own message is just above; check the connection, then deploy again."
+}
+git_or_explain git pull --ff-only origin main
+git_or_explain git push origin main
 
 if [ -n "${DEPLOY_COMMAND:-}" ]; then
   step "Updating the server to $(git rev-parse --short HEAD)"

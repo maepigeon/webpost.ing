@@ -1,0 +1,8 @@
+# Install: sed "s|__REPO__|$PWD|" tools/linux/webposting.desktop > ~/.local/share/applications/webposting.desktop   (run from the repository root)
+[Desktop Entry]
+Type=Application
+Name=Webposting
+Comment=Build, view and deploy webpost.ing
+Exec=bash -c 'cd "__REPO__" && ./tools/webposting.sh'
+Terminal=true
+Categories=Development;

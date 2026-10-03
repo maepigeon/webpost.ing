@@ -6,8 +6,15 @@ locally, including both rollback paths, but **have not yet run against the
 real server**: the first real release is their first real test (see "Before
 you release").
 
-**The short way, on a Mac.** `./tools/mac-app/build.sh` makes
-`~/Applications/Webposting.app`: a small menu to build and view what is
+**The short way.** On any computer, `node tools/menu.mjs` (or the launcher
+`./tools/webposting.sh` on macOS and Linux, `tools\webposting.cmd` on Windows)
+shows the current build and a numbered menu: build and view the site locally,
+rebuild, stop it, deploy, download or list server backups, run the smoke tests.
+It is the one list of actions (`node tools/menu.mjs --actions` prints it as
+JSON), and every choice runs one of the scripts below in that terminal. See
+"Using it on Windows or Linux" for what to install. On a Mac,
+`./tools/mac-app/build.sh` also makes `~/Applications/Webposting.app`: the
+same menu as a Mac app, to build and view what is
 checked out (`tools/run-local.sh`, at http://localhost:5174) and to deploy it
 (`tools/deploy.sh`: commit if needed, push `main` to GitHub, then log in
 to the server and update it). The repository is private, so `git push` and
@@ -206,6 +213,46 @@ just before that happens.
 - SSH access to the server. To stop typing the password every time:
   `ssh-copy-id <you>@<server>`.
 
+### Using it on Windows or Linux
+
+The scripts are bash and the menu is Node, so the same checkout works on all
+three systems.
+
+**Install first:**
+
+- **Git** (on Windows, [Git for Windows](https://git-scm.com/download/win),
+  which also brings Git Bash and ssh). The menu looks for Git Bash in
+  `C:\Program Files\Git`, then `%ProgramFiles%`, then wherever `git.exe` is,
+  then `where bash`; WSL is the last resort (Java and Node must then be
+  installed inside it). If none is found it says so and installs nothing.
+- **Node 20.19 or newer** and **Java 21** (`node -v`, `java -version`).
+- **PostgreSQL**, running, for viewing the site locally (see
+  [CONFIGURATION.md](CONFIGURATION.md)); the release tests also need an empty
+  `webposting_test` database.
+- An **ssh** client for deploying and backups (Git for Windows has one; on
+  Linux, the `openssh-client` package).
+
+Before an action that needs a program the computer lacks, the menu names it
+and what to install.
+
+**Start the menu:**
+
+| System | How |
+|---|---|
+| macOS, Linux | `./tools/webposting.sh` |
+| Windows | double-click `tools\webposting.cmd` (or `tools\webposting.ps1` in PowerShell) |
+| anywhere | `node tools/menu.mjs`; or one action: `node tools/menu.mjs view` (also `restart`, `stop`, `deploy`, `backup`, `backups`, `smoke`) |
+| Linux desktop | `sed "s\|__REPO__\|$PWD\|" tools/linux/webposting.desktop > ~/.local/share/applications/webposting.desktop`, run from the repository root |
+
+Things that differ from a Mac: the local site's uploads and logs live in
+`~/.local/share/webposting-local` (Linux) or `%LOCALAPPDATA%\webposting-local`
+(Windows) instead of `~/Library/Application Support`; on Windows the release
+asks for the ssh password at each step, because Git's ssh cannot share one
+connection; line endings must stay LF in `*.sh` files (a checkout with
+`core.autocrlf=true` will break them; see `.gitattributes`). Not yet run on
+Windows or Linux: the scripts were made portable by reading, and tested on a
+Mac only.
+
 ### After a release
 
 - Run the smoke test above. At the least: `curl -s https://<your site>/api/health`
@@ -377,12 +424,160 @@ permissions.
 
 ## 6. Backups
 
-Each release backs up the database, JAR and website (section 1). That's not
-the same as regular backups: nothing schedules `tools/backup.sh` yet, and
-images, avatars, header images and audio live on disk (`UPLOAD_DIR`), so a
-database dump alone restores every post with its pictures and audio broken. To do (guide/tasks.md): a nightly
-database-and-uploads backup copied off the server, and an uptime monitor on
-`/api/health`.
+**What exists.** Three layers, none of which costs anything:
+
+1. **Every release** backs up the database, JAR and website into
+   `~/backups/release-<time>/` before it swaps anything in (section 1). That is
+   a rollback aid, not a backup plan; nothing prunes those folders yet (work
+   package S4 in [scalability.md](scalability.md)), so look at
+   `du -sh ~/backups` now and then.
+2. **Every night at 03:30** (server time) a systemd timer takes one
+   `pg_dump` of the database into `/var/backups/webposting/`, checks that it
+   reads back, and keeps the newest dump of each of the last 7 days and each of
+   the last 4 weeks. It is the only thing the timer does: one `pg_dump` at the
+   lowest CPU and disk priority, a bounded job, so the "never run extra
+   processes on the server" rule allows it. Uploads are **not** copied on the
+   server: they are already on its disk, and a second copy would fill it.
+3. **The copy off the server is your own computer.** Weekly, and before
+   anything risky (a release that changes the database, a resize), run
+   `tools/download-backup.sh` or press "Download a backup" in the Webposting
+   app. One server in one data centre with one disk is not a backup of itself.
+
+A database dump alone is not a backup of this application: images, avatars,
+header images, fonts and audio live in `UPLOAD_DIR`, so a dump restores every
+post with its pictures broken. That is why the download takes both, with the
+same stamp.
+
+### Set up the nightly timer (once, with sudo)
+
+After a release that contains `tools/server/install-backup-timer.sh` (it
+travels in the release's `server-tools/` folder), on the server:
+
+```bash
+sudo bash ~/incoming/webposting-<date>-<commit>/server-tools/install-backup-timer.sh --env /path/to/deploy.env --dry-run
+sudo bash ~/incoming/webposting-<date>-<commit>/server-tools/install-backup-timer.sh --env /path/to/deploy.env
+```
+
+(If the release you unpacked has no `backup.sh` in `server-tools/`, add
+`--script /path/to/a/checkout/tools/backup.sh`; the installer says so.) It
+checks everything before changing anything: the settings in `deploy.env`, that
+the service's user can reach the database and the uploads, that the disk has
+room (twice the database's size). Then it creates `/var/backups/webposting`
+(owned by the service's user, group = your login, mode 2750, so your login can
+download without sudo and no one else can read the dumps), copies `backup.sh`
+to `/usr/local/lib/webposting/` (root-owned), writes
+`webposting-backup.service` and `.timer`, starts the timer, and offers to take
+the first backup now. It changes nothing else, adds nothing to `deploy.env`,
+and running it again says "already current". `--at 04:15` changes the time;
+`--remove` takes the timer out again and leaves the dumps.
+
+Optional in `deploy.env`: `HEARTBEAT_URL=<ping URL>` from a free
+[healthchecks.io](https://healthchecks.io) check (period 1 day, grace 3 hours).
+A successful night pings it, a failed one pings `/fail`, and a night that does
+not happen is noticed by healthchecks emailing you. `BACKUP_KEEP_DAILY` and
+`BACKUP_KEEP_WEEKLY` change the 7 and 4. The ping URL is never printed or
+logged.
+
+**Check afterwards** (on the server):
+
+```bash
+systemctl list-timers webposting-backup.timer          # next run tonight
+ls -lh /var/backups/webposting                         # a dump, where.env; group is yours
+sudo journalctl -u webposting-backup.service -n 30 --no-pager   # tomorrow: the night's output
+df -h /                                                # room left
+```
+
+### Download a backup (on your computer)
+
+```bash
+tools/download-backup.sh --list        # what the server has; downloads nothing
+tools/download-backup.sh --dry-run     # what a download would fetch and how big
+tools/download-backup.sh               # the newest dump and the uploads
+```
+
+It reads `DEPLOY_HOST` from `release.env`, like `tools/release.sh` (optional
+there: `SERVER_BACKUP_DIR`, default `/var/backups/webposting`, and
+`SERVER_UPLOAD_DIR`, default what the nightly run recorded). It opens one ssh
+connection, so the password is asked once (where ssh cannot share a connection,
+as in Git Bash on Windows, once per step). The files go to
+`~/webposting-backups/<date>/` (`BACKUP_DIR` changes it):
+`db_<stamp>.dump`, `uploads_<stamp>.tar`, `CHECKSUMS.txt`. Each file is sent
+as a stream: the server counts its bytes and takes a sha256 of what it sent
+while your computer does the same of what arrived, and the two must match; the
+dump is then read with `pg_restore --list` and the tar is listed. The newest 10
+downloads are kept (`--keep N`). `--no-uploads` skips the uploaded files.
+If something on the server is not readable by your login, it asks once for your
+sudo password (typed at the prompt, sent over ssh, stored nowhere). The server
+only reads files, at the lowest priority; the uploads tar is the one bigger
+job, about the size of `du -sh $UPLOAD_DIR`, so do it when the site is quiet
+once the uploads grow past a few gigabytes.
+
+### Prove a backup restores (monthly, and after the first download)
+
+```bash
+tools/restore-test.sh                   # the newest download
+tools/restore-test.sh ~/webposting-backups/2026-10-03   # or a folder, or one .dump
+```
+
+On your own computer, never the server (it refuses when `deploy.env` says
+`APP_PROFILE=prod`, when run as root, or when `PGHOST` is another machine). It
+restores the dump into a scratch database `webposting_restore_test` on your
+local PostgreSQL (re-created each time), then prints row counts, checks that
+the restore had no errors, that there are users, and that a random sample of
+upload rows (up to 25 uploads and 25 resized copies) have their files in the
+tar beside the dump (or in `--uploads DIR`), and ends with `PASS` or `FAIL`.
+Once a quarter go further: `--keep`, start the local build with
+`DB_NAME=webposting_restore_test`, run `node tools/smoke/run.mjs`, open a
+profile with images in a browser, then `dropdb webposting_restore_test`.
+A backup that has never been restored is a hope, not a backup.
+
+### To restore for real (the server lost its database)
+
+1. Stop the site: `sudo systemctl stop webposting.service`.
+2. Database: `sudo -u postgres pg_restore --clean --if-exists -d <DB_NAME> <dump>`
+   (copy the dump up with `scp`; a lost server needs a new database first:
+   `sudo -u postgres createdb -O <DB_USER> <DB_NAME>`).
+3. Uploads: `sudo tar xf uploads_<stamp>.tar -C $(dirname $UPLOAD_DIR)` and
+   `sudo chown -R <service user> $UPLOAD_DIR`.
+4. `sudo systemctl start webposting.service`, then check `/api/health` and a
+   profile with pictures.
+
+### Monitoring (free, once)
+
+All of this is set in accounts, not in code; none of it runs anything extra on
+the server.
+
+- **DigitalOcean Monitoring** (the control panel, Monitoring, Create alert
+  policy): CPU above 70% for 5 minutes, memory above 85% for 5 minutes, disk
+  above 70%. Email is enough. Disk is the one that matters most: backups, the
+  release folders in `~/backups`, and uploads share one 50 GB disk.
+- **An outside uptime check** on `https://webpost.ing/api/health` every 5
+  minutes with email alerts (UptimeRobot's free plan, or DigitalOcean's Uptime;
+  read the terms of either).
+- **The nightly backup's heartbeat** above.
+- **Droplet backups** (weekly, 20% of the droplet price) are optional and cost
+  money; the nightly dumps plus your downloads cover the data. They are the
+  only thing that would also bring back the operating system and nginx
+  configuration, so keep a copy of the nginx file from section 9.4 yourself.
+- **nginx timing log**, to paste once (`http` level), the only latency
+  measurement needed for a long time:
+
+  ```nginx
+  log_format timed '$remote_addr [$time_local] "$request" $status $body_bytes_sent '
+                   'rt=$request_time urt=$upstream_response_time';
+  access_log /var/log/nginx/webposting.access.log timed;
+  ```
+
+  p95 of API time in the current log, in seconds:
+
+  ```bash
+  awk -F'urt=' '$0 ~ /"(GET|POST|PUT|DELETE) \/api\// && $2 != "-" {print $2}' \
+    /var/log/nginx/webposting.access.log | sort -n | awk '{a[NR]=$1} END {print a[int(NR*0.95)]}'
+  ```
+
+- **By hand when something feels slow:** `systemctl show webposting.service -p NRestarts`
+  (should stay 0 between releases), `df -h /`, `du -sh $UPLOAD_DIR ~/backups /var/backups/webposting`,
+  `sudo -u postgres psql -c "SELECT pg_size_pretty(pg_database_size('<DB_NAME>'))"`.
 
 ---
 

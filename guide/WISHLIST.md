@@ -8,6 +8,14 @@ each lives in the linked guide. Last updated 2026-10-03.
 
 - **Switch mail on.** Pick a mail-sending service, add its DNS records, then
   run `tools/server/enable-mail.sh` on the server. → [EMAIL.md](EMAIL.md)
+- **Backups: schedule them, then fetch one.** Nothing backs the site up
+  nightly yet. After a release that carries the new scripts: on the server,
+  `sudo bash <release>/server-tools/install-backup-timer.sh --env <deploy.env>`
+  (try `--dry-run` first); then on her computer `tools/download-backup.sh` and
+  `tools/restore-test.sh`, weekly and before anything risky. Also in the
+  DigitalOcean account: the three free alert policies, and optionally a free
+  healthchecks.io check for `HEARTBEAT_URL`. Steps and checks:
+  [DEPLOYMENT.md](DEPLOYMENT.md) section 6.
 - **nginx additions**, when she chooses: crawler pages for search engines and
   AI ([SEO.md](SEO.md)); security headers, caching, and `sw.js` caching
   ([DEPLOYMENT.md](DEPLOYMENT.md) sections 7–8,
