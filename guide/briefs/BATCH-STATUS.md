@@ -10,12 +10,15 @@ helpers; more Sonnet; visual checks before anything goes to her.
 - `senior-engineer-perf-render` (Opus): grid redraw effect, rAF loops, lazy images, Viewer localStorage write.
 - `implementer-smoke-suite`: finish `tools/smoke/`.
 - `ui-reviewer-new-features`: browser review + font audit → `guide/ui-review-2026-10-03-new-features.md`.
-- `design-reviewer-list-payloads` (Fable): design → `guide/design-list-payloads.md` (brief for the next batch: card previews, save-path queries, search, profile summary; migration V020).
 - `architect-webpaint` (Opus): → `guide/webpaint-architecture.md` (Godot, shared accounts, multi-user, comics, CSP-EX-class scope, offline, installable, Electron vs native, Mac app buttons, test bridge).
 - `design-guardian-whole-site` (Opus, browser-heavy): → `guide/design-audit-2026-10-03.md`.
 - `visual-tester-core-flows`: `tools/visual/` recorder + baselines → `guide/visual-test-2026-10-03.md`.
 - `implementer-accounts-readiness`: password and sign-up flows proven end to end → `guide/accounts-readiness.md`.
 - `architect-scalability` (Opus): → `guide/scalability.md`.
+
+- `senior-engineer-payloads-wp1` (Opus) and `implementer-payloads-wp2`: Stage 1 of `guide/design-list-payloads.md`.
+  Still to launch from that design: **WP-4** client cards (Stage 0; wait for perf-render, which is editing FollowingPage/DiscoverPage), then **WP-3** feeds/Discover/SEO/hashtags and **WP-5** profile summary + AdminPanel status line (Stage 2, after WP-1), then integrator + screen-checker.
+  One decision for Mae from that design: grid-only posts whose first grid is over 300,000 characters show title + description only on cards (no grid); the sweep reports how many, to judge whether a thumbnail is needed later.
 
 ## Done and committed this batch
 perf-indexes (V019), ui-followups (editor "Goes in" segmented, labels hidden),

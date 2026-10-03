@@ -118,6 +118,12 @@ the lead commits and hands over.
   Webposting app in `~/Applications`.
 - Always look at UI changes on screen, at desktop and phone width, and on a
   dark theme as well as a light one. Tests alone have missed real bugs here.
+- **Smoke suite**: before a deploy hand-over, against the local copy only,
+  run `node tools/smoke/run.mjs` (about a minute; `--only seo,security`,
+  `--phone`; see `tools/smoke/README.md`). It prints PASS/FAIL/SKIP per check,
+  exits non-zero on a failure and leaves screenshots in `tools/smoke/out/`. A
+  check that fails on a real bug stays failing and goes in the report; add a
+  check there when a feature ships instead of writing a throwaway script.
 
 ## Process lessons (keep these; add to them)
 
