@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { sanitiseWallpaper, serialiseWallpaper, MAX_TILE_TILES } from '../components/TileArt/wallpaper.js';
-import { sanitiseTheme, themeVariables, MAX_STICKER_TILES } from '../components/PageTheme/theme.js';
+import { sanitiseTheme, themeVariables, readableOn, contrast, MAX_STICKER_TILES } from '../components/PageTheme/theme.js';
 import { pixelLayer } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
 
 const tile = (cols = 2, rows = 2) => ({ cols, rows, layers: [pixelLayer('T')] });
@@ -64,5 +64,20 @@ describe('themes', () => {
     const ready = themeVariables(t, { sticker: { url: 'data:image/png;base64,AA==', width: 32, height: 32 } });
     expect(ready['--th-sticker-display']).toBe('block');
     expect(ready['--th-sticker-w']).toBe('32px');
+  });
+});
+
+describe('readable text on a card', () => {
+  it('keeps a colour that can be read, and replaces one that cannot', () => {
+    expect(readableOn('#ff2bd6', '#060c10')).toBe('#ff2bd6');
+    expect(readableOn('#111111', '#000000', '#f2f2f2')).toBe('#f2f2f2');
+    expect(readableOn('#111111', '#000000')).toBe('#f2f2f2');
+    expect(readableOn('#fefefe', '#ffffff')).toBe('#111111');
+  });
+
+  it('a black card with a dark accent still gets readable links', () => {
+    const t = sanitiseTheme({ type: { ink: '#f2f2f2', accent: '#111111', headingInk: '#0b0b0b' }, card: { bg: '#000000' } });
+    const vars = themeVariables(t);
+    for (const k of ['--th-ink', '--th-accent', '--th-heading-ink']) expect(contrast(vars[k], '#000000')).toBeGreaterThan(2.5);
   });
 });

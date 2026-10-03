@@ -250,6 +250,36 @@ function hexToRgb(hex) {
   return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
 }
 
+/** Relative luminance of a #rrggbb colour (WCAG). */
+function luminance(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(v => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** Contrast ratio between two #rrggbb colours, from 1 (the same) to 21. */
+export function contrast(a, b) {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/** Below this against the card, text counts as unreadable and is replaced. */
+const READABLE = 2.5;
+
+/**
+ * A text colour that can be read on the card: the one chosen if it can be,
+ * otherwise `fallback`, otherwise black or white. A theme with a black card
+ * and a forgotten dark accent still shows its links.
+ */
+export function readableOn(colour, card, fallback = null) {
+  if (contrast(colour, card) >= READABLE) return colour;
+  if (fallback && contrast(fallback, card) >= READABLE) return fallback;
+  return luminance(card) > 0.4 ? '#111111' : '#f2f2f2';
+}
+
 const RAINBOW = 'linear-gradient(115deg, #ff5e8a, #ffa45c, #ffe45c, #6ef29c, #5ec8ff, #a98bff, #ff5e8a)';
 // Deeper stops for rainbow text, so every colour stays readable on a light card.
 const RAINBOW_INK = 'linear-gradient(90deg, #e0245e, #e8670c, #c49000, #189a52, #1a7fd0, #7442d6, #e0245e)';
@@ -299,14 +329,20 @@ export function themeVariables(theme, images = {}) {
   const [top, side, bottom] = cardBorders(t);
   const accentRgb = hexToRgb(t.type.accent);
   const sticker = t.card.sticker && images.sticker;
+  // Text is drawn on the card, so each text colour is checked against it.
+  const ink = readableOn(t.type.ink, t.card.bg);
+  const headingInk = readableOn(t.type.headingInk, t.card.bg, ink);
+  const accent = readableOn(t.type.accent, t.card.bg, ink);
   return {
     '--th-font-heading': FONTS[t.type.heading].css,
     '--th-font-body': FONTS[t.type.body].css,
-    '--th-ink': t.type.ink,
-    '--th-heading-ink': t.fx.rainbow ? 'transparent' : t.type.headingInk,
+    '--th-ink': ink,
+    '--th-heading-ink': t.fx.rainbow ? 'transparent' : headingInk,
     '--th-heading-bg': t.fx.rainbow ? RAINBOW_INK : 'none',
     '--th-heading-anim': t.fx.rainbow ? 'th-rainbow-drift' : 'none',
-    '--th-accent': t.type.accent,
+    '--th-accent': accent,
+    // Red for Delete: the usual one, or a lighter one on a dark card.
+    '--th-danger': contrast('#c62828', t.card.bg) >= 4.5 ? '#c62828' : '#ff8a80',
     '--th-heading-case': t.type.headingCase === 'upper' ? 'uppercase' : 'none',
     '--th-heading-scale': String(t.type.headingScale),
     '--th-text-glow': t.fx.glow ? `0 0 4px currentColor, 0 0 14px rgba(${accentRgb}, 0.45)` : 'none',
