@@ -597,8 +597,14 @@ public class AdminController {
 
     /** Returns an error message if the password fails requirements, or null if OK. */
     public static String validatePassword(String password) {
+        // Length first: the regex scans below must never run on huge input.
         if (password == null || password.length() < 12)
             return "Password must be at least 12 characters.";
+        if (password.length() > 128)
+            return "Password must be 128 characters or fewer.";
+        // bcrypt silently ignores everything past 72 bytes.
+        if (password.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72)
+            return "Password must be 72 bytes or fewer.";
         if (!password.matches(".*[A-Z].*"))
             return "Password must contain at least one uppercase letter.";
         if (!password.matches(".*[a-z].*"))
@@ -607,8 +613,6 @@ public class AdminController {
             return "Password must contain at least one number.";
         if (!password.matches(".*[^A-Za-z0-9].*"))
             return "Password must contain at least one special character.";
-        if (password.length() > 128)
-            return "Password must be 128 characters or fewer.";
         return null;
     }
 }

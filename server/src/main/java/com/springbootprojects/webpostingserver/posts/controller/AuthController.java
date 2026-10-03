@@ -52,6 +52,10 @@ public class AuthController {
 
     // Registration rate limiter: IP → blocked-until epoch ms (1 attempt then 1-hour block)
     private static final java.util.concurrent.ConcurrentHashMap<String, Long> REG_BLOCK = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final java.util.concurrent.ConcurrentHashMap<String, long[]> REG_DAILY = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final int MAX_REG_PER_IP_PER_DAY = 3;
+    private static final int MAX_LOGINS_PER_IP = 30;
+    private static final int MAX_FAILURES_PER_ACCOUNT_ALL_IPS = 100;
     private static final long REG_BLOCK_MS      = 60 * 60 * 1000L; // 1 hour  — post-success (prevent multi-account)
     private static final long REG_BLOCK_SHORT_MS = 5 * 60 * 1000L; // 5 minutes — after bad code attempt
 
@@ -383,7 +387,7 @@ public class AuthController {
     public ResponseEntity<List<Map<String, Object>>> getRecentlyActive() {
         List<Map<String, Object>> rows = jdbc.queryForList(
             "SELECT username, last_active_at FROM users " +
-            "ORDER BY last_active_at DESC NULLS LAST");
+            "ORDER BY last_active_at DESC NULLS LAST LIMIT 50"); // bounded: this list is public
         return ResponseEntity.ok(rows);
     }
 
@@ -464,7 +468,8 @@ public class AuthController {
             @PathVariable("username") String username,
             @RequestBody Map<String, String> body,
             @CookieValue(name = "username", required = false) String authUsername,
-            @CookieValue(name = "authToken", required = false) String token) {
+            @CookieValue(name = "authToken", required = false) String token,
+            HttpServletRequest request) {
         AuthSession session;
         try {
             session = loginRepository.authorize(authUsername, token);
@@ -476,7 +481,8 @@ public class AuthController {
         if (!username.equals(authUsername))
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "That is not your account."));
 
-        String limiterKey = "password:" + username;
+        // Per account and address, so a stranger cannot lock the owner out of changing it.
+        String limiterKey = "password:" + username + "|" + rateKey(request.getRemoteAddr());
         if (LoginRateLimiter.isBlocked(limiterKey))
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                     .body(Map.of("message", "Too many wrong attempts. Try again in 15 minutes."));
@@ -507,7 +513,7 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<String> register(@RequestBody Map<String, String> body,
                                            HttpServletRequest request) {
-        String ip = getClientIp(request);
+        String ip = rateKey(getClientIp(request));
         boolean isLoopback;
         try {
             isLoopback = java.net.InetAddress.getByName(ip).isLoopbackAddress();
@@ -518,11 +524,20 @@ public class AuthController {
         // IP rate limit: block after first failed or successful attempt for 1 hour
         // Loopback addresses are not rate-limited (local development / admin testing).
         if (!isLoopback) {
+            if (REG_BLOCK.size() > 10_000) {
+                long t = System.currentTimeMillis();
+                REG_BLOCK.values().removeIf(until -> until <= t); // expired entries are dead weight
+            }
             Long blockedUntil = REG_BLOCK.get(ip);
             if (blockedUntil != null && System.currentTimeMillis() < blockedUntil)
                 return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                     .body("Registration temporarily unavailable from this network. Please try again later.");
         }
+
+        // Per-address daily cap on top of the global one, so one network cannot take the whole quota.
+        if (!isLoopback && registeredTodayFrom(ip) >= MAX_REG_PER_IP_PER_DAY)
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body("Registration temporarily unavailable from this network. Please try again later.");
 
         String username  = body.get("username");
         String password  = body.get("password");
@@ -609,7 +624,11 @@ public class AuthController {
         }
 
         // Block the IP for 1 hour to prevent multi-account creation
-        if (!isLoopback) REG_BLOCK.put(ip, System.currentTimeMillis() + REG_BLOCK_MS);
+        if (!isLoopback) {
+            REG_BLOCK.put(ip, System.currentTimeMillis() + REG_BLOCK_MS);
+            REG_DAILY.merge(ip, new long[]{java.time.LocalDate.now().toEpochDay(), 1},
+                (old, one) -> old[0] == one[0] ? new long[]{old[0], old[1] + 1} : one);
+        }
         return ResponseEntity.status(HttpStatus.CREATED).body("Account created. You can now log in.");
     }
 
@@ -623,6 +642,32 @@ public class AuthController {
      * this machine or a private network, nginx in production, so
      * getRemoteAddr() is already the real client.
      */
+    private static int registeredTodayFrom(String key) {
+        long today = java.time.LocalDate.now().toEpochDay();
+        if (REG_DAILY.size() > 10_000) REG_DAILY.values().removeIf(v -> v[0] != today);
+        long[] v = REG_DAILY.get(key);
+        return v != null && v[0] == today ? (int) v[1] : 0;
+    }
+
+    /**
+     * Key for per-address limits. IPv4 is used as is; IPv6 is cut to its /64,
+     * because one subscriber normally holds a whole /64 and could otherwise
+     * present 2^64 "different" addresses.
+     */
+    public static String rateKey(String ip) {
+        if (ip == null || !ip.contains(":")) return ip; // IPv4 (or unknown): no lookup needed
+        try {
+            java.net.InetAddress a = java.net.InetAddress.getByName(ip);
+            if (!(a instanceof java.net.Inet6Address)) return a.getHostAddress(); // IPv4-mapped
+            byte[] b = a.getAddress();
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < 8; i++) sb.append(String.format("%02x", b[i]));
+            return sb + "::/64";
+        } catch (Exception e) {
+            return ip;
+        }
+    }
+
     private static String getClientIp(HttpServletRequest request) {
         return request.getRemoteAddr();
     }
@@ -761,22 +806,27 @@ public class AuthController {
 
     @PostMapping("/loginSessionAttempt")
     public ResponseEntity<String> loginSessionAttempt(@RequestBody LoginInfo loginInfo, HttpServletRequest request, HttpServletResponse response) {
-        String clientIp = request.getRemoteAddr();
-        // Per account as well as per address: guesses at one account spread
-        // across many addresses are counted together.
-        String accountKey = "account:" + String.valueOf(loginInfo.getUsername()).toLowerCase();
-        if (LoginRateLimiter.isBlocked(clientIp) || LoginRateLimiter.isBlocked(accountKey)) {
+        String clientIp = "loginip:" + rateKey(request.getRemoteAddr());
+        String name = String.valueOf(loginInfo.getUsername()).toLowerCase();
+        // Per account AND address: keyed on the account alone, any stranger could
+        // lock the owner out. A looser all-address guard still bounds distributed guessing.
+        String accountKey = "account:" + name + "|" + rateKey(request.getRemoteAddr());
+        String globalAccountKey = "accountAll:" + name;
+        if (LoginRateLimiter.isBlocked(clientIp) || LoginRateLimiter.isBlocked(accountKey)
+                || LoginRateLimiter.isBlocked(globalAccountKey)) {
             return new ResponseEntity<>("Too many failed login attempts. Try again in 15 minutes.", HttpStatus.TOO_MANY_REQUESTS);
         }
+        // Every attempt counts against the address, successes included, and a
+        // success never resets it, so one address cannot mint sessions endlessly.
+        LoginRateLimiter.recordFailure(clientIp, MAX_LOGINS_PER_IP);
         AuthSession loginResult = loginRepository.login(loginInfo);
         try {
             switch (loginResult.loginHttpStatusCodeResult) {
                 case HttpStatus.FORBIDDEN:
-                    LoginRateLimiter.recordFailure(clientIp);
                     LoginRateLimiter.recordFailure(accountKey);
+                    LoginRateLimiter.recordFailure(globalAccountKey, MAX_FAILURES_PER_ACCOUNT_ALL_IPS);
                     return new ResponseEntity<>("Incorrect username or password.", HttpStatus.FORBIDDEN);
                 case HttpStatus.OK:
-                    LoginRateLimiter.recordSuccess(clientIp);
                     LoginRateLimiter.recordSuccess(accountKey);
                     HttpCookie tokenCookie = ResponseCookie.from("authToken", loginResult.token)
                             .httpOnly(true)

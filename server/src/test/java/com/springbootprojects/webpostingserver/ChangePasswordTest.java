@@ -34,7 +34,8 @@ class ChangePasswordTest {
     @InjectMocks AuthController controller;
 
     private ResponseEntity<?> change(String target, String as, String current, String next) {
-        return controller.changeOwnPassword(target, Map.of("currentPassword", current, "newPassword", next), as, "tok");
+        return controller.changeOwnPassword(target, Map.of("currentPassword", current, "newPassword", next), as, "tok",
+                new org.springframework.mock.web.MockHttpServletRequest());
     }
 
     private void signedIn(String name) throws Exception {

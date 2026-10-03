@@ -93,6 +93,40 @@ public class JdbcLoginRepository implements LoginRepository {
     /** Hard ceiling on stored sessions, so a login flood cannot exhaust memory. */
     private static final int MAX_SESSIONS = 10_000;
 
+    /** Sessions one account may hold at once; the oldest is dropped beyond this. */
+    private static final int MAX_SESSIONS_PER_USER = 5;
+
+    /**
+     * Stores a session, evicting instead of refusing: beyond the per-user cap the
+     * user's own oldest session goes, and when the whole table is full the
+     * globally oldest goes. Refusing would let one account's login flood lock
+     * every other user out. Oldest = earliest expiresAt (lifetime is constant).
+     */
+    public static synchronized void storeSession(AuthSession s, int perUserCap, int globalCap) {
+        java.util.Comparator<AuthSession> oldestFirst = java.util.Comparator.comparing(
+                x -> x.expiresAt == null ? Instant.MIN : x.expiresAt);
+        List<AuthSession> mine = new ArrayList<>();
+        for (AuthSession x : sessionsByToken.values()) if (s.username.equals(x.username)) mine.add(x);
+        mine.sort(oldestFirst);
+        for (int i = 0; mine.size() - i >= perUserCap; i++) sessionsByToken.remove(mine.get(i).token);
+        while (sessionsByToken.size() >= globalCap) {
+            sessionsByToken.values().stream().min(oldestFirst).ifPresentOrElse(
+                    o -> sessionsByToken.remove(o.token), () -> { });
+            if (sessionsByToken.isEmpty()) break;
+        }
+        sessionsByToken.put(s.token, s);
+    }
+
+    /** Live session count for a user (for tests). */
+    public static int sessionCountFor(String username) {
+        return (int) sessionsByToken.values().stream().filter(x -> username.equals(x.username)).count();
+    }
+
+    public static boolean hasSession(String token) { return sessionsByToken.containsKey(token); }
+
+    /** Drops all sessions (for tests). */
+    public static void clearSessions() { sessionsByToken.clear(); }
+
     /** Absolute session lifetime, in minutes. */
     @Value("${app.session-lifetime-minutes:1440}")
     private long sessionLifetimeMinutes;
@@ -107,6 +141,9 @@ public class JdbcLoginRepository implements LoginRepository {
     private static final SecureRandom secureRandom = new SecureRandom(); //threadsafe
     private static final Base64.Encoder base64Encoder = Base64.getUrlEncoder(); //threadsafe
     private static final BCryptPasswordEncoder bcrypt = new BCryptPasswordEncoder();
+
+    /** Compared against when the username is unknown, so timing does not reveal which names exist. */
+    private static final String DUMMY_HASH = bcrypt.encode("not-a-real-password-timing-pad");
 
     private static String generateNewToken() {
         byte[] randomBytes = new byte[24];
@@ -242,14 +279,20 @@ public class JdbcLoginRepository implements LoginRepository {
         List<LoginInfo> loginInfo = jdbcTemplate.query(
                 "SELECT * FROM users WHERE username = ?",
                 BeanPropertyRowMapper.newInstance(LoginInfo.class), username);
-        if (loginInfo.isEmpty()) return -1;
+        if (loginInfo.isEmpty()) {
+            bcrypt.matches(password, DUMMY_HASH);
+            return -1;
+        }
         if (loginInfo.size() > 1) {
             log.error("Duplicate users detected for username: {}", username);
             return -1;
         }
         LoginInfo user = loginInfo.getFirst();
         String stored = user.getPassword();
-        if (stored == null) return -1;
+        if (stored == null) {
+            bcrypt.matches(password, DUMMY_HASH);
+            return -1;
+        }
 
         // Every password is stored as a BCrypt hash.
         return bcrypt.matches(password, stored) ? user.getID() : -1;
@@ -327,12 +370,8 @@ public class JdbcLoginRepository implements LoginRepository {
             authSession.token = generateNewToken();
             authSession.loginHttpStatusCodeResult = HttpStatus.OK;
 
-            // Refuse to grow without bound if purging cannot keep up.
-            if (sessionsByToken.size() >= MAX_SESSIONS) {
-                authSession.loginHttpStatusCodeResult = HttpStatus.SERVICE_UNAVAILABLE;
-                return authSession;
-            }
-            sessionsByToken.put(authSession.token, authSession);
+            // Bounded per user and overall by evicting the oldest, never by refusing.
+            storeSession(authSession, MAX_SESSIONS_PER_USER, MAX_SESSIONS);
 
         } else {
             authSession.loginHttpStatusCodeResult = HttpStatus.FORBIDDEN;
