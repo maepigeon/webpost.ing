@@ -821,14 +821,13 @@ public class SocialRepository {
         }
 
         jdbc.update("DELETE FROM post_hashtags WHERE post_id=?", postId);
-        for (String tag : tags) {
-            jdbc.update("INSERT INTO hashtags(tag) VALUES(?) ON CONFLICT (tag) DO NOTHING", tag);
-            List<Integer> ids = jdbc.queryForList(
-                "SELECT id FROM hashtags WHERE tag=?", Integer.class, tag);
-            if (!ids.isEmpty())
-                jdbc.update("INSERT INTO post_hashtags(post_id, hashtag_id) VALUES(?,?) ON CONFLICT DO NOTHING",
-                    postId, ids.get(0));
-        }
+        if (tags.isEmpty()) return;
+        // Tags are \w only, so a comma join is safe. Two statements however many tags.
+        String joined = String.join(",", tags);
+        jdbc.update("INSERT INTO hashtags(tag) SELECT unnest(string_to_array(?, ',')) ON CONFLICT (tag) DO NOTHING", joined);
+        jdbc.update("INSERT INTO post_hashtags(post_id, hashtag_id) " +
+            "SELECT ?, h.id FROM hashtags h WHERE h.tag = ANY(string_to_array(?, ',')) ON CONFLICT DO NOTHING",
+            postId, joined);
     }
 
     public List<Map<String, Object>> getPostsByHashtag(String tag) {
@@ -884,16 +883,18 @@ public class SocialRepository {
      */
     public List<Map<String, Object>> discoverPosts(int viewerId, java.sql.Timestamp before, int size) {
         return jdbc.queryForList("""
-            SELECT p.id, p.title, p.description, p.date, p.slug, p.card_grid,
+            SELECT p.id, p.title, p.date, p.slug, p.card_grid,
+                   CASE WHEN p.card_grid THEN p.card_preview END AS card_preview,
+                   CASE WHEN p.card_grid AND p.preview_version < ? THEN p.description END AS body,
                    author.username AS author, author.avatar_path
               FROM posts p
               JOIN users_posts_junctions j ON j.post_id = p.id
               JOIN users author ON author.id = j.user_id
              WHERE p.published AND p.section = 'profile'
                AND author.role <> 'frozen' AND author.id <> ?
-               AND (?::timestamptz IS NULL OR date_trunc('milliseconds', p.date) < ?::timestamptz)
+               AND (?::timestamptz IS NULL OR p.date < ?::timestamptz)
              ORDER BY p.date DESC, p.id DESC
-             LIMIT ?""", viewerId, before, before, size + 1);
+             LIMIT ?""", com.springbootprojects.webpostingserver.posts.service.PostPreview.VERSION, viewerId, before, before, size + 1);
     }
 
     /** Recently active members who have at least one public profile post (not the viewer, not frozen). */

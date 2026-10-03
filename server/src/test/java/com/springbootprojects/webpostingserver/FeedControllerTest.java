@@ -6,6 +6,7 @@ import com.springbootprojects.webpostingserver.posts.model.LoginInfo;
 import com.springbootprojects.webpostingserver.posts.model.Post;
 import com.springbootprojects.webpostingserver.posts.repository.LoginRepository;
 import com.springbootprojects.webpostingserver.posts.repository.PostRepository;
+import com.springbootprojects.webpostingserver.posts.service.PostPreview;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -153,6 +154,87 @@ class FeedControllerTest {
         var r = feed.people(READER, signIn(READER));
         List<String> names = ((List<?>) r.getBody()).stream().map(m -> (String) ((Map<?, ?>) m).get("username")).toList();
         assertThat(names).contains(FOLLOWED).doesNotContain(READER, STRANGER);
+    }
+
+    // ── Cards: a preview, never a body ────────────────────────────────────────
+
+    private static final String GRID = "{\"cols\":2,\"rows\":1,\"layers\":[]}";
+    private static final String GRID_BODY = "{\"root\":{\"children\":[{\"type\":\"tilegrid\",\"grid\":" + GRID + "}]}}";
+
+    private int gridPost(int authorId, String title) {
+        int id = newPost(authorId, title, true);
+        // save() stores the preview; the body is what a list must not send.
+        jdbc.update("UPDATE posts SET description = ? WHERE id = ?", GRID_BODY, id);
+        jdbc.update("UPDATE posts SET card_preview = ?, preview_version = ? WHERE id = ?", GRID, PostPreview.VERSION, id);
+        return id;
+    }
+
+    /** What the browser receives, as JSON. */
+    private com.fasterxml.jackson.databind.JsonNode json(Object body) throws Exception {
+        return mapper.readTree(mapper.writeValueAsString(body));
+    }
+
+    @Autowired com.fasterxml.jackson.databind.ObjectMapper mapper;
+
+    @Test
+    void followingCardsCarryThePreviewObjectAndNoBody() throws Exception {
+        gridPost(followedId, "grid post");
+        var node = json(feed.following(20, 0, READER, signIn(READER)).getBody()).get("posts").get(0);
+        assertThat(node.has("description")).isFalse();
+        assertThat(node.get("preview").isObject()).isTrue();
+        assertThat(node.get("preview").get("cols").asInt()).isEqualTo(2);
+        assertThat(node.get("cardGrid").asBoolean()).isTrue();
+        assertThat(node.get("username").asText()).isEqualTo(FOLLOWED);
+    }
+
+    @Test
+    void aRowNotYetComputedStillShowsItsGridFromTheBody() throws Exception {
+        int id = gridPost(followedId, "old row");
+        jdbc.update("UPDATE posts SET card_preview = NULL, preview_version = 0 WHERE id = ?", id);
+        var node = json(feed.following(20, 0, READER, signIn(READER)).getBody()).get("posts").get(0);
+        assertThat(node.has("description")).isFalse();
+        assertThat(node.get("preview").get("rows").asInt()).isEqualTo(1);
+    }
+
+    @Test
+    void textPostAndGridOffPostHaveNullPreview() throws Exception {
+        newPost(followedId, "text post", true);
+        int off = gridPost(followedId, "grid off");
+        jdbc.update("UPDATE posts SET card_grid = false WHERE id = ?", off);
+        var posts = json(feed.following(20, 0, READER, signIn(READER)).getBody()).get("posts");
+        assertThat(posts).hasSize(2);
+        for (var n : posts) {
+            assertThat(n.has("preview")).isTrue();
+            assertThat(n.get("preview").isNull()).isTrue();
+            assertThat(n.has("description")).isFalse();
+        }
+        // The switch also hides a row the sweep has not computed.
+        jdbc.update("UPDATE posts SET card_preview = NULL, preview_version = 0 WHERE id = ?", off);
+        for (var n : json(feed.following(20, 0, READER, signIn(READER)).getBody()).get("posts"))
+            assertThat(n.get("preview").isNull()).isTrue();
+    }
+
+    @Test
+    void discoverCardsCarryThePreviewAndNoBody() throws Exception {
+        gridPost(followedId, "discover grid");
+        int b = gridPost(strangerId, "discover old row");
+        jdbc.update("UPDATE posts SET card_preview = NULL, preview_version = 0 WHERE id = ?", b);
+        var posts = json(feed.discover(null, 20, READER, signIn(READER)).getBody()).get("posts");
+        assertThat(posts).hasSize(2);
+        for (var n : posts) {
+            assertThat(n.has("description")).isFalse();
+            assertThat(n.get("preview").get("cols").asInt()).isEqualTo(2);
+        }
+    }
+
+    @Test
+    void discoverCursorIsStrictAndKeepsEqualDatesOutOfTheNextPage() {
+        int a = newPost(followedId, "same 1", true);
+        int b = newPost(followedId, "same 2", true);
+        jdbc.update("UPDATE posts SET date = '2026-01-01 10:00:00.123456+00' WHERE id IN (?, ?)", a, b);
+        // A client sends the date in whole milliseconds: both rows are at or after it, so neither repeats.
+        assertThat(discoverTitles("2026-01-01T10:00:00.123Z", 20, READER)).doesNotContain("same 1", "same 2");
+        assertThat(discoverTitles("2026-01-01T10:00:00.124Z", 20, READER)).contains("same 1", "same 2");
     }
 
     private int newUser(String name, String hash) {

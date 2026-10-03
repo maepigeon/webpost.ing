@@ -3,6 +3,7 @@ package com.springbootprojects.webpostingserver.posts.controller;
 import com.springbootprojects.webpostingserver.posts.model.AuthSession;
 import com.springbootprojects.webpostingserver.posts.repository.JdbcLoginRepository;
 import com.springbootprojects.webpostingserver.posts.repository.LoginRepository;
+import com.springbootprojects.webpostingserver.posts.service.PostPreview;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -47,7 +48,9 @@ public class FeedController {
         int size = Math.max(1, Math.min(MAX_PAGE, limit));
         // One more than asked for tells whether there is another page.
         List<Map<String, Object>> rows = jdbc.queryForList("""
-                SELECT p.id, p.title, p.description, p.date, p.slug, p.card_grid, p.published,
+                SELECT p.id, p.title, p.date, p.slug, p.card_grid,
+                       CASE WHEN p.card_grid THEN p.card_preview END AS card_preview,
+                       CASE WHEN p.card_grid AND p.preview_version < ? THEN p.description END AS body,
                        author.username AS author, author.avatar_path
                   FROM follows f
                   JOIN users_posts_junctions j ON j.user_id = f.followed_id
@@ -55,28 +58,35 @@ public class FeedController {
                   JOIN users author ON author.id = f.followed_id
                  WHERE f.follower_id = ? AND p.published AND p.section <> 'subscribers'
                  ORDER BY p.date DESC, p.id DESC
-                 LIMIT ? OFFSET ?""", session.userId, size + 1, Math.max(0, offset));
+                 LIMIT ? OFFSET ?""", PostPreview.VERSION, session.userId, size + 1, Math.max(0, offset));
 
         boolean more = rows.size() > size;
-        List<Map<String, Object>> page = (more ? rows.subList(0, size) : rows).stream().map(r -> {
-            Map<String, Object> post = new LinkedHashMap<>();
-            post.put("id", r.get("id"));
-            post.put("title", r.get("title"));
-            post.put("description", r.get("description"));
-            Object date = r.get("date");
-            post.put("date", date instanceof Timestamp t ? t.getTime() : date);
-            post.put("slug", r.get("slug"));
-            post.put("cardGrid", r.get("card_grid"));
-            post.put("published", true);
-            post.put("username", r.get("author"));
-            post.put("avatarPath", r.get("avatar_path"));
-            return post;
-        }).toList();
+        List<Map<String, Object>> page = (more ? rows.subList(0, size) : rows).stream().map(FeedController::card).toList();
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("posts", page);
         body.put("hasMore", more);
         return ResponseEntity.ok(body);
+    }
+
+    /**
+     * One post as a list card: no body. "preview" is the grid the card draws
+     * (an object, or null), from the stored column, or from the body for a row
+     * the sweep has not reached yet.
+     */
+    private static Map<String, Object> card(Map<String, Object> r) {
+        Map<String, Object> post = new LinkedHashMap<>();
+        post.put("id", r.get("id"));
+        post.put("title", r.get("title"));
+        post.put("preview", PostPreview.previewValue((String) r.get("card_preview"), (String) r.get("body")));
+        Object date = r.get("date");
+        post.put("date", date instanceof Timestamp t ? t.getTime() : date);
+        post.put("slug", r.get("slug"));
+        post.put("cardGrid", r.get("card_grid"));
+        post.put("published", true);
+        post.put("username", r.get("author"));
+        post.put("avatarPath", r.get("avatar_path"));
+        return post;
     }
 
     static final int DISCOVER_MAX = 20;
@@ -110,20 +120,7 @@ public class FeedController {
         int n = Math.max(1, Math.min(DISCOVER_MAX, size));
         List<Map<String, Object>> rows = social.discoverPosts(viewerId(username, token), cut, n);
         boolean more = rows.size() > n;
-        List<Map<String, Object>> page = (more ? rows.subList(0, n) : rows).stream().map(r -> {
-            Map<String, Object> post = new LinkedHashMap<>();
-            post.put("id", r.get("id"));
-            post.put("title", r.get("title"));
-            post.put("description", r.get("description"));
-            Object date = r.get("date");
-            post.put("date", date instanceof Timestamp t ? t.getTime() : date);
-            post.put("slug", r.get("slug"));
-            post.put("cardGrid", r.get("card_grid"));
-            post.put("published", true);
-            post.put("username", r.get("author"));
-            post.put("avatarPath", r.get("avatar_path"));
-            return post;
-        }).toList();
+        List<Map<String, Object>> page = (more ? rows.subList(0, n) : rows).stream().map(FeedController::card).toList();
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("posts", page);
         body.put("hasMore", more);

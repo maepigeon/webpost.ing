@@ -1,6 +1,7 @@
 package com.springbootprojects.webpostingserver;
 
 import com.springbootprojects.webpostingserver.posts.controller.SeoController;
+import com.springbootprojects.webpostingserver.posts.service.PostPreview;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -115,6 +116,27 @@ class SeoControllerTest {
         assertThat(html).contains("property=\"og:type\" content=\"profile\"").contains("ProfilePage")
                 .contains("/" + AUTHOR + "/seo-public").doesNotContain("seo-draft")
                 .contains("&lt;script&gt;alert(1)&lt;/script&gt;").doesNotContain("<script>alert");
+    }
+
+    @Test
+    void profileExcerptComesFromStoredTextOnceComputedAndFromTheBodyBefore() throws Exception {
+        // The post was inserted directly: not computed yet, so the body is read.
+        assertThat(body("/api/seo/page?path=/" + AUTHOR)).contains("Body &lt;i&gt;text&lt;/i&gt; of seo-public");
+        // Once computed, the stored text is used and the body is not even selected.
+        jdbc.update("UPDATE posts SET search_text = 'Stored words only', preview_version = ? WHERE id = ?",
+                PostPreview.VERSION, pubId);
+        String html = body("/api/seo/page?path=/" + AUTHOR);
+        assertThat(html).contains("Stored words only").doesNotContain("of seo-public");
+        // A summary still wins over both.
+        jdbc.update("UPDATE posts SET summary = 'A written summary' WHERE id = ?", pubId);
+        assertThat(body("/api/seo/page?path=/" + AUTHOR)).contains("A written summary").doesNotContain("Stored words only");
+    }
+
+    @Test
+    void aDraftsStoredTextNeverReachesTheProfilePage() throws Exception {
+        jdbc.update("UPDATE posts SET search_text = 'draft-only-words', preview_version = ? WHERE id = ?",
+                PostPreview.VERSION, draftId);
+        assertThat(body("/api/seo/page?path=/" + AUTHOR)).doesNotContain("draft-only-words");
     }
 
     @Test
