@@ -85,8 +85,11 @@ over and what does not is listed in 5.6.
    Godot kept for 3D reference only.
 2. **Scope.** A paint program, an animation timeline, comic tools, shared
    canvases, 3D reference, shaders, scripts and video export are several
-   products. The phases in section 11 each ship something usable; shared
-   canvases and scripts are late on purpose.
+   products, and the aim is now "a lot of what a full illustration, comic
+   and animation studio program does" (section 15). The phases in section 11
+   each ship something usable; shared canvases and scripts are late on
+   purpose; section 15 says frankly what one person with AI help reaches and
+   in what order.
 3. **Godot as a user interface.** Everything inside the canvas has no DOM: no
    screen reader, weak text entry on phones, the house look must be rebuilt
    as a Godot theme, and ordinary DOM tests see nothing. The answer here is a
@@ -143,9 +146,14 @@ drawing, it is Godot.**
 | Video and image encoding, muxing | Rendering export frames to the canvas on request |
 | Error pages (no WebGL 2, out of memory, offline) | |
 
-The engine never calls the site's API and never sees a cookie. The standalone
-desktop build swaps the web shell's jobs for native ones behind the same
-interface (`Host`, 10.1): file dialogs, native files, native pen input.
+The engine never calls the site's API and never sees a cookie. It talks to
+the outside only through one interface (`Host`, 10.1). On the web and in the
+downloadable app (10.6) that is the bridge to the shell; a second, native
+implementation exists so the engine can be run and tested straight from the
+Godot editor with files on disk and Godot's own pen input.
+
+The editor opens and works with no connection and without signing in
+(section 16); an account is needed only to publish, upload and join rooms.
 
 ### 2.2 Pen input path
 
@@ -154,8 +162,8 @@ The shell listens on the Godot canvas element for `pointerdown`, `move`,
 `pressure`, `tiltX/Y`, `twist`, `pointerType`, and once per animation frame
 (before the engine's frame) sends one batch. Godot's own input still drives
 its buttons and panels; the drawing tool takes its samples only from the
-batch when running on the web, and from Godot's native tablet input in the
-desktop build. Once a pen has been seen, fingers pan and zoom and never draw
+batch when running in a browser, and from Godot's native tablet input when
+run from the Godot editor. Once a pen has been seen, fingers pan and zoom and never draw
 (a switch in settings turns finger drawing back on).
 
 ### 2.3 The bridge
@@ -432,15 +440,26 @@ from webpaint (couples the two schemas).
 ### 4.1 Document model
 
 ```
-Work    { id, kind: illustration | animation | comic, title, sheets[] }
-Sheet   { id, width, height, background, layers[] (bottom to top), timeline? }
+Work    { id, kind: illustration | animation | comic, title, sheets[],
+          colorSpace: "srgb", bitDepth: 8, brushes{}, assets{} }
+Sheet   { id, width, height, dpi, trim / bleed / safe boxes, background,
+          layers (a tree, bottom to top), guides[], timeline? }
           illustration: 1 sheet · animation: 1 sheet with a timeline · comic: 1 sheet per page
-Layer   { id, kind: raster | panels | text | reference3d | audio | effect,
-          name, opacity, blend, visible, locked, clipToPanels, cels[] }
+Layer   { id, parent, kind: raster | group | vector | panels | text | reference3d | audio | effect,
+          name, opacity, blend, visible, locked, clip (to the layer below),
+          clipToPanels, mask (a cel), colorMode: rgba | gray | mono,
+          effects[], cels[] (pixels) or objects[] (text, balloons, panels, vector strokes) }
 Cel     { id, start, length }      a raster layer on a still sheet has exactly one cel
-          pixels: sparse 256×256 RGBA8 tiles; empty tiles are not stored
+          pixels: sparse 256×256 tiles; empty tiles are not stored
 Op      { id: "<actor>-<n>", by, seq, type, …targets, …payload }
 ```
+
+Several of these fields do nothing in the first version (`dpi`, `guides`,
+`mask`, `colorMode`, `effects`, `objects`, the `group` and `vector` kinds,
+`colorSpace`, `bitDepth`). They are in the format from day one, and the
+loader keeps what it does not understand, because section 15's features
+need exactly these places to exist; adding them later would mean migrating
+every saved work.
 
 **Nothing changes the document except `Document.apply(op)`.** Tools build ops;
 they never touch layers or pixels directly. Op types: `stroke`, `fill`,
@@ -672,8 +691,7 @@ edit.
 
 Import MP3, OGG or WAV (page file picker, bytes to the engine and to the
 project). The engine plays it (Godot can build MP3, Ogg and WAV streams from
-bytes at run time **[recheck on web 4.6]**), so the desktop build behaves the
-same. Waveform peaks are computed once in the page (`decodeAudioData`) and
+bytes at run time **[recheck on web 4.6]**). Waveform peaks are computed once in the page (`decodeAudioData`) and
 sent to the engine. For export the page decodes and encodes the audio itself.
 Microphone recording is later.
 
@@ -818,24 +836,37 @@ On webpost.ing a release becomes one post in the matching section
 
 ## 8. The link with webpost.ing
 
-**Both directions** (her sentence could mean either; this is the default
-until she says otherwise):
+**Decided (Mae, 2026-10-03): the button goes both ways.** Finished work can
+be published into webpaint.ing itself and posted to webpost.ing. One
+"Publish" dialog in the editor, two destinations, either or both:
 
-- **From webpaint.ing: "Post to webpost.ing".** In the publish dialog the
-  work is exported and stored on webpaint.ing; then the service calls
-  webpost.ing to create a post for that user containing a `webpaint` block.
-  The dialog shows the new post's link.
-- **From webpost.ing: "Draw in webpaint".** A button in the post editor
-  opens `https://webpaint.ing/new?return=<post id>`; publishing there adds
-  the block to that draft and returns. An existing `webpaint` block has
-  "Edit in webpaint" for its owner.
+- **On webpaint.ing.** The work is exported and stored here and appears on
+  the maker's own pages: a gallery at `/{username}`, a page per work at
+  `/{username}/{work}`, and series pages for comics (7.2). "Save to
+  webpaint.ing" without publishing keeps it private in her library.
+  Usernames are webpost.ing's; the reserved-names list is shared so page
+  addresses never collide with the site's own routes.
+- **On webpost.ing.** After storing the work, the service calls webpost.ing
+  to make **a new post** for that user holding a `webpaint` block, or to
+  **add the block to one of her existing drafts** (the dialog lists her
+  drafts). The dialog then shows the post's link.
+
+A later convenience, not required for this: "Draw in webpaint" in
+webpost.ing's post editor, which opens `https://webpaint.ing/new?return=<post
+id>` and comes back with the block added; and "Edit in webpaint" on an
+existing block for its owner.
 
 **The API** is server to server on loopback, with the shared secret:
 
 ```
+GET  /internal/integrations/webpaint/drafts?userId=7
+→ [ { "postId": 398, "title": "sketchbook, October" }, … ]
+
 POST /internal/integrations/webpaint/posts
-{ "userId": 7, "postId": null, "title": "Chapter 3", "summary": "12 new pages",
+{ "userId": 7, "postId": null,            // or a draft's id, to add the block to it
+  "title": "Chapter 3", "summary": "12 new pages",
   "section": "profile", "published": true,
+  "idempotencyKey": "o_5c1…",             // a retry never makes a second post
   "block": { "type": "webpaint", "kind": "image | video | comic | wip",
              "ref": "w_9f2", "width": 1920, "height": 1080, "durationMs": 6000 } }
 → { "postId": 412, "url": "https://webpost.ing/mae/chapter-3" }
@@ -943,7 +974,7 @@ engine/               Godot 4.6 project
   core/               document, ops, apply, undo, journal (no nodes; headless tests)
   brush/              stamps, smoothing, pixel brush, shaders, stroke buffer
   ui/                 panels, tool rail, timeline, layout; ui/theme/ built from tokens
-  host/               Host interface: host_web.gd (bridge), host_native.gd (desktop)
+  host/               Host interface: host_web.gd (bridge), host_native.gd (running from the Godot editor)
   net/                room client
   tests/              run with: Godot --headless --path engine -s tests/run.gd
 shell/                Vite + React (same stack as webpost.ing's client)
@@ -951,8 +982,9 @@ shell/                Vite + React (same stack as webpost.ing's client)
 server/               Node service: src/http/ auth/ works/ uploads/ rooms/ db/migrations/  test/
 protocol/             bridge.md, room.md, JSON fixtures used by engine, shell and server tests
 design/               tokens.json, icons.json  (the one source; see 13.3)
-tools/                export-engine.sh, run-local.sh, release.sh, install-release.sh,
+tools/                run-local.sh, deploy.sh, release.sh, install-release.sh, export-engine.sh,
                       gen-tokens.mjs, check-tokens.mjs, server/first-install.sh, visual/, smoke/
+desktop/              the downloadable app's wrapper (10.6; phase 6, empty until then)
 config/               deploy.env.example, release.env.example
 guide/                ARCHITECTURE.md (this file), WORKING-HERE.md, DESIGN-RULES.md, briefs/
 .claude/agents/       implementer, integrator, visual-tester, design-guardian, screen-checker, …
@@ -972,27 +1004,158 @@ guide/                ARCHITECTURE.md (this file), WORKING-HERE.md, DESIGN-RULES
    local `webpaint_test` database, `tools/check-tokens.mjs`.
 4. `vite build` for the shell.
 
-### 10.3 Releasing
+### 10.3 The scripts: run locally, deploy, release
 
-The same approach as webpost.ing (`tools/release.sh` → `install-release.sh`):
-test and build on the Mac, pack `html/` and `server/` (with `node_modules`)
-into one archive, upload to `~/incoming`, install with sudo: dump the
-`webpaint` database, swap the web root and server folder by rename, restart
-`webpaint.service`, wait for `GET /api/health`, roll back by itself if it
-does not answer. Settings in the server's own `deploy.env` and her local
-`release.env`; nothing about the server in the repository. Nothing is built,
-tested or installed with npm on the droplet. A release never changes nginx.
+Same names, same behaviour and same safety as webpost.ing's, so the Mac app
+can run either site's scripts without knowing which it is.
 
-### 10.4 What Mae does herself, in order
+| Script | Does |
+|---|---|
+| `tools/run-local.sh` (`stop`, `status`) | Builds what is checked out (tokens, engine export, shell, server dependencies) and runs it: the built site at **http://localhost:5184**, served as nginx serves it, and the webpaint service on port **8190**, with a local database `webpaint_local`. Data and logs live outside the repository in `~/Library/Application Support/webpaint-local`. Stops its own earlier run first (pid files), refuses to start if either port is held by something else, waits for `/api/health`, then opens the browser. The engine export is skipped when nothing under `engine/` changed since the last one, because it is the slow step. |
+| `tools/deploy.sh` (`--setup`) | First time: asks for the server login and where webpaint's `deploy.env` is, and keeps the answers in `release.env` (gitignored). Shows uncommitted changes and asks before committing. Pushes `main` to GitHub. Runs `release.sh`. |
+| `tools/release.sh` (`--build-only`, `--no-install`, `--skip-tests`) | On her Mac: tests, builds, packs `html/` and `server/` (with `node_modules`; no native add-ons, so a Mac-built archive runs on Linux) and `install.sh` into `release/webpaint-<date>-<commit>.tar.gz`; uploads it down **one SSH connection** to `~/incoming` and checks the size that arrived; runs the install with sudo. |
+| `tools/install-release.sh` (`--env`, `--dry-run`) | On the droplet as root: `pg_dump` of the `webpaint` database plus copies of the running server folder and web root into `~/backups/webpaint-<timestamp>/`; swaps new ones in by rename; restarts `webpaint.service`; waits up to 2 minutes for `GET /api/health`; **puts the previous version back by itself** if it does not answer. Never touches webpost.ing's service, database, files or nginx. |
+
+Ports: webpost.ing's local copy has 5174 and 8090, its test setup 5175 and
+8081, and VS Code holds 8080 on her Mac; webpaint.ing's local copy uses
+**5184 and 8190**, so both sites run side by side. On the droplet the
+service listens on 127.0.0.1:8790.
+
+Local sign-in: with webpost.ing's local copy running, the hand-off of
+section 3 works between the two local sites (`WEBPOST_PUBLIC_URL=http://localhost:5174`,
+`WEBPOST_INTERNAL_URL=http://127.0.0.1:8090`, a fixed development secret).
+Without it the editor still works signed out. For tests, `DEV_SIGN_IN_AS=test`
+signs in without the hand-off; the service refuses to start with that set
+outside the development profile. To test the hand-off across two real host
+names, open the site as `http://webpaint.localhost:5184` (cookies are then
+separate, as in production) **[recheck in Safari]**.
+
+Nothing about the server is in the repository; nothing is built, tested or
+installed with npm on the droplet; a release never changes nginx.
+
+### 10.4 The Mac app: one app, a site chooser
+
+**One app, not two.** `Webposting.app` keeps its name and its four rows, and
+gains one row that switches site:
+
+```
+┌ Webposting ─ webpaint.ing ───────────────────────────┐
+│ Current build: 3f2a91c  Timeline: holds              │
+│ Local site: Running at http://localhost:5184         │
+│                                                      │
+│  Open the local site                                 │
+│  Rebuild and restart locally                         │
+│  Stop the local site                                 │
+│  Deploy to webpaint.ing…                             │
+│  Switch to webpost.ing                               │
+│                                   [ Quit ]  [ Go ]   │
+└──────────────────────────────────────────────────────┘
+```
+
+- The title names the site in hand; the four actions always act on that
+  site only; the deploy row and its confirmation name the site in words, so
+  the wrong site cannot be deployed by habit. The app remembers the last
+  site chosen.
+- Inside, the script holds two records (name, repository path, local
+  address, live name) instead of one set of properties; every action runs
+  `./tools/run-local.sh` or `./tools/deploy.sh` in the chosen repository
+  through the same `.command`-file-in-Terminal method as today, so progress
+  and password prompts stay in plain sight.
+- `tools/mac-app/build.sh --webpaint <path to the webpaint checkout>` writes
+  the second path in; built without it, the switch row is not shown and the
+  app is exactly today's.
+- This is a change to two files in the **webpost.ing** repository
+  (`tools/mac-app/Webposting.applescript`, `tools/mac-app/build.sh`); the
+  webpaint repository only has to provide the two scripts.
+
+A second small app was the alternative: nothing shared, but two icons that
+look alike, which is how the wrong site gets deployed.
+
+### 10.5 What Mae does herself, in order
 
 | When | What |
 |---|---|
-| Now | Answer section 12. Create an empty GitHub repository (the GitHub CLI is not installed on this Mac, so on github.com) and say its name. |
-| End of phase 0 (a static page exists) | GoDaddy DNS: `A` record for `@` to the droplet's address, `CNAME` for `www` to `webpaint.ing`, remove parking records. On the droplet with sudo: `mkdir /srv/webpaint/html`, the nginx block of 2.6 (static parts only at first), then `certbot --nginx -d webpaint.ing -d www.webpaint.ing`. Check `https://webpaint.ing` loads. Then try the spike on her iPad. |
+| Now | Answer section 12. Create an empty GitHub repository on github.com (the GitHub CLI is not installed on this Mac) and say its name. |
+| When told "webpaint.ing is ready to look at locally" (end of phase 0) | Rebuild the Mac app with `--webpaint`, choose webpaint.ing, "Build and view locally". Nothing on the server yet. |
+| When told "ready to connect the domain" (a first page is built and packed) | The domain steps below, in that order. Then try the page on her iPad. |
 | Before the first phase 1 release | On the droplet, once, with the provided `tools/server/first-install.sh` (run with sudo; she reads it first): install the Node runtime, create the `webpaint` database and role, the service user, `/srv/webpaint/data`, the systemd unit, `deploy.env`. Put the same `SSO_WEBPAINT_SECRET` in both `deploy.env` files. Deploy the webpost.ing release that adds the SSO bridge. Add the `/api/`, `/auth/`, `/media/` locations to nginx. |
 | Before phase 3 (rooms) | Add the `/ws/` location. |
-| Before video uploads are open to other people | Look at the droplet's disk and monthly transfer; decide on a storage volume or a resize (question 9). |
+| Before video uploads are open to other people | Look at the droplet's disk and monthly transfer; decide on a storage volume or a resize (question 8). |
 | Whenever she chooses | Approve downloads: lettering fonts, a muxer library. |
+
+**Connecting the domain (GoDaddy), in order.** DNS comes after the server is
+ready to answer, so the name never points at nothing.
+
+1. **On the droplet** (sudo): make the web root (`mkdir -p /srv/webpaint/html`),
+   install the first release with `--no-install` then `install.sh` (static
+   page only), and add a plain port-80 server block for `webpaint.ing` and
+   `www.webpaint.ing` with that root. `sudo nginx -t`, then
+   `sudo systemctl reload nginx`. webpost.ing is not touched.
+2. **At GoDaddy** → My Products → webpaint.ing → DNS → DNS Records:
+
+   | Type | Name | Value | TTL |
+   |---|---|---|---|
+   | A | `@` | the droplet's IPv4 address: the same value as webpost.ing's `A` record | 600 seconds (or the default hour) |
+   | CNAME | `www` | `webpaint.ing` | default |
+
+   Edit the existing `A` record for `@` if there is one (it says "Parked" or
+   "WebsiteBuilder Site") rather than adding a second; delete any other `A`
+   or `AAAA` record for `@`. If a `CNAME` for `www` already exists, edit it.
+   Turn off "Forwarding" for the domain if it is on. Leave the `NS`, `SOA`
+   and `_domainconnect` records alone. Add an `AAAA` record only if
+   webpost.ing has one; then copy its value.
+3. **Wait** until `dig +short webpaint.ing` on her Mac prints the droplet's
+   address (usually minutes, at most a day).
+4. **Certificate**, on the droplet:
+   `sudo certbot --nginx -d webpaint.ing -d www.webpaint.ing`
+   (the same tool webpost.ing uses). Then replace the port-80 block with the
+   full snippet of 2.6, `sudo nginx -t`, reload.
+5. **Check**: `https://webpaint.ing` shows the new page with a padlock;
+   `http://` and `www.` both land on `https://webpaint.ing`;
+   `https://webpost.ing` still works.
+
+### 10.6 A downloadable version: "can an Electron app with the Godot web build work?"
+
+**Yes, and it is the right way to do it.** Electron is Chromium, the browser
+the web version is tested in first, so the shell and the Godot web build run
+inside it unchanged. The comparison:
+
+| | Electron around the web build | Tauri around the web build | Godot's native desktop export |
+|---|---|---|---|
+| Download size | About 100 MB (Chromium) plus the 9 MB engine | About 15 MB; uses the system's web view | 50-80 MB per system **[recheck]** |
+| What it runs on | The same engine as Chrome on all three systems | Safari's engine on macOS, Chromium's on Windows, WebKitGTK on Linux: three behaviours to test, and Safari's is the weakest for this app | Godot's own renderer, native code |
+| Speed and memory | Same as the web version: single-threaded WebAssembly, WebGL 2, no iPad-style memory kill | Same or worse | Best: native speed, threads, more memory, larger canvases |
+| Pen pressure and tilt | Yes, through Pointer Events, with in-between samples; the same pen code as the site | Depends on each web view | Yes, natively (Godot reads tablets on all three); a second input path to tune |
+| What must be rebuilt | Nothing: library, dialogs, export, publish all come along | Nothing, where the web view supports it | **The whole shell**: every HTML dialog, the library, the publish flow, and video export (Godot has no MP4 or WebM encoder; it would need a bundled encoder and its licence) |
+| Files | Real files and folders, open-with for `.webpaint`, through a second backend for the shell's store | Same | Simplest of all |
+| Auto-update | Mature, built in (needs signing) | Built in | None built in |
+| Code signing | The same for all three: an Apple developer account ($99 a year) and notarisation for macOS, a certificate for Windows to avoid the warning screen, nothing for Linux | | |
+| Upkeep | A Chromium to keep current: rebuild a few times a year | Small, but three engines to check | A second user interface to keep in step for ever |
+
+**Recommendation.** In this order:
+
+1. **The installable web app** (section 16) is the first "downloadable"
+   version: it costs almost nothing, works offline and updates itself.
+2. **Electron**, in phase 6, when she wants a real application file: file
+   associations, projects as ordinary files, no browser. `desktop/` holds a
+   small main process (window, menus, file dialogs, updater) and loads the
+   same built shell from disk.
+3. **Not Tauri** (it trades 85 MB for running on Safari's engine on a Mac),
+   and **not the native Godot export** as the product: because this design
+   keeps text, dialogs, publishing and encoding in HTML, a native build would
+   be a second application. The native path is kept only for running the
+   engine from the Godot editor. If canvases ever outgrow what a browser can
+   hold, that is the moment to revisit it.
+
+**Sign-in and "post to the site" from a desktop app.** A desktop app has no
+webpaint.ing cookie. It opens the system browser at
+`https://webpaint.ing/connect?code=ABCD-1234`; she is signed in there through
+webpost.ing as usual and presses "Connect this app"; the app, which has been
+asking `POST /api/app/token` with its code, receives an **app token**. The
+token is kept in the system keychain, sent as `Authorization: Bearer …`, is
+listed under Settings → Connected apps on the site and can be revoked there.
+Every publish and upload call then works exactly as on the web. No password
+is ever typed into the app.
 
 ---
 
