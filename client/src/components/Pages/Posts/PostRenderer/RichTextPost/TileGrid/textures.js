@@ -182,6 +182,76 @@ export const TEXTURES = {
       }
     },
   },
+  halftone: {
+    label: 'Halftone',
+    // A printed photo up close: rows of ink dots on warm newsprint, every other row shifted.
+    draw(ctx, w, h) {
+      ctx.fillStyle = '#e6e2d6';
+      ctx.fillRect(0, 0, w, h);
+      const r = rng(5);
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (r() < 0.05) px(ctx, x, y, '#ddd8ca');
+      const big = blotches(w, h, 16, 31);
+      for (let y = 2, row = 0; y < h; y += 4, row++) {
+        for (let x = row % 2 ? 2 : 0; x < w; x += 4) {
+          const v = big(x, y);
+          px(ctx, x, y, v > 0.62 ? '#a8a294' : v > 0.4 ? '#c2bdae' : '#d3cebf');
+          if (v > 0.72) px(ctx, (x + 1) % w, y, '#b9b4a5');
+        }
+      }
+    },
+  },
+  wood: {
+    label: 'Wood',
+    // A desk top: long grain lines that wander a little, darker streaks, the odd knot of shadow.
+    draw(ctx, w, h) {
+      const shades = ['#6f4a2a', '#7d5631', '#8a6138', '#966b40', '#a27649'];
+      const band = blotches(w, h, 6, 17);
+      const drift = blotches(w, h, 24, 29);
+      const r = rng(11);
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          // Stretched along x, so the noise reads as grain running left to right.
+          const v = band(x / 6, y + drift(x, y) * 5) * 0.75 + r() * 0.25;
+          px(ctx, x, y, shades[Math.min(4, Math.floor(v * 5))]);
+        }
+      }
+      ctx.fillStyle = 'rgba(60, 36, 16, 0.35)';
+      for (let y = 7; y < h; y += 16) ctx.fillRect(0, y, w, 1);   // the gaps between boards
+    },
+  },
+  mat: {
+    label: 'Cutting mat',
+    // The green mat on a craft table: a fine grid, heavier every fourth line.
+    draw(ctx, w, h) {
+      ctx.fillStyle = '#2c6e5d';
+      ctx.fillRect(0, 0, w, h);
+      const r = rng(13);
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (r() < 0.06) px(ctx, x, y, '#2a6857');
+      ctx.fillStyle = '#3b8370';
+      for (let x = 0; x < w; x += 4) ctx.fillRect(x, 0, 1, h);
+      for (let y = 0; y < h; y += 4) ctx.fillRect(0, y, w, 1);
+      ctx.fillStyle = '#62a892';
+      for (let x = 0; x < w; x += 16) ctx.fillRect(x, 0, 1, h);
+      for (let y = 0; y < h; y += 16) ctx.fillRect(0, y, w, 1);
+    },
+  },
+  night: {
+    label: 'Night grid',
+    // Deep blue with a faint grid, bright where the lines cross, and a few stars between.
+    draw(ctx, w, h) {
+      ctx.fillStyle = '#070b1c';
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = '#131c44';
+      for (let x = 0; x < w; x += 16) ctx.fillRect(x, 0, 1, h);
+      for (let y = 0; y < h; y += 16) ctx.fillRect(0, y, w, 1);
+      for (let x = 0; x < w; x += 16) for (let y = 0; y < h; y += 16) px(ctx, x, y, '#4de3ff');
+      const r = rng(41);
+      for (let i = 0; i < (w * h) / 220; i++) {
+        const x = Math.floor(r() * w), y = Math.floor(r() * h);
+        if (x % 16 && y % 16) px(ctx, x, y, r() < 0.3 ? '#ff5ecf' : '#2b3a7a');
+      }
+    },
+  },
   notebook: {
     label: 'Notebook',
     draw(ctx, w, h) {

@@ -317,15 +317,6 @@ export default function SettingsPage() {
           </div>
         </Section>
 
-        {/* ── Profile appearance lives on its own page now ─────────────────── */}
-        <Section id="look" title={'Your profile\u2019s look'}>
-          <p className="settings-section-hint">
-            Change your card background, wallpaper, theme, stickers and pixel fonts on{' '}
-            <Link className="settings-link" to="/customize">Customize your profile</Link>.
-            Your banner is edited on your profile itself.
-          </p>
-        </Section>
-
         {/* ── Site background ─────────────────────────────────────────────── */}
         <Section id="background" title="Site background">
           <p className="settings-section-hint">

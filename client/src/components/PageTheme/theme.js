@@ -15,7 +15,7 @@
  * booleans, and grids checked by normaliseGrid. The server applies the same
  * rules (ThemeValidator.java).
  */
-import { sanitiseWallpaper, textureWallpaper, drawnTile } from '../TileArt/wallpaper.js';
+import { sanitiseWallpaper, textureWallpaper } from '../TileArt/wallpaper.js';
 import { STICKERS } from '../TileArt/stickers.js';
 import { normaliseGrid } from '../Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
 
@@ -61,68 +61,43 @@ export const MAX_STICKER_TILES = 4;
 // ── Presets ───────────────────────────────────────────────────────────────────
 // Built on first use: their pictures are drawn with a canvas.
 
-const wall = (fill, bg) => (ctx, w, h) => {
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, w, h);
-  fill(ctx, w, h);
-};
-
 function buildPresets() {
   return {
     newspaper: {
       label: 'Newspaper Life',
-      blurb: 'Newsprint, ink and column rules. The default.',
+      blurb: 'Cream newsprint on a halftone page, with a red pen for links. The default.',
       theme: {
         v: 2, preset: 'newspaper',
-        page: { wallpaper: textureWallpaper('newsprint', { scale: 2, bg: '#eeede9' }), useProfileWallpaper: false },
-        type: { heading: 'headline', body: 'news-serif', ink: '#161616', headingInk: '#0b0b0b', accent: '#111111', headingCase: 'none', headingScale: 1.1 },
-        card: { bg: '#fbfaf6', opacity: 1, border: 'double', borderColor: '#161616', radius: 0, shadow: 'none', texture: null, sticker: null },
+        page: { wallpaper: textureWallpaper('halftone', { cols: 4, rows: 4, scale: 2, bg: '#e6e2d6' }), useProfileWallpaper: false },
+        type: { heading: 'headline', body: 'news-serif', ink: '#1b1a17', headingInk: '#0b0b0b', accent: '#111111', link: '#9b1c1c', headingCase: 'none', headingScale: 1.15 },
+        card: { bg: '#fbf8ee', opacity: 1, border: 'double', borderColor: '#1b1a17', radius: 0, shadow: 'soft', texture: null, sticker: null },
         fx: { glow: false, scanlines: false, flicker: false, rainbow: false },
       },
     },
     sticky: {
       label: 'Sticky Pad',
-      blurb: 'Plain yellow notes stuck to a studio wall.',
+      blurb: 'Yellow notes taped to a green cutting mat.',
       theme: {
         v: 2, preset: 'sticky',
-        page: {
-          wallpaper: {
-            v: 3, tiling: 'repeat', scale: 2, bg: '#bfe3ea',
-            tile: drawnTile(2, 2, wall((ctx, w, h) => {
-              ctx.fillStyle = '#8cc4cf';
-              for (let y = 4; y < h; y += 8) for (let x = 4; x < w; x += 8) ctx.fillRect(x, y, 1, 1);
-            }, '#bfe3ea'), 'Wall'),
-          },
-          useProfileWallpaper: false,
-        },
-        type: { heading: 'marker', body: 'cookie', ink: '#2a2a2a', headingInk: '#e4572e', accent: '#e4572e', headingCase: 'none', headingScale: 1.15 },
-        // A plain, flat note: the colour of the real thing and a soft lift off
-        // the wall. A striped texture, a curled corner and a strip of tape made
-        // it look like a slice of cheese.
-        card: { bg: '#fff7b8', opacity: 1, border: 'none', borderColor: '#000000', radius: 1, shadow: 'soft', texture: null, sticker: null },
+        page: { wallpaper: textureWallpaper('mat', { cols: 4, rows: 4, scale: 2, bg: '#2c6e5d' }), useProfileWallpaper: false },
+        type: { heading: 'marker', body: 'cookie', ink: '#2b2a22', headingInk: '#1f1e18', accent: '#1f6f5c', link: '#c2410c', headingCase: 'none', headingScale: 1.15 },
+        // A flat note in the colour of the real thing, lifted off the mat, with a strip of tape.
+        card: { bg: '#ffef8a', opacity: 1, border: 'none', borderColor: '#000000', radius: 1, shadow: 'lifted', texture: null, sticker: STICKERS.tape.make() },
         fx: { glow: false, scanlines: false, flicker: false, rainbow: false },
       },
     },
     notebook: {
       label: 'Notebook',
-      blurb: 'Ruled pages, a red margin and blue biro.',
+      blurb: 'Ruled pages in blue biro, open on a wooden desk.',
       theme: {
         v: 2, preset: 'notebook',
-        page: {
-          wallpaper: {
-            v: 3, tiling: 'repeat', scale: 2, bg: '#2f3b4c',
-            tile: drawnTile(2, 2, wall((ctx, w, h) => {
-              ctx.fillStyle = '#3a4a5f';
-              for (let x = 0; x < w; x += 8) ctx.fillRect(x, 0, 1, h);
-              for (let y = 0; y < h; y += 8) ctx.fillRect(0, y, w, 1);
-            }, '#2f3b4c'), 'Desk'),
-          },
-          useProfileWallpaper: false,
-        },
-        type: { heading: 'cookie', body: 'notebook', ink: '#1d2a6b', headingInk: '#1d2a6b', accent: '#d0342c', headingCase: 'none', headingScale: 1.3 },
+        page: { wallpaper: textureWallpaper('wood', { cols: 8, rows: 8, scale: 2, bg: '#8a6138' }), useProfileWallpaper: false },
+        type: { heading: 'cookie', body: 'notebook', ink: '#1d2a6b', headingInk: '#16205a', accent: '#1d2a6b', link: '#d0342c', headingCase: 'none', headingScale: 1.3 },
         card: {
           bg: '#fffef6', opacity: 1, border: 'none', borderColor: '#000000', radius: 3, shadow: 'lifted',
-          texture: textureWallpaper('notebook', { cols: 4, rows: 2, scale: 1, bg: '#fffef6' }),
+          // One tile wide: narrow enough that the texture leaves out its red
+          // margin, which a repeating tile would draw again and again across the card.
+          texture: textureWallpaper('notebook', { cols: 1, rows: 2, scale: 1, bg: '#fffef6' }),
           sticker: null,
         },
         fx: { glow: false, scanlines: false, flicker: false, rainbow: false },
@@ -144,23 +119,23 @@ function buildPresets() {
     },
     neon: {
       label: 'Neon Terminal',
-      blurb: 'Phosphor green on black, humming.',
+      blurb: 'Soft green type on midnight blue, lit in cyan and pink.',
       theme: {
         v: 2, preset: 'neon',
-        page: { wallpaper: textureWallpaper('neon', { cols: 2, rows: 2, scale: 2, bg: '#04060a' }), useProfileWallpaper: false },
-        type: { heading: 'terminal', body: 'terminal', ink: '#39ff14', headingInk: '#00f0ff', accent: '#ff2bd6', headingCase: 'upper', headingScale: 1.35 },
-        card: { bg: '#060c10', opacity: 0.88, border: 'glow', borderColor: '#39ff14', radius: 4, shadow: 'glow', texture: null, sticker: null },
-        fx: { glow: true, scanlines: false, flicker: true, rainbow: false },
+        page: { wallpaper: textureWallpaper('night', { cols: 4, rows: 4, scale: 2, bg: '#070b1c' }), useProfileWallpaper: false },
+        type: { heading: 'terminal', body: 'terminal', ink: '#b6ffcf', headingInk: '#4de3ff', accent: '#4de3ff', link: '#ff7ad9', headingCase: 'upper', headingScale: 1.35 },
+        card: { bg: '#0b1230', opacity: 0.9, border: 'glow', borderColor: '#4de3ff', radius: 6, shadow: 'glow', texture: null, sticker: null },
+        fx: { glow: true, scanlines: false, flicker: false, rainbow: false },
       },
     },
     paw: {
       label: 'Pawprint Phenomenon',
-      blurb: 'Black, with pawprints in every colour.',
+      blurb: 'Rainbow pawprints on plum, each card stamped with one.',
       theme: {
         v: 2, preset: 'paw',
-        page: { wallpaper: textureWallpaper('paws', { cols: 8, rows: 8, scale: 2, bg: '#000000' }), useProfileWallpaper: false },
-        type: { heading: 'cookie', body: 'cookie', ink: '#f2f2f2', headingInk: '#ff5e8a', accent: '#5ec8ff', headingCase: 'none', headingScale: 1.2 },
-        card: { bg: '#111111', opacity: 1, border: 'rule', borderColor: '#ff5e8a', radius: 22, shadow: 'soft', texture: null, sticker: null },
+        page: { wallpaper: textureWallpaper('paws', { cols: 8, rows: 8, scale: 2, bg: '#140d1c', options: { background: '#140d1c' } }), useProfileWallpaper: false },
+        type: { heading: 'cookie', body: 'cookie', ink: '#f4eefc', headingInk: '#ff7fa8', accent: '#ffb86b', link: '#7fd4ff', headingCase: 'none', headingScale: 1.2 },
+        card: { bg: '#221830', opacity: 1, border: 'rule', borderColor: '#ff7fa8', radius: 22, shadow: 'lifted', texture: null, sticker: STICKERS.paw.make() },
         fx: { glow: false, scanlines: false, flicker: false, rainbow: false },
       },
     },
@@ -214,6 +189,8 @@ export function sanitiseTheme(raw) {
       ink: colour(type.ink, d.type.ink),
       headingInk: colour(type.headingInk, d.type.headingInk),
       accent: colour(type.accent, d.type.accent),
+      // Links take the accent unless they are given a colour of their own.
+      link: colour(type.link, colour(type.accent, d.type.accent)),
       headingCase: oneOf(type.headingCase, CASES, 'none'),
       headingScale: number(type.headingScale, 0.7, 1.8, 1),
     },
@@ -340,6 +317,7 @@ export function themeVariables(theme, images = {}) {
   const ink = surface ? readableOn(t.type.ink, surface) : t.type.ink;
   const headingInk = surface ? readableOn(t.type.headingInk, surface, ink) : t.type.headingInk;
   const accent = surface ? readableOn(t.type.accent, surface, ink) : t.type.accent;
+  const link = surface ? readableOn(t.type.link, surface, ink) : t.type.link;
   return {
     '--th-font-heading': FONTS[t.type.heading].css,
     '--th-font-body': FONTS[t.type.body].css,
@@ -348,6 +326,7 @@ export function themeVariables(theme, images = {}) {
     '--th-heading-bg': t.fx.rainbow ? RAINBOW_INK : 'none',
     '--th-heading-anim': t.fx.rainbow ? 'th-rainbow-drift' : 'none',
     '--th-accent': accent,
+    '--th-link': link,
     // Red for Delete: the usual one, or a lighter one on a dark card.
     '--th-danger': !surface || contrast('#c62828', surface) >= 4.5 ? '#c62828' : '#ff8a80',
     '--th-heading-case': t.type.headingCase === 'upper' ? 'uppercase' : 'none',

@@ -20,7 +20,7 @@ import java.util.regex.Pattern;
  * Shape (v2):
  *   { v, preset,
  *     page: { wallpaper, useProfileWallpaper },
- *     type: { heading, body, ink, headingInk, accent, headingCase, headingScale },
+ *     type: { heading, body, ink, headingInk, accent, link, headingCase, headingScale },
  *     card: { bg, opacity, border, borderColor, radius, shadow, texture, sticker },
  *     fx:   { glow, scanlines, flicker, rainbow } }
  */
@@ -72,6 +72,8 @@ public final class ThemeValidator {
         t.put("ink", colour(type.path("ink"), "#111111"));
         t.put("headingInk", colour(type.path("headingInk"), "#111111"));
         t.put("accent", colour(type.path("accent"), "#111111"));
+        // Links have a colour of their own; themes saved before that use their accent.
+        t.put("link", colour(type.path("link"), t.get("accent").asText()));
         t.put("headingCase", oneOf(type.path("headingCase"), CASES, "none"));
         t.put("headingScale", GridValidator.clampNum(type.path("headingScale"), 0.7, 1.8, 1));
 
