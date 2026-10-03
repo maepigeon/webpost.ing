@@ -1,0 +1,5 @@
+# 2026-10-03-implementer-payloads-wp4  (implementer, Sonnet)
+Build **WP-4 (client cards, Stage 0)** exactly as designed in `guide/design-list-payloads.md` (read the whole document first; it is the specification): `cardGridOf(post)` in `gridPost.js` reading the new `preview` field when present and falling back to `description`, the card components using it, and removing the dead edit mode in `BasicTextPost.jsx` that the document identifies. It must work against today's server responses (no `preview` field yet) and tomorrow's (preview present, bodies absent), so it can ship before or after the server packages.
+**You may edit:** the client files the document assigns to WP-4 (`gridPost.js`, `BasicTextPost.jsx`, and the list/card components it names), plus tests.
+**Others own:** `Editor.jsx`, `ButtonNode.*`, `TileGrid/**`, `App.jsx` (editor-fixes worker); `BannerEditor.jsx`, `PostWindow.css` (smoke-bugs worker); `PostsViewer.jsx`, `BasicTextPostServerApi.js`, `AdminPanel.jsx` (reserved for WP-5 later); server code.
+**Verify:** vitest, with tests for both response shapes.
