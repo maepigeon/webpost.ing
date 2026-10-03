@@ -40,7 +40,7 @@ describe('the profile banner\'s own rows', () => {
     const style = n.grid.layers[0].style;
     expect(style['0,8']).toEqual({ color: '#202020', font: 'small' });   // the m of mae
     expect(style['0,2'].color).not.toBe('#202020');                      // the u of user:
-    expect(bannerInfo({ username: 'mae' }).grid.layers[0].style['0,2'].font).toBe('pixel');
+    expect(bannerInfo({ username: 'mae' }).grid.layers[0].style['0,2'].font).toBe('sanspx');
   });
 
   it('marks where the counts are, left to right', () => {

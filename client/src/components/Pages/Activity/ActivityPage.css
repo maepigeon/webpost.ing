@@ -64,10 +64,13 @@
 
 .activity-tab:hover { background: rgba(0,0,0,0.05); color: #222; }
 
-.activity-tab--active {
-  background: rgba(86, 86, 86, 0.12);
-  border-color: #565656;
-  color: #565656;
+/* Named with the page so it wins over the page's general button look. */
+.activity-page .activity-tabs button.activity-tab--active,
+.activity-page .activity-tabs button.activity-tab--active:hover {
+  background: #1c1c1c;
+  border-color: #1c1c1c;
+  color: #fff;
+  filter: none;
 }
 
 .activity-list {

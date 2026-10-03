@@ -473,7 +473,7 @@ function RichTextViewerBody({ id }) {
               )}
               {isAuthor && viewCounts && Number(viewCounts.total_views) > 0 && (
                 <span style={{ fontSize: '13px', color: '#888', marginLeft: 'auto', whiteSpace: 'nowrap' }}>
-                  👁 {Number(viewCounts.total_views).toLocaleString()} {Number(viewCounts.unique_views) > 0 ? `(${Number(viewCounts.unique_views).toLocaleString()} unique)` : ''}
+                  {Number(viewCounts.total_views).toLocaleString()} {Number(viewCounts.total_views) === 1 ? 'view' : 'views'} {Number(viewCounts.unique_views) > 0 ? `(${Number(viewCounts.unique_views).toLocaleString()} unique)` : ''}
                 </span>
               )}
             </div>

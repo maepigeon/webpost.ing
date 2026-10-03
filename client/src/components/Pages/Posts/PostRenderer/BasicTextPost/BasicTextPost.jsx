@@ -93,7 +93,7 @@ function BasicTextPost(props) {
         }
         else {
             return(
-                <button onClick={async () => {
+                <button type="button" className="post-delete-btn" onClick={async () => {
                         if (!(await confirm('Are you sure you want to delete this post? This cannot be undone.'))) return;
                         DELETE_POST(postdata.id).then(
                         () => {
@@ -157,8 +157,8 @@ function BasicTextPost(props) {
             {hasModifyPermissions && (
                 <div className="bottom-nav">
                     <div className="editor">
-                        {deleteButtonRender()}
                         {editButtonRender(currentPostMode)}
+                        {deleteButtonRender()}
                     </div>
                 </div>
             )}

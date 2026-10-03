@@ -97,12 +97,14 @@ export const STICKERS = {
   tape: {
     label: 'Tape',
     make: () => drawnTile(4, 1, (ctx, w) => {
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.62)';
+      // Masking-tape cream with torn ends, so it shows on white paper as well as dark.
+      ctx.fillStyle = 'rgba(236, 219, 164, 0.92)';
       ctx.fillRect(2, 3, w - 4, 10);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
-      for (let x = 2; x < w - 2; x += 3) { ctx.fillRect(x, 2, 2, 1); ctx.fillRect(x + 1, 13, 2, 1); }
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.06)';
+      ctx.fillStyle = 'rgba(214, 194, 132, 0.95)';
       ctx.fillRect(2, 12, w - 4, 1);
+      for (let y = 3; y < 13; y += 2) { ctx.clearRect(2, y, 1, 1); ctx.clearRect(w - 3, y + 1, 1, 1); }
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+      ctx.fillRect(3, 4, w - 6, 1);
     }, 'Tape'),
   },
   paw: {

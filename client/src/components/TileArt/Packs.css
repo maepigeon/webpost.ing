@@ -186,7 +186,8 @@
   text-align: center;
   min-width: 0;
 }
-.center-item-art { line-height: 0; }
+.center-item-art, .center-item .pack-pick { line-height: 0; max-width: 100%; overflow: hidden; }
+.center-item-art canvas, .center-item .pack-pick canvas, .center-item-art img, .center-item .pack-pick img { max-width: 100%; height: auto; }
 .center-item-name { font-size: 13px; font-weight: 700; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .center-item .pack-btn { padding: 4px 10px; font-size: 12px; }
 .center-fonts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }

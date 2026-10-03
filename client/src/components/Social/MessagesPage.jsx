@@ -398,7 +398,7 @@ export default function MessagesPage() {
         <div className="messages-sidebar-header">
           <span className="messages-title">Messages</span>
           <div style={{ display: 'flex', gap: 4 }}>
-            <button className="messages-new-btn" onClick={() => { setShowNew(s => !s); setShowNewGroup(false); }} title="New DM" aria-label="New message"><Icon name="plus" size={16} /></button>
+            <button className="messages-new-btn" onClick={() => { setShowNew(s => !s); setShowNewGroup(false); }} title="New message" style={{ fontSize: 13, borderRadius: 6, width: 'auto', padding: '0 7px' }}>New</button>
             <button className="messages-new-btn" onClick={() => { setShowNewGroup(s => !s); setShowNew(false); }} title="New group" style={{ fontSize: 13, borderRadius: 6, width: 'auto', padding: '0 7px' }}>Group</button>
           </div>
         </div>

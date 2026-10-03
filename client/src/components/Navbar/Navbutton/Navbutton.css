@@ -183,3 +183,15 @@
    general a:hover would otherwise lighten it. */
 a.navButton:hover,
 a.navButton:visited { color: #111; }
+
+/* The page you are on: the pill turns dark with a white rim, so it is plain
+   at a glance against the white ones. */
+.navBar .navButton.navButton--active,
+.navBar a.navButton.navButton--active:hover,
+.navBar a.navButton.navButton--active:visited {
+    background: #111111;
+    color: #ffffff;
+    filter: none;
+    transform: none;
+    box-shadow: 0 0 0 2px #ffffff;
+}

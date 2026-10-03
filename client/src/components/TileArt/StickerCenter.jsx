@@ -8,6 +8,7 @@ import { BITMAP_FONTS, SYMBOL_CHARS } from '../Pages/Posts/PostRenderer/RichText
 import '../Pages/Posts/PostRenderer/RichTextPost/TileGrid/TileGrid.css';
 import { errorMessage } from '../../utils/errorMessage.js';
 import { usePageTitle } from '../../utils/usePageTitle.js';
+import '../Pages/Settings/SettingsPage.css';
 import './Packs.css';
 
 /**
@@ -83,7 +84,7 @@ export function StickerCenter({ onPick, showSymbols = !onPick }) {
           <h2 className="center-heading">Built in</h2>
           <ul className="center-grid">
             {Object.entries(STICKERS).map(([k, s]) => tile(k, s.make(), s.label,
-              !onPick && me ? <GridButton label="Add to mine" onClick={() => addBuiltIn(s)} /> : null))}
+              !onPick && me ? <GridButton label="Add" title="Add to your stickers" onClick={() => addBuiltIn(s)} /> : null))}
           </ul>
         </>
       )}

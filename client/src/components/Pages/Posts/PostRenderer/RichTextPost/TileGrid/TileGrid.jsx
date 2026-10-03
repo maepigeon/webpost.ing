@@ -1236,7 +1236,7 @@ export default function TileGrid({
   const hint = !isPixel && !['move', 'select'].includes(tool)
     ? 'Photo layer: drag it to move, drag a corner to resize, or flatten it to pixels to paint on it.'
     : {
-      text: 'Click a tile and type. Drag, or Shift+arrows, to select tiles; typing then fills them. Cmd+/ lists the shortcuts.',
+      text: 'Click a tile and type. Drag to select.',
       wand: 'Click a tile to select the joined tiles that look the same. Shift adds, Alt takes away.',
       select: 'Drag, or use the arrows and Shift+arrows, to select. Shift adds, Alt removes. Drag a selection to move it.',
       move: 'Drag to move the selection, or the whole layer. Arrow keys nudge.',
@@ -1294,11 +1294,11 @@ export default function TileGrid({
             <div className="tg-group" role="group" aria-label="Draw">
               <span className="tg-group-label"><PixelText text="Draw" px={1.25} /></span>
               <Tile icon="select" label="Select tiles (⌥S)" on={tool === 'select'} onClick={() => setTool('select')} />
-              <Tile icon="wand" label="Magic wand (⌥W): select the joined tiles that look the same. Shift adds, Alt takes away." on={tool === 'wand'} onClick={() => setTool('wand')} />
+              <Tile icon="wand" label="Magic wand (⌥W): select joined tiles that match" on={tool === 'wand'} onClick={() => setTool('wand')} />
               <Tile icon="move" label="Move (⌥M)" on={tool === 'move'} onClick={() => setTool('move')} />
               <Tile icon="pixel" label="Paint pixels (⌥P)" on={tool === 'pixel'} onClick={() => setTool('pixel')} />
               <GridButton symbol="pixelPerfect" label="Pixel perfect" on={pixelPerfect} onClick={() => setPixelPerfect(v => !v)}
-                title="Pixel perfect: freehand pixel and erase strokes lose the extra corner pixels, leaving lines one pixel thick." />
+                title="Pixel perfect: keep freehand lines one pixel thick" />
               <Tile icon="tile" label="Paint tiles (⌥B)" on={tool === 'tile'} onClick={() => setTool('tile')} />
               <Tile icon="erase" label="Erase (⌥E)" on={tool === 'erase'} onClick={() => setTool('erase')} />
               <Tile icon="fill" label="Fill (⌥F)" on={tool === 'fill'} onClick={() => setTool('fill')} />
@@ -1317,8 +1317,8 @@ export default function TileGrid({
             <div className="tg-group tg-group--type" role="group" aria-label="Text">
               <span className="tg-group-label"><PixelText text="Text" px={1.25} /></span>
               <Tile icon="text" label="Text: type on tiles (⌥T)" on={tool === 'text'} onClick={() => setTool('text')} />
-              <Tile icon="one" label="One wide character per tile: for what you type next, or the selected tiles" on={width === 'full'} onClick={() => setWidth('full')} />
-              <Tile icon="two" label="Two narrow characters per tile: for what you type next, or the selected tiles" on={width === 'half'} onClick={() => setWidth('half')} />
+              <Tile icon="one" label="One wide character per tile" on={width === 'full'} onClick={() => setWidth('full')} />
+              <Tile icon="two" label="Two narrow characters per tile" on={width === 'half'} onClick={() => setWidth('half')} />
               <span className="tg-gap" />
               {/* One option per font the format knows (FONT_NAMES): a new font appears here by being added there. */}
               <GridSelect label="Font" tip="Font: applies to the selection, or what you type next."
@@ -1336,7 +1336,7 @@ export default function TileGrid({
                 onClick={() => setPanel(p => (p === 'symbols' ? null : 'symbols'))} />
               <Tile icon="glyph" label="Custom characters" on={panel === 'glyphs'}
                 onClick={() => setPanel(p => (p === 'glyphs' ? null : 'glyphs'))} />
-              <Tile icon="skip" label={`Avoid overdraw (Insert): ${skipFilled ? 'on' : 'off'}. Typing skips filled slots, and XL letters filled 2×2 spots, instead of drawing over them.`} on={skipFilled} onClick={() => setSkipFilled(v => !v)} />
+              <Tile icon="skip" label={`Avoid overdraw (Insert): typing skips filled tiles. ${skipFilled ? 'On' : 'Off'}`} on={skipFilled} onClick={() => setSkipFilled(v => !v)} />
               <span className="tg-gap" />
               <DirectionPad value={direction} onChange={setDirection} />
             </div>
@@ -1365,7 +1365,7 @@ export default function TileGrid({
                 ))}
               </span>
               <span className="tg-gap" />
-              <GridButton symbol="heart" label="Sticker" title="Stamp a sticker at the cursor, on a layer of its own" onClick={() => setChoosingSticker(true)} />
+              <GridButton symbol="sticker" label="Sticker" title="Stamp a sticker at the cursor, on a layer of its own" onClick={() => setChoosingSticker(true)} />
               <Tile icon="save" label="Save the grid as a PNG image" onClick={savePng} />
               {saveError && <span className="tg-error" role="alert">{saveError}</span>}
             </div>

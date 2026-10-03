@@ -45,9 +45,11 @@ function TitleBar(props) {
                         onKeyDown={e => { if (e.key === 'Enter') e.preventDefault(); }}
                         onChange={handleEditTitleCallback}
                     />
-                    <Link to={"/"+postdata.author}>
-                        <h3> Author: {postdata.author}</h3>
-                    </Link>
+                    {postdata.author && (
+                        <Link to={"/"+postdata.author}>
+                            <h3> Author: {postdata.author}</h3>
+                        </Link>
+                    )}
                 </>);
         }
     }

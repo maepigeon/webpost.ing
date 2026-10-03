@@ -163,7 +163,7 @@ export default function ProfileStickies({ username, canEdit, editing, onEditingC
     <>
       {canEdit && barSlot && createPortal(
         <div className="stickies-bar">
-          <GridButton symbol="heart" showLabel label="Add sticker" onClick={() => setChoosing(true)} />
+          <GridButton symbol="sticker" showLabel label="Add sticker" onClick={() => setChoosing(true)} />
           {stickies.length > 0 && (
             <GridButton symbol={editing ? 'check' : 'pencil'} showLabel label={editing ? 'Done arranging' : 'Arrange stickers'}
               on={editing} onClick={() => onEditingChange?.(!editing)} />

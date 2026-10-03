@@ -90,7 +90,7 @@ html[data-th-hide-wallpaper] body { background-image: none !important; }
   text-shadow: var(--th-text-glow);
 }
 
-:is(#appBody, .theme-preview) :is(.profile-header-card, .basicTextPost, .editor-post-card, .theme-card) a:not(.post-card-overlay):not(.post-title-link) {
+:is(#appBody, .theme-preview) :is(.profile-header-card, .basicTextPost, .editor-post-card, .theme-card) a:not(.post-card-overlay):not(.post-title-link):not(.edit-bio-btn) {
   color: var(--th-accent);
 }
 
@@ -200,4 +200,10 @@ html[data-th-hide-wallpaper] body { background-image: none !important; }
   .th-overlay { animation: none !important; }
   :is(#appBody, .theme-preview) :is(h1, h2, h3) { animation: none !important; }
   #appBody :is(.profile-header-card, .basicTextPost, .editor-post-card), .theme-preview .theme-card { animation: none !important; }
+}
+
+/* Delete looks different from Edit beside it. */
+#appBody .basicTextPost .bottom-nav button.post-delete-btn {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
 }

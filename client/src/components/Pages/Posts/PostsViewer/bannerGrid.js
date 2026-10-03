@@ -34,9 +34,10 @@ export function bannerInfo({ username = '', followers = 0, following = 0, joined
   // The banner is transparent, so its text takes the page's ink.
   const VALUE = /^#[0-9a-f]{6}$/i.test(ink) ? ink.toLowerCase() : '#111111';
   const LABEL = muted(VALUE);
-  // Narrow letters in the small font, which leaves room between the rows;
-  // a phone's wide letters keep the full-height one to stay readable.
-  const font = narrow ? 'small' : 'pixel';
+  // The small font for narrow letters; for a phone's wide ones the sans bitmap
+  // font, whose letters stop short of the row's edges, where
+  // the full-height pixel font made the four lines touch.
+  const font = narrow ? 'small' : 'sanspx';
   const lines = [
     [['user: ', LABEL], [username, VALUE]],
     [[`${followers}`, VALUE], [followers === 1 ? ' follower ' : ' followers ', LABEL], [`${following}`, VALUE], [' following', LABEL]],

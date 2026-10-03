@@ -1256,7 +1256,7 @@ function StickerToolbarPlugin() {
 
   return (
     <>
-      <GridButton symbol="heart" label="Sticker" title="Insert a sticker from your collection or the built-ins" onClick={() => setOpen(true)} />
+      <GridButton symbol="sticker" label="Sticker" title="Insert a sticker from your collection or the built-ins" onClick={() => setOpen(true)} />
       {open && createPortal(
         <div className="post-theme-overlay" role="dialog" aria-modal="true" aria-label="Choose a sticker"
           onMouseDown={e => { if (e.target === e.currentTarget) setOpen(false); }}>
