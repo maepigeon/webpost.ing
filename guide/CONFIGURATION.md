@@ -58,7 +58,7 @@ to a version where the profile was baked into the properties file.)
 | `DB_USER` | your login name | |
 | `DB_SOCKET` | *(unset)* | Directory of PostgreSQL's Unix socket (e.g. `/var/run/postgresql`). When set, the app connects through it with peer authentication and **needs no password**. Recommended on a server; `tools/server/use-passwordless-db.sh` sets it up. |
 | `DB_PASSWORD` | *(empty)* | Only for a TCP connection. Locally a PostgreSQL usually lets you in as yourself without one. On a server prefer `DB_SOCKET`, so no password exists. |
-| `DB_POOL_SIZE` | `10` | HikariCP maximum pool size. |
+| `DB_POOL_SIZE` | `8` | HikariCP maximum pool size. |
 | `DB_CONNECTION_TIMEOUT` | `20000` | Milliseconds. |
 
 The schema is owned by the migration runner, which applies pending
@@ -67,6 +67,14 @@ The schema is owned by the migration runner, which applies pending
 
 Tests ignore these and connect to `webposting_test` through `TEST_DB_*`
 variables — see [MIGRATIONS.md](MIGRATIONS.md#the-test-database).
+
+### Memory and threads
+
+| Variable | Default | Notes |
+|---|---|---|
+| `JAVA_OPTS` | `-Xmx640m -Xms256m -XX:+UseSerialGC -XX:+ExitOnOutOfMemoryError -XX:MaxMetaspaceSize=192m` | JVM flags, read by `server-start.sh` (not by the application), sized for the 2 GB server. Put the value in **double quotes** in `deploy.env`, which is sourced as a shell file. Leave it out for the default; an empty `JAVA_OPTS=` starts the JVM with no flags. A release installs the current `server-start.sh` and prints the flags in effect. |
+| `TOMCAT_THREADS` | `40` | Most requests handled at once (`server.tomcat.threads.max`; Spring's own default is 200, too many for 2 GB). |
+| `TOMCAT_ACCEPT_COUNT` | `50` | Connections that may wait for a free thread before further ones are refused (`server.tomcat.accept-count`). |
 
 ### Origins
 
@@ -132,7 +140,7 @@ these are set to. Persisting them is tracked in [tasks.md](tasks.md).
 
 ### Deployment paths
 
-Read by `tools/install-release.sh` (on the server) and `server-start.sh`, not by the application:
+Read by `tools/install-release.sh` (on the server) and `server-start.sh`, not by the application (`server-start.sh` itself is installed by the release, at the path the service's unit runs it from):
 
 | Variable | Example | Notes |
 |---|---|---|

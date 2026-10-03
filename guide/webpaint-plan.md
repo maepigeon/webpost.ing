@@ -82,6 +82,18 @@ both webpost.ing and in webpaint.ing". Copy the agent definitions and
 the Godot client a test bridge (query state, set a known document) so flows
 can be driven and checked.
 
+## Scope: a full paint and comic studio (Mae, 2026-10-03)
+
+"i want webpainting to do a lot of what clip studio paint can do ... or
+really cs paint ex". The target class is a professional illustration, comic
+and animation studio: layers with masks and blend modes, a strong brush
+engine, selections and transforms, rulers and perspective, tones, text and
+balloons, multi-page comic management, 3D reference, cel animation with a
+timeline. Far too much for a first version: the architecture document maps
+each capability to a phase and says what the data model must allow from day
+one. She also asked whether a downloadable version could be an Electron app
+wrapping the Godot web build; the architecture document answers that.
+
 ## The Mac app (Mae, 2026-10-03)
 
 "add buttons to my deployment app for webpainting": the Webposting app in

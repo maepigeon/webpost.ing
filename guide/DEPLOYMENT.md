@@ -92,6 +92,14 @@ lists it). What matters for the server:
   like the rest.
 - **Choco Cooky** ships inside the website build (`html/fonts/`), so the
   server needs nothing extra for it.
+- **The start script arrives with the release.** `server-start.sh` (it sets
+  the JVM memory flags, section 9) is now packed next to the JAR and
+  installed where the service's unit runs it from, with the same owner and
+  mode as the old one. The old copy goes into the release backup and comes
+  back if the health check fails. The install prints the JVM flags the
+  service will start with. If it cannot tell where the unit runs the script
+  from, or the unit runs something else, it leaves the script alone and says
+  so; then use 9.1 by hand.
 
 ### One-time steps after this release
 
@@ -439,12 +447,25 @@ in `application.properties`). What is left is the server itself, in four
 steps. Nothing here needs a build, and none of it touches the database.
 Do them in this order.
 
-### 9.1 Get the new `server-start.sh` onto the server
+### 9.1 The new `server-start.sh` arrives with a release
 
-**A release does not ship `server-start.sh`** (`release.sh` packs the JAR,
-the website and the server tools only), so the copy in `$APP_HOME` stays
-as it is until you replace it. From your Mac, in the repository root, then
-on the server:
+**A release now ships `server-start.sh`.** `release.sh` packs it next to the
+JAR, and `install.sh` puts it where the service's unit runs it (the path in
+systemd's `ExecStart`, else `$APP_HOME/server-start.sh`), with the old
+script's owner and mode. The old script is kept in the release backup, put
+back if the health check fails, and left alone if it already matches. Near
+the end the install prints the JVM flags the service starts with, so check
+that line (`--dry-run` prints it too). Nothing for you to copy.
+
+The script's default flags are `-Xmx640m -Xms256m -XX:+UseSerialGC
+-XX:+ExitOnOutOfMemoryError -XX:MaxMetaspaceSize=192m`. To change them, set
+`JAVA_OPTS` in `deploy.env` **in double quotes** (see
+`config/deploy.env.example`); the install refuses an unquoted value with
+spaces, because `deploy.env` is sourced as a shell file.
+
+**By hand** (the fallback, for when the install says it left the script
+alone, or for a server that has not had a release since). From your Mac, in
+the repository root, then on the server:
 
 ```bash
 scp server-start.sh <you>@<server>:~/incoming/server-start.sh      # Mac
@@ -457,12 +478,9 @@ sudo install -m 755 --owner="$(stat -c %U $APP_HOME/server-start.sh)" \
      ~/incoming/server-start.sh $APP_HOME/server-start.sh
 ```
 
-It takes effect at the next restart, which the next release does anyway.
-The new script runs the JVM with `-Xmx640m -Xms256m -XX:+UseSerialGC
--XX:+ExitOnOutOfMemoryError -XX:MaxMetaspaceSize=192m`. To change them, set
-`JAVA_OPTS` in `deploy.env` (see `config/deploy.env.example`). If you would
-rather not copy the file: `JAVA_TOOL_OPTIONS=<the same flags>` in
-`deploy.env` reaches the JVM through the old script too.
+It takes effect at the next restart. If you would rather not replace the
+file: `JAVA_TOOL_OPTIONS=<the same flags>` in `deploy.env` reaches the JVM
+through the old script too.
 
 ### 9.2 Memory limit for the service (systemd drop-in)
 
