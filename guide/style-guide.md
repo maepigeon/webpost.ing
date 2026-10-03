@@ -1,8 +1,8 @@
 # UI Style Guide
 
-## Design System: Neoskeuomorphic Glass
+## Design System: Neoskeuomorphic, solid surfaces
 
-The app uses a "neoskeuomorphic glass" / frosted glass aesthetic — raised, tactile, dimensional surfaces with soft shadows, translucency, and physical depth.
+The app uses raised, tactile, dimensional surfaces with soft shadows and physical depth. Surfaces are solid: no glass, no blur, no `backdrop-filter` anywhere (owner's rule, 2026-10-03).
 
 **The UI is grayscale** (owner's request, 2026-09-29). Every UI colour was converted to the gray of equal luminance, so contrast and depth are unchanged. Colour is kept only for:
 - user content — photos, wallpapers, text colours chosen in posts, code syntax highlighting, the homepage water title and favicon;
@@ -19,7 +19,8 @@ Do not add purple, orange or other hues back to chrome. Links stay identifiable 
 | Page background | `#e9e9e9` | `--page-bg` |
 | Ink | `#1c1c1c` / `#505050` / `#828282` | `--ink`, `--ink-soft`, `--ink-faint` |
 | Accent | `#565656` text, `#666666` fill | `--accent`, `--accent-fill` |
-| Glass card bg | `rgba(255,255,255,0.54)` | Profile card, post cards |
+| Card plate | `#f4f4f4` | Profile card, post cards (themes override it) |
+| Dialog card | `#fff` over a `rgba(0,0,0,0.45)` scrim | Every dialog and popover |
 | Red / danger | `#d32f2f` | Error messages, delete actions, unread badges |
 | Green / ok | `#2ecc71` | Online status, success messages |
 
@@ -67,12 +68,13 @@ box-shadow:
   0 2px 6px rgba(26,16,96,0.1);             /* the object sits above the page */
 ```
 
-Glass surfaces are a translucent flat fill plus `backdrop-filter`. The blur is
-what makes them read as glass; a sheen gradient on top added nothing.
+Surfaces are solid. A card or dialog gets an opaque fill from the grey tokens
+(`--surface-1/2/3`, `#f4f4f4`, `#fff`) and gets its depth from the edges and the
+shadow. A dialog dims the page with a plain translucent black scrim and does
+not blur it. Never add `backdrop-filter`.
 
 ```css
-background: var(--surface-1);
-backdrop-filter: var(--blur-glass);
+background: var(--surface-2);
 box-shadow: var(--raise-2);
 ```
 
@@ -105,7 +107,7 @@ one component.
 | `--ink` / `--ink-soft` / `--ink-faint` | body / meta / placeholders. Never `--ink-faint` for real text. |
 | `--accent` | purple **as text** on a light surface (5.2:1) |
 | `--accent-fill` | purple **as a fill** under white text (5.5:1) |
-| `--surface-1/2/3` | glass: cards / dialogs / inputs |
+| `--surface-1/2/3` | solid: cards / dialogs / inputs |
 | `--raise-1/2/3` | raised: control / panel / dialog |
 | `--pressed`, `--focus-ring` | interaction states |
 | `--radius-sm/md/lg/pill` | corners |
@@ -122,8 +124,8 @@ removed on 2026-09-29 at the owner's request: it looked bad, and several attempt
 to fix it did not help. Do not reintroduce it — on the home page or anywhere else.
 
 
-### backdrop-filter stacking context warning
-Any element with `backdrop-filter` creates a new containing block for `position: fixed` descendants. **Never render `position: fixed` modals or overlays inside an element with `backdrop-filter`.** Always use React `createPortal(content, document.body)` for modals.
+### Stacking context warning
+A `filter`, `backdrop-filter` or `transform` on an element makes it the containing block for `position: fixed` descendants. `backdrop-filter` is not used here any more, but **never render `position: fixed` modals or overlays inside a filtered or transformed element.** Use React `createPortal(content, document.body)` for modals.
 
 ### CSS transform stacking context warning
 Any element with `transform` (including `translateY(0)`) creates a stacking context that traps `position: fixed` children. In CSS animations:
@@ -134,11 +136,10 @@ Any element with `transform` (including `translateY(0)`) creates a stacking cont
 ## Buttons
 
 ### Neoskeuomorphic raised buttons
-Use `--neo-*` vars for ghost/glass buttons. Apply to `.edit-bio-btn`, `.follow-count-btn`, etc.
+Use `--neo-*` vars for raised buttons. Apply to `.edit-bio-btn`, `.follow-count-btn`, etc.
 
 ```css
 background: var(--neo-bg);
-backdrop-filter: blur(10px);
 border: var(--neo-border);
 border-radius: 10px;
 box-shadow: var(--neo-shadow);
@@ -186,13 +187,12 @@ Purple, orange, green variants — all use `linear-gradient(to bottom, ...)` wit
 - Modals: always full-width on mobile (`width: min(480px, calc(100vw - 24px))`)
 - AvatarPopup card: `width: min(340px, calc(100vw - 48px))`
 - Notification dropdown: centered, `width: min(480px, calc(100vw - 24px))`
-- Cursor glow: hidden on touch screens (`@media (hover: none)`)
 
 ---
 
 ## Toolbar / Editor
 
-- Sticky toolbar: `background: rgba(255,255,255,0.55); backdrop-filter: blur(8px)`
+- Sticky toolbar: a solid fill, no blur
 - Toolbar buttons: flat, no border, hover shows `rgba(0,0,0,0.08)` bg
 - Active: `background: rgba(108,99,255,0.12); color: #6c63ff`
 
@@ -207,22 +207,10 @@ Purple, orange, green variants — all use `linear-gradient(to bottom, ...)` wit
 
 ## Modals
 
-All modals must be rendered via `createPortal(content, document.body)` so they escape any `backdrop-filter` or `transform` stacking contexts. See `FollowListModal.jsx` and `AvatarPopup.jsx` for the pattern.
+All modals must be rendered via `createPortal(content, document.body)` so they escape any `transform` or `filter` stacking context. See `FollowListModal.jsx` and `AvatarPopup.jsx` for the pattern.
 
 Modal overlay: `position: fixed; inset: 0; z-index: 1000+`
-Modal card: glass card pattern with spring animation
-
----
-
-## Cursor Glow
-
-`CursorGlow.jsx` renders a `position: fixed` purple radial gradient that follows the cursor.
-
-- Starts invisible (`opacity: 0`) and reveals only after first mouse move
-- Positioned via JS `requestAnimationFrame` loop: `transform: translate(clientX, clientY)`
-- CSS positions the element center at (0, 0) via `top: 0; left: 0; margin: -280px`
-- No `mix-blend-mode` (multiply was invisible on the light cream background)
-- Hidden on touch screens
+Modal card: solid `#fff` card with spring animation; scrim `rgba(0,0,0,0.45)`, no blur
 
 ---
 

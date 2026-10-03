@@ -1,9 +1,7 @@
 .avatar-popup-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(8px) saturate(140%);
-  -webkit-backdrop-filter: blur(8px) saturate(140%);
+  background: rgba(0, 0, 0, 0.45);
   z-index: 10000;
   display: flex;
   align-items: center;
@@ -20,9 +18,7 @@
 .avatar-popup-card {
   position: relative;
   width: min(340px, calc(100vw - 48px));
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(28px) saturate(180%) brightness(1.04);
-  -webkit-backdrop-filter: blur(28px) saturate(180%) brightness(1.04);
+  background: #fff;
   border: 1px solid rgba(255, 255, 255, 0.75);
   border-radius: 24px;
   box-shadow:

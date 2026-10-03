@@ -8,9 +8,7 @@
 }
 
 .search-card {
-  background: rgba(255,255,255,0.55);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: #f4f4f4;
   border: 1px solid rgba(255,255,255,0.7);
   border-radius: 16px;
   padding: 32px 28px;
@@ -40,9 +38,7 @@
   top: calc(100% + 4px);
   left: 0;
   right: 56px; /* clear the Search button */
-  background: rgba(255,255,255,0.96);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: #fff;
   border: 1px solid rgba(119, 119, 119, 0.2);
   border-radius: 10px;
   box-shadow: 0 8px 28px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.9);
@@ -203,9 +199,7 @@
 .search-user-card {
   position: relative;
   isolation: isolate;
-  background: rgba(240, 240, 240, 0.91);
-  backdrop-filter: blur(18px) saturate(170%);
-  -webkit-backdrop-filter: blur(18px) saturate(170%);
+  background: #f0f0f0;
   border-radius: 16px;
   padding: 16px 12px;
   min-width: 76px;

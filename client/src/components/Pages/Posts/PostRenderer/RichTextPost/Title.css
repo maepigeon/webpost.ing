@@ -2,12 +2,10 @@ body {
     padding: 0;
 }
 
-/* ── Liquid-glass post card ───────────────────────────────────────────────── */
+/* ── Post card ────────────────────────────────────────────────────────────── */
 
 .basicTextPost {
-    background: rgba(255, 255, 255, 0.45);
-    backdrop-filter: blur(22px) saturate(180%) brightness(1.04);
-    -webkit-backdrop-filter: blur(22px) saturate(180%) brightness(1.04);
+    background: #f4f4f4;
     border: 1px solid rgba(255, 255, 255, 0.78);
     border-radius: 20px;
     box-shadow:
