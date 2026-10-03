@@ -166,9 +166,11 @@ html[data-th-hide-wallpaper] body { background-image: none !important; }
 }
 /* The number inside takes the button's colour, so it shows on a dark card. */
 
-/* Small buttons on a card — a post's edit/delete, the folder button — are
+/* Small buttons on a card — a post's edit/delete, the folder button, the
+   owner's pills on the profile header — are
    tinted from the ink too, instead of white plates that glare on dark themes. */
 #appBody .basicTextPost .bottom-nav button,
+#appBody .profile-header-card .edit-bio-btn,
 #appBody .profile-post-folder-btn {
   background: color-mix(in srgb, var(--th-ink) 8%, transparent);
   color: var(--th-ink);
@@ -207,3 +209,18 @@ html[data-th-hide-wallpaper] body { background-image: none !important; }
   color: var(--danger);
   border-color: color-mix(in srgb, var(--danger) 45%, transparent);
 }
+
+/* On the profile header the owner's pills, the storage line and the status
+   under the avatar all take the theme's Text colour, so they stay readable on
+   a dark card. */
+#appBody .profile-header-card .edit-bio-btn { box-shadow: none; text-shadow: none; }
+#appBody .profile-header-card :is(.profile-banner-under, .stickies-hint) { color: var(--th-ink); }
+#appBody .profile-header-card .profile-owner-divider { background: color-mix(in srgb, var(--th-ink) 30%, transparent); box-shadow: none; }
+/* A link pill under the bio: tinted from the ink like the owner's pills. */
+#appBody .profile-header-card a.profile-bio-link {
+  color: var(--th-ink);
+  background: color-mix(in srgb, var(--th-ink) 8%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--th-ink) 22%, transparent);
+  box-shadow: none;
+}
+#appBody .profile-header-card a.edit-bio-btn { margin: 0 auto 4px; }

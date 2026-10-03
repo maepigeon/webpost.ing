@@ -48,13 +48,12 @@ function BioText({ text, onConfirmExternal }) {
     const url = match[0];
     parts.push(
       <a key={match.index} href={url} target="_blank" rel="noopener noreferrer"
-        style={{ color: '#333333' }}
         onClick={e => confirmExternal(e, url, onConfirmExternal)}>{url}</a>
     );
     last = match.index + url.length;
   }
   if (last < text.length) parts.push(text.slice(last));
-  return <p style={{ margin: '0', fontSize: '14px', color: '#111', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{parts}</p>;
+  return <p style={{ margin: '0', fontSize: '14px', color: 'var(--th-ink, #111)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{parts}</p>;
 }
 
 function hasModifyPermissions(viewedUser) {

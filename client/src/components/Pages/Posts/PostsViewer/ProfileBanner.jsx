@@ -30,11 +30,18 @@ export default function ProfileBanner({
   useEffect(() => {
     const el = ref.current;
     if (!el || typeof ResizeObserver === 'undefined') return undefined;
-    const value = getComputedStyle(el).getPropertyValue('--th-ink').trim();
-    if (/^#[0-9a-f]{6}$/i.test(value)) setInk(value);
+    // The theme arrives after the page does, and changes while it is being
+    // edited, so the ink is read again whenever the document's theme changes.
+    const readInk = () => {
+      const value = getComputedStyle(el).getPropertyValue('--th-ink').trim();
+      if (/^#[0-9a-f]{6}$/i.test(value)) setInk(value);
+    };
+    readInk();
+    const mo = new MutationObserver(readInk);
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
     const ro = new ResizeObserver(([entry]) => setNarrow(entry.contentRect.width >= NARROW_FROM));
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => { ro.disconnect(); mo.disconnect(); };
   }, []);
   const info = useMemo(
     () => bannerInfo({ username, followers, following, joined, publicPosts, narrow, ink }),
