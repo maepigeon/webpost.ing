@@ -1,9 +1,12 @@
 package com.springbootprojects.webpostingserver.posts.service;
 
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -24,15 +27,33 @@ public class PostingGate {
 
     private final JdbcTemplate jdbc;
     private final boolean mailEnabled;
+    /** Null in tests that only care about the setting; then the flag alone decides. */
+    private final ObjectProvider<JavaMailSender> mailSender;
 
-    public PostingGate(JdbcTemplate jdbc, @Value("${app.mail.enabled:false}") boolean mailEnabled) {
+    public PostingGate(JdbcTemplate jdbc, boolean mailEnabled) {
+        this(jdbc, mailEnabled, null);
+    }
+
+    /**
+     * Mail counts as on only when it can really be sent, the same test
+     * EmailService.isEnabled() uses. MAIL_ENABLED=true with no MAIL_HOST would
+     * otherwise lock every new account out of posting with no way to confirm.
+     */
+    @Autowired
+    public PostingGate(JdbcTemplate jdbc, @Value("${app.mail.enabled:false}") boolean mailEnabled,
+                       ObjectProvider<JavaMailSender> mailSender) {
         this.jdbc = jdbc;
         this.mailEnabled = mailEnabled;
+        this.mailSender = mailSender;
+    }
+
+    private boolean mailReady() {
+        return mailEnabled && (mailSender == null || mailSender.getIfAvailable() != null);
     }
 
     /** True when this user must verify their email before the action. */
     public boolean mustVerifyFirst(int userId) {
-        if (!mailEnabled) return false;
+        if (!mailReady()) return false;
         if (!settingIsTrue("require_verified_email")) return false;
         List<Map<String, Object>> rows =
                 jdbc.queryForList("SELECT email_verified, is_admin FROM users WHERE id = ?", userId);

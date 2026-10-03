@@ -6,12 +6,12 @@ import {
   ADMIN_SET_ADMIN, ADMIN_SET_ROLE, ADMIN_GET_STATS, ADMIN_GET_ROLE_LIMITS,
   ADMIN_SET_ROLE_LIMIT, ADMIN_GET_FLAGGED, ADMIN_CLEANUP_ORPHANS,
   ADMIN_EXPORT_USER, ADMIN_IMPORT_USER,
-  ADMIN_CHANGE_PASSWORD, ADMIN_GET_INVITE_CODES, ADMIN_CREATE_INVITE_CODE, ADMIN_DELETE_INVITE_CODE,
-  ADMIN_GET_SETTINGS, ADMIN_UPDATE_SETTING
+  ADMIN_CHANGE_PASSWORD, ADMIN_GET_INVITE_CODES, ADMIN_CREATE_INVITE_CODE, ADMIN_DELETE_INVITE_CODE
 } from '../../Posts/BasicTextPostServerApi.js';
 import { PasswordRequirements } from '../Registration/Registration.jsx';
 import './AdminPanel.css';
 import BuildStatus from './BuildStatus.jsx';
+import SettingsTab from './SettingsTab.jsx';
 import { ADMIN_GET_REPORTS, ADMIN_UPDATE_REPORT } from '../../Posts/BasicTextPostServerApi.js';
 import { errorMessage } from '../../../../utils/errorMessage.js';
 
@@ -56,8 +56,6 @@ export default function AdminPanel() {
   const [secPwError, setSecPwError]   = useState('');
   const [inviteCodes, setInviteCodes] = useState([]);
   const [copiedCode, setCopiedCode]   = useState(null);
-  const [settings, setSettings] = useState({});
-  const [settingEdits, setSettingEdits] = useState({});
 
   useEffect(() => {
     ADMIN_GET_STATUS()
@@ -72,7 +70,6 @@ export default function AdminPanel() {
     if (tab === 'limits') ADMIN_GET_ROLE_LIMITS().then(d => { setRoleLimits(d); setLimitEdits({}); }).catch(() => {});
     if (tab === 'flagged') ADMIN_GET_FLAGGED().then(setFlagged).catch(() => {});
     if (tab === 'security') ADMIN_GET_INVITE_CODES().then(setInviteCodes).catch(() => {});
-    if (tab === 'settings') ADMIN_GET_SETTINGS().then(d => { setSettings(d); setSettingEdits({}); }).catch(() => {});
     if (tab === 'reports') loadReports(reportFilter);
   }, [isAdmin, tab]);
 
@@ -561,43 +558,7 @@ export default function AdminPanel() {
         </div>
       )}
 
-      {tab === 'settings' && (
-        <div className="admin-card">
-          <h3>System Settings</h3>
-          <p style={{ fontSize: 13, color: '#666', marginBottom: 16 }}>
-            These settings take effect immediately. Use -1 for unlimited.
-          </p>
-          <div className="admin-table-scroll"><table className="admin-table">
-            <thead><tr><th>Setting</th><th>Value</th><th>Action</th></tr></thead>
-            <tbody>
-              {Object.entries(settings).map(([key, val]) => (
-                <tr key={key}>
-                  <td style={{ fontFamily: 'monospace', fontSize: 13 }}>{key}</td>
-                  <td>
-                    <input
-                      type="text"
-                      value={settingEdits[key] !== undefined ? settingEdits[key] : val}
-                      onChange={e => setSettingEdits(s => ({ ...s, [key]: e.target.value }))}
-                      style={{ width: 80, padding: '3px 6px', borderRadius: 6, border: '1px solid #ccc', fontSize: 13 }}
-                    />
-                  </td>
-                  <td>
-                    <button className="admin-btn" onClick={async () => {
-                      const newVal = settingEdits[key] !== undefined ? settingEdits[key] : val;
-                      try {
-                        await ADMIN_UPDATE_SETTING(key, newVal);
-                        setSettings(s => ({ ...s, [key]: newVal }));
-                        setSettingEdits(s => { const n = { ...s }; delete n[key]; return n; });
-                        flash('Setting saved.');
-                      } catch { flash('Failed to save setting.'); }
-                    }}>Save</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table></div>
-        </div>
-      )}
+      {tab === 'settings' && <SettingsTab flash={flash} />}
     </div>
   );
 }

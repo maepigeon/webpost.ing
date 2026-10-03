@@ -14,7 +14,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.LinkedHashMap;
@@ -45,8 +44,6 @@ public class EmailSettingsController {
      */
     private static final Pattern EMAIL_SHAPE =
             Pattern.compile("^[^@\\s]+@[^@\\s.]+\\.[^@\\s]+$");
-
-    private static final BCryptPasswordEncoder bcrypt = new BCryptPasswordEncoder();
 
     /**
      * Sending mail costs money and sender reputation, and an unthrottled
@@ -112,6 +109,9 @@ public class EmailSettingsController {
         ACCOUNT_BUDGET.record(ak);
         return true;
     }
+
+    static final String MAIL_OFF_RESET_MESSAGE =
+            "Email is not switched on yet, so passwords cannot be reset by email. Ask the site admin to set a new one.";
 
     private static final String VERIFY_BUDGET_MSG = "Too many verification emails for that address or account. Try again later.";
 
@@ -273,12 +273,13 @@ public class EmailSettingsController {
         if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         if (!username.equals(authUsername)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
 
-        String email = body.getOrDefault("email", "").trim();
+        String email = body.getOrDefault("email", "").trim().toLowerCase(java.util.Locale.ROOT);
         if (email.isEmpty()) {
             // Clearing the address is a legitimate way to opt out entirely.
             Integer userId = userIdOf(username);
             if (userId == null) return ResponseEntity.notFound().build();
             jdbc.update("UPDATE users SET email = NULL, email_verified = FALSE, email_verified_at = NULL WHERE id = ?", userId);
+            dropOpenResetLinks(userId);
             securityLog.record(userId, "email_changed", "address removed", request);
             return ResponseEntity.ok(Map.of("email", "", "emailVerified", false, "message", "Email address removed."));
         }
@@ -372,6 +373,7 @@ public class EmailSettingsController {
                 UPDATE users SET email = ?, email_verified = TRUE, email_verified_at = NOW()
                  WHERE id = ?
                 """, result.email(), result.userId());
+        dropOpenResetLinks(result.userId());
         securityLog.record(result.userId(), "email_changed", null, request);
 
         return ResponseEntity.ok(Map.of("message", "Email confirmed. Notifications are on."));
@@ -432,6 +434,11 @@ public class EmailSettingsController {
                 "If that address belongs to a confirmed account, a reset link is on its way.");
 
         if (email.isEmpty()) return ResponseEntity.ok(alwaysTheSame);
+        // With mail off no link can arrive, so say so instead of promising one.
+        // This reveals nothing about any address: it is the same for all of them,
+        // and /api/signup/config already tells the sign-in page the same fact.
+        if (!emailService.isEnabled())
+            return ResponseEntity.ok(Map.of("message", MAIL_OFF_RESET_MESSAGE));
         if (RESET_LIMITER.isBlocked(clientIp(request)))
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                     .body(Map.of("message", "Too many reset requests. Try again in a few minutes."));
@@ -449,14 +456,18 @@ public class EmailSettingsController {
 
         // Only confirmed addresses. Otherwise anyone could put someone else's
         // address on their own account and use this to mail them reset links.
+        // Capitals do not matter in an address (sign-up stores it lower-cased, the
+        // settings page used to store what was typed), and an address confirmed on
+        // two accounts resets both, so neither owner is left out.
         List<Map<String, Object>> rows = jdbc.queryForList(
-                "SELECT id, username FROM users WHERE email = ? AND email_verified = TRUE", email);
+                "SELECT id, username FROM users WHERE LOWER(email) = ? AND email_verified = TRUE ORDER BY id LIMIT 3",
+                recipientKey(email));
 
-        if (!rows.isEmpty()) {
-            int userId = (Integer) rows.get(0).get("id");
-            String username = (String) rows.get(0).get("username");
+        for (Map<String, Object> row : rows) {
+            int userId = (Integer) row.get("id");
+            String username = (String) row.get("username");
             EmailTokenService.IssuedToken issued =
-                    tokenService.issue(userId, email, EmailTokenService.PURPOSE_RESET);
+                    tokenService.issue(userId, recipientKey(email), EmailTokenService.PURPOSE_RESET);
             emailService.sendPasswordReset(email, username, issued.plaintext());
         }
         return ResponseEntity.ok(alwaysTheSame);
@@ -483,7 +494,7 @@ public class EmailSettingsController {
         if (names.isEmpty()) return ResponseEntity.badRequest().body(Map.of("message", "Account not found."));
 
         jdbc.update("UPDATE users SET password = ? WHERE id = ?",
-                bcrypt.encode(newPassword), result.userId());
+                JdbcLoginRepository.hashPassword(newPassword), result.userId());
 
         // Whoever reset the password may be locking an intruder out, so every
         // session — including any the attacker holds — has to end.
@@ -582,6 +593,16 @@ public class EmailSettingsController {
                 "codeFont", row.get("code_font"),
                 "codeFontSize", row.get("code_font_size"),
                 "message", "Saved."));
+    }
+
+    /**
+     * A reset link goes to the address that was on the account when it was asked
+     * for. Once the address changes, that link must not still work: the old inbox
+     * may be exactly the thing the owner is moving away from.
+     */
+    private void dropOpenResetLinks(int userId) {
+        jdbc.update("DELETE FROM email_tokens WHERE user_id = ? AND purpose = ? AND used_at IS NULL",
+                userId, EmailTokenService.PURPOSE_RESET);
     }
 
     /** The address currently on the account, or "" when none is confirmed. */

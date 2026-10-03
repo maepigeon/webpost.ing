@@ -515,7 +515,7 @@ public class AuthController {
             return ResponseEntity.badRequest().body(Map.of("message", "The new password is the same as the current one."));
 
         jdbc.update("UPDATE users SET password = ? WHERE username = ?",
-                new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().encode(next), username);
+                JdbcLoginRepository.hashPassword(next), username);
         loginRepository.evictSession(username);
         securityLog.recordForUsername(username, "password_changed", null, request);
         log.info("Password changed by {}", username);
@@ -606,8 +606,11 @@ public class AuthController {
 
         // Check daily registration limit
         try {
-            String limitStr = jdbc.queryForObject(
+            // No row means the default of 5. It used to mean "no limit at all":
+            // queryForObject throws on an empty result and the catch below let it through.
+            List<String> limits = jdbc.queryForList(
                 "SELECT value FROM system_settings WHERE key='max_daily_registrations'", String.class);
+            String limitStr = limits == null || limits.isEmpty() ? null : limits.get(0);
             int limit = limitStr != null ? Integer.parseInt(limitStr.trim()) : 5;
             if (limit >= 0) {
                 Integer todayCount = jdbc.queryForObject(
@@ -652,11 +655,9 @@ public class AuthController {
         }
 
         // Create the user account
-        org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder bcrypt =
-            new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
         try {
             jdbc.update("INSERT INTO users(username, password, email) VALUES(?,?,?)",
-                username, bcrypt.encode(password), email);
+                username, JdbcLoginRepository.hashPassword(password), email);
         } catch (Exception e) {
             // The name was taken after all: hand the code back.
             if (needCode) jdbc.update("UPDATE invite_codes SET used_by=NULL, used_at=NULL WHERE code=? AND used_by=?", code.trim(), username);

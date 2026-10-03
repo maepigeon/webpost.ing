@@ -801,3 +801,116 @@
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* ── Settings tab: sign-up rules ────────────────────────────────────────── */
+
+.admin-set-card {
+  background: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 16px 20px 6px;
+  margin-bottom: 20px;
+}
+.admin-set-card h3 { margin: 0 0 6px; font-size: 1rem; }
+
+.admin-set-item { padding: 14px 0; border-top: 1px solid #e6e6e6; }
+.admin-set-item:first-of-type { border-top: none; }
+
+.admin-set-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 24px;
+  flex-wrap: wrap;
+}
+.admin-set-text { flex: 1 1 280px; min-width: 0; }
+.admin-set-label { display: block; font-size: 0.95rem; font-weight: 600; color: #222; }
+.admin-set-desc { margin: 3px 0 0; font-size: 0.85rem; line-height: 1.4; color: #555; }
+.admin-set-control { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
+.admin-set-err { flex: 1 0 100%; margin: 0; }
+
+.admin-set-input {
+  width: 110px;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 0.9rem;
+  background: #fff;
+  color: #222;
+}
+.admin-set-input[aria-invalid="true"] { border-color: #777; }
+.admin-set-save:disabled { opacity: 0.45; cursor: default; }
+.admin-set-save:disabled:hover { filter: none; background: #f5f5f5; }
+
+/* Switch: the whole button (track plus the word) is the 44px touch target. */
+.admin-panel button.admin-set-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 4px;
+  border: none;
+  border-radius: 22px;
+  background: transparent;
+  color: #222;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.admin-set-switch:disabled { opacity: 0.55; cursor: default; }
+.admin-set-switch:disabled:hover { filter: none; }
+.admin-set-switch:focus-visible { outline: 2px solid #333; outline-offset: 2px; }
+
+.admin-set-track {
+  position: relative;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 26px;
+  border-radius: 13px;
+  background: #dcdcdc;
+  border: 1px solid #a8a8a8;
+  box-sizing: border-box;
+  transition: background-color 0.18s ease, border-color 0.18s ease;
+}
+.admin-set-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.admin-set-switch--on .admin-set-track { background: #2e2e2e; border-color: #2e2e2e; }
+.admin-set-switch--on .admin-set-thumb { transform: translateX(18px); }
+.admin-set-state { min-width: 1.8em; text-align: left; }
+
+/* Quiet gray line under the row it concerns; it protects against a trap, so
+   it is the one place a sentence sits under a control. */
+.admin-set-warn {
+  margin: 10px 0 0;
+  padding: 8px 12px;
+  border: 1px solid #cfcfcf;
+  border-left: 4px solid #8a8a8a;
+  border-radius: 4px;
+  background: #f1f1f1;
+  color: #333;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-set-track, .admin-set-thumb { transition: none; }
+}
+
+@media (max-width: 640px) {
+  .admin-set-card { padding: 14px 14px 4px; }
+  .admin-set-text { flex-basis: 100%; }
+  .admin-set-input { flex: 1 1 auto; width: auto; min-width: 0; }
+  .admin-set-control { width: 100%; }
+  .admin-set-control:has(.admin-set-switch) { width: auto; }
+}
