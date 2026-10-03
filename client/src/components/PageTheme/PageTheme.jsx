@@ -70,6 +70,29 @@ export function usePostTheme(postId) {
 
 // ── Pictures ──────────────────────────────────────────────────────────────────
 
+/**
+ * The average colour of a CSS `url(...)` image laid over `under`, as #rrggbb:
+ * the image is drawn small over that colour and its pixels averaged.
+ */
+async function averageColour(cssImage, under = '#ffffff') {
+  const url = /^url\(["']?(.*?)["']?\)$/.exec(cssImage || '')?.[1];
+  if (!url) return null;
+  const img = new Image();
+  img.src = url;
+  await img.decode();
+  const size = 16;
+  const canvas = document.createElement('canvas');
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.fillStyle = under;
+  ctx.fillRect(0, 0, size, size);
+  ctx.drawImage(img, 0, 0, size, size);
+  const { data } = ctx.getImageData(0, 0, size, size);
+  const sum = [0, 0, 0];
+  for (let i = 0; i < data.length; i += 4) { sum[0] += data[i]; sum[1] += data[i + 1]; sum[2] += data[i + 2]; }
+  return '#' + sum.map(v => Math.round(v / (size * size)).toString(16).padStart(2, '0')).join('');
+}
+
 /** Draws a theme's card texture and sticker; {} until they are ready. */
 export function useThemeImages(theme) {
   const card = theme?.card?.texture || null;
@@ -80,7 +103,12 @@ export function useThemeImages(theme) {
     let live = true;
     (async () => {
       const next = {};
-      if (card) next.card = await wallpaperStyle(card).catch(() => null);
+      if (card) {
+        next.card = await wallpaperStyle(card).catch(() => null);
+        // What colour the textured card really is, for checking text against it.
+        const colour = next.card && await averageColour(next.card.backgroundImage, theme?.card?.bg).catch(() => null);
+        if (colour) next.card = { ...next.card, colour };
+      }
       if (sticker) {
         const dpr = window.devicePixelRatio || 1;
         const canvas = await renderGridImage(sticker, Math.round(STICKER_SCALE * dpr)).catch(() => null);

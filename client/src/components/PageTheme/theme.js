@@ -331,9 +331,15 @@ export function themeVariables(theme, images = {}) {
   const accentRgb = hexToRgb(t.type.accent);
   const sticker = t.card.sticker && images.sticker;
   // Text is drawn on the card, so each text colour is checked against it.
-  const ink = readableOn(t.type.ink, t.card.bg);
-  const headingInk = readableOn(t.type.headingInk, t.card.bg, ink);
-  const accent = readableOn(t.type.accent, t.card.bg, ink);
+  // The card's surface is its colour, or under a texture the texture's
+  // measured colour (images.card.colour, once drawn). When that isn't known,
+  // or the card is mostly see-through, the colours chosen are left alone.
+  const surface = t.card.opacity < 0.6 ? null
+    : t.card.texture ? (/^#[0-9a-f]{6}$/i.test(images.card?.colour || '') ? images.card.colour : null)
+    : t.card.bg;
+  const ink = surface ? readableOn(t.type.ink, surface) : t.type.ink;
+  const headingInk = surface ? readableOn(t.type.headingInk, surface, ink) : t.type.headingInk;
+  const accent = surface ? readableOn(t.type.accent, surface, ink) : t.type.accent;
   return {
     '--th-font-heading': FONTS[t.type.heading].css,
     '--th-font-body': FONTS[t.type.body].css,
@@ -343,7 +349,7 @@ export function themeVariables(theme, images = {}) {
     '--th-heading-anim': t.fx.rainbow ? 'th-rainbow-drift' : 'none',
     '--th-accent': accent,
     // Red for Delete: the usual one, or a lighter one on a dark card.
-    '--th-danger': contrast('#c62828', t.card.bg) >= 4.5 ? '#c62828' : '#ff8a80',
+    '--th-danger': !surface || contrast('#c62828', surface) >= 4.5 ? '#c62828' : '#ff8a80',
     '--th-heading-case': t.type.headingCase === 'upper' ? 'uppercase' : 'none',
     '--th-heading-scale': String(t.type.headingScale),
     '--th-text-glow': t.fx.glow ? `0 0 4px currentColor, 0 0 14px rgba(${accentRgb}, 0.45)` : 'none',

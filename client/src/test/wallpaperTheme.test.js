@@ -80,4 +80,17 @@ describe('readable text on a card', () => {
     const vars = themeVariables(t);
     for (const k of ['--th-ink', '--th-accent', '--th-heading-ink']) expect(contrast(vars[k], '#000000')).toBeGreaterThan(2.5);
   });
+
+  it('leaves the colours alone on a textured or see-through card, whose colour is not what shows', () => {
+    const base = { type: { ink: '#000000', headingInk: '#000000', accent: '#000000' } };
+    const glass = themeVariables(sanitiseTheme({ ...base, card: { bg: '#000000', opacity: 0.3 } }));
+    expect(glass['--th-ink']).toBe('#000000');
+    const textured = sanitiseTheme({ ...base, card: { bg: '#000000' } });
+    textured.card.texture = { v: 3 };
+    const vars = themeVariables(textured);
+    expect([vars['--th-ink'], vars['--th-heading-ink'], vars['--th-accent']]).toEqual(['#000000', '#000000', '#000000']);
+    // Once the texture's own colour is measured, text is checked against that.
+    expect(themeVariables(textured, { card: { colour: '#f4f1e8' } })['--th-ink']).toBe('#000000');
+    expect(themeVariables(textured, { card: { colour: '#101010' } })['--th-ink']).toBe('#f2f2f2');
+  });
 });
