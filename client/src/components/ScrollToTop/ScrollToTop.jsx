@@ -1,8 +1,15 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import './ScrollToTop.css';
+
+/** The editor's tiles fill the page edge to edge, so nothing floats over them there. */
+export function hidesScrollToTop(pathname) {
+  return pathname === '/editor' || pathname.startsWith('/editor/');
+}
 
 export default function ScrollToTop() {
   const [visible, setVisible] = useState(false);
+  const { pathname } = useLocation();
 
   useEffect(() => {
     const onScroll = () => setVisible(window.scrollY > 200);
@@ -10,7 +17,7 @@ export default function ScrollToTop() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  if (!visible) return null;
+  if (!visible || hidesScrollToTop(pathname)) return null;
 
   return (
     <button

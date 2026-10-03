@@ -12,6 +12,7 @@ import { PasswordRequirements } from '../Registration/Registration.jsx';
 import './AdminPanel.css';
 import BuildStatus from './BuildStatus.jsx';
 import SettingsTab from './SettingsTab.jsx';
+import PreviewLine from './PreviewLine.jsx';
 import { ADMIN_GET_REPORTS, ADMIN_UPDATE_REPORT } from '../../Posts/BasicTextPostServerApi.js';
 import { errorMessage } from '../../../../utils/errorMessage.js';
 
@@ -247,7 +248,7 @@ export default function AdminPanel() {
             <h3>Create User</h3>
             <div className="admin-create-row">
               <input placeholder="Username" value={newUsername} onChange={e => setNewUsername(e.target.value)} maxLength={32} />
-              <input placeholder="Password" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} maxLength={32} />
+              <input placeholder="Password" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} maxLength={128} />
               <button onClick={createUser} disabled={!newUsername || !newPassword}>Create</button>
             </div>
             {createError && <p className="admin-error">{createError}</p>}
@@ -330,6 +331,7 @@ export default function AdminPanel() {
               </div>
             ))}
           </div>
+          <PreviewLine flash={flash} />
           <div className="admin-orphan-row">
             <p className="admin-hint">Orphaned uploads are files no longer referenced by any post (grace period: 1 hour).</p>
             <button className="admin-btn" onClick={async () => {

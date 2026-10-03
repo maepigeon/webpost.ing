@@ -50,11 +50,23 @@
   background: #e8e8e8;
 }
 
-.admin-tab--active {
-  background: #333;
-  color: #fff;
-  border-color: #333;
+/* Named with the panel and its tab row so it outweighs the page's general
+   button look: the chosen tab is a dark plate with white text, on hover too. */
+.admin-panel .admin-tabs button.admin-tab--active,
+.admin-panel .admin-tabs button.admin-tab--active:hover {
+  background: #1c1c1c;
+  color: #ffffff;
+  border-color: #1c1c1c;
+  filter: none;
 }
+.admin-panel .admin-tabs button.admin-tab--active:focus-visible { outline: 2px solid #1c1c1c; outline-offset: 2px; }
+
+/* Fields measure their padding and border inside the width they are given, so
+   a full-width one stays inside its card instead of poking out of it. */
+.admin-panel input:not([type="checkbox"]):not([type="radio"]),
+.admin-panel select,
+.admin-panel textarea { box-sizing: border-box; }
+.admin-panel input[type="file"] { max-width: 100%; }
 
 /* Create form */
 .admin-create-form {
@@ -913,4 +925,15 @@
   .admin-set-input { flex: 1 1 auto; width: auto; min-width: 0; }
   .admin-set-control { width: 100%; }
   .admin-set-control:has(.admin-set-switch) { width: auto; }
+}
+
+/* Stats: the card-previews line, one quiet row. */
+.admin-preview-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 16px 0 0;
+  font-size: 0.85rem;
+  color: #555;
 }

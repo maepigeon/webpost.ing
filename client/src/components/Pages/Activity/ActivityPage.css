@@ -7,9 +7,7 @@
 }
 
 .activity-card {
-  background: rgba(255,255,255,0.55);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: #f4f4f4;
   border: 1px solid rgba(255,255,255,0.7);
   border-radius: 16px;
   padding: 28px 24px;
@@ -41,37 +39,26 @@
 
 .activity-back-link:hover { text-decoration: underline; }
 
-.activity-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 20px;
-  border-bottom: 1px solid rgba(0,0,0,0.1);
-  padding-bottom: 8px;
+/* The tabs are the profile's segmented control (ProfileTabs.css), with the
+   page's name in front so they win over the page's general button look. */
+.activity-page .activity-tabs { max-width: 100%; margin: 0 0 20px; }
+.activity-page .profile-tab {
+  padding: 0 12px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--th-ink, #111111);
+  font: 600 13px var(--app-font);
 }
-
-.activity-tab {
-  padding: 6px 14px;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  background: none;
-  font-size: 13px;
-  font-weight: 500;
-  color: #555;
-  cursor: pointer;
-  transition: background 0.12s, color 0.12s;
+.activity-page .profile-tab:hover { background: color-mix(in srgb, var(--th-ink, #111111) 10%, transparent); box-shadow: none; filter: none; }
+.activity-page .profile-tab:active { box-shadow: none; }
+.activity-page .profile-tab.is-active,
+.activity-page .profile-tab.is-active:hover {
+  background: var(--th-ink, #111111);
+  color: var(--th-card-solid, #ffffff);
 }
-
-.activity-tab:hover { background: rgba(0,0,0,0.05); color: #222; }
-
-/* Named with the page so it wins over the page's general button look. */
-.activity-page .activity-tabs button.activity-tab--active,
-.activity-page .activity-tabs button.activity-tab--active:hover {
-  background: #1c1c1c;
-  border-color: #1c1c1c;
-  color: #fff;
-  filter: none;
-}
+@media (max-width: 520px) { .activity-page .profile-tab { padding: 0 9px; } }
 
 .activity-list {
   display: flex;
