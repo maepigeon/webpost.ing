@@ -540,3 +540,31 @@
   .admin-create-row,
   .admin-search-row { gap: 6px; }
 }
+
+/* Which build is live, and whether there is a newer one. */
+.admin-build {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border: 1px solid #cfcfcf;
+  border-left: 4px solid #8a8a8a;
+  background: #f6f6f6;
+  font-size: 13px;
+  color: #222;
+  text-align: left;
+}
+.admin-build--behind { border-left-color: #1c1c1c; background: #ececec; }
+.admin-build-dim { color: #666; }
+.admin-build code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+.admin-panel button.admin-build-check {
+  padding: 0;
+  border: none;
+  background: none;
+  box-shadow: none;
+  color: #444;
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}

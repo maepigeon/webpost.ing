@@ -11,6 +11,7 @@ import {
 } from '../../Posts/BasicTextPostServerApi.js';
 import { PasswordRequirements } from '../Registration/Registration.jsx';
 import './AdminPanel.css';
+import BuildStatus from './BuildStatus.jsx';
 import { ADMIN_GET_REPORTS, ADMIN_UPDATE_REPORT } from '../../Posts/BasicTextPostServerApi.js';
 import { errorMessage } from '../../../../utils/errorMessage.js';
 
@@ -172,6 +173,7 @@ export default function AdminPanel() {
     <div className="admin-panel">
       <h1 className="admin-title">Admin Dashboard</h1>
       {msg && <div className="admin-flash">{msg}</div>}
+      <BuildStatus />
 
       <div className="admin-tabs">
         {['users', 'reports', 'stats', 'limits', 'flagged', 'import', 'security', 'settings'].map(t => (
