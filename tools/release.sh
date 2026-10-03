@@ -14,7 +14,8 @@
 #      guide/MIGRATIONS.md) and the client tests
 #   2. build the website (client/dist) and the server JAR
 #   3. pack them with install-release.sh into release/webposting-<date>-<commit>.tar.gz
-#   4. upload it to the server's ~/incoming (scp; asks for your SSH password)
+#   4. upload it to the server's ~/incoming (over ssh; asks for your SSH
+#      password once, for this and the next step)
 #   5. unpack it there and run its install.sh with sudo (asks for your sudo
 #      password). That backs up the database, JAR and website, swaps in the
 #      new ones, restarts, checks /api/health, and rolls back if it fails.
@@ -104,9 +105,22 @@ fi
 
 # ── 4. Upload ─────────────────────────────────────────────────────────────────
 step "4/5 Upload to $DEPLOY_HOST:~/$DEPLOY_INBOX"
-ssh "$DEPLOY_HOST" "mkdir -p ~/$DEPLOY_INBOX" || fail "could not reach $DEPLOY_HOST."
-scp "$ROOT/release/$NAME.tar.gz" "$DEPLOY_HOST:$DEPLOY_INBOX/" || fail "upload failed."
-ssh "$DEPLOY_HOST" "cd ~/$DEPLOY_INBOX && tar -xzf $NAME.tar.gz" || fail "unpacking on the server failed."
+# One connection for every step below, so the SSH password is asked once
+# rather than once per step. It closes when the script ends.
+SSH_SOCKET="$(mktemp -d)/ssh"
+SSH_OPTS=(-o ControlMaster=auto -o "ControlPath=$SSH_SOCKET" -o ControlPersist=10m)
+trap 'ssh "${SSH_OPTS[@]}" -O exit "$DEPLOY_HOST" 2>/dev/null || true' EXIT
+ssh "${SSH_OPTS[@]}" "$DEPLOY_HOST" "mkdir -p ~/$DEPLOY_INBOX" || fail "could not log in to $DEPLOY_HOST."
+
+# The archive goes down the ssh connection itself (not scp, which needs the
+# server's file-transfer service), and its size is checked on arrival.
+SIZE="$(wc -c < "$ROOT/release/$NAME.tar.gz" | tr -d ' ')"
+echo "Sending $NAME.tar.gz ($((SIZE / 1048576)) MB) ..."
+ssh "${SSH_OPTS[@]}" "$DEPLOY_HOST" "cat > ~/$DEPLOY_INBOX/$NAME.tar.gz" < "$ROOT/release/$NAME.tar.gz" \
+  || fail "the upload did not finish. ssh's own message is just above: 'No space left' means the server's disk is full; 'Permission denied' means the password or the folder's permissions."
+ARRIVED="$(ssh "${SSH_OPTS[@]}" "$DEPLOY_HOST" "wc -c < ~/$DEPLOY_INBOX/$NAME.tar.gz" | tr -d ' ')"
+[ "$ARRIVED" = "$SIZE" ] || fail "only $ARRIVED of $SIZE bytes arrived. The server's disk may be full (check with: df -h ~)."
+ssh "${SSH_OPTS[@]}" "$DEPLOY_HOST" "cd ~/$DEPLOY_INBOX && tar -xzf $NAME.tar.gz" || fail "unpacking on the server failed."
 
 INSTALL_CMD="sudo bash ~/$DEPLOY_INBOX/$NAME/install.sh --env $SERVER_ENV"
 if [ "$INSTALL" = 0 ]; then
@@ -118,5 +132,5 @@ fi
 
 # ── 5. Install ────────────────────────────────────────────────────────────────
 step "5/5 Install (your sudo password on the server)"
-ssh -t "$DEPLOY_HOST" "$INSTALL_CMD" || fail "install did not complete; it has rolled back if it got as far as the swap. Its output is above."
+ssh -t "${SSH_OPTS[@]}" "$DEPLOY_HOST" "$INSTALL_CMD" || fail "install did not complete; it has rolled back if it got as far as the swap. Its output is above."
 echo; echo "Released $NAME."
