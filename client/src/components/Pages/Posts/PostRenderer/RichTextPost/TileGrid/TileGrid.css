@@ -164,7 +164,7 @@
 /* Links read as links: underlined in the page's accent, stronger on hover or focus. */
 .tilegrid-link { position: absolute; display: block; cursor: pointer; box-shadow: inset 0 -2px 0 var(--th-accent, #2b6cb0); }
 .tilegrid-link.is-hover { background: color-mix(in srgb, var(--th-accent, #2b6cb0) 18%, transparent); }
-.tilegrid-link:focus-visible { outline: 2px solid #5ea0ff; outline-offset: -2px; }
+.tilegrid-link:focus-visible { outline: none; box-shadow: inset 0 -2px 0 var(--th-accent, #2b6cb0), var(--focus-ring); }
 .tg-text-btn.is-on { background: #f2f2f2; color: #111; }
 .tg-error { color: #ff8a8a; font-size: 11px; }
 
@@ -347,7 +347,7 @@ span.tg-layer-name { overflow: hidden; text-overflow: ellipsis; white-space: now
   font: 500 12px var(--app-font);
   padding: 2px 0;
 }
-.tg-layer-name:focus { outline: 1px solid #5ea0ff; border-radius: 2px; }
+.tg-layer-name:focus { outline: 2px solid #f2f2f2; outline-offset: 1px; border-radius: 2px; }
 
 /* ── Custom characters ─────────────────────────────────────────────────────── */
 
@@ -402,15 +402,21 @@ span.tg-layer-name { overflow: hidden; text-overflow: ellipsis; white-space: now
 }
 .tilegrid-bitmap span { background: #f2f2f2; cursor: pointer; }
 .tilegrid-bitmap span.on { background: #111111; }
-.tilegrid-glyphs select {
+.tilegrid-naming { display: inline-flex; align-items: center; gap: 4px; }
+.tilegrid-name {
   height: 24px;
+  width: 150px;
+  box-sizing: border-box;
+  padding: 0 8px;
   border: none;
   border-radius: 3px;
   background: #1c1c1c;
   color: #f2f2f2;
   font: 500 12px var(--app-font);
-  padding: 0 6px;
 }
+.tilegrid-name:focus-visible { outline: 2px solid #f2f2f2; outline-offset: 1px; }
+.tilegrid-glyphs .grid-select-option:not(.is-on):not(.is-at) { background: none; }
+.tilegrid-glyphs .grid-select-btn { height: 26px; }
 
 /* Paw colours, above the texture buttons; they apply to the Paws fill. */
 .tg-texture-options { grid-column: 1 / -1; padding: 2px 0 6px; }

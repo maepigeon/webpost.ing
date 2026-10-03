@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
 import GridButton from './TileGrid/GridButton.jsx';
 import PixelText from './TileGrid/PixelText.jsx';
+import { GridSelect } from './TileGrid/GridUI.jsx';
 import * as player from '../../../../../utils/audioPlayer.js';
 import { useAudioPlayer } from '../../../../AudioPlayer/useAudioPlayer.js';
 import { UPLOAD_AUDIO, READ_POSTS_BY_USER } from '../../BasicTextPostServerApi.js';
@@ -22,6 +23,20 @@ const ACTION_CHOICES = [
   { value: 'audio', text: 'Play audio' },
 ];
 const cap = (s) => s[0].toUpperCase() + s.slice(1);
+
+/** Posts a visitor can open: drafts would send them to a page that is not there. */
+export function publishedOnly(list) {
+  return (Array.isArray(list) ? list : []).filter(p => p && p.published);
+}
+
+/** The picker's options: [path, name] for each post, with the placeholder first. */
+export function postOptions(me, posts) {
+  const named = publishedOnly(posts).map(p => {
+    const name = (p.title || `Post #${p.id}`).replace(/<[^>]*>/g, '').trim() || `Post #${p.id}`;
+    return [postPath(me, p), name.length > 28 ? `${name.slice(0, 27)}…` : name];
+  });
+  return [['', named.length ? 'Choose a post' : 'No published posts yet'], ...named];
+}
 
 /** The button as readers see it. Audio buttons follow the app-wide player. */
 function ButtonFace({ data, editable }) {
@@ -85,6 +100,8 @@ function ButtonEditor({ data, onChange }) {
     READ_POSTS_BY_USER(me, 50, 0).then(list => setPosts(Array.isArray(list) ? list : [])).catch(() => setPosts([]));
   }, [data.action, posts, me]);
 
+  const postChoices = posts ? postOptions(me, posts) : [['', 'Loading']];
+
   // Only a valid target is saved; the last good one stays until the field is valid again.
   const setTarget = (value, patch = {}) => {
     setTargetText(value);
@@ -132,17 +149,11 @@ function ButtonEditor({ data, onChange }) {
       )}
       {data.action === 'post' && (
         <>
-          <label className="pb-field">
+          <div className="pb-field">
             <span className="pb-field-name">Your posts</span>
-            <select className="pb-input" value="" onChange={(e) => e.target.value && setTarget(e.target.value)}
-              disabled={!posts || posts.length === 0}>
-              <option value="">{posts ? (posts.length ? 'Choose a post' : 'No posts yet') : 'Loading'}</option>
-              {(posts || []).map(p => {
-                const path = postPath(me, p);
-                return <option key={p.id} value={path}>{(p.title || `Post #${p.id}`).replace(/<[^>]*>/g, '')}</option>;
-              })}
-            </select>
-          </label>
+            <GridSelect label="Your posts" value={postChoices.some(([v]) => v === targetText) ? targetText : ''}
+              options={postChoices} onChange={(v) => v && setTarget(v)} />
+          </div>
           <label className="pb-field">
             <span className="pb-field-name">or a path</span>
             <input type="text" className="pb-input" value={targetText} placeholder="/name/post"
@@ -153,7 +164,7 @@ function ButtonEditor({ data, onChange }) {
       {data.action === 'audio' && (
         <div className="pb-field">
           <span className="pb-field-name">Audio file</span>
-          <input ref={fileRef} type="file" accept=".mp3,audio/mpeg" onChange={upload}
+          <input ref={fileRef} type="file" accept=".mp3,audio/mpeg" onChange={upload} aria-label="Choose an MP3 file"
             style={{ display: 'none' }} tabIndex={-1} aria-hidden="true" />
           <span className="pb-pills">
             <GridButton label="Upload audio" disabled={busy} onClick={() => fileRef.current?.click()} />

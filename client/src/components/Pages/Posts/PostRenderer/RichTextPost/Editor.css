@@ -17,9 +17,7 @@
 .editor-post-card {
   width: 628px;
   max-width: calc(100vw - 32px);
-  background: rgba(255, 255, 255, 0.28);
-  backdrop-filter: blur(16px) saturate(180%) brightness(1.05);
-  -webkit-backdrop-filter: blur(16px) saturate(180%) brightness(1.05);
+  background: #f4f4f2;   /* solid; a theme replaces it */
   border: 1px solid rgba(255, 255, 255, 0.55);
   border-radius: 20px;
   box-shadow:
@@ -43,19 +41,35 @@
 
 /* ── Sticky toolbar (flat band inside the card) ────────────────────────── */
 
-.toolbar-sticky {
+/* One side inset for everything under the title: the tool panel, the save row,
+   the URL, the description and "Goes in" all share it. */
+.editor-post-card { --pe-inset: 16px; }
+
+/* The whole stack (tools and save row) stays in view while there is room.
+   The strip is the card's own flat colour and ink, so it reads on any theme;
+   `--th-card-solid` and `--th-ink` are the contrast-checked pair. The id
+   selector outweighs the fixed cream in themes.css. */
+.toolbar-sticky,
+#appBody .editor-post-card .toolbar-sticky.toolbar-stack {
   position: sticky;
   top: var(--navbar-height, 48px);
   z-index: 150;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 16px;
-  background: var(--th-card-bg, #fbfaf6);
-  border-top: 1px solid rgba(0, 0, 0, 0.07);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+  padding: 0;
+  background: var(--th-card-solid, #fbfaf6);
+  color: var(--th-ink, #1c1c1c);
+  border-top: 1px solid var(--th-hair, rgba(0, 0, 0, 0.1));
 }
+
+/* Short windows, phones, and any time a grid is being edited: only the save
+   row stays in view; the tool rows scroll with the page, so they never cover
+   the grid's own tools. The wrapper steps aside (display: contents) so the
+   save row sticks to the card, not to a wrapper that scrolls away. */
+@media (max-width: 600px), (max-height: 700px) {
+  .toolbar-sticky.toolbar-stack,
+  #appBody .editor-post-card .toolbar-sticky.toolbar-stack { position: static; display: contents; }
+}
+.editor-post-card:has(.tilegrid--editing) .toolbar-sticky.toolbar-stack,
+#appBody .editor-post-card:has(.tilegrid--editing) .toolbar-sticky.toolbar-stack { position: static; display: contents; }
 
 /* The tools: the grid editor's panel, with Edit, Text, Style, Insert and
    Page rows of tile buttons (.tg-tile, .tg-text-btn, .tg-group from
@@ -65,6 +79,7 @@
   flex-flow: row wrap;   /* open sections take a line each; folded ones share a line */
   align-items: flex-start;
   gap: 6px 14px;
+  margin: 6px var(--pe-inset);
   padding: 8px;
   background: #0d0d0d;
   color: #f2f2f2;
@@ -221,40 +236,39 @@
   width: 130px;
 }
 
-/* Save Draft button — amber outline */
+/* The save row's buttons take the card's ink, so they read on a dark card as
+   well as a light one: outlined for the quiet actions, filled for Publish. */
 .toolbar-btn-draft {
   background: transparent;
-  color: #535353;
-  border: 1px solid #878787;
+  color: var(--th-ink, #535353);
+  border: 1px solid var(--th-ink, #878787);
   font-weight: 500;
 }
 
 .toolbar-btn-draft:hover {
-  background: #f1f1f1;
+  background: var(--th-tint, #f1f1f1);
 }
 
-/* Publish / Save button — blue */
 .toolbar-btn-save {
-  background: #666666;
-  color: #fff;
-  border: 1px solid #4e4e4e;
+  background: var(--th-ink, #666666);
+  color: var(--th-card-solid, #fff);
+  border: 1px solid var(--th-ink, #4e4e4e);
   font-weight: 600;
 }
 
 .toolbar-btn-save:hover {
-  background: #4e4e4e;
+  opacity: 0.85;
 }
 
-/* View post button — teal outline */
 .toolbar-btn-view {
   background: transparent;
-  color: #474747;
-  border: 1px solid #595959;
+  color: var(--th-ink, #474747);
+  border: 1px solid var(--th-ink, #595959);
   font-weight: 500;
 }
 
 .toolbar-btn-view:hover {
-  background: rgba(89, 89, 89, 0.08);
+  background: var(--th-tint, rgba(89, 89, 89, 0.08));
 }
 
 /* ── Collapsible toolbar sections ───────────────────────────────────────── */
@@ -313,7 +327,7 @@
   gap: 8px;
   flex-wrap: wrap;
   margin: -2px 0 10px;
-  padding: 0 4px;
+  padding: 0 var(--pe-inset);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
 }
@@ -327,7 +341,7 @@
 .post-slug-edit,
 .post-slug-reset {
   padding: 3px 9px;
-  font-family: inherit;
+  font-family: var(--app-font);
   font-size: 11px;
   font-weight: 600;
   color: #505050;
@@ -372,7 +386,7 @@
   flex-direction: column;
   gap: 3px;
   margin: 0 0 10px;
-  padding: 0 4px;
+  padding: 0 var(--pe-inset);
   font-family: inherit;
 }
 
@@ -427,11 +441,11 @@
 .toolbar-save-status {
   font-size: 0.78rem;
   font-weight: 600;
-  color: #3c3c3c;
+  color: var(--th-ink, #3c3c3c);
   padding: 2px 6px;
 }
 
-.toolbar-save-status--error { color: #b71c1c; }
+.toolbar-save-status--error { color: var(--th-danger, #b71c1c); }
 
 /* Where the work is kept: quiet, in the page's own text colour. */
 .autosave-status {
@@ -448,20 +462,29 @@
   align-items: center;
   gap: 8px;
   padding: 6px 10px;
-  margin: 0 0 6px;
+  margin: 0 var(--pe-inset) 6px;
   font: 13px var(--app-font);
   color: var(--th-ink, #111);
   border: 1px solid currentColor;
 }
-.draft-found button {
-  font: 600 12px var(--app-font);
+/* Restore and Discard are the same small grey button as "Set a custom URL". */
+.editor-post-card .draft-found button {
   padding: 3px 10px;
-  background: transparent;
-  color: inherit;
-  border: 1px solid currentColor;
+  font: 600 12px var(--app-font);
+  color: var(--th-ink, #505050);
+  background: var(--th-tint, rgba(255, 255, 255, 0.8));
+  border: 1px solid var(--th-hair, rgba(28, 28, 28, 0.16));
+  border-radius: 7px;
+  box-shadow: none;
   cursor: pointer;
+  white-space: nowrap;
 }
-.draft-found button:hover { opacity: 0.7; }
+.editor-post-card .draft-found button:hover {
+  background: var(--th-tint-strong, #ffffff);
+  border-color: var(--th-ink, rgba(119, 119, 119, 0.4));
+  filter: none;
+  transform: none;
+}
 
 .toolbar-view-link { text-decoration: none; }
 
@@ -652,11 +675,10 @@
   gap: 3px;
   align-items: center;
   flex-wrap: wrap;
-  background: rgba(25,25,25,0.92);
+  background: #191919;
   border: 1px solid rgba(255,255,255,0.14);
   border-radius: 6px;
   padding: 3px 6px;
-  backdrop-filter: blur(6px);
   pointer-events: auto;
 }
 
@@ -695,6 +717,16 @@
   max-width: 110px;
 }
 .code-ctrl-select option { background: #222; color: #ddd; }
+.code-ctrl-input {
+  width: 120px;
+  background: rgba(255,255,255,0.1);
+  color: #e6e6e6;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 3px;
+  font: 11px var(--app-font);
+  padding: 1px 5px;
+}
+.code-ctrl-input:focus-visible { outline: 2px solid #f2f2f2; outline-offset: 1px; }
 
 /* Copy bar overlaying the top strip of each code block (viewer only).
    Sits at z-index:10 over the ::before language label; button is right-aligned. */
@@ -750,8 +782,7 @@
   position: fixed;
   z-index: 500;
   transform: translateX(-50%);
-  background: rgba(30,30,30,0.92);
-  backdrop-filter: blur(8px);
+  background: #1e1e1e;
   border-radius: 6px;
   padding: 4px 6px;
   display: flex;
@@ -809,8 +840,7 @@
   z-index: 10;
   display: flex;
   gap: 4px;
-  background: rgba(30, 30, 30, 0.82);
-  backdrop-filter: blur(8px);
+  background: #1e1e1e;
   border-radius: 8px;
   padding: 4px 6px;
   white-space: nowrap;
@@ -901,11 +931,7 @@
     max-width: 100vw;
   }
 
-  /* The tools wrap (a sideways-scrolling toolbar also clipped its menus). */
-  .toolbar-sticky {
-    gap: 3px;
-    padding: 5px 10px;
-  }
+  .editor-post-card { --pe-inset: 10px; }
 
   /* A menu opens across the whole toolbar, so it never runs off the screen. */
 
@@ -1007,9 +1033,7 @@
 .toolbar-mobile-panel {
   width: 100%;
   max-height: 70dvh;
-  background: rgba(255,255,255,0.82);
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  background: #f4f4f4;
   border-bottom: 1px solid rgba(0,0,0,0.12);
   box-shadow: 0 8px 32px rgba(0,0,0,0.18);
   display: flex;
@@ -1068,16 +1092,13 @@
   inset: 0;
   z-index: 10000;
   background: rgba(0,0,0,0.35);
-  backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .editor-modal {
-  background: rgba(255,255,255,0.96);
-  backdrop-filter: blur(18px) saturate(160%);
-  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  background: #fbfbfa;
   border-radius: 14px;
   border: 1.5px solid rgba(255,255,255,0.9);
   box-shadow:
@@ -1114,6 +1135,16 @@
   box-sizing: border-box;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
+.editor-modal-preview {
+  max-height: 160px;
+  overflow: auto;
+  padding: 6px 10px;
+  border-radius: 9px;
+  background: #f0f0ee;
+  color: #1c1c1c;
+}
+.editor-modal-status--error { color: #b71c1c; }
+.editor-modal-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .editor-modal-input:focus {
   border-color: #747474;
   box-shadow: 0 0 0 3px rgba(116, 116, 116, 0.15);
@@ -1294,16 +1325,24 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 6px;
+  gap: 0;
 }
 
+/* Sticky on its own as well as inside the stack, so it can stay in view when
+   the stack steps aside (see above). */
 .toolbar-actions {
+  position: sticky;
+  top: var(--navbar-height, 48px);
+  z-index: 150;
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  padding-top: 6px;
-  border-top: 1px solid var(--hairline, rgba(28, 28, 28, 0.13));
+  padding: 6px var(--pe-inset);
+  background: var(--th-card-solid, #fbfaf6);
+  color: var(--th-ink, #1c1c1c);
+  border-top: 1px solid var(--th-hair, rgba(28, 28, 28, 0.13));
+  border-bottom: 1px solid var(--th-hair, rgba(28, 28, 28, 0.13));
 }
 
 /* "Post not found": a plain card. */
@@ -1393,7 +1432,7 @@
   flex-direction: column;
   gap: 4px;
   margin: 0 0 10px;
-  padding: 0 4px;
+  padding: 0 var(--pe-inset);
   font-family: inherit;
 }
 
@@ -1441,5 +1480,4 @@
   color: var(--th-ink, #565656);
   opacity: 0.65;
 }
-/* Post is the first choice and the default; its hint says nothing new. */
-.post-section-row:has(.post-section-pill:first-child.is-on) .post-section-hint { display: none; }
+

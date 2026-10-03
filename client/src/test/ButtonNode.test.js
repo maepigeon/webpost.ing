@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createEditor } from 'lexical';
-import { ButtonNode, $createButtonNode, $isButtonNode } from '../components/Pages/Posts/PostRenderer/RichTextPost/ButtonNode.jsx';
+import { ButtonNode, $createButtonNode, $isButtonNode, publishedOnly, postOptions } from '../components/Pages/Posts/PostRenderer/RichTextPost/ButtonNode.jsx';
 import { validateTarget, normaliseButton, isSitePath, BUTTON_LABEL_MAX } from '../components/Pages/Posts/PostRenderer/RichTextPost/buttonTarget.js';
 
 vi.stubGlobal('import', { meta: { env: {} } });
@@ -66,5 +66,29 @@ describe('button targets', () => {
     const label = normaliseButton({ label: `a\u0007${'b'.repeat(80)}` }).label;
     expect(label.length).toBe(BUTTON_LABEL_MAX);
     expect(label).not.toContain('\u0007');
+  });
+});
+
+describe('the "Open one of my posts" list', () => {
+  const posts = [
+    { id: 1, title: 'Live', published: true },
+    { id: 2, title: 'Draft one', published: false },
+    { id: 3, title: '<b>Also</b> live', published: true },
+  ];
+
+  it('lists published posts only', () => {
+    expect(publishedOnly(posts).map(p => p.id)).toEqual([1, 3]);
+    expect(publishedOnly(null)).toEqual([]);
+  });
+
+  it('offers a placeholder first, then each live post by name', () => {
+    const options = postOptions('mae', posts);
+    expect(options[0]).toEqual(['', 'Choose a post']);
+    expect(options.map(([, name]) => name)).toEqual(['Choose a post', 'Live', 'Also live']);
+    expect(options.every(([path]) => path === '' || path.startsWith('/mae/'))).toBe(true);
+  });
+
+  it('says so when nothing is published yet', () => {
+    expect(postOptions('mae', [{ id: 2, title: 'Draft', published: false }])).toEqual([['', 'No published posts yet']]);
   });
 });

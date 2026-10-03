@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { bitsFromHex, hexFromBits, seedBits } from './tileGrid.js';
 import { GET_PIXEL_FONTS, CREATE_PIXEL_FONT, UPDATE_PIXEL_FONT } from '../../../BasicTextPostServerApi.js';
+import { GridSelect } from './GridUI.jsx';
 import { errorMessage } from '../../../../../../utils/errorMessage.js';
 
 /**
@@ -12,6 +13,7 @@ function Libraries({ glyphs, onUse }) {
   const [fonts, setFonts] = useState([]);
   const [chosen, setChosen] = useState('');
   const [note, setNote] = useState('');
+  const [naming, setNaming] = useState(null);   // the name being typed for a new font, or null
 
   const load = () => { if (me) GET_PIXEL_FONTS(me).then(f => setFonts(Array.isArray(f) ? f : [])).catch(() => {}); };
   useEffect(load, [me]);
@@ -22,7 +24,8 @@ function Libraries({ glyphs, onUse }) {
   const fail = (err, msg) => setNote(errorMessage(err, msg));
 
   const saveNew = async () => {
-    const name = window.prompt('Name this pixel font:')?.trim();
+    const name = (naming || '').trim();
+    setNaming(null);
     if (!name) return;
     try {
       const { id } = await CREATE_PIXEL_FONT(me, name.slice(0, 40), glyphs);
@@ -44,15 +47,29 @@ function Libraries({ glyphs, onUse }) {
   return (
     <div className="tilegrid-row tilegrid-libraries">
       <span className="tilegrid-label">Fonts</span>
-      <select value={chosen} onChange={e => setChosen(e.target.value)} aria-label="Your pixel fonts">
-        <option value="">{fonts.length ? 'Your pixel fonts…' : 'No saved fonts yet'}</option>
-        {fonts.map(f => <option key={f.id} value={f.id}>{f.name} ({Object.keys(f.glyphs || {}).length})</option>)}
-      </select>
+      <GridSelect label="Your pixel fonts" value={chosen} onChange={setChosen}
+        options={[['', fonts.length ? 'Your pixel fonts…' : 'No saved fonts yet'],
+          ...fonts.map(f => [String(f.id), `${f.name} (${Object.keys(f.glyphs || {}).length})`])]} />
       <button type="button" disabled={!font} onClick={() => { onUse(font.glyphs); setNote(`Using “${font.name}”.`); }}
         title="Copy this font's characters into the grid">Use</button>
       <button type="button" disabled={!font || !count} onClick={update}
         title="Add this grid's characters to the font, replacing any it already has">Update</button>
-      <button type="button" disabled={!count} onClick={saveNew} title="Save this grid's characters as a new font">Save as font…</button>
+      {naming === null
+        ? <button type="button" disabled={!count} onClick={() => setNaming('')} title="Save this grid's characters as a new font">Save as font…</button>
+        : (
+          <span className="tilegrid-naming">
+            <input className="tilegrid-name" type="text" value={naming} maxLength={40} autoFocus
+              placeholder="Name this font" aria-label="Name this pixel font"
+              onChange={e => setNaming(e.target.value)}
+              onKeyDown={e => {
+                e.stopPropagation();
+                if (e.key === 'Enter') { e.preventDefault(); saveNew(); }
+                if (e.key === 'Escape') { e.preventDefault(); setNaming(null); }
+              }} />
+            <button type="button" className="is-on" disabled={!naming.trim()} onClick={saveNew}>Save</button>
+            <button type="button" onClick={() => setNaming(null)}>Cancel</button>
+          </span>
+        )}
       {note && <span className="tilegrid-hint">{note}</span>}
     </div>
   );
