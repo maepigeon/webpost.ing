@@ -12,6 +12,16 @@ export function pollDelay(unchanged) {
   return unchanged >= UNCHANGED_BEFORE_SLOW ? SLOW_POLL_MS : POLL_MS;
 }
 
+// The Inbox (and anything else that changes what is unread) dispatches this on
+// `window` so the badges recount at once instead of at the next poll.
+export const COUNTS_CHANGED_EVENT = 'wp:counts-changed';
+
+/** Calls `onChange` for each counts-changed event on `target`; returns the unsubscribe. */
+export function listenForCountChanges(target, onChange) {
+  target.addEventListener(COUNTS_CHANGED_EVENT, onChange);
+  return () => target.removeEventListener(COUNTS_CHANGED_EVENT, onChange);
+}
+
 const onCountPage = (path) =>
   COUNT_PAGES.some(p => path === p || path.startsWith(p + '/'));
 
@@ -98,9 +108,11 @@ export function useUnreadCounts(enabled, pathname) {
     pollerRef.current = poller;
     const onVisibility = () => { if (!document.hidden) poller.visible(); };
     document.addEventListener('visibilitychange', onVisibility);
+    const stopListening = listenForCountChanges(window, () => poller.refresh());
     poller.start();
     return () => {
       document.removeEventListener('visibilitychange', onVisibility);
+      stopListening();
       poller.stop();
       pollerRef.current = null;
     };

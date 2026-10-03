@@ -1475,9 +1475,4 @@
 }
 @media (pointer: coarse) { .post-section-pill { min-height: 40px; line-height: 40px; } }
 
-.post-section-hint {
-  font-size: 11px;
-  color: var(--th-ink, #565656);
-  opacity: 0.65;
-}
 

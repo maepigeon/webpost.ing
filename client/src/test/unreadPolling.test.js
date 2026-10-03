@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   POLL_MS, SLOW_POLL_MS, UNCHANGED_BEFORE_SLOW,
-  pollDelay, countsPageChanged, createCounterPoller,
+  pollDelay, countsPageChanged, createCounterPoller, listenForCountChanges, COUNTS_CHANGED_EVENT,
 } from '../components/Navbar/useUnreadCounts.js';
 
 describe('pollDelay', () => {
@@ -126,5 +126,20 @@ describe('createCounterPoller', () => {
     poller.stop();
     await vi.advanceTimersByTimeAsync(POLL_MS * 5);
     expect(load).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('listenForCountChanges', () => {
+  it('calls back for each wp:counts-changed event until unsubscribed', () => {
+    expect(COUNTS_CHANGED_EVENT).toBe('wp:counts-changed');
+    const target = new EventTarget();
+    const cb = vi.fn();
+    const off = listenForCountChanges(target, cb);
+    target.dispatchEvent(new Event('wp:counts-changed'));
+    target.dispatchEvent(new Event('other'));
+    expect(cb).toHaveBeenCalledTimes(1);
+    off();
+    target.dispatchEvent(new Event('wp:counts-changed'));
+    expect(cb).toHaveBeenCalledTimes(1);
   });
 });

@@ -176,6 +176,80 @@ class DiscussionControllerTest {
         verify(social).createNotification(2, "comment", "whiskers", 10, 43);
     }
 
+    // ── replies notify the person replied to ──────────────────────────────────
+
+    /**
+     * Whiskers replies under comment 9, on a post owned by mittens (id 2). Each test
+     * uses its own replier id because the comment rate limiter is shared and keyed by it.
+     */
+    private void replyScenario(int replierId, String text, int parentAuthorId, List<Integer> mentionRecipients) throws Exception {
+        AuthSession s = new AuthSession("whiskers");
+        s.userId = replierId;
+        when(loginRepository.authorize("whiskers", "tok")).thenReturn(s);
+        when(social.isDiscussionEnabled(10)).thenReturn(true);
+        when(jdbc.queryForObject(anyString(), eq(Boolean.class), eq(replierId))).thenReturn(false);
+        when(social.addComment(10, 9, replierId, text)).thenReturn(44);
+        when(postRepository.getUsernameFromPostId(10)).thenReturn(mittensOwner);
+        when(social.getUserIdByUsername("mittens")).thenReturn(2);
+        when(social.getCommentAuthorId(9)).thenReturn(parentAuthorId);
+        if (mentionRecipients != null)
+            when(social.findMentionRecipients(anyList(), eq(replierId), eq(10))).thenReturn(mentionRecipients);
+    }
+
+    @Test
+    void addComment_replyNotifiesTheParentCommentsAuthorAndTheOwner() throws Exception {
+        replyScenario(101, "agreed", 3, null);
+        discussionController.addComment(10, Map.of("content", "agreed", "parentId", 9), "whiskers", "tok");
+        verify(social).createNotification(3, "reply", "whiskers", 10, 44);
+        verify(social).createNotification(2, "comment", "whiskers", 10, 44);
+    }
+
+    @Test
+    void addComment_replyToYourOwnCommentNotifiesNoOne() throws Exception {
+        replyScenario(102, "adding more", 102, null);
+        discussionController.addComment(10, Map.of("content", "adding more", "parentId", 9), "whiskers", "tok");
+        verify(social, never()).createNotification(anyInt(), eq("reply"), anyString(), anyInt(), anyInt());
+    }
+
+    @Test
+    void addComment_replyToThePostOwnerIsNotToldTwice() throws Exception {
+        replyScenario(103, "thanks", 2, null);
+        discussionController.addComment(10, Map.of("content", "thanks", "parentId", 9), "whiskers", "tok");
+        verify(social).createNotification(2, "comment", "whiskers", 10, 44);
+        verify(social, never()).createNotification(eq(2), eq("reply"), anyString(), anyInt(), anyInt());
+    }
+
+    @Test
+    void addComment_replyToSomeoneAlsoMentionedGetsOnlyTheMention() throws Exception {
+        replyScenario(104, "hi @sam", 3, List.of(3));
+        discussionController.addComment(10, Map.of("content", "hi @sam", "parentId", 9), "whiskers", "tok");
+        verify(social).createNotification(3, "mention", "whiskers", 10, 44);
+        verify(social, never()).createNotification(eq(3), eq("reply"), anyString(), anyInt(), anyInt());
+    }
+
+    @Test
+    void addComment_replyToADeletedParentNotifiesOnlyTheOwner() throws Exception {
+        replyScenario(105, "late", -1, null);
+        discussionController.addComment(10, Map.of("content", "late", "parentId", 9), "whiskers", "tok");
+        verify(social, never()).createNotification(anyInt(), eq("reply"), anyString(), anyInt(), anyInt());
+        verify(social).createNotification(2, "comment", "whiskers", 10, 44);
+    }
+
+    @Test
+    void addComment_topLevelCommentSendsNoReply() throws Exception {
+        AuthSession s = new AuthSession("whiskers");
+        s.userId = 106;
+        when(loginRepository.authorize("whiskers", "tok")).thenReturn(s);
+        when(social.isDiscussionEnabled(10)).thenReturn(true);
+        when(jdbc.queryForObject(anyString(), eq(Boolean.class), eq(106))).thenReturn(false);
+        when(social.addComment(10, null, 106, "first")).thenReturn(45);
+        when(postRepository.getUsernameFromPostId(10)).thenReturn(mittensOwner);
+        when(social.getUserIdByUsername("mittens")).thenReturn(2);
+        discussionController.addComment(10, Map.of("content", "first"), "whiskers", "tok");
+        verify(social, never()).getCommentAuthorId(anyInt());
+        verify(social, never()).createNotification(anyInt(), eq("reply"), anyString(), anyInt(), anyInt());
+    }
+
     @Test
     void addComment_withinCooldown_returns429() throws Exception {
         when(loginRepository.authorize("whiskers", "tok")).thenReturn(whiskersSession);

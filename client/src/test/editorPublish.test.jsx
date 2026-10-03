@@ -18,7 +18,7 @@ vi.mock('axios', () => {
   return { default: { ...client, create: () => client, defaults: { headers: { common: {} } }, interceptors: { request: { use: vi.fn() }, response: { use: vi.fn() } } } };
 });
 
-import { SaveToolbarPlugin } from '../components/Pages/Posts/PostRenderer/RichTextPost/Editor.jsx';
+import { SaveToolbarPlugin, PostSectionField, AudioToolbarPlugin } from '../components/Pages/Posts/PostRenderer/RichTextPost/Editor.jsx';
 import { CREATE_POST, UPDATE_POST } from '../components/Pages/Posts/BasicTextPostServerApi.js';
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
@@ -89,5 +89,39 @@ describe('first Publish of a new post', () => {
     expect(await screen.findByText('Draft saved.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save draft' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Publish' })).toBeInTheDocument();
+  });
+});
+
+describe('the Goes in pills', () => {
+  it('keep their hints in the hover title, with no visible note under them', () => {
+    const { container } = render(<PostSectionField section="notes" onSectionChange={() => {}} />);
+    expect(container.querySelector('.post-section-hint')).toBeNull();
+    expect(screen.queryByText(/A quieter place/)).toBeNull();
+    expect(screen.getByRole('radio', { name: 'Note' })).toHaveAttribute('title', expect.stringMatching(/quieter place/));
+    expect(screen.getByRole('radio', { name: 'Subscribers' })).toHaveAttribute('title', expect.stringMatching(/Only you can see/));
+    expect(screen.getByRole('radio', { name: 'Post' })).toHaveAttribute('title', expect.stringMatching(/profile/));
+  });
+});
+
+describe('an upload that fails', () => {
+  it('is told in the app dialog, not a browser alert', async () => {
+    const browserAlert = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    const { UPLOAD_AUDIO } = await import('../components/Pages/Posts/BasicTextPostServerApi.js');
+    UPLOAD_AUDIO.mockRejectedValueOnce({ response: { data: 'That file is too big.' } });
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    render(
+      <DialogProvider>
+        <LexicalComposer initialConfig={{ namespace: 't', onError: e => { throw e; } }}>
+          <AudioToolbarPlugin />
+        </LexicalComposer>
+      </DialogProvider>
+    );
+    const input = document.querySelector('input[type="file"]');
+    fireEvent.change(input, { target: { files: [new File(['x'], 'a.mp3', { type: 'audio/mpeg' })] } });
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent('That file is too big.');
+    expect(browserAlert).not.toHaveBeenCalled();
+    browserAlert.mockRestore();
+    console.error.mockRestore();
   });
 });

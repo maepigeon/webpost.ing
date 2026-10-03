@@ -1,12 +1,7 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
-import { BASE_URL } from '../../../../config.js';
+import { ADMIN_PREVIEW_STATUS, ADMIN_PREVIEW_RUN } from '../../Posts/BasicTextPostServerApi.js';
 import { errorMessage } from '../../../../utils/errorMessage.js';
 import { previewsLeft, previewLineText } from './previewLine.js';
-
-// The two admin calls for the background card-preview fill (PreviewAdminController).
-const STATUS_URL = '/api/admin/previews';
-const RUN_URL = '/api/admin/previews/run';
 
 /**
  * One quiet line on the Stats tab: how many posts still wait for a card
@@ -19,8 +14,8 @@ export default function PreviewLine({ flash }) {
 
   useEffect(() => {
     let live = true;
-    axios.get(BASE_URL + STATUS_URL, { withCredentials: true })
-      .then(r => { if (live) setStatus(r.data); })
+    ADMIN_PREVIEW_STATUS()
+      .then(d => { if (live) setStatus(d); })
       .catch(() => {});
     return () => { live = false; };
   }, []);
@@ -28,8 +23,7 @@ export default function PreviewLine({ flash }) {
   const run = async () => {
     setRunning(true);
     try {
-      const r = await axios.post(BASE_URL + RUN_URL, null, { withCredentials: true });
-      setStatus(r.data);
+      setStatus(await ADMIN_PREVIEW_RUN());
     } catch (e) {
       flash?.(errorMessage(e, 'Could not run the card previews.'));
     } finally {

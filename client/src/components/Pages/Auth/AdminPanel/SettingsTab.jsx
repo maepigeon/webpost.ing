@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { ADMIN_GET_SETTINGS, ADMIN_UPDATE_SETTING } from '../../Posts/BasicTextPostServerApi.js';
 import { BASE_URL } from '../../../../config.js';
+import { errorMessage } from '../../../../utils/errorMessage.js';
 import {
   withDefaults, isOn, parseDailyLimit, canSaveDailyLimit, settingWarnings,
 } from './settingsModel.js';
@@ -66,9 +67,9 @@ export default function SettingsTab({ flash }) {
     try {
       await ADMIN_UPDATE_SETTING(key, next);
       flash('Saved.');
-    } catch {
+    } catch (e) {
       setSettings(s => ({ ...s, [key]: before }));
-      flash('Could not save that setting.');
+      flash(errorMessage(e, 'Could not save that setting.'));
     } finally {
       setBusy(key, false);
     }
@@ -84,8 +85,8 @@ export default function SettingsTab({ flash }) {
       setSettings(s => ({ ...s, [key]: String(p.value) }));
       setLimitText(String(p.value));
       flash('Saved.');
-    } catch {
-      flash('Could not save that setting.');
+    } catch (e) {
+      flash(errorMessage(e, 'Could not save that setting.'));
     } finally {
       setBusy(key, false);
     }

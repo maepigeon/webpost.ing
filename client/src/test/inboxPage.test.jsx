@@ -11,7 +11,7 @@ vi.mock('../components/Pages/Posts/BasicTextPostServerApi.js', () => ({
 }));
 vi.mock('../components/Dialog/Dialog.jsx', () => ({ useDialog: () => ({ confirm: vi.fn(() => Promise.resolve(true)) }) }));
 
-import { GET_NOTIFICATIONS, MARK_NOTIFICATION_READ } from '../components/Pages/Posts/BasicTextPostServerApi.js';
+import { GET_NOTIFICATIONS, MARK_NOTIFICATION_READ, MARK_ALL_READ, CLEAR_NOTIFICATIONS } from '../components/Pages/Posts/BasicTextPostServerApi.js';
 import InboxPage from '../components/Social/InboxPage.jsx';
 import { notifHref, notifExcerpt, isGone, subjectTitle } from '../components/Social/inboxModel.js';
 
@@ -134,5 +134,50 @@ describe('InboxPage rows', () => {
     fireEvent.click(container.querySelector('.inbox-item'));
     await waitFor(() => expect(MARK_NOTIFICATION_READ).toHaveBeenCalledWith(1));
     expect(screen.queryByTestId('where')).toBeNull();
+  });
+});
+
+describe('InboxPage badge refresh', () => {
+  const heard = () => {
+    const cb = vi.fn();
+    window.addEventListener('wp:counts-changed', cb);
+    return { cb, off: () => window.removeEventListener('wp:counts-changed', cb) };
+  };
+
+  it('tells the badges to recount after Mark all as read', async () => {
+    const { cb, off } = heard();
+    show([{ ...base, type: 'comment', commentId: 5 }]);
+    fireEvent.click(await screen.findByRole('button', { name: 'Mark all as read' }));
+    await waitFor(() => expect(cb).toHaveBeenCalledTimes(1));
+    expect(MARK_ALL_READ).toHaveBeenCalled();
+    off();
+  });
+
+  it('tells the badges to recount after marking one row read', async () => {
+    const { cb, off } = heard();
+    show([{ ...base, type: 'comment', commentId: 5 }]);
+    fireEvent.click(await screen.findByRole('button', { name: 'Mark as read' }));
+    await waitFor(() => expect(cb).toHaveBeenCalledTimes(1));
+    off();
+  });
+
+  it('tells the badges to recount after Clear all', async () => {
+    const { cb, off } = heard();
+    show([{ ...base, type: 'comment', commentId: 5 }]);
+    fireEvent.click(await screen.findByRole('button', { name: 'Clear all' }));
+    await waitFor(() => expect(cb).toHaveBeenCalledTimes(1));
+    expect(CLEAR_NOTIFICATIONS).toHaveBeenCalled();
+    off();
+  });
+
+  it('marks the row read, and recounts, when the actor name is clicked', async () => {
+    const { cb, off } = heard();
+    show([{ ...base, type: 'comment', commentId: 5 }]);
+    const actor = await screen.findByRole('link', { name: 'test2' });
+    fireEvent.click(actor);
+    await waitFor(() => expect(screen.getByTestId('where')).toHaveTextContent('/test2'));
+    expect(MARK_NOTIFICATION_READ).toHaveBeenCalledWith(1);
+    expect(cb).toHaveBeenCalledTimes(1);
+    off();
   });
 });

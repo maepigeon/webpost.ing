@@ -46,7 +46,7 @@
   user-select: text;
   -webkit-user-select: text;
 }
-.an-input:focus { outline: 2px solid #5ea0ff; outline-offset: 1px; }
+.an-input:focus { outline: none; box-shadow: var(--focus-ring); }
 .an-name { width: 160px; }
 .an-num { width: 84px; }
 

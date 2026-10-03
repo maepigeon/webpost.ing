@@ -812,6 +812,7 @@ function DecoratorKeyboardPlugin() {
 // Handles drag-and-drop and clipboard paste of image files into the editor
 function ImageDragPastePlugin() {
   const [editor] = useLexicalComposerContext();
+  const { alert: showError } = useDialog();
 
   const uploadFile = useCallback(async (file) => {
     if (!file || !file.type.startsWith('image/')) return;
@@ -827,9 +828,9 @@ function ImageDragPastePlugin() {
       console.error('Image upload failed:', err);
       // The server explains the specific reason — a size cap, an unreadable
       // file, a full quota — so show that rather than replacing it.
-      alert(describeUploadError(err));
+      showError(describeUploadError(err));
     }
-  }, [editor]);
+  }, [editor, showError]);
 
   useEffect(() => {
     const root = editor.getRootElement();
@@ -874,8 +875,9 @@ function ImageDragPastePlugin() {
 }
 
 // An MP3 from the Insert row: picked, uploaded, and placed as an audio block.
-function AudioToolbarPlugin() {
+export function AudioToolbarPlugin() {
   const [editor] = useLexicalComposerContext();
+  const { alert: showError } = useDialog();
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
 
@@ -891,7 +893,7 @@ function AudioToolbarPlugin() {
       });
     } catch (err) {
       console.error('Audio upload failed:', err);
-      alert(describeUploadError(err));
+      showError(describeUploadError(err));
     } finally {
       setBusy(false);
     }
@@ -919,6 +921,7 @@ function ButtonToolbarPlugin() {
 
 function ImageToolbarPlugin() {
   const [editor] = useLexicalComposerContext();
+  const { alert: showError } = useDialog();
   const [infoOpen, setInfoOpen] = useState(false);
   const infoRef = useRef(null);
   const [pendingFile, setPendingFile] = useState(null);
@@ -950,7 +953,7 @@ function ImageToolbarPlugin() {
       });
     } catch (err) {
       console.error('Image upload failed:', err);
-      alert(describeUploadError(err));
+      showError(describeUploadError(err));
     }
   };
 
@@ -1600,9 +1603,8 @@ function sectionFromParam(value) {
   return SECTION_CHOICES.some(c => c.id === value) ? value : 'profile';
 }
 
-/** Where the post goes: Post (profile), Note or Subscribers, with a hint that follows the choice. */
-function PostSectionField({ section, onSectionChange }) {
-  const current = SECTION_CHOICES.find(c => c.id === section) || SECTION_CHOICES[0];
+/** Where the post goes: Post (profile), Note or Subscribers. Each pill's hint is its hover title. */
+export function PostSectionField({ section, onSectionChange }) {
   return (
     <div className="post-section-row">
       {/* Named for screen readers only; the pills say what they are. */}
@@ -1615,7 +1617,6 @@ function PostSectionField({ section, onSectionChange }) {
             onClick={() => onSectionChange(c.id)}>{c.label}</button>
         ))}
       </div>
-      {current.hint && <span className="post-section-hint">{current.hint}</span>}
     </div>
   );
 }

@@ -481,6 +481,7 @@ function RichTextViewerBody({ id }) {
               {dmSentTo && <span role="status" style={{ fontSize: '13px', color: '#555' }}>Sent to {dmSentTo}</span>}
               {features.discussionEnabled && (
                 <Link
+                  className="viewer-discussion-link"
                   to={`/${authorUsername}/${idParam}/discussion`}
                   style={{ fontSize: '14px', color: '#333333', textDecoration: 'none', fontWeight: 500 }}
                 >

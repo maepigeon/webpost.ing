@@ -8,12 +8,17 @@ import './InboxPage.css';
 import { notifHref, notifExcerpt, isGone, subjectTitle, GONE_TEXT } from './inboxModel.js';
 import Icon from '../Icon/Icon.jsx';
 
-function ActorLink({ username }) {
+// Tells the top bar's badges to recount now.
+const countsChanged = () => window.dispatchEvent(new Event('wp:counts-changed'));
+
+// The actor link goes to the profile, not the row's subject, so it marks the
+// row read itself and keeps the row's own click out of it.
+function ActorLink({ username, onOpen }) {
   return (
     <Link
       to={`/${username}`}
       className="inbox-actor-link"
-      onClick={e => e.stopPropagation()}
+      onClick={e => { e.stopPropagation(); onOpen?.(); }}
     >
       {username}
     </Link>
@@ -34,8 +39,8 @@ function SubjectLink({ n, children }) {
   return <Link to={href} className="inbox-post-link" onClick={keepRowClick}>{children}</Link>;
 }
 
-function notifLabel(n) {
-  const a = <ActorLink username={n.actorUsername} />;
+function notifLabel(n, onActorOpen) {
+  const a = <ActorLink username={n.actorUsername} onOpen={onActorOpen} />;
   let subject;
   if (isGone(n)) subject = <span>{GONE_TEXT}</span>;
   else if (n.type === 'new_post' && !n.postId) subject = <span>a new post</span>;
@@ -116,6 +121,7 @@ export default function InboxPage() {
   const markAll = async () => {
     await MARK_ALL_READ().catch(() => {});
     setNotifications(ns => ns.map(n => ({ ...n, isRead: true })));
+    countsChanged();
   };
 
   const clearAll = async () => {
@@ -124,12 +130,14 @@ export default function InboxPage() {
     setNotifications([]);
     offsetRef.current = 0;
     setHasMore(false);
+    countsChanged();
   };
 
   const handleClick = async (n) => {
     if (!n.isRead) {
       await MARK_NOTIFICATION_READ(n.id).catch(() => {});
       setNotifications(ns => ns.map(x => x.id === n.id ? { ...x, isRead: true } : x));
+      countsChanged();
     }
     const href = notifHref(n);
     if (href) navigate(href);
@@ -139,6 +147,15 @@ export default function InboxPage() {
     e.stopPropagation();
     await MARK_NOTIFICATION_READ(n.id).catch(() => {});
     setNotifications(ns => ns.map(x => x.id === n.id ? { ...x, isRead: true } : x));
+    countsChanged();
+  };
+
+  // A click on the actor's name marks the row read like the post link does.
+  const markOnOpen = async (n) => {
+    if (n.isRead) return;
+    await MARK_NOTIFICATION_READ(n.id).catch(() => {});
+    setNotifications(ns => ns.map(x => x.id === n.id ? { ...x, isRead: true } : x));
+    countsChanged();
   };
 
   const deleteOne = async (e, n) => {
@@ -146,6 +163,7 @@ export default function InboxPage() {
     await DELETE_NOTIFICATION(n.id).catch(() => {});
     setNotifications(ns => ns.filter(x => x.id !== n.id));
     offsetRef.current = Math.max(0, offsetRef.current - 1);
+    if (!n.isRead) countsChanged();
   };
 
   const unread = notifications.filter(n => !n.isRead).length;
@@ -181,7 +199,7 @@ export default function InboxPage() {
           }}
         >
           <span className="inbox-item-label">
-            <span>{notifLabel(n)}</span>
+            <span>{notifLabel(n, () => markOnOpen(n))}</span>
             {notifExcerpt(n) && <span className="inbox-item-excerpt">{notifExcerpt(n)}</span>}
           </span>
           <div className="inbox-item-side">
