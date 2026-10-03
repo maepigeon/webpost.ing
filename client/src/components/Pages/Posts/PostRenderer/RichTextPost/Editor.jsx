@@ -8,7 +8,7 @@ import {
 import { $isHeadingNode } from '@lexical/rich-text';
 import { $insertNodeToNearestRoot } from '@lexical/utils';
 import { $isListNode } from '@lexical/list';
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import './Editor.css'
 import TitleBar from "./TitleBar"
@@ -49,6 +49,7 @@ import { normaliseUploadResponse, describeUploadError } from '../../../../../uti
 import ImageCropDialog from '../../../../ImageCrop/ImageCropDialog.jsx';
 import ImagePicker from '../../../../ImagePicker/ImagePicker.jsx';
 import { postPath, slugify } from '../../../../../utils/postUrl.js';
+import { cleanSummary, SUMMARY_MAX } from '../../../../../utils/postSummary.js';
 import ColourPicker from '../../../../TileArt/ColourPicker.jsx';
 import { StickerCenter } from '../../../../TileArt/StickerCenter.jsx';
 
@@ -1439,7 +1440,40 @@ function PostSlugPlugin({ slug, onSlugChange, username, titleRef, postId }) {
   );
 }
 
-function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublishedChange, titleRef, onSaved, username, folder, features, slug }) {
+/**
+ * The post's description: a line or two shown under its title on the profile.
+ * Plain text, so newlines are turned into spaces as it is typed.
+ */
+function PostSummaryField({ summary, onSummaryChange }) {
+  const ref = useRef(null);
+  // Grows with its text instead of scrolling inside a one-line box.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [summary]);
+  const left = SUMMARY_MAX - summary.length;
+  return (
+    <div className="post-summary-row">
+      <label className="post-summary-label" htmlFor="post-summary-input">Description</label>
+      <textarea
+        id="post-summary-input"
+        ref={ref}
+        className="post-summary-input"
+        rows={1}
+        maxLength={SUMMARY_MAX}
+        value={summary}
+        placeholder="A line or two about this post (shown on your profile)"
+        onChange={e => onSummaryChange(e.target.value.replace(/[\r\n]+/g, ' '))}
+        onKeyDown={e => { if (e.key === 'Enter') e.preventDefault(); }}
+      />
+      {left <= 60 && <span className="post-summary-count" aria-live="polite">{left} left</span>}
+    </div>
+  );
+}
+
+function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublishedChange, titleRef, onSaved, username, folder, features, slug, summary }) {
   const { confirm } = useDialog();
   const [editor] = useLexicalComposerContext();
   const [saveStatus, setSaveStatus] = useState('');
@@ -1475,7 +1509,7 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
     const editorState = JSON.stringify(editor.getEditorState().toJSON());
     setSaving(true);
     if (hasSaved) {
-      UPDATE_POST(effectiveId, postTitle, editorState, published, backgroundPattern, folder, slug)
+      UPDATE_POST(effectiveId, postTitle, editorState, published, backgroundPattern, folder, slug, summary)
         .then(() => {
           showStatus(published ? 'Uploaded.' : postPublished ? 'Unpublished — saved as a draft.' : 'Draft saved.');
           onPublishedChange(published);
@@ -1489,7 +1523,7 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
         })
         .finally(() => setSaving(false));
     } else {
-      CREATE_POST(1, postTitle, editorState, published, backgroundPattern, folder, slug)
+      CREATE_POST(1, postTitle, editorState, published, backgroundPattern, folder, slug, summary)
         .then((newId) => {
           showStatus(published ? 'Uploaded — your post is live.' : 'Draft saved.');
           setSavedId(newId);
@@ -1651,7 +1685,7 @@ function ToolPanel({ rows, children }) {
   );
 }
 
-function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, postPublished, onPublishedChange, features, onFeaturesChange, titleRef, onSaved, folder, onFolderChange, slug }) {
+function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, postPublished, onPublishedChange, features, onFeaturesChange, titleRef, onSaved, folder, onFolderChange, slug, summary }) {
   // The post-theme editor: opened from the Page row, and shown over the page.
   const [themeOpen, setThemeOpen] = useState(false);
   const savedPost = postid && postid > 0;
@@ -1721,7 +1755,7 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
         document.body,
       )}
       <ToolPanel rows={rows}>
-        <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} titleRef={titleRef} onSaved={onSaved} username={username} folder={folder} onFolderChange={onFolderChange} features={features} slug={slug} />
+        <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} titleRef={titleRef} onSaved={onSaved} username={username} folder={folder} onFolderChange={onFolderChange} features={features} slug={slug} summary={summary} />
       </ToolPanel>
 
     </>
@@ -1773,6 +1807,8 @@ export default function RichTextEditor() {
   const [postFolder, setPostFolder] = useState('');
   // Author-chosen URL slug; null means "derive it from the title".
   const [postSlug, setPostSlug] = useState(null);
+  // Plain-text description shown under the title on the profile (API field: summary).
+  const [postSummary, setPostSummary] = useState('');
   const [dataReady, setDataReady] = useState(0);
   const [postLoaded, setPostLoaded] = useState(false);
   const [features, setFeatures] = useState({ reactionsEnabled: true, discussionEnabled: true, votesEnabled: false, cardGrid: true });
@@ -1834,6 +1870,7 @@ export default function RichTextEditor() {
       // A slug that is just the title's is not a custom one: keep it following
       // the title. Anything else — chosen, or de-duplicated — stays put.
       setPostSlug(data.slug && data.slug !== slugify(data.title || '') ? data.slug : null);
+      setPostSummary(data.summary || '');
       localStorage.setItem("currentPostData", data.description);
       setDataReady(v => v + 1);
       GET_USER_FROM_POST(id).then((author) => {
@@ -1859,6 +1896,7 @@ export default function RichTextEditor() {
   const changePattern = useCallback(v => { setBackgroundPattern(v); setIsDirty(true); }, []);
   const changeFolder = useCallback(v => { setPostFolder(v); setIsDirty(true); }, []);
   const changeSlug = useCallback(v => { setPostSlug(v); setIsDirty(true); }, []);
+  const changeSummary = useCallback(v => { setPostSummary(v); setIsDirty(true); }, []);
 
   // After a successful save, mark clean and note that at least one save has happened
   const handleSaved = useCallback(() => {
@@ -1924,7 +1962,8 @@ export default function RichTextEditor() {
               titleRef={titlehtml}
               postId={id > 0 ? id : null}
             />
-            <ToolbarPlugin postid={id} backgroundPattern={backgroundPattern} onPatternChange={changePattern} username={postAuthor || me} postPublished={postPublished} onPublishedChange={setPostPublished} features={features} onFeaturesChange={setFeatures} titleRef={titlehtml} onSaved={handleSaved} folder={postFolder} onFolderChange={changeFolder} slug={postSlug} onSlugChange={changeSlug} />
+            <PostSummaryField summary={postSummary} onSummaryChange={changeSummary} />
+            <ToolbarPlugin postid={id} backgroundPattern={backgroundPattern} onPatternChange={changePattern} username={postAuthor || me} postPublished={postPublished} onPublishedChange={setPostPublished} features={features} onFeaturesChange={setFeatures} titleRef={titlehtml} onSaved={handleSaved} folder={postFolder} onFolderChange={changeFolder} slug={postSlug} onSlugChange={changeSlug} summary={cleanSummary(postSummary)} />
             {/* The post itself, in its theme's fonts; the controls above stay in the app's. */}
             <div className="th-scope" style={{ position: 'relative' }}>
               <RichTextPlugin

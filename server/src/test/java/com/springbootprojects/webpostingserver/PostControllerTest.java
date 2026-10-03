@@ -338,4 +338,65 @@ class PostControllerTest {
         assertThat(postController.getPinnedPost("kittycat", "kittycat", "forged").getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         assertThat(postController.getPinnedPost("kittycat", "kittycat", "tok").getStatusCode()).isEqualTo(HttpStatus.OK);
     }
+
+    // ── Description (summary) ─────────────────────────────────────────────────
+
+    private Post existingPostOwnedByKittycat() throws Exception {
+        when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
+        LoginInfo owner = new LoginInfo();
+        owner.setUsername("kittycat");
+        when(postRepository.getUsernameFromPostId(10)).thenReturn(owner);
+        Post existing = new Post();
+        existing.setId(10);
+        when(postRepository.findById(10L)).thenReturn(existing);
+        return existing;
+    }
+
+    @Test
+    void updatePost_savesTheSummaryTrimmedOnOneLine() throws Exception {
+        Post existing = existingPostOwnedByKittycat();
+        samplePost.setSummary("  First line\nsecond line \r\n third  ");
+
+        assertThat(postController.updatePost(10L, samplePost, "kittycat", "tok").getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        assertThat(existing.getSummary()).isEqualTo("First line second line third");
+    }
+
+    @Test
+    void updatePost_anEmptySummaryClearsIt() throws Exception {
+        Post existing = existingPostOwnedByKittycat();
+        existing.setSummary("old");
+        samplePost.setSummary("  \n ");
+
+        assertThat(postController.updatePost(10L, samplePost, "kittycat", "tok").getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        assertThat(existing.getSummary()).isNull();
+    }
+
+    @Test
+    void updatePost_aSummaryOver300CharactersIsRejected() throws Exception {
+        when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
+        LoginInfo owner = new LoginInfo();
+        owner.setUsername("kittycat");
+        when(postRepository.getUsernameFromPostId(10)).thenReturn(owner);
+        samplePost.setSummary("x".repeat(301));
+
+        ResponseEntity<String> resp = postController.updatePost(10L, samplePost, "kittycat", "tok");
+
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(resp.getBody()).contains("300");
+        verify(postRepository, never()).update(any());
+    }
+
+    @Test
+    void createPost_savesTheSummaryAndRejectsALongOne() throws Exception {
+        when(loginRepository.authorize("kittycat", "tok")).thenReturn(validSession);
+        samplePost.setSummary("x".repeat(301));
+        assertThat(postController.createPost(samplePost, "kittycat", "tok").getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verify(postRepository, never()).save(any(), anyInt());
+
+        samplePost.setSummary(" A blurb ");
+        postController.createPost(samplePost, "kittycat", "tok");
+        verify(postRepository).save(argThat(p -> "A blurb".equals(p.getSummary())), eq(1));
+    }
 }

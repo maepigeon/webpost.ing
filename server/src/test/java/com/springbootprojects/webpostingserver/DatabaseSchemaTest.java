@@ -88,6 +88,7 @@ class DatabaseSchemaTest {
         assertColumnExists("stickies", "post_id");      // V012
         assertColumnExists("stickies", "sticker_id");
         assertColumnExists("shared_packs", "body");     // V013
+        assertColumnExists("posts", "summary");         // V016
     }
 
     // ── conversations columns ─────────────────────────────────────────────────

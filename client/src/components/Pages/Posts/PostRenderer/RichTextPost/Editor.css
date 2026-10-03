@@ -364,6 +364,54 @@
 
 .post-slug-input::placeholder { color: #a7a7a7; }
 
+/* ── Description, under the URL ──────────────────────────────────────────── */
+
+.post-summary-row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0 0 10px;
+  padding: 0 4px;
+  font-family: inherit;
+}
+
+.post-summary-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--th-ink, #565656);
+  opacity: 0.7;
+}
+
+.post-summary-input {
+  width: 100%;
+  box-sizing: border-box;
+  resize: none;
+  overflow: hidden;
+  padding: 5px 9px;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--th-ink, #1c1c1c);
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(28, 28, 28, 0.16);
+  border-radius: 7px;
+  outline: none;
+}
+
+.post-summary-input:focus {
+  border-color: rgba(119, 119, 119, 0.45);
+  box-shadow: 0 0 0 3px rgba(119, 119, 119, 0.12);
+}
+
+.post-summary-input::placeholder { color: var(--th-ink, #7a7a7a); opacity: 0.5; }
+
+.post-summary-count {
+  align-self: flex-end;
+  font-size: 11px;
+  color: var(--th-ink, #565656);
+  opacity: 0.7;
+}
+
 /* ── Save status ────────────────────────────────────────────────────────── */
 
 .toolbar-save-status {

@@ -40,6 +40,7 @@ public class JdbcPostRepository implements PostRepository {
         p.setBackgroundPattern(rs.getString("background_pattern"));
         p.setFolder(rs.getString("folder"));
         p.setSlug(rs.getString("slug"));
+        p.setSummary(rs.getString("summary"));
         p.setSortOrder(rs.getInt("sort_order"));
         p.setCardGrid(rs.getBoolean("card_grid"));
         return p;
@@ -65,7 +66,7 @@ public class JdbcPostRepository implements PostRepository {
      */
     public List<Post> getPostsFromUsername(String username) {
         return jdbcTemplate.query("""
-            SELECT id, title, description, published, date, background_pattern, folder, slug, sort_order, card_grid
+            SELECT id, title, description, published, date, background_pattern, folder, slug, summary, sort_order, card_grid
               FROM (
                 SELECT post.*,
                        first_value(post.sort_order) OVER block AS block_sort,
@@ -108,7 +109,7 @@ public class JdbcPostRepository implements PostRepository {
     public int save(Post post, int userId) {
         log.debug("Saving post \"{}\" (published={})", post.getTitle(), post.isPublished());
 
-        final String INSERT_SQL = "INSERT INTO posts (title, description, published, background_pattern, folder, slug) VALUES(?,?,?,?,?,?) RETURNING \"id\";";
+        final String INSERT_SQL = "INSERT INTO posts (title, description, published, background_pattern, folder, slug, summary) VALUES(?,?,?,?,?,?,?) RETURNING \"id\";";
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(
                 new PreparedStatementCreator() {
@@ -120,6 +121,7 @@ public class JdbcPostRepository implements PostRepository {
                         ps.setString(4, post.getBackgroundPattern());
                         ps.setString(5, post.getFolder());
                         ps.setString(6, post.getSlug());
+                        ps.setString(7, post.getSummary());
                         return ps;
                     }
                 },
@@ -142,16 +144,16 @@ public class JdbcPostRepository implements PostRepository {
     @Override
     public int update(Post post) {
         return jdbcTemplate.update(
-            "UPDATE posts SET title=?, description=?, published=?, background_pattern=?, folder=?, slug=? WHERE id=?",
+            "UPDATE posts SET title=?, description=?, published=?, background_pattern=?, folder=?, slug=?, summary=? WHERE id=?",
             post.getTitle(), post.getDescription(), post.isPublished(),
-            post.getBackgroundPattern(), post.getFolder(), post.getSlug(), post.getId());
+            post.getBackgroundPattern(), post.getFolder(), post.getSlug(), post.getSummary(), post.getId());
     }
 
     @Override
     public Post findById(Long id) {
         try {
             return jdbcTemplate.queryForObject(
-                "SELECT id, title, description, published, date, background_pattern, folder, slug, sort_order, card_grid FROM posts WHERE id=?",
+                "SELECT id, title, description, published, date, background_pattern, folder, slug, summary, sort_order, card_grid FROM posts WHERE id=?",
                 POST_MAPPER, id);
         } catch (IncorrectResultSizeDataAccessException e) {
             return null;

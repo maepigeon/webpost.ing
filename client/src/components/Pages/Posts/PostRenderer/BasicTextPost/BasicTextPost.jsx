@@ -145,6 +145,9 @@ function BasicTextPost(props) {
                         <span className="draft-badge">DRAFT</span>
                     )}
                     {renderPostDataFields(currentPostMode)}
+                    {postdata.summary && currentPostMode === Modes.VIEW && (
+                        <p className="post-card-summary">{postdata.summary}</p>
+                    )}
                     {grid && currentPostMode === Modes.VIEW && (
                         <div className="post-card-grid">
                             <div className={`post-card-grid-window${gridCropped ? ' is-cropped' : ''}`}>

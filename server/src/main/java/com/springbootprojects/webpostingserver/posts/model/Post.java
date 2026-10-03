@@ -27,6 +27,9 @@ public class Post {
      */
     private String slug;
 
+    /** Plain-text blurb under the title on the profile; null for none. Not the body (`description`). */
+    private String summary;
+
     /**
      * Position on the author's profile, smallest first; ties go newest first.
      * Only PUT /api/users/{u}/posts/order writes it, so saving a post never
@@ -115,6 +118,10 @@ public class Post {
     public String getSlug() { return slug; }
 
     public void setSlug(String slug) { this.slug = slug; }
+
+    public String getSummary() { return summary; }
+
+    public void setSummary(String summary) { this.summary = summary; }
 
     public int getSortOrder() { return sortOrder; }
 

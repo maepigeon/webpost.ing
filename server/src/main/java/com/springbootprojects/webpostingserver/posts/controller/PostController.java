@@ -360,6 +360,10 @@ public class PostController {
                 return new ResponseEntity<>("Add a title before publishing.", HttpStatus.BAD_REQUEST);
             post.setTitle("Untitled");
         }
+        String summary = cleanSummary(post.getSummary());
+        if (summary != null && summary.length() > 300)
+            return new ResponseEntity<>("The description must be 300 characters or fewer.", HttpStatus.BAD_REQUEST);
+        post.setSummary(summary);
         // Generous because tile grids carry their pixels as PNGs; each layer is
         // capped separately by GridValidator on the client's save path.
         if (desc != null && desc.length() > 5_000_000)
@@ -370,6 +374,13 @@ public class PostController {
             return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
         }
         return null;
+    }
+
+    /** Plain text on one line, or null when empty: newlines become spaces. */
+    static String cleanSummary(String raw) {
+        if (raw == null) return null;
+        String s = raw.replaceAll("\\s*[\\r\\n]+\\s*", " ").trim();
+        return s.isEmpty() ? null : s;
     }
 
     @PostMapping("/posts")
@@ -454,6 +465,7 @@ public class PostController {
             _post.setBackgroundPattern(post.getBackgroundPattern());
             _post.setFolder(post.getFolder() != null && !post.getFolder().isBlank() ? post.getFolder().trim() : null);
             _post.setSlug(uniqueSlugFor(slugFor(post), username, (int) id));
+            _post.setSummary(post.getSummary());
             postRepository.update(_post);
             syncPostUploads(id, post.getDescription());
             social.parseAndSaveHashtags((int) id, post.getDescription());

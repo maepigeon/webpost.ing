@@ -107,3 +107,16 @@ body {
 .basicTextPost .post-card-grid-window { max-height: 50cqw; overflow: hidden; }
 .basicTextPost .post-card-grid-window.is-cropped { border-bottom: 2px dashed currentColor; }
 .basicTextPost .post-card-grid .tilegrid { margin: 0; }
+
+/* The author's own line about the post, as plain text under the title. */
+.basicTextPost .post-card-summary {
+    margin: 6px 0 0;
+    font-family: var(--th-font-body, inherit);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
+    overflow: hidden;
+}
