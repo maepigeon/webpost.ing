@@ -634,7 +634,8 @@ sends 2-4 KB a second; a full room costs the server about 30 KB a second and
 a few megabytes of memory.
 
 Roles: owner, editor, viewer. Joining needs a signed-in account and an
-invitation link from the owner.
+invitation link from the owner. What happens when someone's connection
+drops is in 16.2.
 
 ### 5.6 What is carried from Drawing-app
 
@@ -1086,11 +1087,13 @@ look alike, which is how the wrong site gets deployed.
 **Connecting the domain (GoDaddy), in order.** DNS comes after the server is
 ready to answer, so the name never points at nothing.
 
-1. **On the droplet** (sudo): make the web root (`mkdir -p /srv/webpaint/html`),
-   install the first release with `--no-install` then `install.sh` (static
-   page only), and add a plain port-80 server block for `webpaint.ing` and
-   `www.webpaint.ing` with that root. `sudo nginx -t`, then
-   `sudo systemctl reload nginx`. webpost.ing is not touched.
+1. **The first page onto the droplet.** On the droplet (sudo): make the web
+   root (`mkdir -p /srv/webpaint/html`) and write webpaint's `deploy.env`
+   from the example. On her Mac: Deploy to webpaint.ing (until the service
+   exists, the install only swaps the web root). On the droplet: add a plain
+   port-80 server block for `webpaint.ing` and `www.webpaint.ing` with that
+   root, `sudo nginx -t`, then `sudo systemctl reload nginx`. webpost.ing is
+   not touched.
 2. **At GoDaddy** → My Products → webpaint.ing → DNS → DNS Records:
 
    | Type | Name | Value | TTL |
@@ -1164,12 +1167,13 @@ is ever typed into the app.
 | Phase | Ships | De-risks |
 |---|---|---|
 | **0. Spike** (one session) | The repository skeleton and a test page: Godot 4.6 single-threaded export in the shell, a pressure brush on a 2048 px canvas fed by the page's pen path (with a switch to Godot's own input to compare), a layer-allocation test, a bridge throughput test, a 5-second WebCodecs export from the canvas, the test bridge, the token generator. A results note with numbers from her Mac, and from her iPad once the page is on the domain. | Risk 1 (pen feel, memory), the export path, bytes across the bridge, the security policy, and whether Godot can wear the house look. Decides go, adjust, or fall back. |
-| **1. Paint** | webpaint.ing live: sign in with the webpost.ing account, draw (round brush, pixel brush, eraser, fill, colour picker), layers, undo, autosave on the device, project file save and open, PNG export, publish an image, "Post to webpost.ing". | The hand-off, the release pipeline, the op model, the Godot theme, the first three interactions. |
+| **1. Paint** | webpaint.ing live: sign in with the webpost.ing account, draw (round brush, pixel brush, eraser, fill, colour picker), layers with folders, clipping and blend modes, undo, autosave on the device, works offline and installs to the home screen, project file save and open, PNG export, publish to her webpaint.ing gallery and "Post to webpost.ing" (with the outbox). | The hand-off, the release pipeline, the op model, the Godot theme, the first three interactions. |
 | **2. Animate** | Frames and cels, filmstrip, onion skin, playback, holds; export MP4, WebM, GIF; resumable video upload with header checks; "Share WIP"; video block on webpost.ing. | Memory with many cels, export on every browser, interaction 4, bandwidth. |
 | **3. Rooms** | Shared canvases: invite, live strokes, per-person undo, snapshots, reconnect. | That phase 1's rules held; server load. |
-| **4. Comics** | Pages, panels, lettering, series and chapters, the reader, batch publishing, subscriber-first releases. | Text in the engine; the release flow; the Subscribers link. |
+| **4. Comics** | Pages, panels, lettering, tones, series and chapters, the reader, batch publishing, subscriber-first releases. | Text in the engine; the release flow; the Subscribers link. |
 | **5. Timeline depth** | Full timeline: motion keys and easing, audio tracks with waveforms, 3D reference layers, effect layers with the built-in shaders, expressions. | Timeline on touch; audio sync in export. |
-| **6. Power tools** | Custom shaders, local GDScript behaviours, desktop builds, project files stored on the server. | Sandboxing questions; signing desktop apps. |
+| **6. Power tools** | Custom shaders, local GDScript behaviours, the downloadable app (Electron, 10.6), project files stored on the server. | Sandboxing questions; signing desktop apps. |
+| **After** | The long list of section 15, one item at a time: selection and transform depth, rulers and perspective, gap-closing fill, masks, posable 3D, vector layers, custom brushes, layered file exchange. | |
 
 ### 11.1 Phase 0 work packages (disjoint files; can start when the repository exists)
 
@@ -1182,9 +1186,10 @@ this document; nobody waits for anybody.
 | **P0-B tokens** | `design/**`, `tools/gen-tokens.mjs`, `tools/check-tokens.mjs`, `shell/src/styles/tokens.css` (generated), `engine/ui/theme/**` | `tokens.json` from webpost.ing's `tokens.css` values, `icons.json` from `PixelIcon.jsx`'s table and the 5 × 7 pixel font; the generator; a Godot theme builder; one sample dark panel with pixel buttons. |
 | **P0-C engine spike** | `engine/project.godot`, `engine/export_presets.cfg`, `engine/spike/**`, `engine/brush/**` | The canvas scene, GPU stamp brush with pressure and smoothing, stroke buffer, pixel brush, the layer-allocation test, frame-by-frame export mode. |
 | **P0-D engine host** | `engine/host/**`, `protocol/**` | `host_web.gd` (messages, pointer batches, bytes in and out), `host_native.gd` stub, the test bridge on the engine side (section 13), `protocol/bridge.md` and fixtures. |
-| **P0-E shell** | `shell/**` except `shell/src/styles/tokens.css` and `shell/src/export/**` | Vite project, the page that loads the engine, `bridge/`, `pen/` capture, the test bridge on the page side, a results panel that shows measurements, the service worker, the strict security policy in report-only mode. |
+| **P0-E shell** | `shell/**` except `shell/src/styles/tokens.css` and `shell/src/export/**` | Vite project, the page that loads the engine, `bridge/`, `pen/` capture, the test bridge on the page side, a results panel that shows measurements, the strict security policy in report-only mode; the service worker, `manifest.webmanifest`, icons and the Install button of section 16 (the page must open with the network off after one visit). |
 | **P0-F export spike** | `shell/src/export/**` | Canvas to `VideoFrame` to `VideoEncoder` to a muxer, with the `MediaRecorder` fallback, starting from `client/src/animator/engine/exporter.js` and `zip.js` in webpost.ing. |
-| **P0-G tools** | `tools/export-engine.sh`, `tools/run-local.sh`, `tools/visual/**`, `tools/smoke/**` | The export script, a local run script, the first recorded flow (draw three strokes, undo one) with baselines, using the test bridge. |
+| **P0-G tools** | `tools/export-engine.sh`, `tools/run-local.sh`, `tools/deploy.sh`, `tools/release.sh`, `tools/install-release.sh`, `tools/visual/**`, `tools/smoke/**` | The export script; the local run, deploy, release and install scripts of 10.3 (in phase 0 the release carries only the web root; the install script already backs up, swaps by rename and rolls back); the first recorded flow (draw three strokes, undo one) with baselines, using the test bridge. |
+| **P0-I Mac app** (in the **webpost.ing** repository) | `tools/mac-app/Webposting.applescript`, `tools/mac-app/build.sh` | The site chooser of 10.4. Needs only the two script names from P0-G, not their contents. |
 | **P0-H results** (after the others) | `guide/phase0-results.md` | Integrator: builds, runs everything, records the numbers (download size, time to first stroke, samples per second, stroke latency, layers before failure, bridge megabytes per second, export time, which browsers encode what), lists every **[recheck]** in this document as confirmed or wrong, and recommends go, adjust or fall back. |
 
 ### 11.2 Phase 1 work packages
@@ -1196,12 +1201,12 @@ this document; nobody waits for anybody.
 | **1-C engine UI** | `engine/ui/**` except `ui/theme/` generated files: tool rail, tool options, colour picker, layers panel, the three layouts. |
 | **1-D host and storage** | `engine/host/**`: save and load through the host, tiles out, snapshot in. |
 | **1-E pen and bridge** | `shell/src/pen/**`, `shell/src/bridge/**` and their tests. |
-| **1-F device store** | `shell/src/store/**`: OPFS works, journal, revisions, `.webpaint` zip in and out; tests. |
-| **1-G shell pages** | `shell/src/pages/**`, `shell/src/components/**`: top bar, library, new-canvas and publish dialogs, signed-out state. |
+| **1-F device store** | `shell/src/store/**`: OPFS works, journal, revisions, `.webpaint` zip in and out, the outbox (section 16); tests. |
+| **1-G shell pages** | `shell/src/pages/**`, `shell/src/components/**`: top bar, library, gallery and work pages, new-canvas and publish dialogs, signed-out and offline states. |
 | **1-H auth** | `server/src/auth/**`, `server/src/db/**`, `server/test/auth/**`: migrations, sessions, start and callback, re-check, internal routes. |
 | **1-I works and uploads** | `server/src/http/**`, `server/src/works/**`, `server/src/uploads/**`, `server/src/index.js`, tests: router, health, origin check, works, image upload, media access, the call to webpost.ing. |
 | **1-J webpost.ing side** (in the webpost.ing repository, its own batch) | New: `SsoBridgeController.java`, `WebpaintIntegrationController.java`, `WebpaintNode.jsx`, tests. Insertions for the integrator: `PostContentValidator`, `PostTextExtractor`, `Editor.jsx`, `Viewer.jsx`, the login page's `next`, `evictSession`'s push, `config/deploy.env.example`. |
-| **1-K release** | `tools/release.sh`, `tools/install-release.sh`, `tools/server/**`, `config/**`, `guide/DEPLOYMENT.md`. |
+| **1-K release** | `tools/release.sh`, `tools/install-release.sh`, `tools/run-local.sh` (now with the service and database), `tools/server/**`, `config/**`, `guide/DEPLOYMENT.md`. |
 | **1-L watching** | `tools/visual/**`, `tools/smoke/**`: flows and baselines for draw, undo, layers, save and reopen, sign-in, publish; then a `design-guardian` pass before hand-over. |
 
 ---
@@ -1215,32 +1220,39 @@ Each can be answered in a line. The default is what happens if she does not.
    150 MB more memory.
 2. **Repository name and visibility?** Default: `webpaint`, public like
    webpost.ing.
-3. **Which way does the "direct upload" button go?** Default: both ("Post to
-   webpost.ing" in webpaint, "Draw in webpaint" in the post editor).
-4. **Which devices first?** Default: desktop with a drawing tablet and iPad
+3. **Which devices first?** Default: desktop with a drawing tablet and iPad
    with Pencil; phones for sketching and publishing.
-5. **Largest canvas?** Default: 4096 px on desktop, 2048 px on tablets and
-   phones, adjusted by what phase 0 measures.
-6. **Who may sign in to webpaint.ing at first?** Default: only you until
-   phase 1 is finished, then every webpost.ing account.
-7. **Storage per account on webpaint.ing?** Default: 250 MB, separate from
+4. **Largest canvas?** Default: 4096 px on desktop, 2048 px on tablets and
+   phones, adjusted by what phase 0 measures. (Print-size manga pages are
+   larger than that; see section 15.)
+5. **Who may sign in to webpaint.ing at first?** Default: only you until
+   phase 1 is finished, then every webpost.ing account. Drawing without an
+   account, on the device only, is open to anyone from the start.
+6. **Storage per account on webpaint.ing?** Default: 250 MB, separate from
    webpost.ing's; video at most 60 seconds and 50 MB; you can raise it per
    person.
-8. **After animation: shared canvases, then comics?** Default: yes, in that
+7. **After animation: shared canvases, then comics?** Default: yes, in that
    order. Say if comics should come first.
-9. **Resize the droplet?** Default: no. Add a storage volume before video
+8. **Resize the droplet?** Default: no. Add a storage volume before video
    uploads open to others, after checking disk and monthly transfer.
-10. **Subscriber-only releases are private to you until subscriptions exist
-    on webpost.ing. Acceptable?** Default: yes.
-11. **Scripts run only for the person who wrote them, never shared.**
+9. **Subscriber-only releases are private to you until subscriptions exist
+   on webpost.ing. Acceptable?** Default: yes.
+10. **Scripts run only for the person who wrote them, never shared.**
     Default: yes.
-12. **Rooms: invited, signed-in people only, at most 8.** Default: yes.
-13. **A desktop app within the first year?** Default: no, but the code keeps
-    the native path compiling.
-14. **May a small open-source muxer library and open-licence lettering fonts
+11. **Rooms: invited, signed-in people only, at most 8.** Default: yes.
+12. **The downloadable app is the Electron wrapper, in phase 6, after the
+    installable web app.** Default: yes. It needs an Apple developer account
+    ($99 a year) only if you want it to open without a warning on other
+    people's Macs.
+13. **May a small open-source muxer library and open-licence lettering fonts
     be downloaded when their phase comes** (each named, with its licence,
     before the download)? Default: ask again then.
-15. **`www.webpaint.ing` redirects to `webpaint.ing`.** Default: yes.
+14. **`www.webpaint.ing` redirects to `webpaint.ing`.** Default: yes.
+15. **One Mac app with a site chooser** (not a second app)? Default: yes.
+
+Decided already: Godot 4; separate repository and data, same accounts; one
+droplet, two domains; the publish button goes both ways (section 8); works
+offline and installs to the home screen (section 16).
 
 ---
 
@@ -1334,3 +1346,185 @@ Phase 0 confirms or corrects each of these in `guide/phase0-results.md`:
   mapped to the webpost.ing server; disk size and monthly transfer.
 - Memory of a small JVM service, only if question 1 is answered no.
 - Headless Chromium flags for stable WebGL screenshots.
+- Installed web app on iPhone and iPad: whether the sign-in hand-off (which
+  leaves to webpost.ing and returns) keeps its cookies inside the installed
+  app; whether storage of an installed app is exempt from Safari's seven-day
+  clean-up; how much an origin may store.
+- That Godot's loader fetches the engine files in a way a service worker can
+  answer from its cache with streaming compilation intact.
+- `webpaint.localhost` as a local host name in Safari.
+- Electron: H.264 encoding through WebCodecs in its Chromium build; size of
+  Godot's native desktop exports.
+
+---
+
+## 15. Scope: against a full illustration, comic and animation studio program
+
+Mae: "i want webpainting to do a lot of what clip studio paint can do ... or
+really cs paint ex". The map below is by capability, in this document's own
+words. "Phase" is when a first usable version lands: **first** (phases 1-2),
+**later** (phases 3-6), **much later** (after the phases, one item at a
+time), **out** (not planned). "Day one" is what the document model of 4.1
+must already allow so the feature is an addition, not a rewrite.
+
+| Capability | Phase | Cost in a Godot web build | Day one |
+|---|---|---|---|
+| **Raster layers** | First | Low. Layers are GPU textures; memory is the only limit. | Sparse tiles; ids on layers and cels. |
+| **Layer folders, clipping, blend modes** | First (folders, clip to the layer below, normal, multiply, screen, overlay, add); the rest of the usual blend list later | Medium. Any blend but normal has to read what is underneath, which in WebGL 2 means a copy per blended layer; flattened caches of the layers below and above the active one keep it fast. | Layers are a **tree** (`parent`); `clip`; `blend` as a name from the common web and OpenRaster set, so files map cleanly. |
+| **Layer masks** | Later | Low once folders exist: a mask is one more cel multiplied in. | `mask` on a layer. |
+| **Vector layers** (lines that stay editable: move points, change width, erase up to a crossing) | Much later | Medium-high. Strokes here already keep their points and tool, so a vector layer is "do not flatten, redraw from the strokes"; the cost is the editing handles and keeping redraw fast with thousands of strokes. | `vector` layer kind with `objects[]`; stroke ops keep smoothed points and the full tool. |
+| **Brush engine: stabiliser, pressure curves** | First | Medium; the heart of phase 1. | The `tool` object in a stroke op is open-ended. |
+| **Custom brushes** (tip shapes, texture, scatter, jitter, dual tips) | Later | Medium. Each is a shader setting and a stamp rule. | Brushes are data, stored **in the work** (`brushes{}`) and named by id in each stroke, with a seed, so replay gives the same pixels on any device. |
+| **Colour-mixing and smudge brushes** | Much later | High. Every stamp must read the canvas under it; on WebGL that is a read-and-write swap per stamp. | Nothing beyond the open `tool`. |
+| **Selections** (rectangle, lasso, wand, grow, invert) and **transform** (move, scale, rotate, flip) | First for rectangle, lasso, move, scale, rotate, flip; wand and the rest later; mesh and perspective warp much later | Low-medium. The selection is a mask texture; resampling on the GPU is cheap; the wand is a flood on read-back pixels. | Selection is editor state, not document. `transform` and `paste` ops carry a mask and a matrix or pixels. |
+| **Rulers and perspective guides** (straight, curve, symmetry, parallel, one- to three-point perspective that strokes snap to) | Later (after phase 5) | Low. Pure geometry applied to pen samples before the stroke is made; Godot draws the guides. | `guides[]` on a sheet. Snapping happens before points are stored, so ops do not change. |
+| **Fill** | First (plain flood, tolerance) | Low. | A `fill` op stores the **resulting mask**, never the click point, so replay and other clients get identical pixels whatever algorithm made it. |
+| **Fill with gap closing, reading other layers** | Later (with comics) | Medium-high. The search for gaps is heavy work on pixels; GDScript is too slow at 2048 px, so it runs in the page (typed arrays, a worker) or as GPU passes. | As above. |
+| **Screentones** | Later (with comics) | Low. A tone is a shader on a layer (dot, line or noise; lines per inch; angle; density from the layer's grey). Suits Godot well. Must render at final size to avoid moiré. | `dpi` on the sheet; `effects[]` on a layer; `colorMode` grey and mono. |
+| **Text and balloons** | Later (phase 4) | Medium-high. Typing in HTML, drawing in the engine; vertical text, small reading aids above characters and font handling are the work. | `text` layer kind with `objects[]`; `assets{}` for fonts. |
+| **Comic pages, panels, multi-page works, batch export** | Later (phase 4) | Medium. | Many sheets per work from day one; trim, bleed and safe boxes; `panels` layer kind. |
+| **3D reference models** (view, light, camera) | Later (phase 5; can be pulled forward) | Low. This is where Godot is strongest. | `reference3d` layer kind; `assets{}` for models. |
+| **Posable 3D figures** (drag joints, hands, saved poses, body proportions) | Much later | Medium-high. Godot has skeletons and inverse kinematics; the touch-friendly handles are the work. | A `pose` map (bone to rotation) on the layer, keyable. |
+| **Animation cels, onion skin, filmstrip** | First (phase 2) | Medium. Memory with many cels is the limit. | Every raster layer already has cels with start and length. |
+| **Full timeline, camera moves, audio** | Later (phase 5) | Medium-high, mostly interface work on touch. | Keys on layers and groups. |
+| **Time-lapse of the drawing** | Later, nearly free | Low: replay the op log into the video exporter. | The op log itself. |
+| **Filters and correction layers** | Later (phase 5) | Low-medium: effect layers with built-in shaders. | `effects[]`, `effect` layer kind. |
+| **Colour management** | First: sRGB, 8 bits a channel, files tagged sRGB. Wide-gamut display later. 16-bit layers and CMYK print proofing: out, or much later for CMYK export only | The web canvas the engine draws to is sRGB **[recheck]**; 16 bits doubles memory; CMYK needs a colour engine run in the page at export time. | `colorSpace` and `bitDepth` written in every file, so a file always says what it is. |
+| **Import and export: PNG, JPEG, WebP** | First | Low; the browser does the encoding. | |
+| **Video, GIF, PNG sequence** | First (phase 2) | Section 6.6. | |
+| **Layered exchange: OpenRaster (.ora)** | Later | Low. An open specification, a zip of PNG layers and a small XML tree: close to `.webpaint` itself. Done in the page. | Layer tree, blend names, opacity, visibility. |
+| **Layered exchange: PSD** | Much later | Medium. The format's specification is published and widely implemented; raster layers, folders, blend modes, opacity and masks can go both ways, written in the page (own code or an open-source library, with her yes). Text, vector and effects do not survive. | As above, plus masks. |
+| **Other programs' own project formats** | Out | No open specification. Exchange goes through PSD or OpenRaster. | |
+| **Print-size pages** (a manga page at 600 dpi is about 6000 × 8600 pixels) | Much later, desktop only | High. Far past what a tablet browser holds as full-colour layers. Possible only because tiles are sparse and because grey and mono layers cost a quarter or less. | Sparse tiles and `colorMode`, both from day one. |
+| **Recorded actions, asset library, liquify** | Much later | Ops make recorded actions natural; the others are separate projects. | |
+
+### Frankly
+
+Programs of that class are the work of teams over twenty years. One person
+with AI help does not catch them up; she can build something that covers the
+**everyday path** well and is better than they are at the things they do not
+do at all: opening in a browser, drawing together, and publishing a page or
+a clip to an audience in one press.
+
+What is reachable, in order:
+
+1. **Year one (phases 1 to 4):** sketch, ink and flat colour with good pen
+   feel, layers with folders, clipping and blend modes, basic selection and
+   transform; flipbook animation with onion skin and video export; shared
+   canvases; comic pages with panels, balloons, tones and batch publishing.
+   That is a real tool, at screen resolution.
+2. **After that, each a one- to four-week item, in the order she feels the
+   lack:** rulers and perspective, gap-closing fill, masks, OpenRaster, the
+   full timeline with audio, 3D reference, custom brushes.
+3. **Hard, and late:** vector layers, posable figures, PSD, mixing brushes.
+4. **Where it will stay behind:** depth of the brush engine (thousands of
+   tuned brushes), print-resolution pages on tablets, CMYK and 16-bit
+   colour, and every other program's own file format.
+
+The rule that makes this order possible is the one in 4.1: fields and layer
+kinds exist in the file before the features do, and everything is an op.
+
+---
+
+## 16. Offline, and installing to the home screen
+
+Mae: "it should also work offline" and "add a way to add the app to your
+phone home screen as web app".
+
+### 16.1 Offline first
+
+- **The editor opens and works with no connection.** After one visit, the
+  shell and the engine come from the service worker's cache; the library
+  comes from the device (IndexedDB for the list, OPFS for the data, as in
+  4.5). Drawing, layers, the timeline, saving, project files and exporting to
+  a file all work offline (the video encoder is the browser's own).
+- **No account is needed to draw.** Sign-in is asked for only when
+  publishing, uploading or joining a room. An expired session never locks
+  work that is on the device. The library belongs to the browser on that
+  device, not to an account.
+- **What needs the network** says so in place, without blocking anything
+  else: Publish, rooms, gallery and reader pages.
+- **The outbox.** Publishing while offline (or when an upload fails) puts
+  the exported files and the request into an outbox on the device. The top
+  bar shows "1 waiting to upload". When the connection and a valid session
+  are back, and the app is open, the outbox sends in order with resumable
+  chunks; each item carries its own key so a retry can never publish twice;
+  she can cancel an item before it goes. Browsers' background sync is not
+  relied on (it is missing in Safari).
+- **Not in the first versions:** syncing a project between devices. Moving a
+  work is "Save a copy" and open it elsewhere, until project files can be
+  stored on the server (phase 6).
+
+### 16.2 Rooms when a client drops
+
+- The server drops that person's unfinished stroke (it was never
+  committed), removes their cursor after 10 seconds, and carries on.
+- The dropped client **keeps drawing**: its ops queue locally with their
+  ids, shown as "reconnecting". It retries after 1, 2, 5, 10, then every 30
+  seconds, each time with a new ticket.
+- On return it says which sequence number it has; the server sends what it
+  missed; the client applies that, then re-sends its queued ops, which get
+  new places in the order. The server ignores ids it has already logged, so
+  nothing is applied twice; an op whose target was deleted meanwhile does
+  nothing (5.4).
+- If it was away too long (more than 500 queued ops or 10 minutes, or the
+  room has moved past a newer snapshot), it offers "Keep my changes as a
+  copy" (a new work on the device) and rejoins from the snapshot. Nothing
+  drawn is ever thrown away silently.
+
+### 16.3 Installable web app
+
+- `manifest.webmanifest`: name `webpaint.ing`, short name `webpaint`,
+  `start_url` and `scope` `/`, `display: standalone`, background and theme
+  colours from the tokens, icons at 192 and 512 plus a maskable 512, an
+  `apple-touch-icon` link for iOS, a "New drawing" shortcut, and
+  `file_handlers` for `.webpaint` (desktop Chromium only).
+- **The Install button** is webpost.ing's, copied: `utils/installApp.js` and
+  `components/InstallApp/` (Chromium's install prompt kept for a button; on
+  iPhone and iPad, where there is no prompt, the same button shows the two
+  steps "Share, then Add to Home Screen"). It sits in the library and the
+  account menu, not in the editor.
+- On iPhone and iPad, **installing is also how work is kept safe**: Safari
+  clears a site's stored data after seven days without a visit, and an
+  installed web app is exempt **[recheck]**. The save-status menu says so
+  once, with the Install button beside it. An installed app has its own
+  storage, separate from the Safari tab: works made in the tab move with
+  "Save a copy".
+
+### 16.4 The service worker and a large engine
+
+One service worker, the site's own. Godot's export can generate one too
+(`godot.service.worker.js` in the template); it is not used, because a scope
+can have only one.
+
+| Request | Strategy |
+|---|---|
+| Pages (`index.html`) | Network first, cached copy when offline: as webpost.ing's `sw.js`. |
+| `/assets/*` (hashed shell files) | Cache first. |
+| `/engine/*` (`godot.<hash>.wasm`, `godot.<hash>.js`, `webpaint.<hash>.pck`, the audio worklets) | **Fetched ahead at install** from a list written by the build, into a cache named after the hash of the engine files; cache first afterwards. |
+| `/api/`, `/auth/`, `/ws/`, `/media/`, other origins, anything not GET | Never touched. |
+
+- **Versioning.** Each release's `sw.js` contains the build id, so the
+  browser sees a new worker. The engine cache's name depends only on the
+  engine's files: a release that changes only the shell downloads nothing
+  large. Old caches are deleted when the new worker takes over.
+- **Updates never swap the app under an open drawing.** Unlike
+  webpost.ing's worker, this one does not take over at once: the new
+  version waits, the top bar shows "Update ready", and it is applied on the
+  next cold start or when she presses it (save, then reload). The shell and
+  the engine carry a protocol number (`hello` and `ready`); a mismatch
+  forces the reload.
+- **Space.** The cache holds files uncompressed: about 40 MB for the engine
+  and its pack, briefly twice that during an update. Projects are far
+  larger than the app, so the library shows space used and left
+  (`navigator.storage.estimate()`), asks for persistent storage on first
+  save, and warns at 80%. What an origin may store on iPhone and iPad
+  **[recheck]** is measured in phase 0.
+- **Cross-origin isolation.** Not used (2.6), so the worker has nothing to
+  do with it. For the record, if the threaded engine were ever adopted: the
+  page and every file it loads must carry the two headers; responses from
+  the worker's cache keep the headers they were stored with, so nginx must
+  send them before anything is cached; and files from other origins
+  (webpost.ing's images) would need their own permission header. Godot's
+  generated worker can add the headers itself, which is another reason not
+  to mix it with this one.
