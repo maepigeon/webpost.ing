@@ -654,6 +654,13 @@ export function SEND_HEARTBEAT(username) {
     { withCredentials: true }).then(r => r.data).catch(() => {});
 }
 
+// Unread counts for the badges, `{ messages, notifications }`. Also counts as
+// the heartbeat (the server throttles that write), so nothing else need ping.
+export function GET_COUNTERS() {
+  return axios.get(baseUrl + '/api/me/counters', { withCredentials: true })
+    .then(r => r.data);
+}
+
 export function GET_USER_ONLINE(username) {
   return axios.get(baseUrl + `/api/users/${username}/online`).then(r => r.data);
 }

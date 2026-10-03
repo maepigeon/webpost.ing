@@ -171,10 +171,11 @@ export default function MessagesPage() {
 
   // ── Polling ───────────────────────────────────────────────────────────────
 
+  // Nothing polls while the tab is hidden; coming back recounts at once.
   useEffect(() => {
     if (!activeConvId && !activeGroupId) return;
     const thread = activeConvId ? `c${activeConvId}` : `g${activeGroupId}`;
-    pollRef.current = setInterval(async () => {
+    const pollThread = async () => {
       try {
         if (activeConvId) {
           const msgs = await GET_CONVERSATION_MESSAGES(activeConvId, 100, 0);
@@ -188,10 +189,21 @@ export default function MessagesPage() {
           GET_GROUP_REACTIONS(activeGroupId).then(r => setGroupReactions(r)).catch(() => {});
         }
       } catch { /* a missed poll is retried on the next one */ }
-      loadAll();
-    }, 10000);
-    return () => clearInterval(pollRef.current);
+    };
+    pollRef.current = setInterval(() => { if (!document.hidden) pollThread(); }, 10000);
+    const onVisible = () => { if (!document.hidden) { pollThread(); loadAll(); } };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(pollRef.current);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [activeConvId, activeGroupId, loadAll]);
+
+  // The conversation and group lists change slowly: every 30 seconds.
+  useEffect(() => {
+    const id = setInterval(() => { if (!document.hidden) loadAll(); }, 30000);
+    return () => clearInterval(id);
+  }, [loadAll]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });

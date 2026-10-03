@@ -3,7 +3,8 @@
 #
 # Reads every setting from deploy.env (see config/deploy.env.example). The JVM
 # needs no -D flags: application.properties resolves ${VAR:default} straight
-# from the environment, so APP_PROFILE alone selects dev or prod.
+# from the environment, so APP_PROFILE alone selects dev or prod. Memory flags
+# come from JAVA_OPTS (below).
 
 set -euo pipefail
 
@@ -24,5 +25,12 @@ if [ ! -f "$JAR" ]; then
   exit 1
 fi
 
-echo "Starting webpost.ing backend — profile=${APP_PROFILE:-dev}, jar=$JAR"
-exec java -jar "$JAR"
+# Memory limits for the 2 GB server: a capped heap, one small collector, and
+# exit on out-of-memory so systemd restarts the app instead of it hanging.
+# Override with JAVA_OPTS in deploy.env; an empty JAVA_OPTS= means no flags.
+DEFAULT_JAVA_OPTS="-Xmx640m -Xms256m -XX:+UseSerialGC -XX:+ExitOnOutOfMemoryError -XX:MaxMetaspaceSize=192m"
+JAVA_OPTS="${JAVA_OPTS-$DEFAULT_JAVA_OPTS}"
+
+echo "Starting webpost.ing backend — profile=${APP_PROFILE:-dev}, jar=$JAR, java opts=${JAVA_OPTS:-none}"
+# shellcheck disable=SC2086  # JAVA_OPTS is meant to split into words
+exec java $JAVA_OPTS -jar "$JAR"

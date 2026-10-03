@@ -1,6 +1,6 @@
 import './App.css';
 import { useEffect, Fragment, lazy, Suspense } from 'react';
-import { AUTHORIZE_SESSION, SEND_HEARTBEAT } from "./components/Pages/Posts/BasicTextPostServerApi"
+import { AUTHORIZE_SESSION } from "./components/Pages/Posts/BasicTextPostServerApi"
 
 import { Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
 
@@ -65,17 +65,7 @@ function App() {
     if (localStorage.getItem("userName")) AUTHORIZE_SESSION().catch(() => {});
   }, []);
 
-  // Heartbeat: keep online status fresh every 2 minutes
-  useEffect(() => {
-    const username = localStorage.getItem('userName');
-    if (!username) return;
-    SEND_HEARTBEAT(username);
-    const id = setInterval(() => {
-      const u = localStorage.getItem('userName');
-      if (u) SEND_HEARTBEAT(u);
-    }, 2 * 60 * 1000);
-    return () => clearInterval(id);
-  }, []);
+  // (No heartbeat timer: the Navbar's unread-count poll tells the server the user is active.)
 
   return (
     <div id="appBody">
