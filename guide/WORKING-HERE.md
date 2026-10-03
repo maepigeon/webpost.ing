@@ -34,10 +34,10 @@ without Mae having to explain it again. Last updated 2026-10-03.
 
 ## How many agents
 
-- **At most 10 agents running at once**, counting agents started by agents.
+- **At most 15 agents running at once** (raised from 10 by Mae on 2026-10-03), counting agents started by agents.
 - A Sonnet worker with a large task may split it and start its own helpers
   (say so in its brief, with a number it may use, so the total stays under
-  10). It is responsible for them: disjoint files, the same rules as below,
+  15). It is responsible for them: disjoint files, the same rules as below,
   and it reports their work as its own.
 - The lead keeps watch: stop a worker that has gone quiet, is looping, or is
   doing something another already did, and start a replacement with a

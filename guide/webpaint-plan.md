@@ -73,6 +73,21 @@ animation wips".
   which today is a private section with no subscriptions behind it.
 - **Animation WIPs**: the same quick-update flow for unfinished animation.
 
+## The domain (GoDaddy)
+
+webpaint.ing is registered at GoDaddy. Mae: "when you are ready for me to
+connect my godaddy domain for webpaint.ing tell me to and what i need to do".
+Do not ask her until there is something to serve. When the site has a first
+page that works on the droplet, tell her, in order:
+1. In GoDaddy's DNS for webpaint.ing: an `A` record for `@` pointing to the
+   droplet's IP address, and a `CNAME` for `www` pointing to `webpaint.ing`
+   (or a second `A` record). Remove GoDaddy's parking records.
+2. On the droplet: the nginx server block for webpaint.ing (give her the
+   snippet), then a TLS certificate for both names (the same tool
+   webpost.ing uses, e.g. certbot), run by her with sudo.
+3. How to check it: the address loads over https and shows the new site.
+DNS changes can take up to a day to spread.
+
 ## Dropped
 
 - **"AI compression" for video.** Mae dropped it on 2026-10-03. Use standard
