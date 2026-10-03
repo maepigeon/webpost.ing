@@ -60,6 +60,9 @@ perf-ops (JVM cap, Tomcat/Hikari, compression, nginx example), perf-polling
 9. From the smoke suite (committed, `node tools/smoke/run.mjs`): a new post stays on `/editor` after its first Save draft, so a reload shows a blank post and the next save could duplicate it (`Editor.jsx` keeps the new id in state but never changes the URL). Assign once Editor.jsx is free (perf-render and perf-fonts both touched it). Also: at 390px the editor's sticky tools cover half the screen over a grid.
 10. `implementer-smoke-bugs` is fixing the banner editor's false "Not saved yet" and the owner profile column width.
 
+11. **Mae wants both (2026-10-03): the Turnstile bot check and sign-in with Google, Apple, Microsoft.** Turnstile is built (off until she puts `TURNSTILE_SITE_KEY`/`TURNSTILE_SECRET_KEY` in deploy.env). SSO is NOT built: launch a `senior-engineer` on `guide/SSO-PLAN.md` once `implementer-accounts-readiness` has finished with the auth files (new `SsoController` + service, migration **V021** `user_identities`, a session-creation method in the login repository, Login/Registration buttons, Settings "Linked sign-ins" and "Set a password"; Google and Microsoft first, Apple last; every provider off unless its `SSO_*` values are set). She has been told what to register (callback URLs are in SSO-PLAN.md).
+12. perf-render and perf-fonts are committed. `implementer-editor-fixes` (new-post URL, button rows, small fixes) and `implementer-payloads-wp4` (cards) are running.
+
 ## Answers owed to Mae (give in the next status message)
 - Electron wrapping the Godot web build works, but Godot's native desktop
   export is the better downloadable (smaller, faster, better pen input); the
