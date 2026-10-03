@@ -41,7 +41,7 @@ without Mae having to explain it again. Last updated 2026-10-03.
 
 ## How many agents
 
-- **At most 15 agents running at once** (raised from 10 by Mae on 2026-10-03), counting agents started by agents.
+- **Up to 10 high-level workers at once, each of which may run 3 to 5 helpers of its own** (Mae, 2026-10-03, replacing the earlier flat limits). A high-level worker owns an area (for example "webpost.ing performance" or "webpaint.ing phase 0"), splits it, briefs and checks its helpers, and reports once.
 - A Sonnet worker with a large task may split it and start its own helpers
   (say so in its brief, with a number it may use, so the total stays under
   15). It is responsible for them: disjoint files, the same rules as below,
