@@ -568,6 +568,13 @@ public class AuthController {
             }
         } catch (Exception ignored) {}
 
+        // A name that differs from an existing one only in capitals would let
+        // one account pass for another.
+        Integer sameName = jdbc.queryForObject(
+            "SELECT COUNT(*) FROM users WHERE LOWER(username) = LOWER(?)", Integer.class, username);
+        if (sameName != null && sameName > 0)
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("Username already taken.");
+
         // Validate invite code (not expired, not used)
         List<Map<String, Object>> codeRows = jdbc.queryForList(
             "SELECT expires_at, used_by FROM invite_codes WHERE code=?", code.trim());
@@ -575,24 +582,19 @@ public class AuthController {
             if (!isLoopback) REG_BLOCK.put(ip, System.currentTimeMillis() + REG_BLOCK_SHORT_MS);
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Invalid invite code.");
         }
-        Map<String, Object> codeRow = codeRows.get(0);
-        if (codeRow.get("used_by") != null) {
+        if (codeRows.get(0).get("used_by") != null) {
             // Already used — not an attack, don't block
             return ResponseEntity.status(HttpStatus.GONE).body("Invite code has already been used.");
         }
-        try {
-            Object expiresRaw = codeRow.get("expires_at");
-            java.time.Instant expiresAt = null;
-            if (expiresRaw instanceof java.sql.Timestamp ts) {
-                expiresAt = ts.toInstant();
-            } else if (expiresRaw instanceof java.time.OffsetDateTime odt) {
-                expiresAt = odt.toInstant();
-            }
-            if (expiresAt != null && expiresAt.isBefore(java.time.Instant.now())) {
-                // Expired — not an attack, don't block
-                return ResponseEntity.status(HttpStatus.GONE).body("Invite code has expired.");
-            }
-        } catch (Exception ignored) {}
+
+        // Claim the code before making the account, in one statement, so two
+        // sign-ups arriving together cannot both use it. Zero rows means it
+        // was used or ran out in the meantime.
+        int claimed = jdbc.update(
+            "UPDATE invite_codes SET used_by=?, used_at=NOW() WHERE code=? AND used_by IS NULL "
+            + "AND (expires_at IS NULL OR expires_at > NOW())", username, code.trim());
+        if (claimed == 0)
+            return ResponseEntity.status(HttpStatus.GONE).body("Invite code has expired or was just used.");
 
         // Create the user account
         org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder bcrypt =
@@ -601,11 +603,12 @@ public class AuthController {
             jdbc.update("INSERT INTO users(username, password, email) VALUES(?,?,?)",
                 username, bcrypt.encode(password), email);
         } catch (Exception e) {
+            // The name was taken after all: hand the code back.
+            jdbc.update("UPDATE invite_codes SET used_by=NULL, used_at=NULL WHERE code=? AND used_by=?", code.trim(), username);
             return ResponseEntity.status(HttpStatus.CONFLICT).body("Username already taken.");
         }
 
-        // Mark code as used, then block IP for 1 hour to prevent multi-account creation
-        jdbc.update("UPDATE invite_codes SET used_by=?, used_at=NOW() WHERE code=?", username, code.trim());
+        // Block the IP for 1 hour to prevent multi-account creation
         if (!isLoopback) REG_BLOCK.put(ip, System.currentTimeMillis() + REG_BLOCK_MS);
         return ResponseEntity.status(HttpStatus.CREATED).body("Account created. You can now log in.");
     }
@@ -759,7 +762,10 @@ public class AuthController {
     @PostMapping("/loginSessionAttempt")
     public ResponseEntity<String> loginSessionAttempt(@RequestBody LoginInfo loginInfo, HttpServletRequest request, HttpServletResponse response) {
         String clientIp = request.getRemoteAddr();
-        if (LoginRateLimiter.isBlocked(clientIp)) {
+        // Per account as well as per address: guesses at one account spread
+        // across many addresses are counted together.
+        String accountKey = "account:" + String.valueOf(loginInfo.getUsername()).toLowerCase();
+        if (LoginRateLimiter.isBlocked(clientIp) || LoginRateLimiter.isBlocked(accountKey)) {
             return new ResponseEntity<>("Too many failed login attempts. Try again in 15 minutes.", HttpStatus.TOO_MANY_REQUESTS);
         }
         AuthSession loginResult = loginRepository.login(loginInfo);
@@ -767,9 +773,11 @@ public class AuthController {
             switch (loginResult.loginHttpStatusCodeResult) {
                 case HttpStatus.FORBIDDEN:
                     LoginRateLimiter.recordFailure(clientIp);
+                    LoginRateLimiter.recordFailure(accountKey);
                     return new ResponseEntity<>("Incorrect username or password.", HttpStatus.FORBIDDEN);
                 case HttpStatus.OK:
                     LoginRateLimiter.recordSuccess(clientIp);
+                    LoginRateLimiter.recordSuccess(accountKey);
                     HttpCookie tokenCookie = ResponseCookie.from("authToken", loginResult.token)
                             .httpOnly(true)
                             .sameSite("Lax")

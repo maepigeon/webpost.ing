@@ -103,6 +103,10 @@ public class AdminController {
             return ResponseEntity.badRequest().body("That username is reserved.");
 
         try {
+            Integer sameName = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM users WHERE LOWER(username) = LOWER(?)", Integer.class, newUsername.trim());
+            if (sameName != null && sameName > 0)
+                return ResponseEntity.status(HttpStatus.CONFLICT).body("Username already taken.");
             jdbc.update("INSERT INTO users(username, password) VALUES(?,?)", newUsername.trim(), bcrypt.encode(newPassword));
             return ResponseEntity.status(HttpStatus.CREATED).body("User created.");
         } catch (Exception e) {
