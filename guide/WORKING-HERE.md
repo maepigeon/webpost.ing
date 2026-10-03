@@ -184,6 +184,12 @@ the lead commits and hands over.
   (`GridButton`), pixel text, symbols from the Basics pack.
 - No emojis in the UI (reaction emojis are content and stay).
 - Plain words in the interface; short hints; long notes behind an "i".
+- **No little notes floating above controls.** Mae called the "Description"
+  and "Goes in" labels over the editor's fields bad design (2026-10-03). A
+  field says what it is with its placeholder; a control reads on its own; a
+  label that is needed for screen readers is visually hidden, not shown.
+  Don't add helper sentences under controls either unless the choice is
+  genuinely surprising.
 - Profiles and posts are themed by their owner; anything drawn on a themed
   card takes its colours from the theme variables (`--th-ink`, `--th-link`,
   `--th-danger`, …) so it stays readable. `theme.js` checks text colours
