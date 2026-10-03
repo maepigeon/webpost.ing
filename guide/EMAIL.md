@@ -8,6 +8,13 @@ depends on it.
 
 ## Turning it on
 
+The short way, on the server: `sudo bash enable-mail.sh /path/to/deploy.env`
+(shipped in each release's `server-tools/`, source `tools/server/enable-mail.sh`).
+It asks for the mail service's SMTP details there, writes them to `deploy.env`,
+restarts the app and puts everything back if the app does not come up. Before
+it can deliver, the domain needs the mail service's DNS records: SPF, DKIM and
+a DMARC record (start with `p=none`). By hand, it is these lines:
+
 Set these in `deploy.env` (see [CONFIGURATION.md](CONFIGURATION.md)):
 
 ```bash
