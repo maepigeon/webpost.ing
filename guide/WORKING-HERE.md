@@ -43,6 +43,25 @@ without Mae having to explain it again. Last updated 2026-10-03.
   doing something another already did, and start a replacement with a
   tighter brief. Don't leave idle agents around.
 
+## The agent types (in `.claude/agents/`)
+
+Standing rules live in these definitions, so a brief only has to carry the
+task: the files, Mae's words, and the design.
+
+| Type | Model | Use it for |
+|---|---|---|
+| `implementer` | Sonnet | One scoped feature or fix inside a named file list, with tests. |
+| `integrator` | Sonnet | After a batch: apply the cross-file insertions workers left, fix broken tests, run the full suites. |
+| `auditor` | Sonnet | Read-only security, performance, accessibility or code-health audit ending in ranked findings and work packages. |
+| `ui-reviewer` | Sonnet | Exploratory testing in a real browser; a bug report with evidence. |
+| `screen-checker` | Sonnet | Before a deploy hand-over: look at the changed screens and say Ship, Fix first, or Show Mae first. |
+| `design-reviewer` | Fable | Occasionally: a feature's design before building, an architecture choice, a deep review of a risky change. Mae asked for this model on high-intelligence review and design tasks; it costs more, so use it where being wrong is expensive. |
+
+Haiku (through `general-purpose` with `model: haiku`) is fine for small
+mechanical edits with an exact recipe. A batch usually runs: auditor or
+design-reviewer → implementers in parallel → integrator → screen-checker →
+the lead commits and hands over.
+
 ## Briefing a subagent (what has worked)
 
 - Name the **only files it may edit**, and say other agents are editing other
