@@ -125,6 +125,7 @@ COMMIT;
 | V013 | `shared_packs`: snapshots of sticker or symbol packs shared in messages |
 | V014 | `shared_pack_saves`: who has saved each shared pack, so saving twice copies once |
 | V017 | `posts.section` (`profile`, `notes` or `subscribers`, default `profile`): where a post belongs; drafts are just unpublished posts |
+| V018 | `security_events` (user_id, kind, detail, shortened ip_prefix, user_agent, created_at): the member's own security log, pruned on write (200 rows, 90 days), cascades with the account |
 
 V002 to V007 are already on the server. V008 to V014 go live with the next
 release. Every one is in a transaction and safe to run again, except V007's

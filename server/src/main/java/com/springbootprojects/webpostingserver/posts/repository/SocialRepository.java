@@ -853,6 +853,61 @@ public class SocialRepository {
             String.class, "%" + query + "%", limit);
     }
 
+    // ── Mentions ──────────────────────────────────────────────────────────────
+
+    /**
+     * Ids of the members a comment may notify: the names exist (any letter case),
+     * are not the author, are not frozen, and the post is one other members can
+     * read (published and not subscribers-only). Nobody otherwise: a mention
+     * must never reveal a hidden post.
+     */
+    public List<Integer> findMentionRecipients(List<String> lowerNames, int authorId, int postId) {
+        if (lowerNames.isEmpty()) return List.of();
+        List<Integer> visible = jdbc.queryForList(
+            "SELECT 1 FROM posts WHERE id=? AND published AND section <> 'subscribers'", Integer.class, postId);
+        if (visible.isEmpty()) return List.of();
+        String marks = String.join(",", Collections.nCopies(lowerNames.size(), "?"));
+        List<Object> args = new ArrayList<>(lowerNames);
+        args.add(authorId);
+        return jdbc.queryForList(
+            "SELECT id FROM users WHERE lower(username) IN (" + marks + ") AND id <> ? AND role <> 'frozen' ORDER BY id",
+            Integer.class, args.toArray());
+    }
+
+    // ── Discover ──────────────────────────────────────────────────────────────
+
+    /**
+     * Newest public profile-section posts of everyone but the viewer (viewerId 0
+     * for none), one page by date: posts strictly before {@code before} (null for
+     * the first page). Asks for one row more than {@code size} so the caller can
+     * tell whether another page exists. Frozen authors are left out.
+     */
+    public List<Map<String, Object>> discoverPosts(int viewerId, java.sql.Timestamp before, int size) {
+        return jdbc.queryForList("""
+            SELECT p.id, p.title, p.description, p.date, p.slug, p.card_grid,
+                   author.username AS author, author.avatar_path
+              FROM posts p
+              JOIN users_posts_junctions j ON j.post_id = p.id
+              JOIN users author ON author.id = j.user_id
+             WHERE p.published AND p.section = 'profile'
+               AND author.role <> 'frozen' AND author.id <> ?
+               AND (?::timestamptz IS NULL OR date_trunc('milliseconds', p.date) < ?::timestamptz)
+             ORDER BY p.date DESC, p.id DESC
+             LIMIT ?""", viewerId, before, before, size + 1);
+    }
+
+    /** Recently active members who have at least one public profile post (not the viewer, not frozen). */
+    public List<Map<String, Object>> discoverPeople(int viewerId, int limit) {
+        return jdbc.queryForList("""
+            SELECT u.username, u.avatar_path, u.bio
+              FROM users u
+             WHERE u.role <> 'frozen' AND u.id <> ?
+               AND EXISTS (SELECT 1 FROM users_posts_junctions j JOIN posts p ON p.id = j.post_id
+                            WHERE j.user_id = u.id AND p.published AND p.section = 'profile')
+             ORDER BY u.last_active_at DESC NULLS LAST, u.id
+             LIMIT ?""", viewerId, limit);
+    }
+
     // ── Post votes ────────────────────────────────────────────────────────────
 
     /** Vote (+1 or -1) on a post. Passing 0 removes the vote. Returns {score, userVote}. */

@@ -7,6 +7,7 @@ import com.springbootprojects.webpostingserver.posts.repository.JdbcLoginReposit
 import com.springbootprojects.webpostingserver.posts.repository.LoginRepository;
 import com.springbootprojects.webpostingserver.posts.repository.PostRepository;
 import com.springbootprojects.webpostingserver.posts.repository.SocialRepository;
+import com.springbootprojects.webpostingserver.posts.service.Mentions;
 import com.springbootprojects.webpostingserver.posts.validator.EmojiValidator;
 import com.springbootprojects.webpostingserver.posts.validator.RateLimiter;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -223,9 +224,18 @@ public class DiscussionController {
 
         // Notify post owner if commenter is not the owner
         LoginInfo postOwner = postRepository.getUsernameFromPostId(postId);
+        int notifiedOwnerId = -1;
         if (postOwner != null && !postOwner.compareUsername(username)) {
             int ownerId = social.getUserIdByUsername(postOwner.getUsername());
+            notifiedOwnerId = ownerId;
             social.createNotification(ownerId, "comment", username, postId, commentId);
+        }
+
+        // @name mentions: only people who may read the post, never the author
+        List<String> mentioned = Mentions.extract(content);
+        if (!mentioned.isEmpty()) {
+            for (int recipient : social.findMentionRecipients(mentioned, session.userId, postId))
+                if (recipient != notifiedOwnerId) social.createNotification(recipient, "mention", username, postId, commentId);
         }
 
         Map<String, Object> resp = new HashMap<>();

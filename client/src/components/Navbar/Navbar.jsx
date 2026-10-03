@@ -21,7 +21,7 @@ function Navbar() {
 
   /**
    * What lives on the bar, in bar order. `priority` decides who goes into More
-   * first when it is too narrow (lowest first): Following, Notifications,
+   * first when it is too narrow (lowest first): Discover, Following, Notifications,
    * Messages, Search. Account things are not here; they have their own menu.
    */
   const items = loggedIn
@@ -29,6 +29,7 @@ function Navbar() {
         { key: 'home',      label: 'Home',          route: '/',          priority: 100 },
         { key: 'new',       label: 'New Post',      route: '/editor',    priority: 90 },
         { key: 'following', label: 'Following',     route: '/following', priority: 10 },
+        { key: 'discover',  label: 'Discover',      route: '/discover',  priority: 15 },
         { key: 'search',    label: 'Search',        route: '/search',    priority: 40 },
         { key: 'messages',  label: 'Messages',      route: '/messages',  priority: 30, badge: unread.messages },
         { key: 'notifs',    label: 'Notifications', route: '/inbox',     priority: 20, badge: unread.notifications },

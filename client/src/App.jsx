@@ -18,6 +18,7 @@ import CursorGlow from './components/CursorGlow/CursorGlow.jsx';
 import MiniPlayer from './components/AudioPlayer/MiniPlayer.jsx';
 const InboxPage = lazy(() => import('./components/Social/InboxPage.jsx'));
 const FollowingPage = lazy(() => import('./components/Social/FollowingPage.jsx'));
+const DiscoverPage = lazy(() => import('./components/Pages/Discover/DiscoverPage.jsx'));
 const MessagesPage = lazy(() => import('./components/Social/MessagesPage.jsx'));
 const DiscussionPage = lazy(() => import('./components/Social/DiscussionPage.jsx'));
 const SearchPage = lazy(() => import('./components/Pages/Search/SearchPage.jsx'));
@@ -98,6 +99,7 @@ function App() {
           <Route path="/routes/NewAccount" element={<Registration />} />
           <Route path="/inbox" element={<InboxPage />} />
           <Route path="/following" element={<FollowingPage />} />
+          <Route path="/discover" element={<DiscoverPage />} />
           <Route path="/messages" element={<MessagesPage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/activity/:username" element={<Fresh><ActivityPage /></Fresh>} />

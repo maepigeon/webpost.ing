@@ -158,6 +158,24 @@ class DiscussionControllerTest {
     }
 
     @Test
+    void addComment_mentionNotifiesRecipientsOnce() throws Exception {
+        AuthSession s = new AuthSession("whiskers");
+        s.userId = 77;
+        when(loginRepository.authorize("whiskers", "tok")).thenReturn(s);
+        when(social.isDiscussionEnabled(10)).thenReturn(true);
+        when(jdbc.queryForObject(anyString(), eq(Boolean.class), eq(77))).thenReturn(false);
+        when(social.addComment(10, null, 77, "hi @Sam, @sam and @mittens")).thenReturn(43);
+        when(postRepository.getUsernameFromPostId(10)).thenReturn(mittensOwner);
+        when(social.getUserIdByUsername("mittens")).thenReturn(2);
+        when(social.findMentionRecipients(List.of("sam", "mittens"), 77, 10)).thenReturn(List.of(2, 5));
+        discussionController.addComment(10, Map.of("content", "hi @Sam, @sam and @mittens"), "whiskers", "tok");
+        verify(social).createNotification(5, "mention", "whiskers", 10, 43);
+        // the post owner already gets the comment notification: no second one
+        verify(social, never()).createNotification(2, "mention", "whiskers", 10, 43);
+        verify(social).createNotification(2, "comment", "whiskers", 10, 43);
+    }
+
+    @Test
     void addComment_withinCooldown_returns429() throws Exception {
         when(loginRepository.authorize("whiskers", "tok")).thenReturn(whiskersSession);
         when(social.isDiscussionEnabled(10)).thenReturn(true);

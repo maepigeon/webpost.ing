@@ -27,6 +27,7 @@ public class FeedController {
 
     @Autowired private LoginRepository loginRepository;
     @Autowired private JdbcTemplate jdbc;
+    @Autowired private com.springbootprojects.webpostingserver.posts.repository.SocialRepository social;
 
     private AuthSession authorize(String username, String token) {
         try { return loginRepository.authorize(username, token); }
@@ -76,5 +77,74 @@ public class FeedController {
         body.put("posts", page);
         body.put("hasMore", more);
         return ResponseEntity.ok(body);
+    }
+
+    static final int DISCOVER_MAX = 20;
+    static final int PEOPLE_MAX = 30;
+
+    private int viewerId(String username, String token) {
+        AuthSession s = username == null || token == null ? null : authorize(username, token);
+        return s == null ? 0 : s.userId;
+    }
+
+    /**
+     * Recent public posts from everyone, newest first, paged by date: pass the
+     * last post's date as {@code before}. Works signed out too (the viewer's own
+     * posts are left out when signed in).
+     */
+    @GetMapping("/feed/discover")
+    public ResponseEntity<?> discover(
+            @RequestParam(required = false) String before,
+            @RequestParam(defaultValue = "20") int size,
+            @CookieValue(name = "username", required = false) String username,
+            @CookieValue(name = "authToken", required = false) String token) {
+
+        Timestamp cut = null;
+        if (before != null && !before.isBlank()) {
+            try { cut = Timestamp.from(java.time.Instant.parse(before)); }
+            catch (java.time.format.DateTimeParseException e) {
+                try { cut = new Timestamp(Long.parseLong(before)); }
+                catch (NumberFormatException e2) { return ResponseEntity.badRequest().build(); }
+            }
+        }
+        int n = Math.max(1, Math.min(DISCOVER_MAX, size));
+        List<Map<String, Object>> rows = social.discoverPosts(viewerId(username, token), cut, n);
+        boolean more = rows.size() > n;
+        List<Map<String, Object>> page = (more ? rows.subList(0, n) : rows).stream().map(r -> {
+            Map<String, Object> post = new LinkedHashMap<>();
+            post.put("id", r.get("id"));
+            post.put("title", r.get("title"));
+            post.put("description", r.get("description"));
+            Object date = r.get("date");
+            post.put("date", date instanceof Timestamp t ? t.getTime() : date);
+            post.put("slug", r.get("slug"));
+            post.put("cardGrid", r.get("card_grid"));
+            post.put("published", true);
+            post.put("username", r.get("author"));
+            post.put("avatarPath", r.get("avatar_path"));
+            return post;
+        }).toList();
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("posts", page);
+        body.put("hasMore", more);
+        return ResponseEntity.ok().header("Cache-Control", "private, no-store").body(body);
+    }
+
+    /** Recently active members who have at least one public post. */
+    @GetMapping("/feed/people")
+    public ResponseEntity<?> people(
+            @CookieValue(name = "username", required = false) String username,
+            @CookieValue(name = "authToken", required = false) String token) {
+        List<Map<String, Object>> rows = social.discoverPeople(viewerId(username, token), PEOPLE_MAX);
+        List<Map<String, Object>> out = rows.stream().map(r -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("username", r.get("username"));
+            m.put("avatarPath", r.get("avatar_path"));
+            String bio = (String) r.get("bio");
+            if (bio != null && bio.length() > 140) bio = bio.substring(0, 140).trim() + "…";
+            m.put("bio", bio == null ? "" : bio);
+            return m;
+        }).toList();
+        return ResponseEntity.ok().header("Cache-Control", "private, no-store").body(out);
     }
 }

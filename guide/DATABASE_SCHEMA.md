@@ -364,6 +364,29 @@ CREATE TABLE post_uploads (
 
 ---
 
+## security_events
+
+A member's own security log (V018), shown in Settings > Security. The client
+address is stored shortened (IPv4 with the last number zeroed, IPv6 as its /48).
+Pruned on write: newest 200 rows per user, nothing older than 90 days. Kinds:
+`sign_in`, `sign_in_failed`, `sign_out`, `password_changed`, `password_reset`,
+`email_changed`, `sessions_ended`, `account_deleted`.
+
+```sql
+CREATE TABLE security_events (
+  id         BIGSERIAL PRIMARY KEY,
+  user_id    INTEGER     NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind       VARCHAR(32) NOT NULL,
+  detail     VARCHAR(200),
+  ip_prefix  VARCHAR(64),
+  user_agent VARCHAR(200),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX security_events_user_time ON security_events (user_id, created_at DESC);
+```
+
+---
+
 ## role_limits
 
 Per-role storage and rate limits. Checked on upload and post creation.
@@ -600,7 +623,7 @@ bitmap hex), `created_at`, `updated_at`. A user's own symbol sets.
 ## Cascade delete summary
 
 When you DELETE a user, these cascade automatically:
-- `uploads`
+- `uploads`, `security_events`
 - `stickers`, `stickies`, `pixel_fonts`, `shared_packs`, `shared_pack_saves`, `post_views`
 - `follows` (both follower and followed rows)
 - `notifications`

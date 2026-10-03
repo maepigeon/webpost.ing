@@ -5,6 +5,7 @@ import {
  READ_POST,
 } from '../Pages/Posts/BasicTextPostServerApi.js';
 import CommentItem from './CommentItem.jsx';
+import MentionTextarea from './MentionTextarea.jsx';
 import { useBodyWallpaper } from '../TileArt/wallpaper.js';
 import './Social.css';
 import { postPath } from '../../utils/postUrl.js';
@@ -133,7 +134,7 @@ function DiscussionPageBody({ id }) {
 
       {loggedIn ? (
         <div className="discussion-compose">
-          <textarea
+          <MentionTextarea
             value={newComment}
             onChange={e => setNewComment(e.target.value)}
             placeholder="Add to the discussion…"

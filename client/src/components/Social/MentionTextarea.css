@@ -1,0 +1,21 @@
+/* The suggestion list under a comment box: plain, grayscale, 40px rows. */
+.mention-box { position: relative; display: flex; flex-direction: column; }
+.mention-box > textarea { width: 100%; box-sizing: border-box; }
+.mention-list {
+  position: absolute; left: 0; top: 100%; z-index: 20;
+  min-width: 180px; max-width: 100%;
+  margin: 2px 0 0; padding: 4px; list-style: none;
+  background: #fff; color: #111;
+  border: 1px solid #bbb; border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+.mention-option {
+  display: block; width: 100%; min-height: 40px; padding: 0 12px;
+  border: 0; border-radius: 6px; background: transparent; color: inherit;
+  font: 500 14px var(--app-font); text-align: left; cursor: pointer;
+  transition: transform 0.12s, background 0.12s;
+}
+.mention-option:hover, .mention-option.is-active { background: #e6e6e6; }
+.mention-option:active { transform: scale(0.97); }
+.mention-link { color: inherit; font-weight: 600; text-decoration: none; }
+.mention-link:hover { text-decoration: underline; }

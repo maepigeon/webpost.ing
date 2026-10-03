@@ -41,4 +41,10 @@ public interface LoginRepository {
     public String getUserBioLinks(String username);
     public void updateUserBioLinks(String username, String bioLinksJson);
     public void deleteUser(String username);
+
+    /** How many live sessions the account has (this one included). */
+    public int countSessions(String username);
+
+    /** Ends every session of the account except the one with {@code keepToken}; returns how many were ended. */
+    public int endOtherSessions(String username, String keepToken);
 }

@@ -384,6 +384,20 @@ public class JdbcLoginRepository implements LoginRepository {
         evictAllSessionsFor(username);
     }
 
+    @Override
+    public int countSessions(String username) {
+        purgeExpiredSessions();
+        return sessionCountFor(username);
+    }
+
+    @Override
+    public int endOtherSessions(String username, String keepToken) {
+        if (username == null) return 0;
+        int before = sessionCountFor(username);
+        sessionsByToken.values().removeIf(s -> username.equals(s.username) && !tokensMatch(s.token, keepToken));
+        return before - sessionCountFor(username);
+    }
+
     public void deleteUser(String username) {
         List<Integer> ids = jdbcTemplate.queryForList("SELECT id FROM users WHERE username=?", Integer.class, username);
         if (ids.isEmpty()) return;

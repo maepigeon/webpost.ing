@@ -48,6 +48,8 @@ class DatabaseSchemaTest {
                 "hashtags", "post_hashtags",
                 // pixel fonts (V005), stickers and stickies (V012), shared packs (V013, V014)
                 "pixel_fonts", "stickers", "stickies", "shared_packs", "shared_pack_saves",
+                // security log (V018)
+                "security_events",
                 // migration tracking
                 "schema_migrations"
         );
@@ -90,6 +92,8 @@ class DatabaseSchemaTest {
         assertColumnExists("shared_packs", "body");     // V013
         assertColumnExists("posts", "summary");         // V016
         assertColumnExists("posts", "section");         // V017
+        for (String c : List.of("user_id", "kind", "detail", "ip_prefix", "user_agent", "created_at"))
+            assertColumnExists("security_events", c);       // V018
     }
 
     // ── conversations columns ─────────────────────────────────────────────────

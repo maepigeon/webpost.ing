@@ -30,6 +30,7 @@ import static org.mockito.Mockito.*;
 class UploadControllerTest {
 
     @Mock LoginRepository loginRepository;
+    @Mock com.springbootprojects.webpostingserver.posts.service.PostingGate postingGate;
     @Mock JdbcTemplate jdbc;
     @Mock com.springbootprojects.webpostingserver.posts.service.StorageAccountService storageAccount;
     @Spy  com.springbootprojects.webpostingserver.posts.service.ImageProcessingService imageService =

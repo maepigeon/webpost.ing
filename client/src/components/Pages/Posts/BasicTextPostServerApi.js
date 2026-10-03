@@ -884,3 +884,37 @@ export function LIST_MY_UPLOADS(limit = 60) {
   return axios.get(baseUrl + "/api/uploads/mine?limit=" + limit, { withCredentials: true })
     .then(r => r.data);
 }
+
+/** Discover: recent public posts from everyone. `before` is an ISO time (the last post's date). { posts, hasMore } */
+export function GET_DISCOVER_FEED(before, size = 20) {
+  const params = { size };
+  if (before) params.before = before;
+  return axios.get(baseUrl + '/api/feed/discover', { params, withCredentials: true }).then(r => r.data);
+}
+
+/** Discover: recently active members with at least one public post: [{ username, avatarPath, bio }]. */
+export function GET_DISCOVER_PEOPLE() {
+  return axios.get(baseUrl + '/api/feed/people', { withCredentials: true }).then(r => r.data);
+}
+
+// ── Own account: security log, sessions, leaving ─────────────────────────────
+
+/** The signed-in member's recent security events: { events: [{ kind, detail, ipPrefix, device, createdAt }] }. */
+export function GET_SECURITY_EVENTS() {
+  return axios.get(baseUrl + '/api/account/security-events', { withCredentials: true }).then(r => r.data);
+}
+
+/** { count } of live sessions for the signed-in member. */
+export function GET_MY_SESSIONS() {
+  return axios.get(baseUrl + '/api/account/sessions', { withCredentials: true }).then(r => r.data);
+}
+
+/** Ends every session except this one; resolves { ended }. */
+export function END_OTHER_SESSIONS() {
+  return axios.post(baseUrl + '/api/account/sessions/end-others', {}, { withCredentials: true }).then(r => r.data);
+}
+
+/** Deletes the signed-in member's account for good, after re-checking the password. */
+export function DELETE_MY_ACCOUNT(password) {
+  return axios.post(baseUrl + '/api/account/delete', { password }, { withCredentials: true }).then(r => r.data);
+}

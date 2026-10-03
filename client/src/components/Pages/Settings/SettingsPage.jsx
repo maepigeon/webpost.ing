@@ -14,6 +14,8 @@ import { Steps } from '../../PageTheme/ThemeEditor.jsx';
 /** Code text sizes offered as buttons (it used to be a slider). */
 const CODE_SIZE_STEPS = [11, 12, 13, 14, 16, 18, 20].filter(n => n >= MIN_CODE_SIZE && n <= MAX_CODE_SIZE);
 import ChangePassword from './ChangePassword.jsx';
+import SecuritySection from './SecuritySection.jsx';
+import DeleteAccount from './DeleteAccount.jsx';
 import InstallApp from '../../InstallApp/InstallApp.jsx';
 import './SettingsPage.css';
 import { errorMessage } from '../../../utils/errorMessage.js';
@@ -94,7 +96,7 @@ function Section({ id, title, defaultOpen = false, children }) {
     } catch { /* not kept */ }
   };
   return (
-    <details className="settings-section" open={open} onToggle={toggle}>
+    <details id={`settings-${id}`} className="settings-section" open={open} onToggle={toggle}>
       <summary className="settings-section-title">{title}</summary>
       <div className="settings-section-body">{children}</div>
     </details>
@@ -324,6 +326,11 @@ export default function SettingsPage() {
           <ChangePassword username={username} />
         </Section>
 
+        {/* ── Security ─────────────────────────────────────────────────────── */}
+        <Section id="security" title="Security">
+          <SecuritySection />
+        </Section>
+
         {/* ── App ──────────────────────────────────────────────────────────── */}
         <Section id="app" title="App">
           <p className="settings-section-hint">
@@ -410,6 +417,11 @@ export default function SettingsPage() {
   return \`Hello, \${name}\`;
 }`
           }</code></pre>
+        </Section>
+
+        {/* ── Delete account ───────────────────────────────────────────────── */}
+        <Section id="delete-account" title="Delete account">
+          <DeleteAccount username={username} />
         </Section>
 
         {status && <p className="settings-status" role="status">{status}</p>}

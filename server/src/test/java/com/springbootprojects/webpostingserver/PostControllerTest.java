@@ -36,6 +36,7 @@ class PostControllerTest {
     @Mock com.springbootprojects.webpostingserver.posts.service.EmailNotificationService emailNotifications;
 
     @Mock PostRepository postRepository;
+    @Mock com.springbootprojects.webpostingserver.posts.service.PostingGate postingGate;
     @Mock LoginRepository loginRepository;
     @Mock SocialRepository social;
     @Mock JdbcTemplate jdbc;

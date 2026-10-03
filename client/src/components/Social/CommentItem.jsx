@@ -5,7 +5,8 @@ import { VOTE_COMMENT, DELETE_COMMENT, EDIT_COMMENT, ADD_COMMENT,
 import { IMAGES_BASE_URL } from '../../config.js';
 import { useDialog } from '../Dialog/Dialog.jsx';
 import AvatarPopup from './AvatarPopup.jsx';
-import { linkifyText } from '../../utils/linkifyText.jsx';
+import { renderComment } from '../../utils/mentions.jsx';
+import MentionTextarea from './MentionTextarea.jsx';
 import './Social.css';
 import Icon from '../Icon/Icon.jsx';
 
@@ -147,7 +148,7 @@ export default function CommentItem({ comment, postId, depth = 0, onRefresh }) {
             </div>
           </div>
         ) : (
-          <p className="comment-content">{linkifyText(comment.content)}</p>
+          <p className="comment-content">{renderComment(comment.content)}</p>
         )}
 
         <div className="comment-actions">
@@ -167,7 +168,7 @@ export default function CommentItem({ comment, postId, depth = 0, onRefresh }) {
 
         {replying && (
           <div className="comment-reply-form">
-            <textarea
+            <MentionTextarea
               value={replyContent}
               onChange={e => setReplyContent(e.target.value)}
               placeholder="Write a reply..."

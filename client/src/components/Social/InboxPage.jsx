@@ -38,6 +38,7 @@ function notifLabel(n) {
   switch (n.type) {
     case 'comment':  return <span>{a} commented on your post <PostLink n={n} /></span>;
     case 'reply':    return <span>{a} replied to your comment on <PostLink n={n} /></span>;
+    case 'mention':  return <span>{a} mentioned you in a comment on <PostLink n={n} /></span>;
     case 'follow':   return <span>{a} followed you</span>;
     case 'reaction': return <span>{a} reacted to your post <PostLink n={n} /></span>;
     case 'new_post': return <span>{a} published {n.postOwner && n.postId ? <Link to={postPath(n.postOwner, { id: n.postId, title: n.postTitle })} className="inbox-post-link" onClick={e => e.stopPropagation()}>{n.postTitle || 'a new post'}</Link> : 'a new post'}</span>;
@@ -125,7 +126,7 @@ export default function InboxPage() {
       await MARK_NOTIFICATION_READ(n.id).catch(() => {});
       setNotifications(ns => ns.map(x => x.id === n.id ? { ...x, isRead: true } : x));
     }
-    if ((n.type === 'comment' || n.type === 'reply') && n.postOwner && n.postId) {
+    if ((n.type === 'comment' || n.type === 'reply' || n.type === 'mention') && n.postOwner && n.postId) {
       const anchor = n.commentId ? `#comment-${n.commentId}` : '';
       navigate(`${postPath(n.postOwner, { id: n.postId, title: n.postTitle })}/discussion${anchor}`);
     } else if (n.type === 'reaction' && n.postOwner && n.postId) {

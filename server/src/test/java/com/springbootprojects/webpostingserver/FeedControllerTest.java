@@ -92,16 +92,80 @@ class FeedControllerTest {
         assertThat(feed.following(20, 0, READER, "forged").getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     }
 
+    // ── Discover ──────────────────────────────────────────────────────────────
+
+    private List<Object> discoverTitles(String before, int size, String viewer) {
+        var r = feed.discover(before, size, viewer, viewer == null ? null : signIn(viewer));
+        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
+        return ((List<?>) ((Map<?, ?>) r.getBody()).get("posts")).stream()
+            .map(p -> (Object) ((Map<?, ?>) p).get("title")).toList();
+    }
+
+    @Test
+    void discoverShowsOnlyPublicProfilePostsAndNotMine() {
+        newPost(followedId, "public one", true);
+        newPost(strangerId, "public two", true);
+        newPost(followedId, "a draft", false);
+        newPost(readerId, "my own", true);
+        int notes = newPost(followedId, "a note", true);
+        jdbc.update("UPDATE posts SET section='notes' WHERE id=?", notes);
+        int subs = newPost(followedId, "for subscribers", true);
+        jdbc.update("UPDATE posts SET section='subscribers' WHERE id=?", subs);
+        List<Object> titles = discoverTitles(null, 20, READER);
+        assertThat(titles).containsExactlyInAnyOrder("public one", "public two");
+    }
+
+    @Test
+    void discoverLeavesOutFrozenAuthors() {
+        newPost(strangerId, "from a frozen one", true);
+        jdbc.update("UPDATE users SET role='frozen' WHERE id=?", strangerId);
+        assertThat(discoverTitles(null, 20, READER)).doesNotContain("from a frozen one");
+    }
+
+    @Test
+    void discoverPagesByDateWithoutRepeats() {
+        int a = newPost(followedId, "p1", true);
+        int b = newPost(followedId, "p2", true);
+        int c = newPost(followedId, "p3", true);
+        jdbc.update("UPDATE posts SET date = now() - interval '3 hours' WHERE id=?", a);
+        jdbc.update("UPDATE posts SET date = now() - interval '2 hours' WHERE id=?", b);
+        jdbc.update("UPDATE posts SET date = now() - interval '1 hours' WHERE id=?", c);
+        var first = (Map<?, ?>) feed.discover(null, 2, READER, signIn(READER)).getBody();
+        List<?> page = (List<?>) first.get("posts");
+        assertThat(page.stream().map(p -> (Object) ((Map<?, ?>) p).get("title")).toList()).containsExactly("p3", "p2");
+        assertThat(first.get("hasMore")).isEqualTo(true);
+        long last = (Long) ((Map<?, ?>) page.get(1)).get("date");
+        String before = java.time.Instant.ofEpochMilli(last).toString();
+        assertThat(discoverTitles(before, 2, READER)).containsExactly("p1");
+    }
+
+    @Test
+    void discoverClampsPageSizeAndWorksSignedOut() {
+        newPost(followedId, "visible to all", true);
+        assertThat(discoverTitles(null, 500, null)).contains("visible to all");
+        assertThat(feed.discover("garbage", 20, null, null).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void peopleListsMembersWithPublicPostsOnly() {
+        newPost(followedId, "x", true);
+        newPost(readerId, "mine", true);
+        var r = feed.people(READER, signIn(READER));
+        List<String> names = ((List<?>) r.getBody()).stream().map(m -> (String) ((Map<?, ?>) m).get("username")).toList();
+        assertThat(names).contains(FOLLOWED).doesNotContain(READER, STRANGER);
+    }
+
     private int newUser(String name, String hash) {
         return jdbc.queryForObject("INSERT INTO users (username, password) VALUES (?, ?) RETURNING id", Integer.class, name, hash);
     }
 
-    private void newPost(int authorId, String title, boolean published) {
+    private int newPost(int authorId, String title, boolean published) {
         Post p = new Post();
         p.setTitle(title);
         p.setDescription("");
         p.setPublished(published);
         posts.save(p, authorId);
+        return jdbc.queryForObject("SELECT p.id FROM posts p JOIN users_posts_junctions j ON j.post_id=p.id WHERE j.user_id=? AND p.title=? ORDER BY p.id DESC LIMIT 1", Integer.class, authorId, title);
     }
 
     private String signIn(String username) {
