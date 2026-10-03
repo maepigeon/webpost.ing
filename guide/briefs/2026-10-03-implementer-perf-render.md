@@ -1,0 +1,11 @@
+# 2026-10-03-implementer-perf-render  (implementer, Sonnet)
+Batch context: other workers run at the same time, each with its own files (see "Others own"). The standing rules are in your agent definition. The performance findings are in `guide/performance-review-2026-10-03.md` (PR below).
+**Task:** PR item 12 / WP-D, client render cost. Each with evidence in the review:
+1. `TileGrid/TileGrid.jsx` draw effect has no dependency array (redraws every render): give it the right dependencies; the grid must still redraw on data, selection, cursor, moveBy, tool, lasso, fonts-ready and size changes. Be careful: this is the editor's core; list every state the draw reads.
+2. `Viewer.jsx` writes the whole post body to localStorage on every view (`currentPostData`): find who reads it (`Editor.jsx`, `LoadEditorStatePlugin`); remove the write if nothing needs it on the viewer path, or keep the hand-off in memory. Do not break opening the editor from a post.
+3. `WaterTitle` and `CursorGlow` run requestAnimationFrame loops forever: pause when the tab is hidden, when the element is off screen (IntersectionObserver), and when `prefers-reduced-motion` is set; stop when settled.
+4. Avatar and card images: add `loading="lazy"` and `decoding="async"` where they are below the fold (ProfileBanner is above the fold: leave it), in `FollowingPage`, `DiscoverPage`, `SearchPage`, `CommentItem`, `MessagesPage`, and width/height where known.
+5. `Home.jsx` statically imports the grid editor for a read-only welcome grid: lazy-load it (React.lazy + Suspense with a fixed-height placeholder so the page does not jump). The home page's LOOK must not change at all (the owner reverted a redesign today).
+**You may edit:** `TileGrid.jsx` (drawing effect only, plus nothing else), `Viewer.jsx` (the currentPostData write only), `Editor.jsx` (only where it reads currentPostData), the WaterTitle and CursorGlow component files, `Home.jsx` (import only), the five list components named in 4.
+**Others own:** `tileGrid.js`, the font-related single lines in Viewer/TileGrid/Editor (perf-fonts worker), CSS files, server.
+**Verify:** vitest; say exactly what to click to confirm the grid editor still redraws for every tool.

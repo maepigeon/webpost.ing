@@ -1,0 +1,7 @@
+# 2026-10-03-implementer-ui-followups  (implementer, Sonnet)
+Batch context: other workers run at the same time, each with its own files (see "Others own"). The standing rules are in your agent definition. The performance findings are in `guide/performance-review-2026-10-03.md` (PR below).
+**Task:** two small CSS follow-ups the lead saw on screen.
+1. Post editor "Goes in" choice (Post / Note / Subscribers pills under the Description field; classes in `Editor.css`, markup in Editor.jsx — read only): the selected pill is not clearly marked. Make it one segmented control like the profile tabs (`PostsViewer/ProfileTabs.css`: 1.5px ink border, chosen segment filled with the ink, text in `var(--th-card-solid, #fff)`), readable on any theme, 36px tall (40px on coarse pointers), visible focus ring.
+2. Post buttons (`ButtonNode.css`): only left-aligned buttons sit side by side; centred and right-aligned ones stack. Make consecutive buttons with the same alignment share a row for centre and right too (CSS only if possible, e.g. `text-align` on a shared parent or `display:inline-block` blocks inside a line box with `:has()`; if it truly needs a wrapper element, STOP and report the minimal JSX change instead of making it).
+**You may edit:** `client/src/components/Pages/Posts/PostRenderer/RichTextPost/Editor.css` and `ButtonNode.css` only.
+**Others own:** Editor.jsx, ButtonNode.jsx and everything else. **Verify:** vitest still green; describe what to look at.
