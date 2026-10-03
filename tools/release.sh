@@ -106,6 +106,7 @@ cp -R client/dist "$OUT/html"
 cp tools/install-release.sh "$OUT/install.sh"
 # One-off server scripts travel with every release, so they are at hand.
 mkdir -p "$OUT/server-tools" && cp tools/server/*.sh "$OUT/server-tools/"
+cp tools/backup.sh "$OUT/server-tools/"
 printf '%s\ncommit %s (%s)\nbuilt %s on %s\n' "$NAME" "$(git rev-parse HEAD)" "$BRANCH" "$(date)" "$(hostname)" > "$OUT/RELEASE"
 tar -czf "$ROOT/release/$NAME.tar.gz" -C "$ROOT/release" "$NAME"
 echo "Built release/$NAME.tar.gz ($(du -h "$ROOT/release/$NAME.tar.gz" | cut -f1))"

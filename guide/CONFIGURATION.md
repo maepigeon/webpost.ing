@@ -156,6 +156,15 @@ added automatically; grant nothing else). Put the two lines in the server's
 `deploy.env` and restart the service. When the token expires the box says "Could
 not check" until a new one is put in.
 
+### Backups and background work (optional)
+
+| Variable | Default | Notes |
+|---|---|---|
+| `HEARTBEAT_URL` | none | A healthchecks.io-style ping URL. Read by `tools/backup.sh`: a good night pings it, a failed one pings `/fail`. Never printed or logged. |
+| `BACKUP_KEEP_DAILY` | `7` | Nightly backups kept. |
+| `BACKUP_KEEP_WEEKLY` | `4` | Weekly backups kept. |
+| `PREVIEW_SWEEP_ENABLED` | `true` | The background sweep that fills card previews and search text for posts saved before V020. Set `false` to switch it off; it stops by itself when nothing is left. |
+
 ### Logging
 
 | Variable | Default | Notes |

@@ -118,11 +118,14 @@ public class StorageAccountService {
      * being replaced), keeps everything the user stores within their quota.
      */
     public boolean fitsQuota(int userId, long addBytes, long freedBytes) {
+        Long limit = fileLimitBytes(userId);
+        if (limit == null) return true;
+        // A limit of 0 is a frozen account (a moderation state): nothing is saved,
+        // not even a rewrite of the same size.
+        if (limit == 0) return false;
         // A save that does not grow can never breach the quota, and a user who
         // is over a lowered limit can still shrink what they have.
         if (addBytes <= freedBytes) return true;
-        Long limit = fileLimitBytes(userId);
-        if (limit == null) return true;
         long used = ((Number) usage(userId, limit).get("totalBytes")).longValue();
         return used - freedBytes + addBytes <= limit;
     }

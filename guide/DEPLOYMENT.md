@@ -125,9 +125,9 @@ Once, after the smoke test passes:
    location). A release never changes nginx.
 4. Rotate the two old database passwords that are in the repository
    history (section 4).
-5. Memory limits and nginx caching (section 9): copy the new
-   `server-start.sh`, add the systemd memory limit and swap, paste the nginx
-   files. A release does none of this.
+5. Memory limits and nginx caching (section 9): add the systemd memory
+   limit and swap, paste the nginx files. A release does none of this
+   (`server-start.sh` itself arrives with the release; nothing to copy).
 
 ### Smoke test
 
@@ -334,7 +334,7 @@ The specifics (paths, names, the database) are in its `deploy.env`; see
 [CONFIGURATION.md](CONFIGURATION.md) for every key.
 
 - The service runs the JAR in `$APP_HOME/server/target/` through
-  `server-start.sh`, as its **own system user, not root**, with systemd
+  `server-start.sh` (installed by each release; never copy it by hand), as its **own system user, not root**, with systemd
   hardening. It reads `deploy.env` at startup: change it, then restart.
 - `deploy.env` is readable only by root and the service's group.
 - nginx serves the website from `$WEB_ROOT` and passes `/api/` to the app on
