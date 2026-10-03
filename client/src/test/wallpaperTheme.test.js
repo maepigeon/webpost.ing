@@ -42,6 +42,14 @@ describe('themes', () => {
     expect(presets).toContain('oak');
   });
 
+  it('accepts the newer font ids and the restyled presets use them', () => {
+    for (const f of ['times', 'outfit', 'nunito', 'plexmono', 'orbitron', 'caveat', 'bebas']) {
+      expect(sanitiseTheme({ type: { heading: f, body: f } }).type).toMatchObject({ heading: f, body: f });
+    }
+    expect(sanitiseTheme(getPresets().neon.theme).type).toMatchObject({ heading: 'orbitron', body: 'plexmono' });
+    expect(sanitiseTheme(getPresets().sticky.theme).type).toMatchObject({ heading: 'caveat', body: 'nunito' });
+  });
+
   it('sanitises oak preset correctly', () => {
     const t = sanitiseTheme({ preset: 'oak' });
     expect(t.preset).toBe('oak');

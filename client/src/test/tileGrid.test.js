@@ -187,6 +187,15 @@ describe('custom glyph bitmaps', () => {
   });
 });
 
+describe('Times typeface', () => {
+  it('is a named typeface with a Times stack and survives normalising', () => {
+    expect(FONT_NAMES.times).toBe('Times pixel');
+    expect(TYPEFACES.times.family).toContain('Times New Roman');
+    const d = normaliseGrid({ layers: [{ kind: 'pixel', style: { '0,0': { font: 'times' } } }] });
+    expect(d.layers[0].style).toEqual({ '0,0': { font: 'times' } });
+  });
+});
+
 describe('pixel font', () => {
   it('covers printable ASCII and nothing else', () => {
     expect(pixelGlyph('A')).toHaveLength(8);

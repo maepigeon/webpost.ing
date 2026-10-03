@@ -39,7 +39,7 @@ export const FONT_NAMES = {
   bold: 'Pixel bold', italic: 'Pixel italic', outline: 'Pixel outline',
   // Typefaces turned into grid pixels: each letter is drawn into its cell at the
   // grid's own resolution (8 or 16 × 16 dots), so it sits in the grid like the pixel font.
-  serif: 'Serif pixel', script: 'Script pixel', cute: 'Cookie pixel', jazz: 'Cool Jazz pixel', comic: 'Comic pixel', papyrus: 'Papyrus pixel',
+  serif: 'Serif pixel', script: 'Script pixel', cute: 'Cookie pixel', jazz: 'Cool Jazz pixel', comic: 'Comic pixel', papyrus: 'Papyrus pixel', times: 'Times pixel',
   // Bitmaps baked from Noto, half and full width (see bitmapFonts.js).
   serifpx: 'Serif bitmap', sanspx: 'Sans bitmap', symbols: 'Symbols',
 };
@@ -56,6 +56,7 @@ export const TYPEFACES = {
   cute:   { family: '"Choco cooky", "ChocoCooky", "Sniglet", "Arial Rounded MT Bold", sans-serif', weight: 800, size: 15 },
   jazz:   { family: '"Cool jazz", "CoolJazz", "Cooljazz", "Patrick Hand", "Comic Neue", cursive', weight: 700, size: 15 },
   comic:  { family: '"Comic Sans MS", "Comic Neue", "Chalkboard SE", "Patrick Hand", cursive', weight: 700, size: 15 },
+  times:  { family: '"Times New Roman", Times, "Tinos", "Liberation Serif", serif', weight: 700, size: 15 },
   papyrus: { family: 'Papyrus, Herculanum, "Luminari", "IM Fell English", fantasy', weight: 400, size: 16, cover: 0.35 },
 };
 

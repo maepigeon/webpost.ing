@@ -63,6 +63,12 @@ const FONT_FAMILIES = [
   { label: 'Serif', value: 'Georgia, "Times New Roman", serif' },
   { label: 'Mono', value: '"Fira Code", "SF Mono", Menlo, monospace' },
   { label: 'Rounded', value: '"Nunito", "Varela Round", sans-serif' },
+  { label: 'Times New Roman', value: '"Times New Roman", Times, "Tinos", "Liberation Serif", serif' },
+  { label: 'Outfit', value: '"Outfit", system-ui, sans-serif' },
+  { label: 'Plex Mono', value: '"IBM Plex Mono", "JetBrains Mono", ui-monospace, Menlo, monospace' },
+  { label: 'Orbitron', value: '"Orbitron", "Eurostile", "Arial Black", sans-serif' },
+  { label: 'Caveat', value: '"Caveat", "Patrick Hand", "Comic Sans MS", cursive' },
+  { label: 'Bebas Neue', value: '"Bebas Neue", Impact, "Arial Narrow", sans-serif' },
   { label: 'Elegant', value: '"Playfair Display", "Garamond", serif' },
   // Choco Cooky ships with the site; Comic Sans and Papyrus show where the
   // reader's device has them, otherwise the nearest free font.

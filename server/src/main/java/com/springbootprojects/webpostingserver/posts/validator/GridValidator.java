@@ -38,7 +38,7 @@ public final class GridValidator {
     // Font ids a character's style may name; keep in step with FONT_NAMES in tileGrid.js.
     private static final Set<String> XL_PARTS = Set.of("tl", "tr", "bl", "br");
     private static final Set<String> FONTS = Set.of("pixel", "small", "smooth", "xl", "bold", "italic", "outline",
-            "serif", "script", "cute", "jazz", "comic", "papyrus", "serifpx", "sanspx", "symbols");
+            "serif", "script", "cute", "jazz", "comic", "papyrus", "times", "serifpx", "sanspx", "symbols");
     // `ext`: data this validator doesn't know about, kept as it came (see
     // tileGrid.js): { "<namespace>": <JSON> }, plain JSON only, bounded.
     private static final Pattern EXT_NAMESPACE = Pattern.compile("^[a-z][a-z0-9-]{0,23}$");

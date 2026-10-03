@@ -39,6 +39,14 @@ export const FONTS = {
   // (they are not licensed for the web), otherwise the closest free font.
   comic:         { label: 'Comic Sans',       css: '"Comic Sans MS", "Comic Neue", "Chalkboard SE", "Patrick Hand", cursive' },
   papyrus:       { label: 'Papyrus',          css: 'Papyrus, Herculanum, "Luminari", "IM Fell English", fantasy' },
+  // Free Google Fonts (index.html). Tinos is metric-compatible with Times New Roman.
+  times:         { label: 'Times New Roman',  css: '"Times New Roman", Times, "Tinos", "Liberation Serif", serif' },
+  outfit:        { label: 'Outfit',           css: '"Outfit", system-ui, "Segoe UI", sans-serif' },
+  nunito:        { label: 'Nunito',           css: '"Nunito", "Varela Round", system-ui, sans-serif' },
+  plexmono:      { label: 'Plex Mono',        css: '"IBM Plex Mono", "JetBrains Mono", ui-monospace, Menlo, monospace' },
+  orbitron:      { label: 'Orbitron',         css: '"Orbitron", "Eurostile", "Arial Black", sans-serif' },
+  caveat:        { label: 'Caveat',           css: '"Caveat", "Patrick Hand", "Comic Sans MS", cursive' },
+  bebas:         { label: 'Bebas Neue',       css: '"Bebas Neue", Impact, "Arial Narrow", sans-serif' },
   sans:          { label: 'Clean sans',       css: 'system-ui, -apple-system, "Segoe UI", sans-serif' },
 };
 
@@ -80,7 +88,7 @@ function buildPresets() {
       theme: {
         v: 2, preset: 'sticky',
         page: { wallpaper: textureWallpaper('mat', { cols: 4, rows: 4, scale: 2, bg: '#2c6e5d' }), useProfileWallpaper: false },
-        type: { heading: 'marker', body: 'cookie', ink: '#2b2a22', headingInk: '#1f1e18', accent: '#1f6f5c', link: '#c2410c', headingCase: 'none', headingScale: 1.15 },
+        type: { heading: 'caveat', body: 'nunito', ink: '#2b2a22', headingInk: '#1f1e18', accent: '#1f6f5c', link: '#c2410c', headingCase: 'none', headingScale: 1.5 },
         // A flat note in the colour of the real thing, lifted off the mat, with a strip of tape.
         card: { bg: '#ffef8a', opacity: 1, border: 'none', borderColor: '#000000', radius: 1, shadow: 'lifted', texture: null, sticker: STICKERS.tape.make() },
         fx: { glow: false, scanlines: false, flicker: false, rainbow: false },
@@ -123,9 +131,10 @@ function buildPresets() {
       theme: {
         v: 2, preset: 'neon',
         page: { wallpaper: textureWallpaper('night', { cols: 4, rows: 4, scale: 2, bg: '#070b1c' }), useProfileWallpaper: false },
-        type: { heading: 'terminal', body: 'terminal', ink: '#b6ffcf', headingInk: '#4de3ff', accent: '#4de3ff', link: '#ff7ad9', headingCase: 'upper', headingScale: 1.35 },
+        type: { heading: 'orbitron', body: 'plexmono', ink: '#b6ffcf', headingInk: '#4de3ff', accent: '#4de3ff', link: '#ff7ad9', headingCase: 'upper', headingScale: 1.15 },
         card: { bg: '#0b1230', opacity: 0.9, border: 'glow', borderColor: '#4de3ff', radius: 6, shadow: 'glow', texture: null, sticker: null },
-        fx: { glow: true, scanlines: false, flicker: false, rainbow: false },
+        // Text glow blurs small mono body text; the card's own glow border and shadow stay.
+        fx: { glow: false, scanlines: false, flicker: false, rainbow: false },
       },
     },
     paw: {
