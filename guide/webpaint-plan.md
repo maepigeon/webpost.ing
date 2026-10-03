@@ -82,6 +82,17 @@ both webpost.ing and in webpaint.ing". Copy the agent definitions and
 the Godot client a test bridge (query state, set a known document) so flows
 can be driven and checked.
 
+## The Mac app (Mae, 2026-10-03)
+
+"add buttons to my deployment app for webpainting": the Webposting app in
+`~/Applications` (source `tools/mac-app/`) gets webpaint.ing entries (view
+locally, rebuild, stop, deploy) once that project has scripts to run. Do not
+add buttons that do nothing: add them in the same change that adds the
+webpaint.ing `run-local` and `deploy` scripts.
+
+She also asked to be told when each site is ready for her review, and what
+to do to connect the domain (next section).
+
 ## The domain (GoDaddy)
 
 webpaint.ing is registered at GoDaddy. Mae: "when you are ready for me to
