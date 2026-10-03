@@ -312,3 +312,32 @@
   color: #555;
   margin: 12px 0;
 }
+
+/* "View as visitor" preview: a slim bar kept under the site's nav bar. */
+.view-as-bar {
+  position: sticky;
+  top: var(--navbar-height, 0px);
+  z-index: 250;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 6px 16px;
+  background: #111;
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+}
+.view-as-bar-btn {
+  font: inherit;
+  font-size: 13px;
+  padding: 3px 12px;
+  border: 1px solid #fff;
+  border-radius: 999px;
+  background: #fff;
+  color: #111;
+  cursor: pointer;
+}
+.view-as-bar-btn:hover { background: #ddd; }
+.view-as-bar-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }

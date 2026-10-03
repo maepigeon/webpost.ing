@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { visiblePostsFor } from '../../../../utils/viewAs.js';
 import {AUTHORIZE_SESSION, READ_POSTS_BY_USER, GET_USER_BACKGROUND, GET_USER_BIO, UPDATE_USER_BIO, GET_USER_BIO_LINKS, UPDATE_USER_BIO_LINKS, GET_USER_STORAGE, GET_FOLLOWERS, GET_FOLLOWING, GET_BLOCK_MESSAGE_STATUS, BLOCK_MESSAGES, UNBLOCK_MESSAGES, EXPORT_MY_DATA, GET_PINNED_POST, SET_PINNED_POST, UNPIN_POST, GET_USER_AVATAR, POST_USER_AVATAR, GET_USER_ONLINE} from '../BasicTextPostServerApi.js'
 import ProfilePostList from './ProfilePostList.jsx';
 import { mergePosts, applyChanges } from './profileOrder.js';
@@ -102,14 +103,26 @@ function PostsViewer() {
     const [avatar, setAvatar] = useState('');
     const [onlineStatus, setOnlineStatus] = useState(null); // { online, lastSeen }
     const [showAvatarPopup, setShowAvatarPopup] = useState(false);
+    const [previewing, setPreviewing] = useState(false);   // owner viewing as a visitor
     const avatarInputRef = useRef(null);
     const sentinelRef = useRef(null);
     const { username } = useParams();
     useAuthorTheme(username);
     usePageTitle(username ? `${username}'s profile` : null);
     const navigate = useNavigate();
-    const canEdit = hasModifyPermissions(username);
+    const isOwner = hasModifyPermissions(username);
+    // Owner controls follow `canEdit`; previewing switches them all off at once.
+    const canEdit = isOwner && !previewing;
     const loggedIn = !!localStorage.getItem('userName');
+
+    // Not kept across profiles or reloads; Escape leaves the preview.
+    useEffect(() => { setPreviewing(false); }, [username]);
+    useEffect(() => {
+      if (!previewing) return;
+      const onKey = e => { if (e.key === 'Escape') setPreviewing(false); };
+      window.addEventListener('keydown', onKey);
+      return () => window.removeEventListener('keydown', onKey);
+    }, [previewing]);
 
     // Each request remembers the generation it was made in. Opening another
     // profile, or starting the list over, moves the generation on, so a late
@@ -198,15 +211,15 @@ function PostsViewer() {
         setBioLinks(links);
       }).catch(() => {});
       // Only the owner and admins may see how much space a profile uses.
-      if (canEdit || localStorage.getItem('isAdmin') === '1') GET_USER_STORAGE(username).then(setStorage).catch(() => {});
+      if (isOwner || localStorage.getItem('isAdmin') === '1') GET_USER_STORAGE(username).then(setStorage).catch(() => {});
       const me = localStorage.getItem('userName');
       Promise.all([GET_FOLLOWERS(username), GET_FOLLOWING(username)])
         .then(([followers, following]) => {
           setFollowCounts({ followers: followers.length, following: following.length });
-          if (me && !canEdit) setFollowsMe(following.includes(me));
+          if (me && !isOwner) setFollowsMe(following.includes(me));
         })
         .catch(() => {});
-      if (loggedIn && !canEdit) {
+      if (loggedIn && !isOwner) {
         GET_BLOCK_MESSAGE_STATUS(username).then(d => {
           setDmBlocked(d.blocked);
           setDmBlockedByThem(d.blockedByThem ?? false);
@@ -271,10 +284,10 @@ function PostsViewer() {
         .catch(err => setBioError(errorMessage(err, 'Failed to save bio. Try again.')));
     }
 
-    const visiblePosts = postsArray;
+    const visiblePosts = visiblePostsFor(postsArray, { previewing });
 
     // Drawn by the post list, under its owner bar and above the other posts.
-    const pinnedBlock = pinnedPost ? (
+    const pinnedBlock = pinnedPost && !(previewing && !pinnedPost.published) ? (
       <div className="PostContainer profile-pinned">
         {/* A label above the card, not laid over it: on the card it covered
             the date and the title. */}
@@ -286,6 +299,12 @@ function PostsViewer() {
 
     return (
       <div className="window th-scope" style={{ minHeight: '100vh' }}>
+        {previewing && (
+          <div className="view-as-bar" role="status">
+            <span>Viewing your profile as a visitor</span>
+            <button type="button" className="view-as-bar-btn" onClick={() => setPreviewing(false)}>Back to editing</button>
+          </div>
+        )}
         {followModal && (
           <FollowListModal
             title={followModal === 'followers' ? `Followers` : `Following`}
@@ -368,8 +387,11 @@ function PostsViewer() {
             )}
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
-              <FollowButton username={username} onFollowChange={delta => setFollowCounts(c => ({ ...c, followers: c.followers + delta }))} />
-              {!canEdit && followsMe && <span style={{ fontSize: '12px', color: '#333', fontStyle: 'italic' }}>follows you</span>}
+              {previewing
+                // FollowButton draws nothing on your own profile, so show a stand-in.
+                ? <button type="button" className="follow-btn" disabled title="Shown as a visitor sees it">Follow</button>
+                : <FollowButton username={username} onFollowChange={delta => setFollowCounts(c => ({ ...c, followers: c.followers + delta }))} />}
+              {!isOwner && followsMe && <span style={{ fontSize: '12px', color: '#333', fontStyle: 'italic' }}>follows you</span>}
             </div>
 
             {/* Bio display / edit form */}
@@ -487,6 +509,9 @@ function PostsViewer() {
                   <Link to="/customize" className="edit-bio-btn profile-appearance-link">
                     Customize
                   </Link>
+                  <button type="button" className="edit-bio-btn" onClick={() => setPreviewing(true)}>
+                    View as visitor
+                  </button>
                   <button
                     type="button"
                     className="edit-bio-btn"
@@ -504,14 +529,16 @@ function PostsViewer() {
 
             {/* Followers / Following + Message / Block DMs — combined row */}
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '14px', flexWrap: 'wrap', alignItems: 'center' }}>
-              {!canEdit && loggedIn && (
+              {(!isOwner || previewing) && loggedIn && (
                 <>
                   {!dmBlockedByThem && (
-                    <button type="button" onClick={() => navigate(`/messages?with=${username}`)}>Send message</button>
+                    <button type="button" disabled={previewing} title={previewing ? 'Shown as a visitor sees it' : undefined} onClick={() => navigate(`/messages?with=${username}`)}>Send message</button>
                   )}
                   <button
                     type="button"
                     className={dmBlocked ? 'btn-unblock-dm' : 'btn-block-dm'}
+                    disabled={previewing}
+                    title={previewing ? 'Shown as a visitor sees it' : undefined}
                     onClick={async () => {
                       try {
                         if (dmBlocked) { await UNBLOCK_MESSAGES(username); setDmBlocked(false); }
@@ -527,7 +554,7 @@ function PostsViewer() {
 
             {/* The owner's sticker buttons (Add sticker, Arrange) go here. */}
             {canEdit && <div ref={setStickiesSlot} />}
-            {storage && <StorageSummary storage={storage} />}
+            {canEdit && storage && <StorageSummary storage={storage} />}
           </div>
           {/* With posts, the button lives in the list's owner bar beside
               "Arrange posts"; without, on its own. */}
