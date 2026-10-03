@@ -13,12 +13,14 @@
 #   1. run the server tests (needs the local webposting_test database, see
 #      guide/MIGRATIONS.md) and the client tests
 #   2. build the website (client/dist) and the server JAR
-#   3. pack them with install-release.sh into release/webposting-<date>-<commit>.tar.gz
+#   3. pack them, with install-release.sh and server-start.sh, into
+#      release/webposting-<date>-<commit>.tar.gz
 #   4. upload it to the server's ~/incoming (over ssh; asks for your SSH
 #      password once, for this and the next step)
 #   5. unpack it there and run its install.sh with sudo (asks for your sudo
-#      password). That backs up the database, JAR and website, swaps in the
-#      new ones, restarts, checks /api/health, and rolls back if it fails.
+#      password). That backs up the database, JAR, start script and website,
+#      swaps in the new ones, restarts, checks /api/health, and rolls back
+#      if it fails.
 #
 # Settings: release.env in the repository root (not in git; copy
 # config/release.env.example). Nothing about the server is written in this
@@ -90,6 +92,10 @@ OUT="$ROOT/release/$NAME"
 rm -rf "$OUT"
 mkdir -p "$OUT"
 cp server/target/server-0.0.1-SNAPSHOT.jar "$OUT/server.jar"
+# The start script (JVM memory flags) is installed next to the live one.
+[ -f server-start.sh ] || fail "server-start.sh is missing from the repository root."
+bash -n server-start.sh || fail "server-start.sh has a syntax error."
+cp server-start.sh "$OUT/server-start.sh"
 cp -R client/dist "$OUT/html"
 cp tools/install-release.sh "$OUT/install.sh"
 # One-off server scripts travel with every release, so they are at hand.

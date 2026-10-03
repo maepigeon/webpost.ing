@@ -94,6 +94,16 @@ each capability to a phase and says what the data model must allow from day
 one. She also asked whether a downloadable version could be an Electron app
 wrapping the Godot web build; the architecture document answers that.
 
+## Offline and installable (Mae, 2026-10-03)
+
+"it should also work offline" and "add a way to add the app to your phone
+home screen as web app". The editor must open and work with no connection
+(projects saved on the device, synced or uploaded when back online), and the
+site must be installable to a phone or tablet home screen the way
+webpost.ing now is (manifest, icons, service worker, an Install button).
+With a Godot web build this means the service worker caches the engine and
+project files, which are large: plan the cache and its updates.
+
 ## The Mac app (Mae, 2026-10-03)
 
 "add buttons to my deployment app for webpainting": the Webposting app in
