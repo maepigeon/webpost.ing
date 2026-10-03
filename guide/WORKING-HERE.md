@@ -161,6 +161,7 @@ without Mae having to explain it again. Last updated 2026-10-03.
 - **Security:** [security-review-2026-10-03-open-signups.md](security-review-2026-10-03-open-signups.md)
   and the dated section at the end of [SECURITY.md](SECURITY.md). Sign-ups
   stay invite-only until a bot barrier and verified email exist.
+- **Next big project:** [webpaint-plan.md](webpaint-plan.md) (webpaint.ing, a Godot animator on its own domain; future work).
 - **Plans awaiting her answers:** [animator-design.md](animator-design.md),
   [SSO-PLAN.md](SSO-PLAN.md). Mail: [EMAIL.md](EMAIL.md) (needs her mail
   provider and DNS; `tools/server/enable-mail.sh` does the rest).
