@@ -78,6 +78,35 @@ without Mae having to explain it again. Last updated 2026-10-03.
 - Always look at UI changes on screen, at desktop and phone width, and on a
   dark theme as well as a light one. Tests alone have missed real bugs here.
 
+## Process lessons (keep these; add to them)
+
+- **One integrator per shared file.** When several features need a line in the
+  same file, the workers report the exact insertions and one integration
+  worker applies them all and runs the full suite. Parallel edits to one file
+  have never been worth it.
+- **A stable site for reviewers.** Browser reviewers and the smoke suite test
+  the built copy in `client/dist` plus the running jar. Rebuild only at batch
+  boundaries and tell running reviewers when you do. To run a server from
+  committed code while workers are mid-edit, build from a clean export:
+  `git archive HEAD server | tar -x -C <scratch>` and package there.
+- **Audits before features.** A read-only audit (security, UI, performance)
+  costs little, runs in parallel with anything, and its ranked findings turn
+  into well-scoped briefs. Ask each audit to end with independent work
+  packages and the files each would touch.
+- **Limits tested locally must not block local work.** Rate limits skip
+  loopback addresses in dev mode; many agents share one address.
+- **Batch the checking.** One build, one script that visits every changed
+  screen and prints facts (counts, texts, URLs), one contact-sheet image.
+  Read numbers first; look at pixels only where numbers cannot tell.
+- **Repeatable checks live in the repo** (`tools/smoke/`), not in scratch
+  folders, so the next session does not rewrite them.
+- **Say the design, not just the wish.** Briefs that carry the lead's
+  analysis (why, the rules, the edge cases, what not to build) come back
+  right the first time; briefs that only quote the request come back vague.
+- **Watch usage.** Ten workers can use a tenth of a 5-hour limit in minutes.
+  Check `get_usage` after each batch and stop launching well before the
+  agreed deploy stop.
+
 ## Rules that are not negotiable
 
 - **Commits:** no `Co-Authored-By`, no "Generated with" lines (Mae's global
