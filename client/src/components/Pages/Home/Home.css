@@ -96,8 +96,10 @@
   box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.9), inset 0 -2px 0 rgba(0,0,0,0.05);
   min-width: 0; overflow: hidden;
 }
-.home-card-art { min-height: 56px; margin-bottom: 8px; overflow: hidden; }
-.home-card-art .tilegrid { margin: 0; }
+/* Each little grid shows whole, framed like a picture: a border round it and
+   a rule under it, instead of running to the card's edges and being cut off. */
+.home-card-art { margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1.5px solid #1c1c1c; display: flex; justify-content: center; }
+.home-card-art .tilegrid { margin: 0; width: 100%; max-width: 230px; padding: 6px; box-sizing: border-box; border: 1.5px solid #1c1c1c; background: #ffffff; }
 .home-card-title { margin: 0 0 4px; font-size: 1rem; font-weight: 800; color: #1c1c1c; }
 .home-card-text { margin: 0; font-size: 0.9rem; line-height: 1.45; color: #474747; }
 

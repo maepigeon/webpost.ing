@@ -557,9 +557,15 @@ public class AdminController {
 
     // ── System settings ───────────────────────────────────────────────────────
 
-    private static final Set<String> EDITABLE_SETTINGS = Set.of("max_daily_registrations");
+    private static final Set<String> EDITABLE_SETTINGS =
+            Set.of("max_daily_registrations", "invite_required", "require_verified_email");
+    /** On/off settings, with the value each has when no row exists yet. */
+    private static final Map<String, String> SWITCH_DEFAULTS =
+            Map.of("invite_required", "true", "require_verified_email", "false");
 
-    @GetMapping("/admin/settings")
+    // The class is mapped at /api/admin, so this is /api/admin/settings. It was
+    // "/admin/settings" (so /api/admin/admin/settings), which the dashboard never called.
+    @GetMapping("/settings")
     public ResponseEntity<Map<String, String>> getSettings(
             @CookieValue(name = "username") String username,
             @CookieValue(name = "authToken") String token) {
@@ -567,10 +573,12 @@ public class AdminController {
         List<Map<String, Object>> rows = jdbc.queryForList("SELECT key, value FROM system_settings ORDER BY key");
         Map<String, String> result = new java.util.LinkedHashMap<>();
         for (Map<String, Object> row : rows) result.put((String) row.get("key"), (String) row.get("value"));
+        // Switches show even before they have been set once.
+        SWITCH_DEFAULTS.forEach(result::putIfAbsent);
         return ResponseEntity.ok(result);
     }
 
-    @PutMapping("/admin/settings/{key}")
+    @PutMapping("/settings/{key}")
     public ResponseEntity<String> updateSetting(
             @PathVariable String key,
             @RequestBody Map<String, String> body,
@@ -589,7 +597,11 @@ public class AdminController {
                 return ResponseEntity.badRequest().body("Value must be a number.");
             }
         }
-        jdbc.update("UPDATE system_settings SET value=? WHERE key=?", value.trim(), key);
+        if (SWITCH_DEFAULTS.containsKey(key) && !value.trim().equals("true") && !value.trim().equals("false"))
+            return ResponseEntity.badRequest().body("Value must be true or false.");
+        // A switch may have no row yet, so update or insert.
+        if (jdbc.update("UPDATE system_settings SET value=? WHERE key=?", value.trim(), key) == 0)
+            jdbc.update("INSERT INTO system_settings(key, value) VALUES(?, ?)", key, value.trim());
         return ResponseEntity.ok("Setting updated.");
     }
 
