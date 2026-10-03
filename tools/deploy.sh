@@ -5,17 +5,17 @@
 #     ./tools/deploy.sh --setup     ask for the server settings again
 #
 # In order, stopping at the first thing that goes wrong:
-#   1. the first time, asks where the server is and how it is updated, and
-#      keeps the answers in release.env (gitignored; never in the repository)
+#   1. the first time, asks for the server login and where its deploy.env is,
+#      and keeps the answers in release.env (gitignored; never in the repository)
 #   2. if there are uncommitted changes, shows them and asks whether to commit
 #      them (and for a message); nothing ignored by .gitignore is ever added
 #   3. pushes main to GitHub
-#   4. logs in to the server (ssh asks for your password in this terminal; it
-#      goes nowhere else) and updates it, one of two ways:
-#        - DEPLOY_COMMAND is set: runs that command on the server, which
-#          downloads the latest from GitHub and deploys it there
-#        - otherwise: tools/release.sh, which tests and builds on this
-#          computer and uploads the finished release (guide/DEPLOYMENT.md)
+#   4. runs tools/release.sh: tests and builds on this computer, uploads the
+#      finished release and installs it on the server. ssh asks for your
+#      password in this terminal; it goes nowhere else.
+#
+# Advanced: DEPLOY_COMMAND in release.env, if set, is run on the server
+# instead of step 4's upload (for a server that updates itself from GitHub).
 #
 # Nothing about the server is written in this script.
 
@@ -36,25 +36,28 @@ keep() {
 }
 
 [ -f release.env ] && { set -a; . ./release.env; set +a; }
-if [ "${1:-}" = "--setup" ] || [ -z "${DEPLOY_HOST:-}" ]; then
-  step "Server settings (kept in release.env on this computer only)"
-  read -r -p "Server login, as user@host${DEPLOY_HOST:+ [$DEPLOY_HOST]}: " answer
-  DEPLOY_HOST="${answer:-${DEPLOY_HOST:-}}"
-  [ -n "$DEPLOY_HOST" ] || fail "a server login is needed, like you@example.com."
+looks_like_login() { [[ "$1" =~ ^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$ ]]; }
+if [ "${1:-}" = "--setup" ] || ! looks_like_login "${DEPLOY_HOST:-}" || { [ -z "${DEPLOY_COMMAND:-}" ] && [ -z "${SERVER_ENV:-}" ]; }; then
+  step "First-time setup: two facts about your server (saved on this Mac only)"
+  echo "1. The login you use for ssh: your username on the server, an @, and the"
+  echo "   server's address. Example: mae@example.com"
+  while :; do
+    read -r -p "   Login: " DEPLOY_HOST
+    looks_like_login "$DEPLOY_HOST" && break
+    echo "   That needs to look like name@address. Try again, or press Ctrl-C to stop."
+  done
   keep DEPLOY_HOST "$DEPLOY_HOST"
   echo
-  echo "How is the server updated? Type the command you run on the server to"
-  echo "download the latest from GitHub and deploy it (for example: sudo bash"
-  echo "/path/to/deploy.sh). Leave it empty to build on this computer and upload"
-  echo "the finished release instead."
-  read -r -p "Command on the server${DEPLOY_COMMAND:+ [$DEPLOY_COMMAND]}: " answer
-  DEPLOY_COMMAND="${answer:-${DEPLOY_COMMAND:-}}"
-  keep DEPLOY_COMMAND "$DEPLOY_COMMAND"
-  if [ -z "$DEPLOY_COMMAND" ] && [ -z "${SERVER_ENV:-}" ]; then
-    read -r -p "Where deploy.env is on the server (full path): " SERVER_ENV
-    [ -n "$SERVER_ENV" ] || fail "release.sh needs to know where deploy.env is on the server."
-    keep SERVER_ENV "$SERVER_ENV"
-  fi
+  echo "2. The full path of the app's deploy.env file on the server."
+  echo "   Example: /home/example/deploy.env"
+  while :; do
+    read -r -p "   Path: " SERVER_ENV
+    [[ "$SERVER_ENV" == /* ]] && break
+    echo "   That needs to start with a /. Try again, or press Ctrl-C to stop."
+  done
+  keep SERVER_ENV "$SERVER_ENV"
+  echo
+  echo "Saved. You will not be asked again (./tools/deploy.sh --setup to change them)."
 fi
 
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"

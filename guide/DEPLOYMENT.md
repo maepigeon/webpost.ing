@@ -11,8 +11,8 @@ you release").
 checked out (`tools/run-local.sh`, at http://localhost:5174) and to deploy it
 (`tools/deploy.sh`: commit if needed, push `main` to GitHub, then log in
 to the server and update it). The first time, `deploy.sh` asks for the
-server login and for the command the server runs to update itself; with no
-command it uses `tools/release.sh` (build here, upload). `./tools/deploy.sh
+server login and where `deploy.env` is on the server, then it runs
+`tools/release.sh` (build here, upload, install). `./tools/deploy.sh
 --setup` asks again. Each runs in a Terminal window, where the release asks
 for your passwords. Everything below still applies; the app only runs the
 scripts for you.
