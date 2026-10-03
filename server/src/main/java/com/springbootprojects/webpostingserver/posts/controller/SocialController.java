@@ -37,6 +37,9 @@ public class SocialController {
     private LoginRepository loginRepository;
 
     @Autowired
+    private com.springbootprojects.webpostingserver.posts.service.PostingGate postingGate;
+
+    @Autowired
     private PostRepository postRepository;
 
     // ── Follows ───────────────────────────────────────────────────────────────
@@ -81,6 +84,7 @@ public class SocialController {
 
         AuthSession session = authorize(authUsername, token);
         if (session == null) return unauthorized();
+        if (postingGate.mustVerifyFirst(session.userId)) return postingGate.refusal();
 
         int targetId = social.getUserIdByUsername(username);
         if (targetId < 0) return ResponseEntity.notFound().build();
@@ -174,6 +178,7 @@ public class SocialController {
 
         AuthSession session = authorize(authUsername, token);
         if (session == null) return unauthorized();
+        if (postingGate.mustVerifyFirst(session.userId)) return postingGate.refusal();
 
         String key = String.valueOf(session.userId);
         if (MSG_LIMITER.isBlocked(key))
@@ -350,6 +355,7 @@ public class SocialController {
 
         AuthSession session = authorize(authUsername, token);
         if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        if (postingGate.mustVerifyFirst(session.userId)) return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", com.springbootprojects.webpostingserver.posts.service.PostingGate.MESSAGE));
 
         int targetId = social.getUserIdByUsername(username);
         if (targetId < 0) return ResponseEntity.notFound().build();
@@ -387,6 +393,7 @@ public class SocialController {
 
         AuthSession session = authorize(authUsername, token);
         if (session == null) return unauthorized();
+        if (postingGate.mustVerifyFirst(session.userId)) return postingGate.refusal();
 
         if (!social.isConversationParticipant(id, session.userId))
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Not a participant.");
@@ -505,6 +512,7 @@ public class SocialController {
 
         AuthSession session = authorize(authUsername, token);
         if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        if (postingGate.mustVerifyFirst(session.userId)) return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", com.springbootprojects.webpostingserver.posts.service.PostingGate.MESSAGE));
 
         String name = body.get("name") instanceof String s ? s.trim() : "Group";
         if (name.isBlank() || name.length() > 100) name = "Group";
@@ -632,6 +640,7 @@ public class SocialController {
 
         AuthSession session = authorize(authUsername, token);
         if (session == null) return unauthorized();
+        if (postingGate.mustVerifyFirst(session.userId)) return postingGate.refusal();
         if (!social.isGroupMember(groupId, session.userId))
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Not a member.");
 

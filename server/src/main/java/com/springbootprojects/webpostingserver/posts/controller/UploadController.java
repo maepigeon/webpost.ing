@@ -53,6 +53,7 @@ public class UploadController {
     }
 
     @Autowired LoginRepository loginRepository;
+    @Autowired com.springbootprojects.webpostingserver.posts.service.PostingGate postingGate;
     @Autowired JdbcTemplate jdbc;
     @Autowired ImageProcessingService imageService;
 
@@ -111,6 +112,7 @@ public class UploadController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Session expired");
         }
         if (loginResult == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized");
+        if (postingGate.mustVerifyFirst(loginResult.userId)) return postingGate.refusal();
         if (file.isEmpty()) return ResponseEntity.badRequest().body("No file provided");
         if (file.getSize() > MAX_AUDIO_BYTES)
             return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body("Audio exceeds the 20 MB size limit");
@@ -171,6 +173,7 @@ public class UploadController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Session expired");
         }
         if (loginResult == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized");
+        if (postingGate.mustVerifyFirst(loginResult.userId)) return postingGate.refusal();
         if (file.isEmpty()) return ResponseEntity.badRequest().body("No file provided");
         if (file.getSize() > maxFileSizeBytes)
             return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body("File exceeds the 5 MB size limit");

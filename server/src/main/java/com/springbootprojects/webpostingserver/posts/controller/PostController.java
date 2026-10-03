@@ -284,6 +284,7 @@ public class PostController {
 
 
     @Autowired private com.springbootprojects.webpostingserver.posts.service.EmailNotificationService emailNotifications;
+    @Autowired private com.springbootprojects.webpostingserver.posts.service.PostingGate postingGate;
     @Autowired PostRepository postRepository;
     @Autowired LoginRepository loginRepository;
     @Autowired SocialRepository social;
@@ -457,6 +458,7 @@ public class PostController {
             return loginRepository.deleteCookie();
         }
         if (loginResult != null) {
+            if (postingGate.mustVerifyFirst(loginResult.userId)) return postingGate.refusal();
             ResponseEntity<String> invalid = validatePost(post);
             if (invalid != null) return invalid;
             if (!storage.fitsQuota(loginResult.userId, storedBytes(post.getDescription(), post.getBackgroundPattern()), 0))
@@ -521,6 +523,7 @@ public class PostController {
         if (postOwner == null || !postOwner.compareUsername(username)) {
             return new ResponseEntity<>("Forbidden", HttpStatus.FORBIDDEN);
         }
+        if (post.isPublished() && postingGate.mustVerifyFirst(loginResult.userId)) return postingGate.refusal();
         ResponseEntity<String> invalid = validatePost(post);
         if (invalid != null) return invalid;
         Post _post = postRepository.findById(id);
@@ -581,6 +584,7 @@ public class PostController {
         if (body == null || !body.containsKey("published")) return new ResponseEntity<>("Say whether it is published.", HttpStatus.BAD_REQUEST);
 
         boolean published = Boolean.TRUE.equals(body.get("published"));
+        if (published && postingGate.mustVerifyFirst(loginResult.userId)) return postingGate.refusal();
         boolean was = post.isPublished();
         post.setPublished(published);
         postRepository.update(post);

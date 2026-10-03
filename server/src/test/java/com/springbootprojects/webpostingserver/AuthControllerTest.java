@@ -25,6 +25,7 @@ import static org.mockito.Mockito.*;
 class AuthControllerTest {
 
     @Mock LoginRepository loginRepository;
+    @Mock com.springbootprojects.webpostingserver.posts.service.SecurityLog securityLog;
     @Mock SocialRepository social;
     @Mock JdbcTemplate jdbc;
 

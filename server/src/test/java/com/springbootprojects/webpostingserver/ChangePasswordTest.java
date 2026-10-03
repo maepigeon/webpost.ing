@@ -29,6 +29,7 @@ class ChangePasswordTest {
     private static final String NEW = "New-password-456";
 
     @Mock LoginRepository loginRepository;
+    @Mock com.springbootprojects.webpostingserver.posts.service.SecurityLog securityLog;
     @Mock SocialRepository social;
     @Mock JdbcTemplate jdbc;
     @InjectMocks AuthController controller;

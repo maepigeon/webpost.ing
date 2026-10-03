@@ -411,6 +411,12 @@ location /uploads/ {
 }
 ```
 
+**Turnstile (only if `TURNSTILE_SECRET_KEY` is set):** add
+`https://challenges.cloudflare.com` to both `script-src` and `frame-src`, i.e.
+`script-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com`
+(the `default-src 'self'` above would otherwise block the widget's frame). The
+sign-up page loads Cloudflare's script on demand; `index.html` is unchanged.
+
 `'unsafe-inline'` is for styles only, because the app and the Lexical editor use
 inline `style=` attributes; scripts stay `'self'`. If the page uses an inline
 `<script>` (for example JSON-LD is fine, it is not executed, but a real script is

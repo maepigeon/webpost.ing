@@ -30,6 +30,7 @@ class DiscussionControllerTest {
 
     @Mock SocialRepository social;
     @Mock LoginRepository loginRepository;
+    @Mock com.springbootprojects.webpostingserver.posts.service.PostingGate postingGate;
     @Mock PostRepository postRepository;
     @Mock JdbcTemplate jdbc;
 

@@ -27,6 +27,7 @@ class SocialAbuseGuardsTest {
 
     @Mock com.springbootprojects.webpostingserver.posts.service.EmailNotificationService emailNotifications;
     @Mock LoginRepository loginRepository;
+    @Mock com.springbootprojects.webpostingserver.posts.service.PostingGate postingGate;
     @Mock SocialRepository social;
     @Mock PostRepository postRepository;
 

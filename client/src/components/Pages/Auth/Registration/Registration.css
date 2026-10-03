@@ -1,0 +1,10 @@
+.login-notice {
+  font-size: 13px;
+  color: inherit;
+  background: rgba(128,128,128,0.12);
+  border: 1px solid rgba(128,128,128,0.3);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 14px;
+  text-align: center;
+}

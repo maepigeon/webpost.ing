@@ -155,6 +155,22 @@ neither may ever contain a secret.
 
 ---
 
+## Opening sign-ups (all off by default)
+
+Nothing here changes behaviour until it is switched on.
+
+| Name | Where | Effect |
+|---|---|---|
+| `TURNSTILE_SITE_KEY` | `deploy.env` | Public key for the Cloudflare Turnstile widget on the sign-up page. |
+| `TURNSTILE_SECRET_KEY` | `deploy.env` | Server-side secret. While empty, no bot check happens. When set, `register` needs a `turnstileToken` and verifies it with Cloudflare (3 s timeout; fails closed). |
+| `invite_required` | admin setting (`system_settings`) | Default true (absent row = true). Set to `false` to let people register without an invite code; every other limit still applies. |
+| `require_verified_email` | admin setting (`system_settings`) | Default false (absent row = false). When `true` **and** `MAIL_ENABLED=true`, an account must confirm its email before it can create or publish posts or upload files (admins exempt). Reading, private drafts and profile edits stay allowed. |
+
+`GET /api/signup/config` tells the sign-up page what to show. Turnstile also
+needs two CSP additions, see [DEPLOYMENT.md](DEPLOYMENT.md) section 8.
+
+---
+
 ## Migrating an existing server to this layout
 
 Done on production on 2026-09-30 (settings moved from an untracked

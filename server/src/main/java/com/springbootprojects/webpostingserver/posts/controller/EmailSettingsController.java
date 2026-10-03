@@ -117,6 +117,7 @@ public class EmailSettingsController {
 
     @Autowired private LoginRepository loginRepository;
     @Autowired private JdbcTemplate jdbc;
+    @Autowired private com.springbootprojects.webpostingserver.posts.service.SecurityLog securityLog;
     @Autowired private EmailService emailService;
     @Autowired private EmailTokenService tokenService;
 
@@ -278,6 +279,7 @@ public class EmailSettingsController {
             Integer userId = userIdOf(username);
             if (userId == null) return ResponseEntity.notFound().build();
             jdbc.update("UPDATE users SET email = NULL, email_verified = FALSE, email_verified_at = NULL WHERE id = ?", userId);
+            securityLog.record(userId, "email_changed", "address removed", request);
             return ResponseEntity.ok(Map.of("email", "", "emailVerified", false, "message", "Email address removed."));
         }
 
@@ -356,7 +358,7 @@ public class EmailSettingsController {
      * credential.
      */
     @PostMapping("/email/verify")
-    public ResponseEntity<?> verifyEmail(@RequestBody Map<String, String> body) {
+    public ResponseEntity<?> verifyEmail(@RequestBody Map<String, String> body, HttpServletRequest request) {
         EmailTokenService.Redemption result =
                 tokenService.redeem(body.get("token"), EmailTokenService.PURPOSE_VERIFY);
 
@@ -370,6 +372,7 @@ public class EmailSettingsController {
                 UPDATE users SET email = ?, email_verified = TRUE, email_verified_at = NOW()
                  WHERE id = ?
                 """, result.email(), result.userId());
+        securityLog.record(result.userId(), "email_changed", null, request);
 
         return ResponseEntity.ok(Map.of("message", "Email confirmed. Notifications are on."));
     }
@@ -461,7 +464,7 @@ public class EmailSettingsController {
 
     /** Completes a reset and ends every existing session for that account. */
     @PostMapping("/password/reset")
-    public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> body) {
+    public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> body, HttpServletRequest request) {
         String newPassword = body.getOrDefault("password", "");
         // The same rules as signing up: a reset used to accept any 8 characters,
         // so it was a way round them. Checked before the token is spent, so a
@@ -485,6 +488,7 @@ public class EmailSettingsController {
         // Whoever reset the password may be locking an intruder out, so every
         // session — including any the attacker holds — has to end.
         loginRepository.evictSession(names.get(0));
+        securityLog.record(result.userId(), "password_reset", null, request);
 
         log.info("Password reset completed for user {}", result.userId());
         return ResponseEntity.ok(Map.of("message", "Password changed. Sign in with your new password."));

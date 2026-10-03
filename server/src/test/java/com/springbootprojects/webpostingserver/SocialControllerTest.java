@@ -31,6 +31,7 @@ class SocialControllerTest {
     @Mock com.springbootprojects.webpostingserver.posts.service.EmailNotificationService emailNotifications;
 
     @Mock LoginRepository loginRepository;
+    @Mock com.springbootprojects.webpostingserver.posts.service.PostingGate postingGate;
     @Mock PostRepository postRepository;
     @Mock SocialRepository social;
 

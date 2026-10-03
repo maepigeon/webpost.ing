@@ -84,6 +84,18 @@ public class AuthController {
     @Autowired
     JdbcTemplate jdbc;
 
+    @Autowired
+    com.springbootprojects.webpostingserver.posts.service.SecurityLog securityLog;
+
+    @Autowired(required = false)
+    com.springbootprojects.webpostingserver.posts.service.SignupGuard signupGuard;
+
+    @Autowired(required = false)
+    com.springbootprojects.webpostingserver.posts.service.EmailService emailService;
+
+    @Autowired(required = false)
+    com.springbootprojects.webpostingserver.posts.service.EmailTokenService emailTokens;
+
     /** Returns the background pattern for a user's profile page (public). */
     @GetMapping("/users/{username}/background")
     public ResponseEntity<String> getUserBackground(@PathVariable("username") String username) {
@@ -392,10 +404,11 @@ public class AuthController {
     }
 
     @PostMapping("logoutSessionAttempt")
-    public ResponseEntity<String> logoutSessionAttempt(@CookieValue(name = "username") String username, @CookieValue(name = "authToken") String token, HttpServletResponse response) {
+    public ResponseEntity<String> logoutSessionAttempt(@CookieValue(name = "username") String username, @CookieValue(name = "authToken") String token, HttpServletRequest request, HttpServletResponse response) {
         try {
             AuthSession loginResult = loginRepository.authorize(username, token);
             if (loginResult != null) {
+                securityLog.recordForUsername(username, "sign_out", null, request);
                 loginRepository.logout(username, token);
             }
         } catch (JdbcLoginRepository.TokenExpiredException e) {
@@ -504,11 +517,32 @@ public class AuthController {
         jdbc.update("UPDATE users SET password = ? WHERE username = ?",
                 new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().encode(next), username);
         loginRepository.evictSession(username);
+        securityLog.recordForUsername(username, "password_changed", null, request);
         log.info("Password changed by {}", username);
         return ResponseEntity.ok(Map.of("message", "Password changed. Sign in again with the new one."));
     }
 
     // ── Public registration (invite code required) ────────────────────────────
+
+    /** What the sign-up form needs to know: whether to ask for an invite code, and the Turnstile site key if on. */
+    @GetMapping("/signup/config")
+    public Map<String, Object> signupConfig() {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("inviteRequired", inviteRequired());
+        m.put("turnstileSiteKey", signupGuard == null ? null : signupGuard.siteKey());
+        m.put("mailEnabled", emailService != null && emailService.isEnabled());
+        return m;
+    }
+
+    /** Admin setting invite_required; default true, and an absent or unreadable row means true. */
+    private boolean inviteRequired() {
+        try {
+            List<String> v = jdbc.queryForList("SELECT value FROM system_settings WHERE key='invite_required'", String.class);
+            return v.isEmpty() || v.get(0) == null || !"false".equalsIgnoreCase(v.get(0).trim());
+        } catch (Exception e) {
+            return true;
+        }
+    }
 
     @PostMapping("/register")
     public ResponseEntity<String> register(@RequestBody Map<String, String> body,
@@ -547,7 +581,11 @@ public class AuthController {
         if (username == null || username.isBlank()) return ResponseEntity.badRequest().body("Username required.");
         if (password == null || password.isBlank()) return ResponseEntity.badRequest().body("Password required.");
         if (email    == null || email.isBlank())    return ResponseEntity.badRequest().body("Email required.");
-        if (code     == null || code.isBlank())     return ResponseEntity.badRequest().body("Invite code required.");
+        boolean needCode = inviteRequired();
+        if (needCode && (code == null || code.isBlank())) return ResponseEntity.badRequest().body("Invite code required.");
+        if (signupGuard != null && !signupGuard.verify(body.get("turnstileToken"), ip))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(com.springbootprojects.webpostingserver.posts.service.SignupGuard.FAILED_MESSAGE);
 
         username = username.trim();
         email    = email.trim().toLowerCase();
@@ -590,26 +628,28 @@ public class AuthController {
         if (sameName != null && sameName > 0)
             return ResponseEntity.status(HttpStatus.CONFLICT).body("Username already taken.");
 
-        // Validate invite code (not expired, not used)
-        List<Map<String, Object>> codeRows = jdbc.queryForList(
-            "SELECT expires_at, used_by FROM invite_codes WHERE code=?", code.trim());
-        if (codeRows.isEmpty()) {
-            if (!isLoopback) REG_BLOCK.put(ip, System.currentTimeMillis() + REG_BLOCK_SHORT_MS);
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Invalid invite code.");
-        }
-        if (codeRows.get(0).get("used_by") != null) {
-            // Already used — not an attack, don't block
-            return ResponseEntity.status(HttpStatus.GONE).body("Invite code has already been used.");
-        }
+        if (needCode) {
+            // Validate invite code (not expired, not used)
+            List<Map<String, Object>> codeRows = jdbc.queryForList(
+                "SELECT expires_at, used_by FROM invite_codes WHERE code=?", code.trim());
+            if (codeRows.isEmpty()) {
+                if (!isLoopback) REG_BLOCK.put(ip, System.currentTimeMillis() + REG_BLOCK_SHORT_MS);
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Invalid invite code.");
+            }
+            if (codeRows.get(0).get("used_by") != null) {
+                // Already used — not an attack, don't block
+                return ResponseEntity.status(HttpStatus.GONE).body("Invite code has already been used.");
+            }
 
-        // Claim the code before making the account, in one statement, so two
-        // sign-ups arriving together cannot both use it. Zero rows means it
-        // was used or ran out in the meantime.
-        int claimed = jdbc.update(
-            "UPDATE invite_codes SET used_by=?, used_at=NOW() WHERE code=? AND used_by IS NULL "
-            + "AND (expires_at IS NULL OR expires_at > NOW())", username, code.trim());
-        if (claimed == 0)
-            return ResponseEntity.status(HttpStatus.GONE).body("Invite code has expired or was just used.");
+            // Claim the code before making the account, in one statement, so two
+            // sign-ups arriving together cannot both use it. Zero rows means it
+            // was used or ran out in the meantime.
+            int claimed = jdbc.update(
+                "UPDATE invite_codes SET used_by=?, used_at=NOW() WHERE code=? AND used_by IS NULL "
+                + "AND (expires_at IS NULL OR expires_at > NOW())", username, code.trim());
+            if (claimed == 0)
+                return ResponseEntity.status(HttpStatus.GONE).body("Invite code has expired or was just used.");
+        }
 
         // Create the user account
         org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder bcrypt =
@@ -619,9 +659,11 @@ public class AuthController {
                 username, bcrypt.encode(password), email);
         } catch (Exception e) {
             // The name was taken after all: hand the code back.
-            jdbc.update("UPDATE invite_codes SET used_by=NULL, used_at=NULL WHERE code=? AND used_by=?", code.trim(), username);
+            if (needCode) jdbc.update("UPDATE invite_codes SET used_by=NULL, used_at=NULL WHERE code=? AND used_by=?", code.trim(), username);
             return ResponseEntity.status(HttpStatus.CONFLICT).body("Username already taken.");
         }
+
+        sendSignupVerification(username, email);
 
         // Block the IP for 1 hour to prevent multi-account creation
         if (!isLoopback) {
@@ -630,6 +672,20 @@ public class AuthController {
                 (old, one) -> old[0] == one[0] ? new long[]{old[0], old[1] + 1} : one);
         }
         return ResponseEntity.status(HttpStatus.CREATED).body("Account created. You can now log in.");
+    }
+
+    /** With mail on, sends the confirmation link for the sign-up address; never fails the sign-up. */
+    private void sendSignupVerification(String username, String email) {
+        try {
+            if (emailService == null || emailTokens == null || !emailService.isEnabled()) return;
+            Integer id = jdbc.queryForObject("SELECT id FROM users WHERE username=?", Integer.class, username);
+            if (id == null) return;
+            var issued = emailTokens.issue(id, email,
+                com.springbootprojects.webpostingserver.posts.service.EmailTokenService.PURPOSE_VERIFY);
+            emailService.sendVerification(email, username, issued.plaintext());
+        } catch (Exception e) {
+            log.warn("Could not send sign-up verification mail: {}", e.toString());
+        }
     }
 
     /**
@@ -804,6 +860,14 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("online", online, "lastSeen", lastSeen != null ? lastSeen : ""));
     }
 
+    private static boolean isLoopbackAddress(String ip) {
+        try {
+            return java.net.InetAddress.getByName(ip).isLoopbackAddress();
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     @PostMapping("/loginSessionAttempt")
     public ResponseEntity<String> loginSessionAttempt(@RequestBody LoginInfo loginInfo, HttpServletRequest request, HttpServletResponse response) {
         String clientIp = "loginip:" + rateKey(request.getRemoteAddr());
@@ -818,13 +882,17 @@ public class AuthController {
         }
         // Every attempt counts against the address, successes included, and a
         // success never resets it, so one address cannot mint sessions endlessly.
-        LoginRateLimiter.recordFailure(clientIp, MAX_LOGINS_PER_IP);
+        // Not on a developer's own machine: there every browser, test and tool
+        // shares one address, and they used the allowance up between them.
+        if (!(devMode && isLoopbackAddress(request.getRemoteAddr())))
+            LoginRateLimiter.recordFailure(clientIp, MAX_LOGINS_PER_IP);
         AuthSession loginResult = loginRepository.login(loginInfo);
         try {
             switch (loginResult.loginHttpStatusCodeResult) {
                 case HttpStatus.FORBIDDEN:
                     LoginRateLimiter.recordFailure(accountKey);
                     LoginRateLimiter.recordFailure(globalAccountKey, MAX_FAILURES_PER_ACCOUNT_ALL_IPS);
+                    securityLog.recordForUsername(loginInfo.getUsername(), "sign_in_failed", null, request);
                     return new ResponseEntity<>("Incorrect username or password.", HttpStatus.FORBIDDEN);
                 case HttpStatus.OK:
                     LoginRateLimiter.recordSuccess(accountKey);
@@ -842,6 +910,7 @@ public class AuthController {
                             .path("/")
                             .maxAge(60 * 60 * 24)
                             .build();
+                    securityLog.record(loginResult.userId, "sign_in", null, request);
                     return ResponseEntity.ok()
                             .header(HttpHeaders.SET_COOKIE, tokenCookie.toString())
                             .header(HttpHeaders.SET_COOKIE, usernameCookie.toString())

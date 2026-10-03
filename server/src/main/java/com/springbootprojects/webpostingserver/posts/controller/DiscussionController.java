@@ -33,6 +33,9 @@ public class DiscussionController {
     private LoginRepository loginRepository;
 
     @Autowired
+    private com.springbootprojects.webpostingserver.posts.service.PostingGate postingGate;
+
+    @Autowired
     private PostRepository postRepository;
 
     @Autowired
@@ -186,6 +189,7 @@ public class DiscussionController {
 
         AuthSession session = authorize(username, token);
         if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).<Map<String, Object>>build();
+        if (postingGate.mustVerifyFirst(session.userId)) return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", com.springbootprojects.webpostingserver.posts.service.PostingGate.MESSAGE));
 
         if (!social.isDiscussionEnabled(postId))
             return ResponseEntity.status(HttpStatus.FORBIDDEN).<Map<String, Object>>build();
