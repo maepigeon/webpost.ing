@@ -120,3 +120,7 @@ body {
     line-clamp: 4;
     overflow: hidden;
 }
+
+/* A visitor's card has no Edit/Delete bar under it, so the grid would end
+   flush against the card's bottom edge: give it the room that bar gave. */
+.basicTextPost:not(:has(.bottom-nav)) .post-card-grid { margin-bottom: 16px; }
