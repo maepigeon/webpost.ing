@@ -8,7 +8,7 @@ import { normaliseUploadResponse, describeUploadError } from '../../../../../../
 import {
   TILE, SCALE, LIMITS, FONT_NAMES, DIRECTIONS, normaliseGrid, pixelLayer, photoLayer,
   SLOTS_PER_TILE, SLOT_W, slotsPerRow, rowChars, writeSlot, writeChar, writeXl, xlTiles, setTileWidths, isWide, restyleSlots, resizeLayerText,
-  EDGES, floodTiles, floodPixels, lassoTiles, takeText, drawLayerText, isElbow, linePixels, rectPixels, ellipsePixels, readableText, mergeText, cleanHref, isExternalHref, setLink, linkAt, orderSlots, slotsIn, renderGrid, pixelatePhoto, photoRect, resizePhoto, zoomPhoto, tileKey, rectTiles, combineSelection, orderedTiles,
+  EDGES, floodTiles, floodPixels, lassoTiles, takeText, drawLayerText, isElbow, linePixels, rectPixels, ellipsePixels, readableText, mergeText, cleanHref, isExternalHref, setLink, linkAt, linkTiles, orderSlots, slotsIn, renderGrid, pixelatePhoto, photoRect, resizePhoto, zoomPhoto, tileKey, parseTileKey, rectTiles, combineSelection, orderedTiles,
 } from './tileGrid.js';
 import { TEXTURES, fillTexture, texturePreview, DEFAULT_PAW_OPTIONS } from './textures.js';
 import PawOptions from '../../../../../TileArt/PawOptions.jsx';
@@ -53,14 +53,14 @@ function boundsOf(selection) {
 }
 
 /** Alt (Option) + a letter picks a tool. Keyed by KeyboardEvent.code. */
-const TOOL_KEYS = { KeyT: 'text', KeyS: 'select', KeyW: 'wand', KeyQ: 'lasso', KeyM: 'move', KeyP: 'pixel', KeyB: 'tile', KeyE: 'erase', KeyF: 'fill', KeyG: 'bucket', KeyL: 'line', KeyR: 'rect', KeyO: 'ellipse', KeyI: 'pick' };
+const TOOL_KEYS = { KeyT: 'text', KeyS: 'select', KeyW: 'wand', KeyQ: 'lasso', KeyM: 'move', KeyP: 'pixel', KeyB: 'tile', KeyE: 'erase', KeyF: 'fill', KeyG: 'bucket', KeyL: 'line', KeyR: 'rect', KeyO: 'ellipse', KeyI: 'pick', KeyK: 'link' };
 
 /** The editor's keyboard shortcuts, as the shortcuts panel lists them. */
 const SHORTCUTS = [
   ['Tools', [
     ['⌥T', 'Text'], ['⌥S', 'Select'], ['⌥W', 'Magic wand'], ['⌥Q', 'Lasso'], ['⌥G', 'Magic fill'], ['⌥M', 'Move'], ['⌥P', 'Paint pixels'],
     ['⌥B', 'Paint tiles'], ['⌥E', 'Erase'], ['⌥F', 'Fill'], ['⌥L', 'Line'], ['⌥R', 'Rectangle (Shift fills)'],
-    ['⌥O', 'Ellipse (Shift fills)'], ['⌥I', 'Eyedropper'],
+    ['⌥O', 'Ellipse (Shift fills)'], ['⌥I', 'Eyedropper'], ['⌥K', 'Link'],
   ]],
   ['Edit', [
     ['⌘Z', 'Undo'], ['⇧⌘Z or ⌘Y', 'Redo'], ['⌘C', 'Copy'], ['⌘X', 'Cut'], ['⌘V', 'Paste'],
@@ -472,6 +472,19 @@ export default function TileGrid({
     e.currentTarget.setPointerCapture?.(e.pointerId);
     const sel = selectionRef.current;
 
+    // With the Link tool, or the address field open, a click on a linked tile
+    // selects the whole link, so it is edited or removed as one.
+    if ((tool === 'link' || panel === 'link') && tool !== 'move' && !e.shiftKey && !e.altKey) {
+      const whole = linkTiles(dataRef.current, p.tile.r, p.tile.c);
+      if (whole.length) {
+        setSelection(new Set(whole));
+        setCursor({ r: p.tile.r, s: p.tile.c * SLOTS_PER_TILE });
+        openLinkPanel(true, whole);
+        typeRef.current?.focus();
+        return;
+      }
+    }
+
     // Dragging a selected tile, or anything with the move tool, carries it along.
     const onSelection = sel.has(tileKey(p.tile.r, p.tile.c)) && !e.shiftKey && !e.altKey;
     if (tool === 'move' || ((tool === 'select' || tool === 'text') && onSelection)) {
@@ -479,7 +492,7 @@ export default function TileGrid({
       setMoveBy({ r: 0, c: 0, px: 0, py: 0 });
       return;
     }
-    if (tool === 'text' || tool === 'select') {
+    if (tool === 'text' || tool === 'select' || tool === 'link') {
       selAnchor.current = p.tile;
       const mode = e.shiftKey ? 'add' : e.altKey ? 'remove' : 'replace';
       gesture.current = { kind: 'select', anchor: p.tile, base: sel, mode, moved: false };
@@ -487,7 +500,7 @@ export default function TileGrid({
       if (mode === 'replace') {
         // The cursor goes where you click: that slot for Text, the tile for Select.
         const d = dataRef.current;
-        const s = tool === 'select' ? p.tile.c * SLOTS_PER_TILE : Math.min(slotsPerRow(d) - 1, Math.floor(p.x / SLOT_W));
+        const s = tool !== 'text' ? p.tile.c * SLOTS_PER_TILE : Math.min(slotsPerRow(d) - 1, Math.floor(p.x / SLOT_W));
         setCursor({ r: p.tile.r, s: widthRef.current === 'full' ? s - (s % SLOTS_PER_TILE) : s });
       }
       return;
@@ -599,11 +612,13 @@ export default function TileGrid({
     } else {
       if (!g.moved && g.mode !== 'replace') {
         setSelection(combineSelection(g.base, [tileKey(g.anchor.r, g.anchor.c)], g.mode));
-      } else if (!g.moved && tool === 'select') {
+      } else if (!g.moved && (tool === 'select' || tool === 'link')) {
         // A click in Select selects the one tile.
         setSelection(new Set([tileKey(g.anchor.r, g.anchor.c)]));
       }
       if (selectionRef.current.size) setCursor(typingOrder()[0]);
+      // The Link tool goes straight to the address field for what it selected.
+      if (tool === 'link' && selectionRef.current.size) openLinkPanel(true);
     }
     typeRef.current?.focus();
   };
@@ -1150,12 +1165,12 @@ export default function TileGrid({
   };
 
   /** Opens the link panel, filled in with the selection's link if it has one. */
-  const openLinkPanel = () => {
+  const openLinkPanel = (forceOpen = false, tiles = null) => {
     const d = dataRef.current;
-    const first = orderedTiles(selectionRef.current)[0];
+    const first = tiles ? parseTileKey(tiles[0]) : orderedTiles(selectionRef.current)[0];
     setLinkDraft(first ? linkAt(d, first.r, first.c)?.href || '' : '');
     setLinkError('');
-    setPanel(p => (p === 'link' ? null : 'link'));
+    setPanel(p => (forceOpen ? 'link' : p === 'link' ? null : 'link'));
   };
   const applyLink = (remove = false) => {
     const tiles = [...selectionRef.current];
@@ -1290,7 +1305,7 @@ export default function TileGrid({
 
   const aspect = `${data.cols * TILE} / ${data.rows * TILE}`;
   const canvasCursor = !editing ? 'default'
-    : { text: 'text', select: 'cell', wand: 'cell', move: 'move', fill: 'copy', pick: 'copy' }[tool] || 'crosshair';
+    : { text: 'text', select: 'cell', link: 'cell', wand: 'cell', move: 'move', fill: 'copy', pick: 'copy' }[tool] || 'crosshair';
   const isPixel = active?.kind === 'pixel';
   // The active photo's outline and corner handles, over the canvas.
   const photoBox = (() => {
@@ -1309,12 +1324,18 @@ export default function TileGrid({
     };
   })();
   const hasSel = selection.size > 0;
-  const hint = !isPixel && !['move', 'select', 'lasso'].includes(tool)
+  // The link under the selection, or under the cursor when nothing is selected.
+  const hereLink = (() => {
+    const t = orderedTiles(selection)[0] || (cursor && { r: cursor.r, c: Math.floor(cursor.s / SLOTS_PER_TILE) });
+    return t ? linkAt(data, t.r, t.c) : null;
+  })();
+  const hint = !isPixel && !['move', 'select', 'lasso', 'link'].includes(tool)
     ? 'Photo layer: drag it to move, drag a corner to resize, or flatten it to pixels to paint on it.'
     : {
       text: 'Click a tile and type. Drag to select.',
       lasso: 'Draw a loop around tiles to select them. Shift adds, Alt takes away.',
       wand: 'Click a tile to select the joined tiles that look the same. Shift adds, Alt takes away.',
+      link: 'Click or drag over tiles, then give them an address. Click a linked tile to edit its whole link.',
       select: 'Drag, or use the arrows and Shift+arrows, to select. Shift adds, Alt removes. Drag a selection to move it.',
       move: 'Drag to move the selection, or the whole layer. Arrow keys nudge.',
       pixel: 'Paint single pixels.', tile: 'Paint whole tiles.', erase: 'Erase to transparent.',
@@ -1374,6 +1395,7 @@ export default function TileGrid({
           <div className="tg-main">
             <div className="tg-group" role="group" aria-label="Draw">
               <span className="tg-group-label"><PixelText text="Draw" px={1.25} /></span>
+              <Tile icon="link" label="Link tool (⌥K): click a tile to link it, or a linked tile to edit its whole link" on={tool === 'link'} onClick={() => setTool('link')} />
               <Tile icon="select" label="Select tiles (⌥S)" on={tool === 'select'} onClick={() => setTool('select')} />
               <Tile icon="lasso" label="Lasso (⌥Q): draw a loop around tiles to select them" on={tool === 'lasso'} onClick={() => setTool('lasso')} />
               <Tile icon="wand" label="Magic wand (⌥W): select joined tiles that match" on={tool === 'wand'} onClick={() => setTool('wand')} />
@@ -1471,12 +1493,12 @@ export default function TileGrid({
               <Tile icon="flipH" label="Flip across: the selection, or the whole layer" onClick={() => flip(true)} disabled={!isPixel} />
               <Tile icon="flipV" label="Flip up and down: the selection, or the whole layer" onClick={() => flip(false)} disabled={!isPixel} />
               <span className="tg-gap" />
-              <Tile icon="link" label="Link the selected tiles" on={panel === 'link'} disabled={!hasSel && panel !== 'link'} onClick={openLinkPanel} />
+              <Tile icon="link" label="Link the selected tiles (or use the Link tool, ⌥K)" on={panel === 'link'} disabled={!hasSel && panel !== 'link'} onClick={() => openLinkPanel()} />
             </div>
 
             {panel === 'link' && (
               <form className="tg-link-panel" onSubmit={e => { e.preventDefault(); applyLink(); }}>
-                <label className="tg-link-label"><PixelWords text={`Link ${selection.size} tile${selection.size === 1 ? '' : 's'} to`} />
+                <label className="tg-link-label"><PixelWords text={`${hereLink ? 'Edit link on' : 'Link'} ${selection.size} tile${selection.size === 1 ? '' : 's'}${hereLink ? '' : ' to'}`} />
                   <input type="text" inputMode="url" value={linkDraft} autoFocus placeholder="https://… or /username"
                     onChange={e => { setLinkDraft(e.target.value); setLinkError(''); }}
                     onKeyDown={e => {
@@ -1486,7 +1508,7 @@ export default function TileGrid({
                       if (e.key === 'Escape') { e.preventDefault(); setPanel(null); typeRef.current?.focus(); }
                     }} />
                 </label>
-                <GridButton symbol="link" showLabel label="Link" onClick={() => applyLink()} />
+                <GridButton symbol="link" showLabel label="Save link" onClick={() => applyLink()} />
                 <GridButton symbol="unlink" showLabel label="Remove link" onClick={() => applyLink(true)} />
                 {linkError && <span className="tg-error" role="alert">{linkError}</span>}
               </form>
@@ -1531,6 +1553,7 @@ export default function TileGrid({
 
             <div className="tg-status">
               <span className="tg-hint"><PixelWords text={hint} px={1} /></span>
+              {editing && hereLink && <span className="tg-hint"><PixelWords text={`Links to ${hereLink.href}`} px={1} /></span>}
               {notice && <span className="tg-notice" role="status"><PixelWords text={notice} px={1} /></span>}
               {hasSel && <span className="tg-badge"><PixelText text={`${selection.size} tile${selection.size === 1 ? '' : 's'}`} px={1} /></span>}
               {skipFilled && <span className="tg-badge"><PixelText text="No overdraw" px={1} /></span>}

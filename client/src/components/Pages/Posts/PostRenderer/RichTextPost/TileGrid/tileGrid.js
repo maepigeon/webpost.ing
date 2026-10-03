@@ -303,6 +303,9 @@ export function setLink(d, tiles, href) {
 /** The link on a tile, if any. */
 export const linkAt = (d, r, c) => (d.links || []).find(l => l.tiles.includes(`${r},${c}`)) || null;
 
+/** Every tile of the link on this tile (so a link is edited as a whole), or [] when it has none. */
+export const linkTiles = (d, r, c) => [...(linkAt(d, r, c)?.tiles || [])];
+
 const inGrid = (d, key) => { const [r, c] = key.split(',').map(Number); return r < d.rows && c < d.cols; };
 
 /** A layer from a pre-v3 full-width grid, where character c sat in tile c. */
@@ -931,12 +934,15 @@ export function renderGrid(ctx, d, assets = {}, view = {}) {
   }
 
   if (view.showLinks && d.links) {
-    // Linked tiles are underlined while editing, so you can see what links.
-    ctx.fillStyle = '#5ea0ff';
+    // Linked tiles are tinted and underlined while editing, so you can see what links.
+    // The underline runs the full tile, so neighbouring tiles of one link join up.
     for (const link of d.links) {
       for (const key of link.tiles) {
         const { r, c } = parseTileKey(key);
-        ctx.fillRect(c * TILE + 1, (r + 1) * TILE - 1.5, TILE - 2, 1);
+        ctx.fillStyle = 'rgba(94, 160, 255, 0.22)';
+        ctx.fillRect(c * TILE, r * TILE, TILE, TILE);
+        ctx.fillStyle = '#5ea0ff';
+        ctx.fillRect(c * TILE, (r + 1) * TILE - 1.5, TILE, 1);
       }
     }
   }

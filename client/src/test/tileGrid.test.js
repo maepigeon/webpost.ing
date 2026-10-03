@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   normaliseGrid, pixelLayer, rowChars, writeSlot, writeChar, setTileWidths, isWide, restyleSlots, resizeLayerText,
   orderSlots, slotsIn, containRect, bitsFromHex, hexFromBits, seedBits, slotsPerRow, LIMITS,
-  photoRect, resizePhoto, zoomPhoto, PHOTO_SCALE, cleanHref, isExternalHref, setLink, linkAt, cleanExt, GRID_VERSION, mergeText, writeXl, xlTiles, variantRows, FONT_NAMES, TYPEFACES, readableText, floodTiles, isElbow, linePixels, rectPixels, ellipsePixels, floodPixels, lassoTiles, takeText } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
+  photoRect, resizePhoto, zoomPhoto, PHOTO_SCALE, cleanHref, isExternalHref, setLink, linkAt, linkTiles, cleanExt, GRID_VERSION, mergeText, writeXl, xlTiles, variantRows, FONT_NAMES, TYPEFACES, readableText, floodTiles, isElbow, linePixels, rectPixels, ellipsePixels, floodPixels, lassoTiles, takeText } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
 import { pixelGlyph } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileFont.js';
 import { bitmapGlyph, SYMBOL_CHARS } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/bitmapFonts.js';
 
@@ -269,6 +269,18 @@ describe('links on tiles', () => {
     expect(d.links).toEqual([{ href: '/b', tiles: ['0,1', '0,2'] }]);
     const loaded = normaliseGrid({ ...d, links: [...d.links, { href: 'javascript:x', tiles: ['0,0'] }, { href: '/c', tiles: ['0,1', '5,5'] }] });
     expect(loaded.links).toEqual([{ href: '/b', tiles: ['0,1', '0,2'] }]);
+  });
+
+  it('finds every tile of the link at a tile', () => {
+    let d = normaliseGrid({ v: 3, cols: 3, rows: 2 });
+    d = setLink(d, ['0,0', '0,1', '1,1'], '/a');
+    expect(linkTiles(d, 1, 1).sort()).toEqual(['0,0', '0,1', '1,1']);
+    expect(linkTiles(d, 1, 2)).toEqual([]);
+  });
+
+  it('refuses script and data addresses', () => {
+    expect(cleanHref('javascript:alert(1)')).toBe(null);
+    expect(cleanHref('data:text/html,hi')).toBe(null);
   });
 });
 
