@@ -74,20 +74,46 @@ export function GridSelect({ value, options, onChange, label, tip }) {
   );
 }
 
-/** A whole number with − and + tiles, in the pixel font. Arrow keys step it too. */
+/**
+ * A whole number with − and + tiles, in the pixel font. Arrow keys step it,
+ * and pressing the number lets you type one (Enter keeps it, Escape doesn't).
+ */
 export function GridStepper({ label, short, value, min, max, onChange, disabled }) {
   const set = (v) => onChange(Math.max(min, Math.min(max, v)));
+  const [typing, setTyping] = useState(null);   // the text being typed, or null
+  const keepTyped = () => {
+    const n = parseInt(typing, 10);
+    setTyping(null);
+    if (Number.isFinite(n) && n !== value) set(n);
+  };
   return (
     <span className="grid-stepper" role="spinbutton" aria-label={label} aria-valuenow={value}
       aria-valuemin={min} aria-valuemax={max} aria-disabled={disabled || undefined} tabIndex={disabled ? -1 : 0} data-tip={label}
       onKeyDown={e => {
-        if (disabled) return;
+        if (disabled || typing !== null) return;
         if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { e.preventDefault(); set(value + 1); }
         if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { e.preventDefault(); set(value - 1); }
+        if (e.key === 'Enter') { e.preventDefault(); setTyping(String(value)); }
       }}>
       <PixelText text={short} px={1.25} />
       <GridButton symbol="minus" label={`Fewer: ${label}`} disabled={disabled || value <= min} onClick={() => set(value - 1)} tabIndex={-1} />
-      <span className="grid-stepper-value"><PixelText text={String(value)} px={1.5} /></span>
+      {typing !== null ? (
+        <input className="grid-stepper-input" type="text" inputMode="numeric" autoFocus aria-label={`${label} (${min} to ${max})`}
+          value={typing} maxLength={3} onFocus={e => e.target.select()}
+          onChange={e => setTyping(e.target.value.replace(/[^0-9]/g, ''))}
+          onBlur={keepTyped}
+          onKeyDown={e => {
+            e.stopPropagation();
+            if (e.key === 'Enter') { e.preventDefault(); keepTyped(); }
+            if (e.key === 'Escape') { e.preventDefault(); setTyping(null); }
+          }} />
+      ) : (
+        <button type="button" className="grid-stepper-value" disabled={disabled} tabIndex={-1}
+          aria-label={`${label}: ${value}. Press to type a number.`} data-tip={`Type a number (${min} to ${max})`}
+          onClick={() => setTyping(String(value))}>
+          <PixelText text={String(value)} px={1.5} />
+        </button>
+      )}
       <GridButton symbol="plus" label={`More: ${label}`} disabled={disabled || value >= max} onClick={() => set(value + 1)} tabIndex={-1} />
     </span>
   );

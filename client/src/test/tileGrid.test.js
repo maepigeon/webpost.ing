@@ -2,8 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   normaliseGrid, pixelLayer, rowChars, writeSlot, writeChar, setTileWidths, isWide, restyleSlots, resizeLayerText,
   orderSlots, slotsIn, containRect, bitsFromHex, hexFromBits, seedBits, slotsPerRow, LIMITS,
-  photoRect, resizePhoto, zoomPhoto, PHOTO_SCALE, cleanHref, isExternalHref, setLink, linkAt, cleanExt, GRID_VERSION, mergeText, writeXl, xlTiles, variantRows, FONT_NAMES, TYPEFACES, readableText, floodTiles, isElbow, linePixels, rectPixels, ellipsePixels,
-} from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
+  photoRect, resizePhoto, zoomPhoto, PHOTO_SCALE, cleanHref, isExternalHref, setLink, linkAt, cleanExt, GRID_VERSION, mergeText, writeXl, xlTiles, variantRows, FONT_NAMES, TYPEFACES, readableText, floodTiles, isElbow, linePixels, rectPixels, ellipsePixels, floodPixels, lassoTiles, takeText } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileGrid.js';
 import { pixelGlyph } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/tileFont.js';
 import { bitmapGlyph, SYMBOL_CHARS } from '../components/Pages/Posts/PostRenderer/RichTextPost/TileGrid/bitmapFonts.js';
 
@@ -471,5 +470,82 @@ describe('shapes', () => {
     for (const k of edge) expect(fill.has(k)).toBe(true);
     for (const k of fill) { const [x, y] = k.split(',').map(Number); expect(fill.has(`${8 - x},${y}`)).toBe(true); }
     expect(ellipsePixels(3, 3, 3, 3)).toEqual([[3, 3]]);
+  });
+});
+
+describe('magic fill', () => {
+  // A 4×3 picture from rows of letters: '.' clear, 'a' red, 'b' blue.
+  const COLOURS = { '.': [0, 0, 0, 0], a: [255, 0, 0, 255], b: [0, 0, 255, 255], g: [0, 255, 0, 255] };
+  const picture = (rows) => {
+    const width = rows[0].length, height = rows.length;
+    const data = new Uint8ClampedArray(width * height * 4);
+    rows.forEach((row, y) => [...row].forEach((ch, x) => data.set(COLOURS[ch], (y * width + x) * 4)));
+    return { width, height, data };
+  };
+  const letters = (image) => Array.from({ length: image.height }, (_, y) => Array.from({ length: image.width }, (_, x) => {
+    const px = [...image.data.slice((y * image.width + x) * 4, (y * image.width + x) * 4 + 4)].join();
+    return Object.keys(COLOURS).find(k => COLOURS[k].join() === px);
+  }).join(''));
+
+  it('fills the joined pixels of one colour, across edges and not corners', () => {
+    const image = picture(['aab.', 'a.ba', '..aa']);
+    expect(floodPixels(image, 0, 0, COLOURS.g)).toBe(3);
+    expect(letters(image)).toEqual(['ggb.', 'g.ba', '..aa']);
+  });
+
+  it('fills that colour everywhere when asked, and clear areas too', () => {
+    const image = picture(['aab.', 'a.ba', '..aa']);
+    expect(floodPixels(image, 0, 0, COLOURS.g, { everywhere: true })).toBe(6);
+    expect(letters(image)).toEqual(['ggb.', 'g.bg', '..gg']);
+    expect(floodPixels(image, 1, 1, COLOURS.b)).toBe(3);
+    expect(letters(image)).toEqual(['ggb.', 'gbbg', 'bbgg']);
+  });
+
+  it('can clear, stays where it is allowed, and does nothing when the colour is already there', () => {
+    const image = picture(['aaaa']);
+    expect(floodPixels(image, 0, 0, COLOURS.a)).toBe(0);
+    expect(floodPixels(image, 0, 0, COLOURS.b, { allowed: (x) => x < 2 })).toBe(2);
+    expect(letters(image)).toEqual(['bbaa']);
+    expect(floodPixels(image, 3, 0, COLOURS['.'])).toBe(2);
+    expect(letters(image)).toEqual(['bb..']);
+    expect(floodPixels(image, 9, 9, COLOURS.a)).toBe(0);
+  });
+});
+
+describe('lasso', () => {
+  it('selects the tiles whose centres are inside the loop', () => {
+    // A loop round the first two tiles of the first row (tiles are 16 grid pixels).
+    const loop = [{ x: 1, y: 1 }, { x: 31, y: 1 }, { x: 31, y: 15 }, { x: 1, y: 15 }];
+    expect(lassoTiles(4, 2, loop).sort()).toEqual(['0,0', '0,1']);
+  });
+
+  it('falls back to the tiles it passes through when the loop holds no centre', () => {
+    expect(lassoTiles(4, 2, [{ x: 2, y: 2 }, { x: 4, y: 3 }, { x: 18, y: 2 }]).sort()).toEqual(['0,0', '0,1']);
+    expect(lassoTiles(4, 2, [])).toEqual([]);
+  });
+});
+
+describe('taking text off a layer', () => {
+  const d = normaliseGrid({ v: 3, cols: 2, rows: 1, layers: [pixelLayer('T')] });
+  let layer = writeChar(d, d.layers[0], 0, 0, 'a', { color: '#ff0000' }, 'half');
+  layer = writeChar(d, layer, 0, 2, 'b', { color: '#00ff00' }, 'full');
+
+  it('takes everything when no tiles are named', () => {
+    const { taken, left, count } = takeText(d, layer);
+    expect(count).toBe(2);
+    expect(taken.text[0]).toBe(layer.text[0]);
+    expect(left.text[0]).toBe('');
+    expect(left.style).toEqual({});
+    expect(left.wide).toEqual([]);
+  });
+
+  it('takes only the named tiles, with their styles and widths', () => {
+    const { taken, left, count } = takeText(d, layer, new Set(['0,1']));
+    expect(count).toBe(1);
+    expect(taken.text[0].trim()).toBe('b');
+    expect(Object.keys(taken.style)).toEqual(['0,2']);
+    expect(taken.wide).toEqual(['0,1']);
+    expect(left.text[0]).toBe('a');
+    expect(Object.keys(left.style)).toEqual(['0,0']);
   });
 });

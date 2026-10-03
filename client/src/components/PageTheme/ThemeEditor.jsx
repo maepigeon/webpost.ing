@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useUnsavedGuard } from '../../utils/useUnsavedGuard.js';
 import {
   getPresets, defaultTheme, FONTS, BORDERS, SHADOWS, CASES, EFFECTS, MAX_STICKER_TILES, sanitiseTheme,
 } from './theme.js';
@@ -175,6 +176,7 @@ export default function ThemeEditor({ username, postId = null }) {
 
   const t = sanitiseTheme(draft);
   const dirty = JSON.stringify(t) !== JSON.stringify(sanitiseTheme(saved || defaultTheme()));
+  useUnsavedGuard(dirty, 'your theme');
 
   if (!loaded) return <p className="settings-section-hint">{postId != null ? 'Loading this post’s theme…' : 'Loading your theme…'}</p>;
 

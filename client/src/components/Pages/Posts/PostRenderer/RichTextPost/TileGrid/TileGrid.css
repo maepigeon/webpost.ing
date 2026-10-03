@@ -290,8 +290,10 @@
 
 span.tg-layer-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: default; }
 
-.tg-status { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
-.tg-hint { color: #8c8c8c; font-size: 11px; flex: 1; min-width: 0; }
+/* The hint has a line to itself; the notice, badges and buttons wrap under it. */
+.tg-status { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px 8px; margin-top: 2px; }
+.tg-hint { color: #8c8c8c; font-size: 11px; flex: 1 1 100%; min-width: 0; }
+.tg-status .tg-notice { margin-right: auto; }
 .tg-badge { padding: 2px 6px; border-radius: 3px; background: #1f3a5c; color: #cfe3ff; font-size: 11px; }
 .tg-done {
   height: 26px;
@@ -463,3 +465,48 @@ span.tg-layer-name { overflow: hidden; text-overflow: ellipsis; white-space: now
 
 /* The panel's name, across both columns. */
 .tg-panel-title { grid-column: 1 / -1; color: #9a9a9a; line-height: 0; padding: 2px 0 0; }
+
+/* ── Focus view ──────────────────────────────────────────────────────────────
+   The editor fills the window: the grid as large as fits on the left, its
+   tools in a column on the right (under it on a narrow screen). */
+.tilegrid--focus {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  margin: 0;
+  padding: 10px;
+  box-sizing: border-box;
+  background: #161616;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  gap: 10px;
+  overflow: hidden;
+}
+.tilegrid--focus .tilegrid-stage {
+  align-self: center;
+  justify-self: center;
+  width: min(100%, calc((100vh - 20px) * var(--tg-aspect, 1)));
+}
+.tilegrid--focus .tg-panel {
+  margin: 0;
+  max-height: calc(100vh - 20px);
+  overflow-y: auto;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+}
+@media (max-width: 800px) {
+  .tilegrid--focus { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .tilegrid--focus .tilegrid-stage { width: min(100%, calc(45vh * var(--tg-aspect, 1))); }
+  .tilegrid--focus .tg-panel { max-height: none; }
+}
+/* A fixed box is placed against the window only if nothing around it is
+   transformed or filtered, so those are switched off around a focused grid. */
+:is(#appBody, #appBody *):has(.tilegrid--focus) {
+  transform: none !important;
+  animation: none !important;
+  filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  contain: none !important;
+  container-type: normal !important;
+}

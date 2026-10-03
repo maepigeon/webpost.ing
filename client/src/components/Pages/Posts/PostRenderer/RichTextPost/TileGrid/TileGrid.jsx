@@ -8,7 +8,7 @@ import { normaliseUploadResponse, describeUploadError } from '../../../../../../
 import {
   TILE, SCALE, LIMITS, FONT_NAMES, DIRECTIONS, normaliseGrid, pixelLayer, photoLayer,
   SLOTS_PER_TILE, SLOT_W, slotsPerRow, rowChars, writeSlot, writeChar, writeXl, xlTiles, setTileWidths, isWide, restyleSlots, resizeLayerText,
-  EDGES, floodTiles, isElbow, linePixels, rectPixels, ellipsePixels, readableText, mergeText, cleanHref, isExternalHref, setLink, linkAt, orderSlots, slotsIn, renderGrid, pixelatePhoto, photoRect, resizePhoto, zoomPhoto, tileKey, rectTiles, combineSelection, orderedTiles,
+  EDGES, floodTiles, floodPixels, lassoTiles, takeText, drawLayerText, isElbow, linePixels, rectPixels, ellipsePixels, readableText, mergeText, cleanHref, isExternalHref, setLink, linkAt, orderSlots, slotsIn, renderGrid, pixelatePhoto, photoRect, resizePhoto, zoomPhoto, tileKey, rectTiles, combineSelection, orderedTiles,
 } from './tileGrid.js';
 import { TEXTURES, fillTexture, texturePreview, DEFAULT_PAW_OPTIONS } from './textures.js';
 import PawOptions from '../../../../../TileArt/PawOptions.jsx';
@@ -52,12 +52,12 @@ function boundsOf(selection) {
 }
 
 /** Alt (Option) + a letter picks a tool. Keyed by KeyboardEvent.code. */
-const TOOL_KEYS = { KeyT: 'text', KeyS: 'select', KeyW: 'wand', KeyM: 'move', KeyP: 'pixel', KeyB: 'tile', KeyE: 'erase', KeyF: 'fill', KeyL: 'line', KeyR: 'rect', KeyO: 'ellipse', KeyI: 'pick' };
+const TOOL_KEYS = { KeyT: 'text', KeyS: 'select', KeyW: 'wand', KeyQ: 'lasso', KeyM: 'move', KeyP: 'pixel', KeyB: 'tile', KeyE: 'erase', KeyF: 'fill', KeyG: 'bucket', KeyL: 'line', KeyR: 'rect', KeyO: 'ellipse', KeyI: 'pick' };
 
 /** The editor's keyboard shortcuts, as the shortcuts panel lists them. */
 const SHORTCUTS = [
   ['Tools', [
-    ['⌥T', 'Text'], ['⌥S', 'Select'], ['⌥W', 'Magic wand'], ['⌥M', 'Move'], ['⌥P', 'Paint pixels'],
+    ['⌥T', 'Text'], ['⌥S', 'Select'], ['⌥W', 'Magic wand'], ['⌥Q', 'Lasso'], ['⌥G', 'Magic fill'], ['⌥M', 'Move'], ['⌥P', 'Paint pixels'],
     ['⌥B', 'Paint tiles'], ['⌥E', 'Erase'], ['⌥F', 'Fill'], ['⌥L', 'Line'], ['⌥R', 'Rectangle (Shift fills)'],
     ['⌥O', 'Ellipse (Shift fills)'], ['⌥I', 'Eyedropper'],
   ]],
@@ -270,6 +270,20 @@ export default function TileGrid({
   // Like a keyboard's Insert key: typing jumps over slots that already hold a character.
   const [skipFilled, setSkipFilled] = useState(false);
   const [showKeys, setShowKeys] = useState(false);
+  // Focus view: the editor fills the window, for drawing without the page around it.
+  const [focusView, setFocusView] = useState(false);
+  const [lasso, setLasso] = useState(null);   // the loop being drawn, in grid pixels
+  useEffect(() => {
+    if (!(editing && focusView)) return undefined;
+    const before = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';   // the page behind doesn't scroll
+    // Esc leaves, when the grid's own typing box (which handles Esc itself) or another field isn't using it.
+    const onKey = (e) => {
+      if (e.key === 'Escape' && !e.defaultPrevented && !(e.target instanceof Element && e.target.closest('input, textarea, select, [role="dialog"]'))) setFocusView(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => { document.body.style.overflow = before; document.removeEventListener('keydown', onKey); };
+  }, [editing, focusView]);
   const [linkDraft, setLinkDraft] = useState('');
   const [linkError, setLinkError] = useState('');
   // Where a Shift+arrow selection started (a tile).
@@ -335,6 +349,7 @@ export default function TileGrid({
       moveBy, activeId: active?.id,
       showGrid: editing,
       showLinks: editing,
+      lasso: editing ? lasso : null,
     });
     draw();
     document.fonts?.ready?.then(draw).catch(() => {});
@@ -476,6 +491,13 @@ export default function TileGrid({
       }
       return;
     }
+    if (tool === 'lasso') {
+      // Draw a loop; the tiles inside it are selected on release. Shift adds, Alt takes away.
+      gesture.current = { kind: 'lasso', points: [{ x: p.x, y: p.y }], base: sel,
+        mode: e.shiftKey ? 'add' : e.altKey ? 'remove' : 'replace' };
+      setLasso(gesture.current.points);
+      return;
+    }
     if (tool === 'wand') {
       // The tiles joined to this one that look the same on this layer; Shift adds, Alt takes away.
       const found = floodTiles(dataRef.current.cols, dataRef.current.rows, tileLook(layer), p.tile.r, p.tile.c);
@@ -487,6 +509,24 @@ export default function TileGrid({
     }
     if (tool === 'fill') {
       fillTiles(sel.size && sel.has(tileKey(p.tile.r, p.tile.c)) ? orderedTiles(sel) : [p.tile], colour);
+      return;
+    }
+    if (tool === 'bucket') {
+      // Magic fill: the joined pixels of the colour under the pointer take the
+      // current colour (Shift: every pixel of that colour). Inside a
+      // selection it stays inside it.
+      const canvas = layer.kind === 'pixel' && paintCanvas(layer.id);
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const hex = parseInt(colour.slice(1), 16);
+      const rgba = clear ? [0, 0, 0, 0] : [(hex >> 16) & 255, (hex >> 8) & 255, hex & 255, 255];
+      const inside = sel.size && sel.has(tileKey(p.tile.r, p.tile.c))
+        ? (x, y) => sel.has(tileKey(Math.floor(y / TILE), Math.floor(x / TILE))) : null;
+      if (floodPixels(image, Math.floor(p.x), Math.floor(p.y), rgba, { everywhere: e.shiftKey, allowed: inside })) {
+        ctx.putImageData(image, 0, 0);
+        commit(savePaint(dataRef.current, layer.id));
+      }
       return;
     }
     if (tool === 'pick') {
@@ -519,6 +559,11 @@ export default function TileGrid({
     const p = toGrid(e);
     if (g.kind === 'paint') { strokeTo(p.x, p.y); return; }
     if (g.kind === 'shape') { drawShape(p, e.shiftKey); return; }
+    if (g.kind === 'lasso') {
+      const last = g.points[g.points.length - 1];
+      if (last.x !== p.x || last.y !== p.y) { g.points.push({ x: p.x, y: p.y }); setLasso([...g.points]); }
+      return;
+    }
     if (g.kind === 'move') {
       setMoveBy({
         r: p.tile.r - g.start.tile.r, c: p.tile.c - g.start.tile.c,
@@ -538,6 +583,11 @@ export default function TileGrid({
     if (!g) { typeRef.current?.focus(); return; }
     if (g.kind === 'paint' || g.kind === 'shape') {
       commit(savePaint(dataRef.current, g.layerId));
+    } else if (g.kind === 'lasso') {
+      const d = dataRef.current;
+      setLasso(null);
+      setSelection(combineSelection(g.base, lassoTiles(d.cols, d.rows, g.points), g.mode));
+      if (selectionRef.current.size) setCursor(typingOrder()[0]);
     } else if (g.kind === 'move') {
       const p = toGrid(e);
       setMoveBy(null);
@@ -935,7 +985,7 @@ export default function TileGrid({
       case 'Escape':
         selAnchor.current = null;
         if (showKeys) setShowKeys(false);
-        else if (hasSel) setSelection(EMPTY); else if (panel) setPanel(null); else typeRef.current?.blur();
+        else if (hasSel) setSelection(EMPTY); else if (panel) setPanel(null); else if (focusView) setFocusView(false); else typeRef.current?.blur();
         break;
       default: return;   // printable keys arrive through onInput
     }
@@ -1173,6 +1223,24 @@ export default function TileGrid({
     typeRef.current?.focus();
   };
 
+  // Typed letters become painted pixels on the same layer: in the selected
+  // tiles, or the whole layer. They can then be painted on, but not retyped.
+  const flattenText = () => {
+    const d = dataRef.current;
+    const layer = activeLayer();
+    const canvas = layer.kind === 'pixel' && paintCanvas(layer.id);
+    if (!canvas) return;
+    const sel = selectionRef.current;
+    const { taken, left, count } = takeText(d, layer, sel.size ? sel : null);
+    if (!count) { setNotice(sel.size ? 'No text in the selected tiles to flatten.' : 'No text on this layer to flatten.'); return; }
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    drawLayerText(ctx, d, taken);
+    commit(savePaint(withLayer(d, layer.id, () => left), layer.id));
+    setNotice(`Flattened ${count} character${count === 1 ? '' : 's'} to pixels. ⌘Z undoes it.`);
+    typeRef.current?.focus();
+  };
+
   const flattenPhoto = () => {
     const d = dataRef.current;
     const layer = activeLayer();
@@ -1233,15 +1301,17 @@ export default function TileGrid({
     };
   })();
   const hasSel = selection.size > 0;
-  const hint = !isPixel && !['move', 'select'].includes(tool)
+  const hint = !isPixel && !['move', 'select', 'lasso'].includes(tool)
     ? 'Photo layer: drag it to move, drag a corner to resize, or flatten it to pixels to paint on it.'
     : {
       text: 'Click a tile and type. Drag to select.',
+      lasso: 'Draw a loop around tiles to select them. Shift adds, Alt takes away.',
       wand: 'Click a tile to select the joined tiles that look the same. Shift adds, Alt takes away.',
       select: 'Drag, or use the arrows and Shift+arrows, to select. Shift adds, Alt removes. Drag a selection to move it.',
       move: 'Drag to move the selection, or the whole layer. Arrow keys nudge.',
       pixel: 'Paint single pixels.', tile: 'Paint whole tiles.', erase: 'Erase to transparent.',
       fill: 'Click a tile, or the selection, to fill it.',
+      bucket: 'Click an area to fill it with the colour. Shift fills that colour everywhere.',
       line: 'Drag to draw a straight line.',
       rect: 'Drag to draw a rectangle. Hold Shift to fill it.',
       ellipse: 'Drag to draw an ellipse. Hold Shift to fill it.',
@@ -1249,7 +1319,8 @@ export default function TileGrid({
     }[tool];
 
   return (
-    <div className={`tilegrid${editing ? ' tilegrid--editing' : ''}`}>
+    <div className={`tilegrid${editing ? ' tilegrid--editing' : ''}${editing && focusView ? ' tilegrid--focus' : ''}`}
+      style={editing && focusView ? { '--tg-aspect': data.cols / data.rows } : undefined}>
       <div className="tilegrid-stage">
         <canvas
           ref={canvasRef}
@@ -1296,12 +1367,14 @@ export default function TileGrid({
             <div className="tg-group" role="group" aria-label="Draw">
               <span className="tg-group-label"><PixelText text="Draw" px={1.25} /></span>
               <Tile icon="select" label="Select tiles (⌥S)" on={tool === 'select'} onClick={() => setTool('select')} />
+              <Tile icon="lasso" label="Lasso (⌥Q): draw a loop around tiles to select them" on={tool === 'lasso'} onClick={() => setTool('lasso')} />
               <Tile icon="wand" label="Magic wand (⌥W): select joined tiles that match" on={tool === 'wand'} onClick={() => setTool('wand')} />
               <Tile icon="move" label="Move (⌥M)" on={tool === 'move'} onClick={() => setTool('move')} />
               <Tile icon="pixel" label="Paint pixels (⌥P)" on={tool === 'pixel'} onClick={() => setTool('pixel')} />
               <Tile icon="tile" label="Paint tiles (⌥B)" on={tool === 'tile'} onClick={() => setTool('tile')} />
               <Tile icon="erase" label="Erase (⌥E)" on={tool === 'erase'} onClick={() => setTool('erase')} />
-              <Tile icon="fill" label="Fill (⌥F)" on={tool === 'fill'} onClick={() => setTool('fill')} />
+              <Tile icon="fill" label="Fill whole tiles (⌥F)" on={tool === 'fill'} onClick={() => setTool('fill')} />
+              <Tile icon="bucket" label="Magic fill (⌥G): fill joined pixels of one colour. Shift fills that colour everywhere." on={tool === 'bucket'} onClick={() => setTool('bucket')} />
               <Tile icon="texture" label="Fill with a texture" on={panel === 'texture'} disabled={!isPixel}
                 onClick={() => setPanel(p => (p === 'texture' ? null : 'texture'))} />
               <Tile icon="line" label="Line (⌥L)" on={tool === 'line'} onClick={() => setTool('line')} />
@@ -1341,6 +1414,8 @@ export default function TileGrid({
               <Tile icon="glyph" label="Draw your own characters" on={panel === 'glyphs'}
                 onClick={() => setPanel(p => (p === 'glyphs' ? null : 'glyphs'))} />
               <Tile icon="skip" label={`Avoid overdraw (Insert): typing skips filled tiles. ${skipFilled ? 'On' : 'Off'}`} on={skipFilled} onClick={() => setSkipFilled(v => !v)} />
+              <GridButton symbol="flatten" label="Flatten text" disabled={!isPixel}
+                title="Flatten text: turn the typed letters (in the selection, or the whole layer) into pixels" onClick={flattenText} />
               <span className="tg-gap" />
               <DirectionPad value={direction} onChange={setDirection} />
             </div>
@@ -1452,8 +1527,11 @@ export default function TileGrid({
               {hasSel && <span className="tg-badge"><PixelText text={`${selection.size} tile${selection.size === 1 ? '' : 's'}`} px={1} /></span>}
               {skipFilled && <span className="tg-badge"><PixelText text="No overdraw" px={1} /></span>}
               <Tile icon="keys" label="Keyboard shortcuts (⌘/)" on={showKeys} onClick={() => setShowKeys(v => !v)} />
+              <GridButton symbol={focusView ? 'shrink' : 'expand'} showLabel label={focusView ? 'Leave focus' : 'Focus'} on={focusView}
+                title={focusView ? 'Back to the page (Esc)' : 'Focus view: fill the window with the grid and its tools'}
+                onClick={() => setFocusView(v => !v)} />
               <GridButton symbol="check" showLabel label="Done" className="tg-done-btn"
-                onClick={() => { setEditing(false); setSelection(EMPTY); setPanel(null); onDone?.(); }} />
+                onClick={() => { setEditing(false); setFocusView(false); setSelection(EMPTY); setPanel(null); onDone?.(); }} />
             </div>
           </div>
 

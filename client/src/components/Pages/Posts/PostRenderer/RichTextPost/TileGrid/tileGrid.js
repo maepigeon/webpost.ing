@@ -687,6 +687,110 @@ export function floodTiles(cols, rows, sig, r, c) {
 }
 
 /**
+ * Lasso: the tiles inside a freehand loop of points (in grid pixels), taken
+ * as closed. A tile is inside when its centre is; a loop too small to hold
+ * any centre selects the tiles it passes through instead.
+ */
+export function lassoTiles(cols, rows, points) {
+  if (!points.length) return [];
+  const inside = (x, y) => {
+    let hit = false;
+    for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+      const a = points[i], b = points[j];
+      if ((a.y > y) !== (b.y > y) && x < ((b.x - a.x) * (y - a.y)) / (b.y - a.y) + a.x) hit = !hit;
+    }
+    return hit;
+  };
+  const found = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (inside(c * TILE + TILE / 2, r * TILE + TILE / 2)) found.push(tileKey(r, c));
+    }
+  }
+  if (found.length) return found;
+  const touched = new Set();
+  for (const p of points) {
+    const r = Math.floor(p.y / TILE), c = Math.floor(p.x / TILE);
+    if (r >= 0 && c >= 0 && r < rows && c < cols) touched.add(tileKey(r, c));
+  }
+  return [...touched];
+}
+
+/**
+ * Splits a layer's typed characters in two: those in `tiles` (a Set of tile
+ * keys; every tile when null) and the rest. Returns { taken, left }, each a
+ * copy of the layer holding only its share of the text, styles and widths,
+ * and `count`, how many characters were taken.
+ */
+export function takeText(d, layer, tiles = null) {
+  const blank = () => ({ text: [], style: {}, wide: [] });
+  const parts = { taken: blank(), left: blank() };
+  let count = 0;
+  for (let r = 0; r < d.rows; r++) {
+    const chars = rowChars(d, layer, r);
+    const rowsOut = { taken: chars.map(() => ' '), left: chars.map(() => ' ') };
+    for (let c = 0; c < d.cols; c++) {
+      const to = !tiles || tiles.has(tileKey(r, c)) ? 'taken' : 'left';
+      if (isWide(layer, r, c)) parts[to].wide.push(`${r},${c}`);
+      for (let i = 0; i < SLOTS_PER_TILE; i++) {
+        const s = c * SLOTS_PER_TILE + i;
+        rowsOut[to][s] = chars[s];
+        if (chars[s] !== ' ' && to === 'taken') count++;
+        const style = layer.style[slotKey(r, s)];
+        if (style) parts[to].style[slotKey(r, s)] = style;
+      }
+    }
+    for (const k of ['taken', 'left']) parts[k].text[r] = rowsOut[k].join('').replace(/ +$/, '');
+  }
+  return { taken: { ...layer, ...parts.taken }, left: { ...layer, ...parts.left }, count };
+}
+
+/**
+ * Magic fill: recolours the pixels joined to (x, y) that share its exact
+ * colour, flooding across edges (not corners); with `everywhere`, every pixel
+ * of that colour in the picture. `image` is an ImageData, changed in place;
+ * `rgba` is [r, g, b, a] (all zero clears). `allowed(x, y)`, if given, limits
+ * where it may reach. Returns how many pixels changed.
+ */
+export function floodPixels(image, x, y, rgba, { everywhere = false, allowed = null } = {}) {
+  const { width, height, data } = image;
+  if (x < 0 || y < 0 || x >= width || y >= height) return 0;
+  if (allowed && !allowed(x, y)) return 0;
+  const at = (px, py) => (py * width + px) * 4;
+  const start = at(x, y);
+  const want = [data[start], data[start + 1], data[start + 2], data[start + 3]];
+  // Transparent pixels are one colour whatever their hidden red, green and blue.
+  const matches = (i) => (want[3] === 0 ? data[i + 3] === 0
+    : data[i] === want[0] && data[i + 1] === want[1] && data[i + 2] === want[2] && data[i + 3] === want[3]);
+  const same = rgba[3] === 0 ? want[3] === 0 : rgba.every((v, i) => v === want[i]);
+  if (same) return 0;
+  const set = (i) => { data[i] = rgba[0]; data[i + 1] = rgba[1]; data[i + 2] = rgba[2]; data[i + 3] = rgba[3]; };
+  let changed = 0;
+  if (everywhere) {
+    for (let py = 0; py < height; py++) {
+      for (let px = 0; px < width; px++) {
+        const i = at(px, py);
+        if (matches(i) && (!allowed || allowed(px, py))) { set(i); changed++; }
+      }
+    }
+    return changed;
+  }
+  const stack = [[x, y]];
+  set(start); changed++;
+  while (stack.length) {
+    const [cx, cy] = stack.pop();
+    for (const [nx, ny] of [[cx - 1, cy], [cx + 1, cy], [cx, cy - 1], [cx, cy + 1]]) {
+      if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+      const i = at(nx, ny);
+      if (!matches(i) || (allowed && !allowed(nx, ny))) continue;
+      set(i); changed++;
+      stack.push([nx, ny]);
+    }
+  }
+  return changed;
+}
+
+/**
  * Pixel perfect: in a freehand stroke, whether the middle of three points
  * is an elbow of an L (a diagonal step made of two straight ones). Dropping
  * it leaves the line one pixel thick instead of bulging at every bend.
@@ -817,6 +921,15 @@ export function renderGrid(ctx, d, assets = {}, view = {}) {
     ctx.stroke();
   }
 
+  if (view.lasso && view.lasso.length > 1) {
+    // The lasso's loop while it is being drawn: light over dark, so it shows on anything.
+    ctx.beginPath();
+    view.lasso.forEach((p, i) => (i ? ctx.lineTo(p.x + 0.5, p.y + 0.5) : ctx.moveTo(p.x + 0.5, p.y + 0.5)));
+    ctx.closePath();
+    ctx.lineWidth = 3 / SCALE; ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)'; ctx.stroke();
+    ctx.lineWidth = 1 / SCALE; ctx.strokeStyle = '#ffffff'; ctx.stroke();
+  }
+
   if (view.showLinks && d.links) {
     // Linked tiles are underlined while editing, so you can see what links.
     ctx.fillStyle = '#5ea0ff';
@@ -876,7 +989,8 @@ function drawSelection(ctx, selection, moveBy) {
   ctx.restore();
 }
 
-function drawLayerText(ctx, d, layer) {
+/** Draws a layer's typed characters, as pixels, at one unit per grid pixel. */
+export function drawLayerText(ctx, d, layer) {
   for (let r = 0; r < d.rows; r++) {
     const chars = rowChars(d, layer, r);
     for (let c = 0; c < d.cols; c++) {

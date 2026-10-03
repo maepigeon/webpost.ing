@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import TileGrid from '../PostRenderer/RichTextPost/TileGrid/TileGrid.jsx';
 import { normaliseGrid, pixelLayer } from '../PostRenderer/RichTextPost/TileGrid/tileGrid.js';
 import { SET_PROFILE_BANNER } from '../BasicTextPostServerApi.js';
 import { errorMessage } from '../../../../utils/errorMessage.js';
 import { BANNER_COLS } from './bannerGrid.js';
+import { useUnsavedGuard } from '../../../../utils/useUnsavedGuard.js';
+import { useDialog } from '../../../Dialog/Dialog.jsx';
 
 /** The page's text colour, a hex value, for drawing on the transparent banner. */
 function pageInk() {
@@ -25,11 +27,25 @@ export default function BannerEditor({ username, saved, onSaved, onClose }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
+  // Unsaved once the draft differs from what it started as; leaving the page,
+  // or Cancel, then asks first.
+  const first = useRef(null);
+  if (first.current === null) first.current = JSON.stringify(draft);
+  const [savedNow, setSavedNow] = useState(false);
+  const dirty = !savedNow && JSON.stringify(draft) !== first.current;
+  useUnsavedGuard(dirty, 'your banner');
+  const { confirm } = useDialog();
+  const cancel = async () => {
+    if (dirty && !(await confirm("You haven't saved your banner. Discard the changes?", 'Unsaved changes', 'Discard'))) return;
+    onClose();
+  };
+
   const save = async (grid) => {
     setBusy(true);
     setError('');
     try {
       const result = await SET_PROFILE_BANNER(username, grid);
+      setSavedNow(true);
       onSaved(grid ? result.grid : null);
       onClose();
     } catch (err) {
@@ -46,7 +62,8 @@ export default function BannerEditor({ username, saved, onSaved, onClose }) {
         <button type="button" className="edit-bio-btn" disabled={busy} onClick={() => save(draft)}>
           {busy ? 'Saving…' : 'Save banner'}
         </button>
-        <button type="button" className="edit-bio-btn" disabled={busy} onClick={onClose}>Cancel</button>
+        {dirty && !busy && <span className="banner-editor-unsaved" role="status">Not saved yet</span>}
+        <button type="button" className="edit-bio-btn" disabled={busy} onClick={cancel}>Cancel</button>
         {saved && (
           <button type="button" className="edit-bio-btn" disabled={busy} onClick={() => save(null)}>Remove my rows</button>
         )}

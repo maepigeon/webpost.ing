@@ -85,3 +85,5 @@
 .profile-banner-under .edit-bio-btn { white-space: nowrap; margin: 0; }
 .banner-editor { margin: 8px 0; }
 .banner-editor-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+
+.banner-editor-unsaved { font-size: 12px; font-weight: 700; color: var(--th-danger, #b71c1c); }

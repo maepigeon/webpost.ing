@@ -37,4 +37,29 @@
 
 .grid-stepper { display: inline-flex; align-items: center; gap: 4px; color: #9a9a9a; border-radius: 3px; }
 .grid-stepper:focus-visible { outline: 2px solid #5ea0ff; outline-offset: 2px; }
-.grid-stepper-value { min-width: 28px; display: inline-flex; justify-content: center; color: #f2f2f2; }
+.grid-stepper-value {
+  min-width: 28px;
+  height: 26px;
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #333;
+  border-radius: 3px;
+  background: #0d0d0d;
+  color: #f2f2f2;
+  cursor: text;
+}
+.grid-stepper-value:disabled { cursor: default; opacity: 0.5; }
+.grid-stepper-input {
+  width: 40px;
+  height: 26px;
+  box-sizing: border-box;
+  padding: 0 4px;
+  border: 1px solid #5ea0ff;
+  border-radius: 3px;
+  background: #000;
+  color: #fff;
+  font: 700 13px ui-monospace, Menlo, monospace;
+  text-align: center;
+}
