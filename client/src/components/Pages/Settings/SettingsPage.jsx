@@ -14,6 +14,7 @@ import { Steps } from '../../PageTheme/ThemeEditor.jsx';
 /** Code text sizes offered as buttons (it used to be a slider). */
 const CODE_SIZE_STEPS = [11, 12, 13, 14, 16, 18, 20].filter(n => n >= MIN_CODE_SIZE && n <= MAX_CODE_SIZE);
 import ChangePassword from './ChangePassword.jsx';
+import InstallApp from '../../InstallApp/InstallApp.jsx';
 import './SettingsPage.css';
 import { errorMessage } from '../../../utils/errorMessage.js';
 
@@ -321,6 +322,14 @@ export default function SettingsPage() {
         {/* ── Password ─────────────────────────────────────────────────────── */}
         <Section id="password" title="Password">
           <ChangePassword username={username} />
+        </Section>
+
+        {/* ── App ──────────────────────────────────────────────────────────── */}
+        <Section id="app" title="App">
+          <p className="settings-section-hint">
+            Put webpost.ing on your home screen. It opens like an app, without the browser bars.
+          </p>
+          <InstallApp />
         </Section>
 
         {/* ── Site background ─────────────────────────────────────────────── */}

@@ -366,3 +366,17 @@ images, avatars, header images and audio live on disk (`UPLOAD_DIR`), so a
 database dump alone restores every post with its pictures and audio broken. To do (guide/tasks.md): a nightly
 database-and-uploads backup copied off the server, and an uptime monitor on
 `/api/health`.
+
+---
+
+## 7. Installable web app
+
+The site can be added to a phone or tablet home screen (Settings, App).
+`sw.js` and `manifest.webmanifest` ship in the website build (`client/public`).
+nginx must serve `/sw.js` with `Cache-Control: no-cache`, or browsers keep an
+old worker and updates arrive late:
+
+```
+location = /sw.js { add_header Cache-Control "no-cache"; }
+location = /manifest.webmanifest { add_header Cache-Control "no-cache"; }
+```
