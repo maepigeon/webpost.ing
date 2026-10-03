@@ -21,6 +21,12 @@ public class SocialController {
 
     // 20 messages per hour per sender; 60 reactions per 5 min per user
     private static final RateLimiter MSG_LIMITER      = new RateLimiter(20,  60 * 60 * 1000L, 60 * 60 * 1000L);
+    // Group limits (M4): members per group, groups created per day, groups owned in total
+    private static final int MAX_GROUP_MEMBERS = 50;
+    private static final int MAX_GROUPS_PER_DAY = 10;
+    private static final int MAX_GROUPS_OWNED = 50;
+    private static final String NOT_ADDABLE_MESSAGE = "This user cannot be added to your group.";
+    private static final String DM_BLOCKED_MESSAGE = "This user is not accepting messages from you.";
     private static final RateLimiter REACTION_LIMITER = new RateLimiter(60,   5 * 60 * 1000L,  5 * 60 * 1000L);
 
     @Autowired
@@ -80,10 +86,14 @@ public class SocialController {
         if (targetId < 0) return ResponseEntity.notFound().build();
         if (targetId == session.userId) return ResponseEntity.badRequest().body("Cannot follow yourself.");
 
-        social.follow(session.userId, targetId);
-        social.createNotification(targetId, "follow", authUsername, null, null);
-        // Best-effort and asynchronous; a mail problem must not fail the follow.
-        emailNotifications.notifyNewFollower(username, authUsername);
+        // Notify only when a row was really inserted (a repeat follow is a no-op), and at most
+        // once per pair per 24 hours so unfollow/refollow loops cannot fill the inbox (M5).
+        boolean inserted = social.follow(session.userId, targetId);
+        if (inserted && !social.hasRecentFollowNotification(targetId, authUsername)) {
+            social.createNotification(targetId, "follow", authUsername, null, null);
+            // Best-effort and asynchronous; a mail problem must not fail the follow.
+            emailNotifications.notifyNewFollower(username, authUsername);
+        }
         return ResponseEntity.ok("Followed.");
     }
 
@@ -178,7 +188,7 @@ public class SocialController {
         if (targetId == session.userId) return ResponseEntity.badRequest().body("Cannot message yourself.");
 
         if (social.isMessageBlocked(targetId, session.userId))
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("This user is not accepting messages from you.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(DM_BLOCKED_MESSAGE);
 
         social.sendMessage(targetId, authUsername, message.trim());
         MSG_LIMITER.recordUse(key);
@@ -345,6 +355,10 @@ public class SocialController {
         if (targetId < 0) return ResponseEntity.notFound().build();
         if (targetId == session.userId) return ResponseEntity.badRequest().build();
 
+        // A blocked sender may not open a conversation either (M2)
+        if (social.isMessageBlocked(targetId, session.userId))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", DM_BLOCKED_MESSAGE));
+
         int convId = social.getOrCreateConversation(session.userId, targetId);
         return ResponseEntity.ok(Map.of("id", convId));
     }
@@ -361,7 +375,7 @@ public class SocialController {
         if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         if (!social.isConversationParticipant(id, session.userId))
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        return ResponseEntity.ok(social.getMessages(id, Math.min(limit, 100), Math.max(offset, 0)));
+        return ResponseEntity.ok(social.getMessages(id, Math.max(1, Math.min(limit, 100)), Math.max(offset, 0)));
     }
 
     @PostMapping("/conversations/{id}/messages")
@@ -377,6 +391,11 @@ public class SocialController {
         if (!social.isConversationParticipant(id, session.userId))
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Not a participant.");
 
+        // Honour DM blocks exactly like POST /users/{u}/message does (M2)
+        int otherId = social.getOtherParticipant(id, session.userId);
+        if (otherId > 0 && social.isMessageBlocked(otherId, session.userId))
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(DM_BLOCKED_MESSAGE);
+
         String key = "conv:" + session.userId;
         if (MSG_LIMITER.isBlocked(key))
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body("Too many messages. Try again later.");
@@ -389,7 +408,6 @@ public class SocialController {
         MSG_LIMITER.recordUse(key);
 
         // Notify the other participant
-        int otherId = social.getOtherParticipant(id, session.userId);
         if (otherId > 0) {
             String preview = content.trim().substring(0, Math.min(100, content.trim().length()));
             social.sendMessage(otherId, authUsername, preview);
@@ -436,8 +454,10 @@ public class SocialController {
 
         AuthSession session = authorize(authUsername, token);
         if (session == null) return unauthorized();
-        if (!social.isConversationParticipant(convId, session.userId))
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Not a participant.");
+        // Non-participant and foreign/unknown message id look the same (404) so ids cannot be probed (M3)
+        if (!social.isConversationParticipant(convId, session.userId)
+                || !social.dmMessageInConversation(msgId, convId))
+            return ResponseEntity.notFound().build();
 
         String rkey = "dmr:" + session.userId;
         if (REACTION_LIMITER.isBlocked(rkey))
@@ -489,16 +509,37 @@ public class SocialController {
         String name = body.get("name") instanceof String s ? s.trim() : "Group";
         if (name.isBlank() || name.length() > 100) name = "Group";
 
-        int groupId = social.createGroupConversation(name, session.userId);
+        // Members must be a list of strings; anything else is a 400, not a ClassCastException (500)
+        List<String> members = new java.util.ArrayList<>();
+        Object rawMembers = body.get("members");
+        if (rawMembers != null) {
+            if (!(rawMembers instanceof List<?> l)) return ResponseEntity.badRequest().build();
+            for (Object m : l) {
+                if (!(m instanceof String str)) return ResponseEntity.badRequest().build();
+                members.add(str.trim());
+            }
+        }
 
-        @SuppressWarnings("unchecked")
-        List<String> members = body.get("members") instanceof List<?> l
-            ? (List<String>) l : List.of();
+        // Caps (M4): resolve and vet everyone before creating anything, so a refusal leaves no group behind
+        java.util.Set<Integer> memberIds = new java.util.LinkedHashSet<>();
         for (String m : members) {
             if (m.equals(authUsername)) continue;
-            int uid = social.getUserIdByUsername(m.trim());
-            if (uid > 0) social.addGroupMember(groupId, uid);
+            int uid = social.getUserIdByUsername(m);
+            if (uid > 0 && uid != session.userId) memberIds.add(uid);
         }
+        if (memberIds.size() + 1 > MAX_GROUP_MEMBERS)
+            return ResponseEntity.badRequest().body(Map.of("message", "A group can have at most " + MAX_GROUP_MEMBERS + " members."));
+        if (social.countGroupsCreatedByToday(session.userId) >= MAX_GROUPS_PER_DAY)
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of("message", "You have created too many groups today."));
+        if (social.countGroupsCreatedBy(session.userId) >= MAX_GROUPS_OWNED)
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "You own too many groups."));
+        for (int uid : memberIds) {
+            if (!mayAddToGroup(session.userId, uid))
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", NOT_ADDABLE_MESSAGE));
+        }
+
+        int groupId = social.createGroupConversation(name, session.userId);
+        for (int uid : memberIds) social.addGroupMember(groupId, uid);
         return ResponseEntity.ok(Map.of("id", groupId, "name", name));
     }
 
@@ -518,6 +559,13 @@ public class SocialController {
         if (username == null || username.isBlank()) return ResponseEntity.badRequest().body("Username required.");
         int uid = social.getUserIdByUsername(username.trim());
         if (uid < 0) return ResponseEntity.notFound().build();
+
+        if (!social.isGroupMember(groupId, uid)) {
+            if (social.countGroupMembers(groupId) >= MAX_GROUP_MEMBERS)
+                return ResponseEntity.badRequest().body("A group can have at most " + MAX_GROUP_MEMBERS + " members.");
+            if (!mayAddToGroup(session.userId, uid))
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(NOT_ADDABLE_MESSAGE);
+        }
 
         social.addGroupMember(groupId, uid);
         return ResponseEntity.ok("Added.");
@@ -572,7 +620,7 @@ public class SocialController {
         if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         if (!social.isGroupMember(groupId, session.userId))
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        return ResponseEntity.ok(social.getGroupMessages(groupId, Math.min(limit, 100), Math.max(offset, 0)));
+        return ResponseEntity.ok(social.getGroupMessages(groupId, Math.max(1, Math.min(limit, 100)), Math.max(offset, 0)));
     }
 
     @PostMapping("/groups/{groupId}/messages")
@@ -645,8 +693,10 @@ public class SocialController {
 
         AuthSession session = authorize(authUsername, token);
         if (session == null) return unauthorized();
-        if (!social.isGroupMember(groupId, session.userId))
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Not a member.");
+        // Non-member and foreign/unknown message id look the same (404) so ids cannot be probed (M3)
+        if (!social.isGroupMember(groupId, session.userId)
+                || !social.groupMessageInGroup(msgId, groupId))
+            return ResponseEntity.notFound().build();
 
         String key = "grp_rxn:" + session.userId;
         if (REACTION_LIMITER.isBlocked(key))
@@ -759,7 +809,9 @@ public class SocialController {
             @CookieValue(name = "authToken") String token) {
         AuthSession session = authorize(username, token);
         if (session == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).<Map<String, Object>>build();
-        int vote = body.get("vote") != null ? ((Number) body.get("vote")).intValue() : 0;
+        Object rawVote = body.get("vote");
+        if (rawVote != null && !(rawVote instanceof Number)) return ResponseEntity.badRequest().<Map<String, Object>>build();
+        int vote = rawVote != null ? ((Number) rawVote).intValue() : 0;
         if (vote < -1 || vote > 1) return ResponseEntity.badRequest().<Map<String, Object>>build();
         if (!social.isVotesEnabled(postId))
             return ResponseEntity.status(HttpStatus.FORBIDDEN).<Map<String, Object>>body(Map.of("message", "Voting is off for this post."));
@@ -774,6 +826,12 @@ public class SocialController {
         } catch (JdbcLoginRepository.TokenExpiredException e) {
             return null;
         }
+    }
+
+    /** Group consent rule (M4): the invitee has not blocked the adder, and follows them or already shares a conversation. */
+    private boolean mayAddToGroup(int adderId, int inviteeId) {
+        if (social.isMessageBlocked(inviteeId, adderId)) return false;
+        return social.isFollowing(inviteeId, adderId) || social.sharesConversation(inviteeId, adderId);
     }
 
     private ResponseEntity<String> unauthorized() {

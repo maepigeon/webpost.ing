@@ -189,8 +189,9 @@ public class DiscussionController {
         if (!social.isDiscussionEnabled(postId))
             return ResponseEntity.status(HttpStatus.FORBIDDEN).<Map<String, Object>>build();
 
-        String content = (String) body.get("content");
-        if (content == null || content.isBlank() || content.length() > 10_000)
+        // A non-string content is a 400, not a ClassCastException (500)
+        if (!(body.get("content") instanceof String content)
+                || content.isBlank() || content.length() > 10_000)
             return ResponseEntity.badRequest().<Map<String, Object>>build();
 
         String ckey = String.valueOf(session.userId);
@@ -212,7 +213,10 @@ public class DiscussionController {
             }
         }
 
-        Integer parentId = body.get("parentId") != null ? ((Number) body.get("parentId")).intValue() : null;
+        Object rawParent = body.get("parentId");
+        if (rawParent != null && !(rawParent instanceof Number))
+            return ResponseEntity.badRequest().<Map<String, Object>>build();
+        Integer parentId = rawParent != null ? ((Number) rawParent).intValue() : null;
         int commentId = social.addComment(postId, parentId, session.userId, content.trim());
         social.voteComment(commentId, session.userId, 1);
         if (!isAdmin) COMMENT_LIMITER.recordUse(ckey);
@@ -258,6 +262,11 @@ public class DiscussionController {
 
         Map<String, Object> commentInfo = social.getCommentInfoForLog(commentId, session.userId);
         int deleted = social.deleteComment(commentId, session.userId);
+        if (deleted == 0) {
+            // Not the author: the author of the post the comment is on may remove it (M8)
+            commentInfo = social.getCommentInfoForLogAsPostOwner(commentId, session.userId);
+            deleted = social.deleteCommentAsPostOwner(commentId, session.userId);
+        }
         if (deleted > 0 && commentInfo != null) social.logDeletion(session.userId, "comment", commentInfo);
         return deleted > 0 ? ResponseEntity.ok("Deleted.") : forbidden();
     }

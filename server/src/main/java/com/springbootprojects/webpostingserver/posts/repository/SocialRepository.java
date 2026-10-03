@@ -29,8 +29,19 @@ public class SocialRepository {
         return !r.isEmpty();
     }
 
-    public void follow(int followerId, int followedId) {
-        jdbc.update("INSERT INTO follows(follower_id,followed_id) VALUES(?,?) ON CONFLICT DO NOTHING", followerId, followedId);
+    /** Returns true only when a new follow row was inserted (false on a repeat follow). */
+    public boolean follow(int followerId, int followedId) {
+        return jdbc.update("INSERT INTO follows(follower_id,followed_id) VALUES(?,?) ON CONFLICT DO NOTHING", followerId, followedId) == 1;
+    }
+
+    /** True if actorUsername already sent this recipient a follow notification in the last 24 hours
+     *  (stops unfollow/refollow loops from filling the inbox). */
+    public boolean hasRecentFollowNotification(int recipientId, String actorUsername) {
+        List<Integer> r = jdbc.queryForList(
+            "SELECT 1 FROM notifications WHERE recipient_id=? AND type='follow' AND actor_username=? " +
+            "AND created_at > NOW() - INTERVAL '24 hours' LIMIT 1",
+            Integer.class, recipientId, actorUsername);
+        return !r.isEmpty();
     }
 
     public void unfollow(int followerId, int followedId) {
@@ -519,6 +530,28 @@ public class SocialRepository {
         return rows.isEmpty() ? null : rows.get(0);
     }
 
+    /** Same as getCommentInfoForLog, but matches when userId is the author of the post the comment is on. */
+    public Map<String, Object> getCommentInfoForLogAsPostOwner(int commentId, int ownerUserId) {
+        List<Map<String, Object>> rows = jdbc.queryForList(
+            "SELECT c.content, p.id AS post_id, p.title AS post_title, u.username AS post_owner " +
+            "FROM comments c " +
+            "JOIN discussions d ON d.id = c.discussion_id " +
+            "JOIN posts p ON p.id = d.post_id " +
+            "JOIN users_posts_junctions j ON j.post_id = p.id " +
+            "JOIN users u ON u.id = j.user_id " +
+            "WHERE c.id = ? AND j.user_id = ?",
+            commentId, ownerUserId);
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    /** Deletes a comment on a post owned by ownerUserId (moderation of one's own post). */
+    public int deleteCommentAsPostOwner(int commentId, int ownerUserId) {
+        return jdbc.update(
+            "DELETE FROM comments WHERE id=? AND discussion_id IN (" +
+            "SELECT d.id FROM discussions d JOIN users_posts_junctions j ON j.post_id=d.post_id WHERE j.user_id=?)",
+            commentId, ownerUserId);
+    }
+
     /** Writes a deletion log entry. Call before the DELETE (content must be captured before). */
     public void logDeletion(int userId, String itemType, Map<String, Object> info) {
         String raw = info.get("content") != null ? (String) info.get("content") : null;
@@ -687,6 +720,20 @@ public class SocialRepository {
         jdbc.update(
             "INSERT INTO direct_messages(conversation_id,sender_id,content) VALUES(?,?,?)",
             convId, senderId, content);
+    }
+
+    /** True if the DM message id belongs to this conversation. */
+    public boolean dmMessageInConversation(int messageId, int convId) {
+        return !jdbc.queryForList(
+            "SELECT 1 FROM direct_messages WHERE id=? AND conversation_id=?",
+            Integer.class, messageId, convId).isEmpty();
+    }
+
+    /** True if the two users already share a conversation. */
+    public boolean sharesConversation(int userA, int userB) {
+        return !jdbc.queryForList(
+            "SELECT 1 FROM conversations WHERE user1_id=? AND user2_id=?",
+            Integer.class, Math.min(userA, userB), Math.max(userA, userB)).isEmpty();
     }
 
     public int getOtherParticipant(int convId, int userId) {
@@ -931,6 +978,34 @@ public class SocialRepository {
         jdbc.update("INSERT INTO group_conversation_members(group_id,user_id,is_admin) VALUES(?,?,TRUE)",
             groupId, createdBy);
         return groupId;
+    }
+
+    /** True if the group message id belongs to this group. */
+    public boolean groupMessageInGroup(int messageId, int groupId) {
+        return !jdbc.queryForList(
+            "SELECT 1 FROM group_messages WHERE id=? AND group_id=?",
+            Integer.class, messageId, groupId).isEmpty();
+    }
+
+    public int countGroupMembers(int groupId) {
+        Integer n = jdbc.queryForObject(
+            "SELECT COUNT(*) FROM group_conversation_members WHERE group_id=?", Integer.class, groupId);
+        return n == null ? 0 : n;
+    }
+
+    /** Groups this user created (still existing). */
+    public int countGroupsCreatedBy(int userId) {
+        Integer n = jdbc.queryForObject(
+            "SELECT COUNT(*) FROM group_conversations WHERE created_by=?", Integer.class, userId);
+        return n == null ? 0 : n;
+    }
+
+    /** Groups this user created in the last 24 hours. */
+    public int countGroupsCreatedByToday(int userId) {
+        Integer n = jdbc.queryForObject(
+            "SELECT COUNT(*) FROM group_conversations WHERE created_by=? AND created_at > NOW() - INTERVAL '24 hours'",
+            Integer.class, userId);
+        return n == null ? 0 : n;
     }
 
     public void addGroupMember(int groupId, int userId) {

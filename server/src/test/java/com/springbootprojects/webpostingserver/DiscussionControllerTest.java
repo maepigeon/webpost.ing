@@ -280,6 +280,35 @@ class DiscussionControllerTest {
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
     }
 
+    @Test
+    void deleteComment_postAuthor_canDeleteOthersComment() throws Exception {
+        when(loginRepository.authorize("whiskers", "tok")).thenReturn(whiskersSession);
+        when(social.deleteComment(5, 1)).thenReturn(0); // not the comment's author
+        when(social.deleteCommentAsPostOwner(5, 1)).thenReturn(1);
+        ResponseEntity<String> resp = discussionController.deleteComment(5, "whiskers", "tok");
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
+        verify(social).deleteCommentAsPostOwner(5, 1);
+    }
+
+    @Test
+    void deleteComment_neitherAuthorNorPostAuthor_returns403() throws Exception {
+        when(loginRepository.authorize("whiskers", "tok")).thenReturn(whiskersSession);
+        when(social.deleteComment(5, 1)).thenReturn(0);
+        when(social.deleteCommentAsPostOwner(5, 1)).thenReturn(0);
+        ResponseEntity<String> resp = discussionController.deleteComment(5, "whiskers", "tok");
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void addComment_nonStringContent_returns400() throws Exception {
+        when(loginRepository.authorize("whiskers", "tok")).thenReturn(whiskersSession);
+        when(social.isDiscussionEnabled(10)).thenReturn(true);
+        ResponseEntity<Map<String, Object>> resp = discussionController.addComment(
+                10, Map.of("content", 42), "whiskers", "tok");
+        assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verify(social, never()).addComment(anyInt(), any(), anyInt(), anyString());
+    }
+
     // ── PUT /posts/{postId}/discussion/style ──────────────────────────────────
 
     @Test

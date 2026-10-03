@@ -134,6 +134,7 @@ class SocialFollowsMessagesTest {
     void follow_validUser_returns200AndCreatesNotification() throws Exception {
         when(loginRepository.authorize("whiskers", "tok")).thenReturn(whiskersSession);
         when(social.getUserIdByUsername("mittens")).thenReturn(2);
+        when(social.follow(1, 2)).thenReturn(true);
         ResponseEntity<String> resp = socialController.follow("mittens", "whiskers", "tok");
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
         verify(social).follow(1, 2);
