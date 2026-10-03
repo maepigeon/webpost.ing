@@ -839,7 +839,7 @@ public class SocialRepository {
             "JOIN posts p ON p.id=ph.post_id " +
             "JOIN users_posts_junctions j ON j.post_id=p.id " +
             "JOIN users u ON u.id=j.user_id " +
-            "WHERE h.tag=? AND p.published=TRUE " +
+            "WHERE h.tag=? AND p.published=TRUE AND p.section <> 'subscribers' " +
             "ORDER BY p.date DESC LIMIT 50",
             tag.toLowerCase());
     }

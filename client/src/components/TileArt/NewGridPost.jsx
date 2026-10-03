@@ -8,10 +8,10 @@ import { errorMessage } from '../../utils/errorMessage.js';
 /**
  * Starts a grid post: a post whose content is one tile grid. It is created as
  * a draft and opened in the editor; once published it sits on the profile like
- * any post — dragged into order, filed in folders, pinned — with its grid drawn
+ * any post (of the given section: profile, notes or subscribers) — dragged into order, filed in folders, pinned — with its grid drawn
  * on the card.
  */
-export default function NewGridPost() {
+export default function NewGridPost({ section = 'profile' }) {
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -20,7 +20,7 @@ export default function NewGridPost() {
     setBusy(true);
     setError('');
     try {
-      const id = await CREATE_POST(1, 'Grid', gridPostContent(), false, null, null, null);
+      const id = await CREATE_POST(1, 'Grid', gridPostContent(), false, null, null, null, null, section);
       navigate(`/editor/${id}`);
     } catch (err) {
       setError(errorMessage(err, 'Could not start a grid post.'));

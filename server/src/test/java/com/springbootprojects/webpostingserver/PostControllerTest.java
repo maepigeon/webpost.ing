@@ -506,12 +506,12 @@ class PostControllerTest {
 
     @Test
     void profilePageIsCutInSqlAndTheLimitIsCappedAtFifty() {
-        when(postRepository.getPostsPage("kittycat", false, 50, 0)).thenReturn(new java.util.ArrayList<>());
-        postController.getPostsByUser("kittycat", 5000, 0, null, null);
-        verify(postRepository).getPostsPage("kittycat", false, 50, 0);
+        when(postRepository.getPostsPage("kittycat", "profile", false, 50, 0)).thenReturn(new java.util.ArrayList<>());
+        postController.getPostsByUser("kittycat", 5000, 0, "profile", null, null);
+        verify(postRepository).getPostsPage("kittycat", "profile", false, 50, 0);
 
-        postController.getPostsByUser("kittycat", -3, -9, null, null);
-        verify(postRepository).getPostsPage("kittycat", false, 1, 0);
+        postController.getPostsByUser("kittycat", -3, -9, "profile", null, null);
+        verify(postRepository).getPostsPage("kittycat", "profile", false, 1, 0);
         verify(postRepository, never()).getPostsFromUsername(any());   // never the whole list
     }
 }

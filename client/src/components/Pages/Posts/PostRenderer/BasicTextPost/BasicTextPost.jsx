@@ -37,7 +37,8 @@ function BasicTextPost(props) {
         : `/editor/${postdata.id}`;
 
     const submitEditPost = () => {
-        UPDATE_POST(postdata.id, titlehtml.current, descriptionhtml.current, postdata.published).then(
+        UPDATE_POST(postdata.id, titlehtml.current, descriptionhtml.current, postdata.published,
+            postdata.backgroundPattern, postdata.folder, postdata.slug, postdata.summary, postdata.section).then(
         () => {props.updatePostsFlagCallback();}
         );
         setCurrentPostMode(Modes.VIEW);

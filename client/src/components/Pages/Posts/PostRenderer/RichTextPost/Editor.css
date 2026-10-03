@@ -1374,3 +1374,43 @@
 .pe-section.is-open { flex: 1 0 100%; }
 .pe-section.is-folded { flex: 0 0 auto; }
 .pe-section.is-folded .pe-section-head { flex-basis: auto; }
+
+/* ── Where the post goes: Post / Note / Subscribers ──────────────────────── */
+
+.post-section-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 10px;
+  padding: 0 4px;
+  font-family: inherit;
+}
+
+.post-section-choices { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.post-section-pill {
+  min-height: 32px;
+  padding: 0 14px;
+  border: 1.5px solid var(--th-ink, #1c1c1c);
+  border-radius: 16px;
+  background: transparent;
+  color: var(--th-ink, #1c1c1c);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+.post-section-pill:active { transform: scale(0.94); }
+.post-section-pill:focus-visible { outline: 2px solid var(--th-ink, #1c1c1c); outline-offset: 2px; }
+.post-section-pill.is-on {
+  background: var(--th-ink, #1c1c1c);
+  color: var(--th-card-background, #ffffff);
+  font-weight: 700;
+}
+
+.post-section-hint {
+  font-size: 12px;
+  color: var(--th-ink, #565656);
+  opacity: 0.75;
+}

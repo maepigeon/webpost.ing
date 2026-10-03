@@ -52,7 +52,7 @@ public class FeedController {
                   JOIN users_posts_junctions j ON j.user_id = f.followed_id
                   JOIN posts p ON p.id = j.post_id
                   JOIN users author ON author.id = f.followed_id
-                 WHERE f.follower_id = ? AND p.published
+                 WHERE f.follower_id = ? AND p.published AND p.section <> 'subscribers'
                  ORDER BY p.date DESC, p.id DESC
                  LIMIT ? OFFSET ?""", session.userId, size + 1, Math.max(0, offset));
 

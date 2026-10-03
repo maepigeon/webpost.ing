@@ -41,6 +41,7 @@ public class JdbcPostRepository implements PostRepository {
         p.setFolder(rs.getString("folder"));
         p.setSlug(rs.getString("slug"));
         p.setSummary(rs.getString("summary"));
+        p.setSection(rs.getString("section"));
         p.setSortOrder(rs.getInt("sort_order"));
         p.setCardGrid(rs.getBoolean("card_grid"));
         return p;
@@ -65,22 +66,32 @@ public class JdbcPostRepository implements PostRepository {
      * folder is a block of one.
      */
     public List<Post> getPostsFromUsername(String username) {
-        return getPostsPage(username, true, Integer.MAX_VALUE, 0);
+        return getPostsPage(username, "profile", true, Integer.MAX_VALUE, 0);
     }
 
     /**
      * One page of the same order, cut in SQL (LIMIT/OFFSET) so a profile with
      * many large posts is never loaded whole into memory.
      *
-     * Visitors do not see drafts, but the blocks and their order are still
-     * worked out over all the author's posts and only then are drafts dropped,
-     * exactly as filtering the full list afterwards did: a folder's place
-     * does not move because its first post is a draft.
+     * {@code section} is "profile", "notes", "subscribers" or "drafts" (every
+     * unpublished post, whatever its section). {@code owner} is whether the
+     * reader is the author: visitors see only published posts of "profile" and
+     * "notes", and nothing at all of "subscribers" (until subscriptions exist)
+     * or "drafts". Anything else is treated as "profile".
+     *
+     * Within a section, the blocks and their order are still worked out over
+     * all the author's posts of that section and only then are drafts dropped
+     * for visitors: a folder's place does not move because its first post is a
+     * draft. Drafts are ordered over all sections together.
      */
     @Override
-    public List<Post> getPostsPage(String username, boolean includeDrafts, int limit, int offset) {
+    public List<Post> getPostsPage(String username, String section, boolean owner, int limit, int offset) {
+        boolean drafts = "drafts".equals(section);
+        boolean subscribers = "subscribers".equals(section);
+        if ((drafts || subscribers) && !owner) return new java.util.ArrayList<>();
+        String sectionFilter = drafts ? null : subscribers ? "subscribers" : "notes".equals(section) ? "notes" : "profile";
         return jdbcTemplate.query("""
-            SELECT id, title, description, published, date, background_pattern, folder, slug, summary, sort_order, card_grid
+            SELECT id, title, description, published, date, background_pattern, folder, slug, summary, section, sort_order, card_grid
               FROM (
                 SELECT post.*,
                        first_value(post.sort_order) OVER block AS block_sort,
@@ -90,16 +101,46 @@ public class JdbcPostRepository implements PostRepository {
                   JOIN users_posts_junctions junction ON junction.post_id = post.id
                   JOIN users selected_user ON selected_user.id = junction.user_id
                  WHERE selected_user.username = ?
+                   AND (CAST(? AS VARCHAR) IS NULL OR post.section = CAST(? AS VARCHAR))
                 WINDOW block AS (
                   PARTITION BY NULLIF(post.folder, ''),
                                CASE WHEN NULLIF(post.folder, '') IS NULL THEN post.id END
                   ORDER BY post.sort_order, post.date DESC, post.id DESC)
               ) post
-             WHERE (? OR post.published)
+             WHERE (? OR post.published) AND (NOT ? OR NOT post.published)
              ORDER BY block_sort, block_date DESC, block_id DESC,
                       post.sort_order, post.date DESC, post.id DESC
              LIMIT ? OFFSET ?
-            """, POST_MAPPER, username, includeDrafts, limit, offset);
+            """, POST_MAPPER, username, sectionFilter, sectionFilter, owner, drafts, limit, offset);
+    }
+
+    /**
+     * What a profile's tabs count, as the reader may see them: published posts
+     * of "profile" and "notes" for everyone; for the owner also every
+     * "subscribers" post and every unpublished post ("drafts"), with
+     * "profile" and "notes" counting everything of theirs, drafts included.
+     * Keys the reader may not see are left out.
+     */
+    @Override
+    public java.util.Map<String, Integer> countSections(String username, boolean owner) {
+        java.util.Map<String, Object> row = jdbcTemplate.queryForMap("""
+            SELECT COUNT(*) FILTER (WHERE post.section = 'profile' AND (? OR post.published)) AS profile,
+                   COUNT(*) FILTER (WHERE post.section = 'notes'   AND (? OR post.published)) AS notes,
+                   COUNT(*) FILTER (WHERE post.section = 'subscribers') AS subscribers,
+                   COUNT(*) FILTER (WHERE NOT post.published) AS drafts
+              FROM posts post
+              JOIN users_posts_junctions junction ON junction.post_id = post.id
+              JOIN users selected_user ON selected_user.id = junction.user_id
+             WHERE selected_user.username = ?
+            """, owner, owner, username);
+        java.util.Map<String, Integer> out = new java.util.LinkedHashMap<>();
+        out.put("profile", ((Number) row.get("profile")).intValue());
+        out.put("notes", ((Number) row.get("notes")).intValue());
+        if (owner) {
+            out.put("subscribers", ((Number) row.get("subscribers")).intValue());
+            out.put("drafts", ((Number) row.get("drafts")).intValue());
+        }
+        return out;
     }
 
     public LoginInfo getUsernameFromPostId(int postId) {
@@ -125,7 +166,7 @@ public class JdbcPostRepository implements PostRepository {
     public int save(Post post, int userId) {
         log.debug("Saving post \"{}\" (published={})", post.getTitle(), post.isPublished());
 
-        final String INSERT_SQL = "INSERT INTO posts (title, description, published, background_pattern, folder, slug, summary) VALUES(?,?,?,?,?,?,?) RETURNING \"id\";";
+        final String INSERT_SQL = "INSERT INTO posts (title, description, published, background_pattern, folder, slug, summary, section) VALUES(?,?,?,?,?,?,?,?) RETURNING \"id\";";
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(
                 new PreparedStatementCreator() {
@@ -138,6 +179,7 @@ public class JdbcPostRepository implements PostRepository {
                         ps.setString(5, post.getFolder());
                         ps.setString(6, post.getSlug());
                         ps.setString(7, post.getSummary());
+                        ps.setString(8, post.getSection() == null ? "profile" : post.getSection());
                         return ps;
                     }
                 },
@@ -160,16 +202,17 @@ public class JdbcPostRepository implements PostRepository {
     @Override
     public int update(Post post) {
         return jdbcTemplate.update(
-            "UPDATE posts SET title=?, description=?, published=?, background_pattern=?, folder=?, slug=?, summary=? WHERE id=?",
+            "UPDATE posts SET title=?, description=?, published=?, background_pattern=?, folder=?, slug=?, summary=?, section=? WHERE id=?",
             post.getTitle(), post.getDescription(), post.isPublished(),
-            post.getBackgroundPattern(), post.getFolder(), post.getSlug(), post.getSummary(), post.getId());
+            post.getBackgroundPattern(), post.getFolder(), post.getSlug(), post.getSummary(),
+            post.getSection() == null ? "profile" : post.getSection(), post.getId());
     }
 
     @Override
     public Post findById(Long id) {
         try {
             return jdbcTemplate.queryForObject(
-                "SELECT id, title, description, published, date, background_pattern, folder, slug, summary, sort_order, card_grid FROM posts WHERE id=?",
+                "SELECT id, title, description, published, date, background_pattern, folder, slug, summary, section, sort_order, card_grid FROM posts WHERE id=?",
                 POST_MAPPER, id);
         } catch (IncorrectResultSizeDataAccessException e) {
             return null;

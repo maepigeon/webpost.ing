@@ -80,7 +80,7 @@ without Mae having to explain it again. Last updated 2026-10-03.
   with backup and rollback). See [DEPLOYMENT.md](DEPLOYMENT.md). nginx is
   never changed by a release; give her snippets.
 - **Database:** changes only through numbered migrations in
-  `server/src/main/resources/db/migrations/` (latest: V016), each safe to run
+  `server/src/main/resources/db/migrations/` (latest: V017), each safe to run
   twice. See [MIGRATIONS.md](MIGRATIONS.md).
 - **Do not commit:** `client/public/fonts/*.woff2` (licensed fonts),
   `release.env`, `guide/HANDOFF-2026-09-30.txt`,

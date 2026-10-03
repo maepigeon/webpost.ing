@@ -5,7 +5,9 @@ import { useDialog } from '../../../Dialog/Dialog.jsx';
 import ProfileArrange from './ProfileArrange.jsx';
 import { toBlocks, moveToFolder, removeFromFolder } from './profileOrder.js';
 import { errorMessage } from '../../../../utils/errorMessage.js';
+import { destinationLabel } from './profileTabs.js';
 import './ProfilePostList.css';
+import './ProfileTabs.css';
 import Icon from '../../../Icon/Icon.jsx';
 
 /**
@@ -64,7 +66,7 @@ function FolderSection({ name, posts, collapsed, onToggle, children }) {
 
 // ── Post, with the author's folder menu ───────────────────────────────────────
 
-function ProfilePost({ post, canEdit, username, onRefresh, folderNames, onMoveToFolder, onRemoveFromFolder }) {
+function ProfilePost({ post, canEdit, username, onRefresh, folderNames, onMoveToFolder, onRemoveFromFolder, folderMenu, showDestination }) {
   const [showFolderMenu, setShowFolderMenu] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const menuRef = useRef(null);
@@ -85,6 +87,7 @@ function ProfilePost({ post, canEdit, username, onRefresh, folderNames, onMoveTo
 
   return (
     <div className="profile-post-item">
+      {showDestination && <span className="profile-post-destination">{destinationLabel(post.section)}</span>}
       <div className="profile-post-card-wrap">
         <BasicTextPost
           postdata={post}
@@ -93,7 +96,7 @@ function ProfilePost({ post, canEdit, username, onRefresh, folderNames, onMoveTo
           hasModifyPermissions={canEdit}
           ownerUsername={username}
         />
-        {canEdit && (
+        {canEdit && folderMenu && (
           // Raised while its menu is open: every post's button sits at the same
           // level, and the next post's would otherwise paint over this menu.
           <div className={`profile-post-folder-btn-wrap${showFolderMenu ? ' is-open' : ''}`} ref={menuRef}>
@@ -167,9 +170,12 @@ function ProfilePost({ post, canEdit, username, onRefresh, folderNames, onMoveTo
  * @param loadAll   loads the posts not yet shown, before arranging
  * @param leading   shown at the start of the owner bar (the New grid post button)
  * @param pinned    the pinned post's block, drawn under the bar, above the rest
+ * @param arrangeable      false hides Arrange and the folder menu (every tab but Posts)
+ * @param showDestination  true labels each post with where it will go (Drafts)
  */
 export default function ProfilePostList({
   posts, pinnedId, canEdit, username, onRefresh, onArrange, hasMore, loadAll, leading = null, pinned = null, onPin,
+  arrangeable = true, showDestination = false,
 }) {
   const [collapsedFolders, setCollapsedFolders] = useState(new Set());
   const [arranging, setArranging] = useState(false);
@@ -274,7 +280,9 @@ export default function ProfilePostList({
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
-  const canArrange = canEdit && posts.length > 1;
+  // Arranging numbers the author's whole profile and files posts into folders;
+  // that is only right for the Posts tab, so other tabs do not offer it.
+  const canArrange = canEdit && arrangeable && posts.length > 1;
 
   if (arranging) {
     return loadingAll
@@ -288,7 +296,7 @@ export default function ProfilePostList({
   const folderNames = toBlocks(posts).filter(b => b.type === 'folder').map(b => b.name);
   const renderPost = (post) => (
     <ProfilePost key={post.id} post={post} canEdit={canEdit} username={username} onRefresh={onRefresh}
-      folderNames={folderNames} onMoveToFolder={moveToFolderAndSave} onRemoveFromFolder={removeFromFolderAndSave} />
+      folderNames={folderNames} folderMenu={arrangeable} showDestination={showDestination} onMoveToFolder={moveToFolderAndSave} onRemoveFromFolder={removeFromFolderAndSave} />
   );
 
   return (

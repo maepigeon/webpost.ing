@@ -35,7 +35,7 @@ import { UPLOAD_AUDIO, READ_POST, CREATE_POST, UPDATE_POST, GET_USER_FROM_POST, 
 import { errorMessage } from '../../../../../utils/errorMessage.js';
 import { useDialog } from '../../../../Dialog/Dialog.jsx';
 import ThemeEditor from '../../../../PageTheme/ThemeEditor.jsx';
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { ImageNode, $createImageNode } from './ImageNode.jsx';
 import { AudioNode, $createAudioNode } from './AudioNode.jsx';
 import { MathNode, $createMathNode } from './MathNode.jsx';
@@ -1480,6 +1480,35 @@ function PostSummaryField({ summary, onSummaryChange }) {
   );
 }
 
+const SECTION_CHOICES = [
+  { id: 'profile', label: 'Post', hint: 'Shown on your profile when published.' },
+  { id: 'notes', label: 'Note', hint: 'A quieter place. Published notes are public; drafts stay private.' },
+  { id: 'subscribers', label: 'Subscribers', hint: 'Only you can see these for now.' },
+];
+
+/** A section name from the server or the address; anything unknown is the profile. */
+function sectionFromParam(value) {
+  return SECTION_CHOICES.some(c => c.id === value) ? value : 'profile';
+}
+
+/** Where the post goes: Post (profile), Note or Subscribers, with a hint that follows the choice. */
+function PostSectionField({ section, onSectionChange }) {
+  const current = SECTION_CHOICES.find(c => c.id === section) || SECTION_CHOICES[0];
+  return (
+    <div className="post-section-row">
+      <span className="post-summary-label" id="post-section-label">Goes in</span>
+      <div className="post-section-choices" role="radiogroup" aria-labelledby="post-section-label">
+        {SECTION_CHOICES.map(c => (
+          <button key={c.id} type="button" role="radio" aria-checked={c.id === section}
+            className={`post-section-pill${c.id === section ? ' is-on' : ''}`}
+            onClick={() => onSectionChange(c.id)}>{c.label}</button>
+        ))}
+      </div>
+      <span className="post-section-hint">{current.hint}</span>
+    </div>
+  );
+}
+
 // Server autosave of a saved draft: after this long without typing, at most
 // this often, and backing off (doubling to the cap) when a save fails.
 const AUTOSAVE_IDLE_MS = 30_000;
@@ -1488,7 +1517,7 @@ const AUTOSAVE_MAX_BACKOFF_MS = 300_000;
 
 const clock = ts => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublishedChange, titleRef, onSaved, username, folder, features, slug, summary, bus, localSavedAt, onAutoSaved, onCreated }) {
+function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublishedChange, titleRef, onSaved, username, folder, features, slug, summary, section, bus, localSavedAt, onAutoSaved, onCreated }) {
   const { confirm } = useDialog();
   const [editor] = useLexicalComposerContext();
   const [saveStatus, setSaveStatus] = useState('');
@@ -1520,7 +1549,7 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
   const stateJson = () => JSON.stringify(editor.getEditorState().toJSON());
   /** The update call behind Save draft, Publish and the autosave alike. */
   const sendUpdate = (published) =>
-    UPDATE_POST(effectiveId, titleText(), stateJson(), published, backgroundPattern, folder, slug, summary);
+    UPDATE_POST(effectiveId, titleText(), stateJson(), published, backgroundPattern, folder, slug, summary, section);
 
   // Only a saved draft goes to the server on its own. A published post stays
   // on this device until saved, so readers never see half-finished edits.
@@ -1599,7 +1628,7 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
         })
         .finally(() => setSaving(false));
     } else {
-      CREATE_POST(1, postTitle, editorState, published, backgroundPattern, folder, slug, summary)
+      CREATE_POST(1, postTitle, editorState, published, backgroundPattern, folder, slug, summary, section)
         .then((newId) => {
           showStatus(published ? 'Uploaded — your post is live.' : 'Draft saved.');
           setSavedId(newId);
@@ -1823,6 +1852,7 @@ function PostAutosavePlugin({ draftKey, getFields, applyFields, bus, notify, flu
     let same = false;
     try {
       same = d.data.title === base.title && d.data.summary === base.summary
+        && sectionFromParam(d.data.section) === base.section
         && (d.data.slug ?? null) === base.slug && d.data.folder === base.folder
         && d.data.wallpaper === base.wallpaper
         && JSON.stringify(d.data.editorState) === JSON.stringify(JSON.parse(base.description));
@@ -1840,7 +1870,7 @@ function PostAutosavePlugin({ draftKey, getFields, applyFields, bus, notify, flu
   );
 }
 
-function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, postPublished, onPublishedChange, features, onFeaturesChange, titleRef, onSaved, folder, onFolderChange, slug, summary, bus, localSavedAt, onAutoSaved, onCreated }) {
+function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, postPublished, onPublishedChange, features, onFeaturesChange, titleRef, onSaved, folder, onFolderChange, slug, summary, section, bus, localSavedAt, onAutoSaved, onCreated }) {
   // The post-theme editor: opened from the Page row, and shown over the page.
   const [themeOpen, setThemeOpen] = useState(false);
   const savedPost = postid && postid > 0;
@@ -1910,7 +1940,7 @@ function ToolbarPlugin({ postid, backgroundPattern, onPatternChange, username, p
         document.body,
       )}
       <ToolPanel rows={rows}>
-        <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} titleRef={titleRef} onSaved={onSaved} username={username} folder={folder} onFolderChange={onFolderChange} features={features} slug={slug} summary={summary} bus={bus} localSavedAt={localSavedAt} onAutoSaved={onAutoSaved} onCreated={onCreated} />
+        <SaveToolbarPlugin postid={postid} backgroundPattern={backgroundPattern} postPublished={postPublished} onPublishedChange={onPublishedChange} titleRef={titleRef} onSaved={onSaved} username={username} folder={folder} onFolderChange={onFolderChange} features={features} slug={slug} summary={summary} section={section} bus={bus} localSavedAt={localSavedAt} onAutoSaved={onAutoSaved} onCreated={onCreated} />
       </ToolPanel>
 
     </>
@@ -1964,6 +1994,10 @@ export default function RichTextEditor() {
   const [postSlug, setPostSlug] = useState(null);
   // Plain-text description shown under the title on the profile (API field: summary).
   const [postSummary, setPostSummary] = useState('');
+  // Where the post goes when published: profile, notes or subscribers. A new
+  // post opened from the Notes tab (/editor?section=notes) starts there.
+  const [searchParams] = useSearchParams();
+  const [postSection, setPostSection] = useState(() => sectionFromParam(searchParams.get('section')));
   const [dataReady, setDataReady] = useState(0);
   const [postLoaded, setPostLoaded] = useState(false);
   const [features, setFeatures] = useState({ reactionsEnabled: true, discussionEnabled: true, votesEnabled: false, cardGrid: true });
@@ -2046,10 +2080,12 @@ export default function RichTextEditor() {
       // the title. Anything else — chosen, or de-duplicated — stays put.
       setPostSlug(data.slug && data.slug !== slugify(data.title || '') ? data.slug : null);
       setPostSummary(data.summary || '');
+      setPostSection(sectionFromParam(data.section));
       localStorage.setItem("currentPostData", data.description);
       loadedRef.current = {
         title: titlehtml.current,
         summary: data.summary || '',
+        section: sectionFromParam(data.section),
         slug: data.slug && data.slug !== slugify(data.title || '') ? data.slug : null,
         folder: data.folder || '',
         wallpaper: data.backgroundPattern || '',
@@ -2082,6 +2118,7 @@ export default function RichTextEditor() {
   const changeFolder = useCallback(v => { setPostFolder(v); markChanged(); }, [markChanged]);
   const changeSlug = useCallback(v => { setPostSlug(v); markChanged(); }, [markChanged]);
   const changeSummary = useCallback(v => { setPostSummary(v); markChanged(); }, [markChanged]);
+  const changeSection = useCallback(v => { setPostSection(v); markChanged(); }, [markChanged]);
 
   // After a successful save, mark clean and note that at least one save has happened.
   // What is on the server now makes the local draft redundant.
@@ -2099,7 +2136,7 @@ export default function RichTextEditor() {
 
   // Draft fields for the local copy, and putting a kept copy back.
   fieldsRef.current = {
-    title: titlehtml.current, summary: postSummary, slug: postSlug, folder: postFolder, wallpaper: backgroundPattern,
+    title: titlehtml.current, summary: postSummary, section: postSection, slug: postSlug, folder: postFolder, wallpaper: backgroundPattern,
   };
   const getFields = useCallback(() => fieldsRef.current, []);
   const applyFields = useCallback((d, editor) => {
@@ -2107,6 +2144,7 @@ export default function RichTextEditor() {
     try { localStorage.setItem("currentPostTitle", titlehtml.current); } catch { /* not kept */ }
     setTitleKey(k => k + 1);              // the title box is uncontrolled: show the restored one
     setPostSummary(d.summary || '');
+    setPostSection(sectionFromParam(d.section));
     setPostSlug(d.slug ?? null);
     setPostFolder(d.folder || '');
     setBackgroundPattern(d.wallpaper || '');
@@ -2174,13 +2212,14 @@ export default function RichTextEditor() {
               postId={id > 0 ? id : null}
             />
             <PostSummaryField summary={postSummary} onSummaryChange={changeSummary} />
+            <PostSectionField section={postSection} onSectionChange={changeSection} />
             <PostAutosavePlugin
               draftKey={`post:${id > 0 ? id : createdId || 'new'}`}
               getFields={getFields} applyFields={applyFields} bus={bus} notify={markChanged}
               flushRef={flushRef} clearRef={clearRef} onLocalSaved={setLocalSavedAt}
               ready={!id || dataReady > 0} loaded={getLoaded}
             />
-            <ToolbarPlugin postid={id} backgroundPattern={backgroundPattern} onPatternChange={changePattern} username={postAuthor || me} postPublished={postPublished} onPublishedChange={setPostPublished} features={features} onFeaturesChange={setFeatures} titleRef={titlehtml} onSaved={handleSaved} folder={postFolder} onFolderChange={changeFolder} slug={postSlug} onSlugChange={changeSlug} summary={cleanSummary(postSummary)} bus={bus} localSavedAt={localSavedAt} onAutoSaved={handleAutoSaved} onCreated={setCreatedId} />
+            <ToolbarPlugin postid={id} backgroundPattern={backgroundPattern} onPatternChange={changePattern} username={postAuthor || me} postPublished={postPublished} onPublishedChange={setPostPublished} features={features} onFeaturesChange={setFeatures} titleRef={titlehtml} onSaved={handleSaved} folder={postFolder} onFolderChange={changeFolder} slug={postSlug} onSlugChange={changeSlug} summary={cleanSummary(postSummary)} section={postSection} bus={bus} localSavedAt={localSavedAt} onAutoSaved={handleAutoSaved} onCreated={setCreatedId} />
             {/* The post itself, in its theme's fonts; the controls above stay in the app's. */}
             <div className="th-scope" style={{ position: 'relative' }}>
               <RichTextPlugin

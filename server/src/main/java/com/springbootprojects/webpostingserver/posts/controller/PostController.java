@@ -34,6 +34,9 @@ public class PostController {
     /** Counts what a post stores in the database against the author's quota (see StorageAccountService). */
     @Autowired private com.springbootprojects.webpostingserver.posts.service.StorageAccountService storage;
 
+    private static final String SECTION_SUBSCRIBERS = "subscribers";
+    private static final java.util.Set<String> SECTIONS = java.util.Set.of("profile", "notes", SECTION_SUBSCRIBERS);
+
     private static final String STORAGE_FULL = "Storage limit reached. Free up some space first.";
 
     /** Bytes a post's text columns take: its content and its wallpaper. */
@@ -50,6 +53,15 @@ public class PostController {
      * and publishing again (which anyone can loop) must not notify and email
      * them every time.
      */
+    /**
+     * Only posts on the profile announce themselves to followers. Notes are
+     * quieter than posts, so publishing one tells nobody, and subscribers
+     * posts are private for now.
+     */
+    private static boolean announces(String section) {
+        return section == null || "profile".equals(section);
+    }
+
     private boolean alreadyAnnounced(long postId) {
         Integer n = jdbc.queryForObject(
                 "SELECT COUNT(*) FROM notifications WHERE type = 'new_post' AND post_id = ?", Integer.class, postId);
@@ -95,7 +107,7 @@ public class PostController {
         if (postId == null) return ResponseEntity.notFound().build();
 
         List<Map<String, Object>> rows = jdbc.queryForList("""
-                SELECT p.id, p.title, p.slug, p.published, COALESCE(u.username, '') AS author
+                SELECT p.id, p.title, p.slug, p.published, p.section, COALESCE(u.username, '') AS author
                   FROM posts p
                   LEFT JOIN users_posts_junctions j ON j.post_id = p.id
                   LEFT JOIN users u ON u.id = j.user_id
@@ -103,7 +115,7 @@ public class PostController {
                 """, postId);
         if (rows.isEmpty()) return ResponseEntity.notFound().build();
         Map<String, Object> row = rows.get(0);
-        if (!canSee(Boolean.TRUE.equals(row.get("published")), (String) row.get("author"), authUsername, token))
+        if (!canSee(Boolean.TRUE.equals(row.get("published")), (String) row.get("section"), (String) row.get("author"), authUsername, token))
             return ResponseEntity.notFound().build();
 
         return ResponseEntity.ok(row);
@@ -111,15 +123,17 @@ public class PostController {
 
     /**
      * Whether the requester may learn anything about a post: anyone for a
-     * published post, only its signed-in author for a draft.
+     * published post, only its signed-in author for a draft. A post in the
+     * "subscribers" section is the author's alone, published or not, until
+     * subscriptions exist to say who else may read it.
      *
      * Every lookup that answers with a post's title, slug or author goes
      * through this. The address lookups used to answer for drafts too, so
      * counting through post ids listed the title and author of every draft on
      * the site.
      */
-    private boolean canSee(boolean published, String author, String authUsername, String token) {
-        if (published) return true;
+    private boolean canSee(boolean published, String section, String author, String authUsername, String token) {
+        if (published && !SECTION_SUBSCRIBERS.equals(section)) return true;
         if (authUsername == null || token == null || author == null || !author.equals(authUsername)) return false;
         try {
             return loginRepository.authorize(authUsername, token) != null;
@@ -182,7 +196,7 @@ public class PostController {
             @CookieValue(name = "username", required = false) String authUsername,
             @CookieValue(name = "authToken", required = false) String token) {
         List<Map<String, Object>> rows = jdbc.queryForList("""
-                SELECT p.id, p.title, p.slug, p.published, COALESCE(u.username, '') AS author
+                SELECT p.id, p.title, p.slug, p.published, p.section, COALESCE(u.username, '') AS author
                   FROM posts p
                   LEFT JOIN users_posts_junctions j ON j.post_id = p.id
                   LEFT JOIN users u ON u.id = j.user_id
@@ -191,7 +205,7 @@ public class PostController {
         if (rows.isEmpty() || String.valueOf(rows.get(0).get("author")).isEmpty())
             return ResponseEntity.notFound().build();
         Map<String, Object> row = rows.get(0);
-        if (!canSee(Boolean.TRUE.equals(row.get("published")), (String) row.get("author"), authUsername, token))
+        if (!canSee(Boolean.TRUE.equals(row.get("published")), (String) row.get("section"), (String) row.get("author"), authUsername, token))
             return ResponseEntity.notFound().build();
         return ResponseEntity.ok(row);
     }
@@ -208,7 +222,7 @@ public class PostController {
             @CookieValue(name = "username", required = false) String authUsername,
             @CookieValue(name = "authToken", required = false) String token) {
         List<Map<String, Object>> rows = jdbc.queryForList("""
-                SELECT p.id, p.title, p.slug, p.published, p.description, COALESCE(u.username, '') AS username
+                SELECT p.id, p.title, p.slug, p.published, p.section, p.description, COALESCE(u.username, '') AS username
                   FROM posts p
                   LEFT JOIN users_posts_junctions j ON j.post_id = p.id
                   LEFT JOIN users u ON u.id = j.user_id
@@ -217,7 +231,7 @@ public class PostController {
         if (rows.isEmpty() || String.valueOf(rows.get(0).get("username")).isEmpty())
             return ResponseEntity.notFound().build();
         Map<String, Object> row = rows.get(0);
-        if (!canSee(Boolean.TRUE.equals(row.get("published")), (String) row.get("username"), authUsername, token))
+        if (!canSee(Boolean.TRUE.equals(row.get("published")), (String) row.get("section"), (String) row.get("username"), authUsername, token))
             return ResponseEntity.notFound().build();
         return ResponseEntity.ok(row);
     }
@@ -303,8 +317,8 @@ public class PostController {
 
         LoginInfo postOwnerInfo = postRepository.getUsernameFromPostId((int) id);
 
-        if (!post.isPublished()) {
-            // Draft — only the owner may read it
+        if (!post.isPublished() || SECTION_SUBSCRIBERS.equals(post.getSection())) {
+            // Draft, or a subscribers post — only the owner may read it
             if (username == null || token == null) return new ResponseEntity<>(HttpStatus.NOT_FOUND);
             AuthSession session;
             try {
@@ -327,26 +341,38 @@ public class PostController {
         Post post = postRepository.findById(id);
         LoginInfo userLogin = post == null ? null : postRepository.getUsernameFromPostId((int) id);
 
-        if (userLogin != null && canSee(post.isPublished(), userLogin.getUsername(), authUsername, token)) {
+        if (userLogin != null && canSee(post.isPublished(), post.getSection(), userLogin.getUsername(), authUsername, token)) {
             return new ResponseEntity<>(userLogin.getUsername(), HttpStatus.OK);
         } else {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
     }
 
+    private boolean isOwner(String username, String authUsername, String authToken) {
+        if (authUsername != null && authUsername.equals(username) && authToken != null) {
+            try {
+                return loginRepository.authorize(authUsername, authToken) != null;
+            } catch (JdbcLoginRepository.TokenExpiredException ignored) {}
+        }
+        return false;
+    }
+
+    /**
+     * An author's posts in one section: "profile" (the default), "notes",
+     * "subscribers" (owner only) or "drafts" (every unpublished post, owner
+     * only). What others may not see comes back as an empty list.
+     */
     @GetMapping("/user/{username}")
     public ResponseEntity<List<Post>> getPostsByUser(
             @PathVariable("username") String username,
             @RequestParam(defaultValue = "20") int limit,
             @RequestParam(defaultValue = "0") int offset,
+            @RequestParam(defaultValue = "profile") String section,
             @CookieValue(name = "username", required = false) String authUsername,
             @CookieValue(name = "authToken", required = false) String authToken) {
-        boolean isOwner = false;
-        if (authUsername != null && authUsername.equals(username) && authToken != null) {
-            try {
-                isOwner = loginRepository.authorize(authUsername, authToken) != null;
-            } catch (JdbcLoginRepository.TokenExpiredException ignored) {}
-        }
+        boolean isOwner = isOwner(username, authUsername, authToken);
+        if (!SECTIONS.contains(section) && !"drafts".equals(section))
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
 
         // The page is cut in SQL, in profile order (the author's arrangement,
         // then newest first), and drafts are dropped there for visitors. The
@@ -356,10 +382,19 @@ public class PostController {
         // with big posts exhaust the server's memory for anyone's request.
         int safeLimit  = Math.min(Math.max(limit, 1), 50);
         int safeOffset = Math.max(offset, 0);
-        List<Post> page = postRepository.getPostsPage(username, isOwner, safeLimit, safeOffset);
+        List<Post> page = postRepository.getPostsPage(username, section, isOwner, safeLimit, safeOffset);
         if (page == null) return new ResponseEntity<>(HttpStatus.NOT_FOUND);
 
         return new ResponseEntity<>(page, HttpStatus.OK);
+    }
+
+    /** What the profile's tabs show as counts, for this reader (see PostRepository.countSections). */
+    @GetMapping("/user/{username}/sections")
+    public ResponseEntity<Map<String, Integer>> getSectionCounts(
+            @PathVariable("username") String username,
+            @CookieValue(name = "username", required = false) String authUsername,
+            @CookieValue(name = "authToken", required = false) String authToken) {
+        return ResponseEntity.ok(postRepository.countSections(username, isOwner(username, authUsername, authToken)));
     }
 
     /**
@@ -382,6 +417,9 @@ public class PostController {
                 return new ResponseEntity<>("Add a title before publishing.", HttpStatus.BAD_REQUEST);
             post.setTitle("Untitled");
         }
+        if (post.getSection() == null || post.getSection().isBlank()) post.setSection("profile");
+        if (!SECTIONS.contains(post.getSection()))
+            return new ResponseEntity<>("Section must be profile, notes or subscribers.", HttpStatus.BAD_REQUEST);
         String summary = cleanSummary(post.getSummary());
         if (summary != null && summary.length() > 300)
             return new ResponseEntity<>("The description must be 300 characters or fewer.", HttpStatus.BAD_REQUEST);
@@ -449,10 +487,12 @@ public class PostController {
                 social.parseAndSaveHashtags(postId, post.getDescription());
                 if (post.isPublished()) {
                     social.votePost(postId, userId, 1);
-                    social.notifyFollowers(userId, username, postId);
-                    // Email is opt-in per recipient and asynchronous; a mail
-                    // failure must not fail the post.
-                    emailNotifications.notifyFollowersOfPost(username, post.getTitle(), postId);
+                    if (announces(post.getSection())) {
+                        social.notifyFollowers(userId, username, postId);
+                        // Email is opt-in per recipient and asynchronous; a mail
+                        // failure must not fail the post.
+                        emailNotifications.notifyFollowersOfPost(username, post.getTitle(), postId);
+                    }
                     emailNotifications.sendPublishReceipt(username, post.getTitle(), postId);
                 }
                 return new ResponseEntity<>(String.valueOf(postId), HttpStatus.CREATED);
@@ -499,12 +539,13 @@ public class PostController {
             _post.setFolder(post.getFolder() != null && !post.getFolder().isBlank() ? post.getFolder().trim() : null);
             _post.setSlug(uniqueSlugFor(slugFor(post), username, (int) id));
             _post.setSummary(post.getSummary());
+            _post.setSection(post.getSection());
             postRepository.update(_post);
             syncPostUploads(id, post.getDescription());
             social.parseAndSaveHashtags((int) id, post.getDescription());
             // Notify followers when a draft is published for the first time
             if (!wasPublished && post.isPublished()) {
-                if (!alreadyAnnounced(id)) {
+                if (announces(post.getSection()) && !alreadyAnnounced(id)) {
                     int authorId = social.getUserIdByUsername(username);
                     if (authorId > 0) social.notifyFollowers(authorId, username, (int) id);
                     emailNotifications.notifyFollowersOfPost(username, post.getTitle(), id);
@@ -543,7 +584,7 @@ public class PostController {
         boolean was = post.isPublished();
         post.setPublished(published);
         postRepository.update(post);
-        if (!was && published && !alreadyAnnounced(id)) {
+        if (!was && published && announces(post.getSection()) && !alreadyAnnounced(id)) {
             int authorId = social.getUserIdByUsername(username);
             if (authorId > 0) social.notifyFollowers(authorId, username, (int) id);
             emailNotifications.notifyFollowersOfPost(username, post.getTitle(), id);
@@ -609,7 +650,7 @@ public class PostController {
         // A pinned draft is the author's alone. This used to compare the
         // username cookie without checking its token, so setting the cookie to
         // the author's name showed anyone their pinned draft.
-        if (!canSee(post.isPublished(), username, authUsername, authToken))
+        if (!canSee(post.isPublished(), post.getSection(), username, authUsername, authToken))
             return ResponseEntity.noContent().build();
         return ResponseEntity.ok(post);
     }
@@ -689,7 +730,7 @@ public class PostController {
                 "SELECT p.id, p.title, u.username FROM posts p " +
                 "JOIN users_posts_junctions j ON j.post_id = p.id " +
                 "JOIN users u ON u.id = j.user_id " +
-                "WHERE p.published = true " +
+                "WHERE p.published = true AND p.section <> 'subscribers' " +
                 "  AND (p.title ILIKE ? OR p.description ILIKE ?) " +
                 "  AND u.username = ? " +
                 "ORDER BY p.date DESC LIMIT 25",
@@ -699,7 +740,7 @@ public class PostController {
                 "SELECT p.id, p.title, u.username FROM posts p " +
                 "JOIN users_posts_junctions j ON j.post_id = p.id " +
                 "JOIN users u ON u.id = j.user_id " +
-                "WHERE p.published = true AND u.username = ? " +
+                "WHERE p.published = true AND p.section <> 'subscribers' AND u.username = ? " +
                 "ORDER BY p.date DESC LIMIT 25",
                 from == null ? "" : from.trim());
         } else {
@@ -707,7 +748,7 @@ public class PostController {
                 "SELECT p.id, p.title, u.username FROM posts p " +
                 "JOIN users_posts_junctions j ON j.post_id = p.id " +
                 "JOIN users u ON u.id = j.user_id " +
-                "WHERE p.published = true " +
+                "WHERE p.published = true AND p.section <> 'subscribers' " +
                 "  AND (p.title ILIKE ? OR p.description ILIKE ?) " +
                 "ORDER BY p.date DESC LIMIT 25",
                 pattern, pattern);

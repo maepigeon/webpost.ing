@@ -17,7 +17,18 @@ public interface PostRepository {
     List<Post> getPostsFromUsername(String username);
 
     /** One page of an author's profile order, cut in SQL; drafts only when includeDrafts. */
-    List<Post> getPostsPage(String username, boolean includeDrafts, int limit, int offset);
+    default List<Post> getPostsPage(String username, boolean includeDrafts, int limit, int offset) {
+        return getPostsPage(username, "profile", includeDrafts, limit, offset);
+    }
+
+    /**
+     * One page of a section: "profile", "notes", "subscribers" or "drafts"
+     * (every unpublished post). What a non-owner may see is decided here.
+     */
+    List<Post> getPostsPage(String username, String section, boolean owner, int limit, int offset);
+
+    /** Tab counts as the reader may see them; keys they may not see are absent. */
+    java.util.Map<String, Integer> countSections(String username, boolean owner);
 
     int deleteById(Long id);
 

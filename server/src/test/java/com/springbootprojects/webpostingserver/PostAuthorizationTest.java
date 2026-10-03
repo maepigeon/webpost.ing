@@ -53,11 +53,11 @@ class PostAuthorizationTest {
         Post published = post(1, "Published", true);
         Post draft     = post(2, "Draft",     false);
         // Drafts are now left out by the query itself: a visitor asks for no drafts.
-        when(postRepository.getPostsPage("whiskers", false, 20, 0)).thenReturn(new ArrayList<>(List.of(published)));
+        when(postRepository.getPostsPage("whiskers", "profile", false, 20, 0)).thenReturn(new ArrayList<>(List.of(published)));
 
         // Bob requests Alice's posts (different user — no auth cookies passed)
         ResponseEntity<List<Post>> resp = postController.getPostsByUser(
-                "whiskers", 20, 0, null, null);
+                "whiskers", 20, 0, "profile", null, null);
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(resp.getBody()).hasSize(1);
@@ -68,11 +68,11 @@ class PostAuthorizationTest {
     void getPostsByUser_ownerSeesOwnDrafts() throws Exception {
         Post published = post(1, "Published", true);
         Post draft     = post(2, "Draft",     false);
-        when(postRepository.getPostsPage("whiskers", true, 20, 0)).thenReturn(new ArrayList<>(List.of(published, draft)));
+        when(postRepository.getPostsPage("whiskers", "profile", true, 20, 0)).thenReturn(new ArrayList<>(List.of(published, draft)));
         when(loginRepository.authorize("whiskers", "tok")).thenReturn(whiskersSession);
 
         ResponseEntity<List<Post>> resp = postController.getPostsByUser(
-                "whiskers", 20, 0, "whiskers", "tok");
+                "whiskers", 20, 0, "profile", "whiskers", "tok");
 
         assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(resp.getBody()).hasSize(2);

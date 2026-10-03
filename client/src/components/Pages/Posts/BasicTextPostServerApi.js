@@ -60,10 +60,17 @@ export function AUTHORIZE_SESSION() {
 };
 
 //get posts created by a specified user
-export function READ_POSTS_BY_USER(username, limit = 20, offset = 0) {
-  return axios.get(baseUrl + `/api/user/${username}`, { params: { limit, offset }, withCredentials: true })
+// section: 'profile' (default), 'notes', 'subscribers' or 'drafts'; the last two are the owner's alone.
+export function READ_POSTS_BY_USER(username, limit = 20, offset = 0, section = 'profile') {
+  return axios.get(baseUrl + `/api/user/${username}`, { params: { limit, offset, section }, withCredentials: true })
     .then(r => r.data);
 };
+
+/** { profile, notes, subscribers?, drafts? } counts as this reader may see them. */
+export function GET_POST_SECTIONS(username) {
+  return axios.get(baseUrl + `/api/user/${encodeURIComponent(username)}/sections`, { withCredentials: true })
+    .then(r => r.data);
+}
 
 const asJson = { headers: { 'Content-Type': 'application/json' }, withCredentials: true };
 
@@ -177,7 +184,7 @@ export function GET_USER_FROM_POST(id) {
 }
 
 //create
-export function CREATE_POST(id, titleField, descriptionField, publishedField, backgroundPattern, folder, slug, summary) {
+export function CREATE_POST(id, titleField, descriptionField, publishedField, backgroundPattern, folder, slug, summary, section) {
   if (titleField == "undefined") {titleField = "Undefined title";}
   const promise = axios.post(baseUrl + "/api/posts",
   {
@@ -189,12 +196,13 @@ export function CREATE_POST(id, titleField, descriptionField, publishedField, ba
     folder: folder || null,
     slug: slug || null,
     summary: summary || null,
+    section: section || 'profile',
   }, { withCredentials: true });
   const dataPromise = promise.then((response) => response.data);
   return dataPromise;
 }
 //update
-export function UPDATE_POST(id, titleField, descriptionField, publishedField, backgroundPattern, folder, slug, summary) {
+export function UPDATE_POST(id, titleField, descriptionField, publishedField, backgroundPattern, folder, slug, summary, section) {
   const promise = axios.put(baseUrl + "/api/posts/" + id,
   {
       id: id,
@@ -205,6 +213,7 @@ export function UPDATE_POST(id, titleField, descriptionField, publishedField, ba
       folder: folder || null,
       slug: slug || null,
       summary: summary || null,
+      section: section || 'profile',
   }, { withCredentials: true });
   const dataPromise = promise.then((response) => response.data);
   return dataPromise;

@@ -30,6 +30,9 @@ public class Post {
     /** Plain-text blurb under the title on the profile; null for none. Not the body (`description`). */
     private String summary;
 
+    /** Where the post belongs: "profile", "notes" or "subscribers" (V017). */
+    private String section = "profile";
+
     /**
      * Position on the author's profile, smallest first; ties go newest first.
      * Only PUT /api/users/{u}/posts/order writes it, so saving a post never
@@ -122,6 +125,10 @@ public class Post {
     public String getSummary() { return summary; }
 
     public void setSummary(String summary) { this.summary = summary; }
+
+    public String getSection() { return section; }
+
+    public void setSection(String section) { this.section = section; }
 
     public int getSortOrder() { return sortOrder; }
 

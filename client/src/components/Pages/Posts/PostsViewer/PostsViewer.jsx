@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { visiblePostsFor } from '../../../../utils/viewAs.js';
-import {AUTHORIZE_SESSION, READ_POSTS_BY_USER, GET_USER_BACKGROUND, GET_USER_BIO, UPDATE_USER_BIO, GET_USER_BIO_LINKS, UPDATE_USER_BIO_LINKS, GET_USER_STORAGE, GET_FOLLOWERS, GET_FOLLOWING, GET_BLOCK_MESSAGE_STATUS, BLOCK_MESSAGES, UNBLOCK_MESSAGES, EXPORT_MY_DATA, GET_PINNED_POST, SET_PINNED_POST, UNPIN_POST, GET_USER_AVATAR, POST_USER_AVATAR, GET_USER_ONLINE} from '../BasicTextPostServerApi.js'
+import {AUTHORIZE_SESSION, READ_POSTS_BY_USER, GET_POST_SECTIONS, GET_USER_BACKGROUND, GET_USER_BIO, UPDATE_USER_BIO, GET_USER_BIO_LINKS, UPDATE_USER_BIO_LINKS, GET_USER_STORAGE, GET_FOLLOWERS, GET_FOLLOWING, GET_BLOCK_MESSAGE_STATUS, BLOCK_MESSAGES, UNBLOCK_MESSAGES, EXPORT_MY_DATA, GET_PINNED_POST, SET_PINNED_POST, UNPIN_POST, GET_USER_AVATAR, POST_USER_AVATAR, GET_USER_ONLINE} from '../BasicTextPostServerApi.js'
 import ProfilePostList from './ProfilePostList.jsx';
 import { mergePosts, applyChanges } from './profileOrder.js';
 import { IMAGES_BASE_URL } from '../../../../config.js';
@@ -12,12 +12,14 @@ import { useBodyWallpaper } from '../../../TileArt/wallpaper.js';
 import './ProfileEditor.css';
 import { useDialog } from '../../../Dialog/Dialog.jsx';
 import '../PostWindow.css';
-import {useParams, Link, useNavigate} from "react-router-dom";
+import {useParams, Link, useNavigate, useSearchParams} from "react-router-dom";
 import { usePageTitle } from '../../../../utils/usePageTitle.js';
 import { usePageMeta } from '../../../../utils/pageMeta.js';
 import { describeUploadError } from '../../../../utils/responsiveImage.js';
 import { GET_PROFILE_HEADER, GET_PROFILE_BANNER } from '../BasicTextPostServerApi.js';
 import ProfileBanner from './ProfileBanner.jsx';
+import ProfileTabs from './ProfileTabs.jsx';
+import { tabFromSearch, searchForTab, sectionForTab, visibleTabs } from './profileTabs.js';
 import StorageSummary from './StorageSummary.jsx';
 import ProfileStickies from './ProfileStickies.jsx';
 import BannerEditor from './BannerEditor.jsx';
@@ -105,6 +107,10 @@ function PostsViewer() {
     const [onlineStatus, setOnlineStatus] = useState(null); // { online, lastSeen }
     const [showAvatarPopup, setShowAvatarPopup] = useState(false);
     const [previewing, setPreviewing] = useState(false);   // owner viewing as a visitor
+    // How many posts each tab holds, as this reader may see them, and (while
+    // previewing) how many notes a visitor would see.
+    const [counts, setCounts] = useState({});
+    const [publicNotes, setPublicNotes] = useState(null);
     const avatarInputRef = useRef(null);
     const sentinelRef = useRef(null);
     const { username } = useParams();
@@ -112,10 +118,18 @@ function PostsViewer() {
     usePageTitle(username ? `${username}'s profile` : null);
     usePageMeta(username ? { title: username, description: bio, type: 'profile', canonicalPath: `/${username}` } : null);
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
     const isOwner = hasModifyPermissions(username);
     // Owner controls follow `canEdit`; previewing switches them all off at once.
     const canEdit = isOwner && !previewing;
     const loggedIn = !!localStorage.getItem('userName');
+
+    // The tab lives in the address (?tab=notes) so links and reloads land on
+    // it. A visitor, or the owner previewing as one, only has the public tabs.
+    const tab = tabFromSearch(searchParams.toString(), { isOwner: canEdit });
+    const section = sectionForTab(tab);
+    const selectTab = (id) => setSearchParams(
+      new URLSearchParams(searchForTab(id, searchParams.toString())), { replace: true });
 
     // Not kept across profiles or reloads; Escape leaves the preview.
     useEffect(() => { setPreviewing(false); }, [username]);
@@ -141,7 +155,7 @@ function PostsViewer() {
       const generation = generationRef.current;
       const offset = reset ? 0 : offsetRef.current;
       setLoadingMore(true);
-      const request = READ_POSTS_BY_USER(username, PAGE_SIZE, offset).then(data => {
+      const request = READ_POSTS_BY_USER(username, PAGE_SIZE, offset, section).then(data => {
         if (generation !== generationRef.current) return;
         const page = Array.isArray(data) ? data : [];
         setPostsArray(prev => mergePosts(reset ? [] : prev, page));
@@ -153,7 +167,7 @@ function PostsViewer() {
       });
       loadingRef.current = request;
       return request;
-    }, [username]);
+    }, [username, section]);
 
     /**
      * Loads every post not yet shown, so the whole profile can be arranged at
@@ -168,7 +182,7 @@ function PostsViewer() {
       const request = (async () => {
         for (;;) {
           const offset = offsetRef.current;
-          const data = await READ_POSTS_BY_USER(username, ALL_PAGE, offset);
+          const data = await READ_POSTS_BY_USER(username, ALL_PAGE, offset, section);
           if (generation !== generationRef.current) return false;
           const page = Array.isArray(data) ? data : [];
           setPostsArray(prev => mergePosts(prev, page));
@@ -187,18 +201,40 @@ function PostsViewer() {
         if (loadingRef.current === request) loadingRef.current = null;
         if (generation === generationRef.current) setLoadingMore(false);
       }
-    }, [username]);
+    }, [username, section]);
 
     /** A new arrangement, already saving: shown at once. */
     const arrangePosts = useCallback((changed) => {
       setPostsArray(prev => applyChanges(prev, changed));
     }, []);
 
+    // Switching tab (or profile) starts the list over with that section.
     useEffect(() => {
       setPostsArray([]);
       offsetRef.current = 0;
       setHasMore(true);
       loadPosts(true);
+    }, [loadPosts]);
+
+    // Tab counts. Refreshed after the owner changes a post from the list.
+    const loadCounts = useCallback(() => {
+      GET_POST_SECTIONS(username).then(c => setCounts(c || {})).catch(() => {});
+    }, [username]);
+    useEffect(() => { setCounts({}); loadCounts(); }, [loadCounts]);
+
+    // The owner previewing needs the public note count, which the counts do
+    // not give (they include the owner's note drafts).
+    useEffect(() => {
+      setPublicNotes(null);
+      if (!previewing) return undefined;
+      let current = true;
+      READ_POSTS_BY_USER(username, 50, 0, 'notes')
+        .then(list => { if (current) setPublicNotes((Array.isArray(list) ? list : []).filter(p => p.published).length); })
+        .catch(() => { if (current) setPublicNotes(0); });
+      return () => { current = false; };
+    }, [previewing, username]);
+
+    useEffect(() => {
       GET_USER_BACKGROUND(username).then(p => setBgPattern(p || '')).catch(() => {});
       GET_PROFILE_HEADER(username)
         .then(d => setHeader({ headerPath: d.headerPath || null, headerInk: d.headerInk || 'auto' }))
@@ -287,9 +323,20 @@ function PostsViewer() {
     }
 
     const visiblePosts = visiblePostsFor(postsArray, { previewing });
+    const baseTabs = visibleTabs({ isOwner: canEdit, counts, publicNotes });
+    // A visitor who follows a link to ?tab=notes on a profile with no public
+    // notes still lands on that tab (empty) rather than on a different list.
+    const tabs = baseTabs.some(t => t.id === tab) ? baseTabs : [...baseTabs, { id: 'notes', label: 'Notes', count: 0 }];
+    const emptyText = {
+      posts: canEdit ? 'No posts yet. Make one to get started.' : `${username} hasn't posted anything yet.`,
+      notes: canEdit ? 'No notes yet. Notes are a quieter place for things you write down.' : `${username} has no notes yet.`,
+      drafts: 'No drafts. Anything you save without publishing shows up here.',
+      subscribers: 'Nothing here yet.',
+    }[tab];
 
     // Drawn by the post list, under its owner bar and above the other posts.
-    const pinnedBlock = pinnedPost && !(previewing && !pinnedPost.published) ? (
+    // Only on the Posts tab: pinning is part of arranging the profile.
+    const pinnedBlock = tab === 'posts' && pinnedPost && !(previewing && !pinnedPost.published) ? (
       <div className="PostContainer profile-pinned">
         {/* A label above the card, not laid over it: on the card it covered
             the date and the title. */}
@@ -558,17 +605,32 @@ function PostsViewer() {
             {canEdit && <div ref={setStickiesSlot} />}
             {canEdit && storage && <StorageSummary storage={storage} />}
           </div>
+          <ProfileTabs tabs={tabs} active={tab} onSelect={selectTab} />
+          <div id="profile-tabpanel" role="tabpanel" aria-labelledby={`profile-tab-${tab}`}>
+          {tab === 'subscribers' && (
+            <p className="profile-tab-note">Only you can see these for now. Subscriptions are coming later.</p>
+          )}
+          {canEdit && (tab === 'notes' || tab === 'subscribers') && (
+            <div className="profile-list-bar">
+              <Link className="profile-owner-btn" to={`/editor?section=${tab}`}>
+                {tab === 'notes' ? '+ New note' : '+ New post for subscribers'}
+              </Link>
+            </div>
+          )}
           {/* With posts, the button lives in the list's owner bar beside
               "Arrange posts"; without, on its own. */}
-          {canEdit && (!Array.isArray(visiblePosts) || !visiblePosts.length) && <NewGridPost />}
+          {canEdit && (!Array.isArray(visiblePosts) || !visiblePosts.length) && <NewGridPost section={tab === 'notes' || tab === 'subscribers' ? tab : 'profile'} />}
           {(!Array.isArray(visiblePosts) || !visiblePosts.length) && !loadingMore
-            ? <p className="posts-viewer-empty">{canEdit ? 'No posts yet. Make one to get started.' : `${username} hasn't posted anything yet.`}</p>
+            ? <p className="profile-tab-note">{emptyText}</p>
             : <ProfilePostList
+                key={tab}
                 posts={visiblePosts}
-                pinnedId={pinnedPost?.id ?? null}
+                pinnedId={tab === 'posts' ? (pinnedPost?.id ?? null) : null}
                 canEdit={canEdit}
+                arrangeable={tab === 'posts'}
+                showDestination={tab === 'drafts'}
                 username={username}
-                onRefresh={() => loadPosts(true)}
+                onRefresh={() => { loadPosts(true); loadCounts(); }}
                 onArrange={arrangePosts}
                 onPin={async (post, pin) => {
                   // Pinning is done here, on the profile it changes, from Arrange posts.
@@ -579,10 +641,11 @@ function PostsViewer() {
                 }}
                 hasMore={hasMore}
                 loadAll={loadAllPosts}
-                leading={canEdit ? <NewGridPost /> : null}
+                leading={canEdit ? <NewGridPost section={tab === 'notes' || tab === 'subscribers' ? tab : 'profile'} /> : null}
                 pinned={pinnedBlock}
               />
           }
+          </div>
           <div ref={sentinelRef} style={{ height: '1px' }} />
           {loadingMore && <p style={{ textAlign: 'center', color: '#888', fontSize: '14px' }}>Loading…</p>}
         </div>

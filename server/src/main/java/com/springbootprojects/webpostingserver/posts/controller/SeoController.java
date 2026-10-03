@@ -138,7 +138,7 @@ public class SeoController {
                   FROM users u
                   JOIN users_posts_junctions j ON j.user_id = u.id
                   JOIN posts p ON p.id = j.post_id
-                 WHERE p.published = TRUE
+                 WHERE p.published = TRUE AND p.section <> 'subscribers'
                  GROUP BY u.username
                  ORDER BY last DESC
                  LIMIT ?
@@ -148,7 +148,7 @@ public class SeoController {
                   FROM posts p
                   JOIN users_posts_junctions j ON j.post_id = p.id
                   JOIN users u ON u.id = j.user_id
-                 WHERE p.published = TRUE
+                 WHERE p.published = TRUE AND p.section <> 'subscribers'
                  ORDER BY p.date DESC, p.id DESC
                  LIMIT ?
                 """, MAX_URLS - profiles.size());
@@ -221,7 +221,7 @@ public class SeoController {
                 SELECT p.id, p.title, p.slug, p.summary, p.description, p.date
                   FROM posts p
                   JOIN users_posts_junctions j ON j.post_id = p.id
-                 WHERE j.user_id = ? AND p.published = TRUE
+                 WHERE j.user_id = ? AND p.published = TRUE AND p.section <> 'subscribers'
                  ORDER BY p.date DESC, p.id DESC
                  LIMIT ?
                 """, user.get("id"), FEED_POSTS);
@@ -292,7 +292,7 @@ public class SeoController {
                           FROM posts p
                           JOIN users_posts_junctions j ON j.post_id = p.id
                           JOIN users u ON u.id = j.user_id
-                         WHERE lower(u.username) = lower(?) AND p.published = TRUE AND (p.slug IS NULL OR p.slug = '')
+                         WHERE lower(u.username) = lower(?) AND p.published = TRUE AND p.section <> 'subscribers' AND (p.slug IS NULL OR p.slug = '')
                          ORDER BY p.id
                          LIMIT 2000
                         """, username);
@@ -347,7 +347,7 @@ public class SeoController {
                   FROM posts p
                   JOIN users_posts_junctions j ON j.post_id = p.id
                   JOIN users u ON u.id = j.user_id
-                 WHERE p.published = TRUE AND """ + " " + where + """
+                 WHERE p.published = TRUE AND p.section <> 'subscribers' AND """ + " " + where + """
 
                  ORDER BY p.id
                  LIMIT 1
@@ -366,7 +366,7 @@ public class SeoController {
                        p.date
                   FROM posts p
                   JOIN users_posts_junctions j ON j.post_id = p.id
-                 WHERE j.user_id = ? AND p.published = TRUE
+                 WHERE j.user_id = ? AND p.published = TRUE AND p.section <> 'subscribers'
                  ORDER BY p.date DESC, p.id DESC
                  LIMIT ?
                 """, user.get("id"), PROFILE_POSTS);
