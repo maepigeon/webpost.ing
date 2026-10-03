@@ -208,6 +208,17 @@
   background: #e7e7e7;
 }
 
+/* Touch-friendly sizing for coarse pointer (phones, tablets) */
+@media (pointer: coarse) {
+  .admin-tab {
+    min-height: 40px;
+  }
+
+  .admin-panel button {
+    min-height: 40px;
+  }
+}
+
 /* Stats grid */
 .admin-stats-grid {
   display: grid;
@@ -531,6 +542,228 @@
   .admin-panel textarea { font-size: 16px; }
 
   .admin-section { padding: 12px; }
+}
+
+/* ── Optimized for 390px phones ────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .admin-panel {
+    margin: 16px auto;
+    padding: 0 12px 48px;
+  }
+
+  .admin-title {
+    font-size: 1.25rem;
+  }
+
+  /* Tabs: horizontal scroll in one line */
+  .admin-tabs {
+    display: flex;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    gap: 6px;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .admin-tabs::-webkit-scrollbar { display: none; }
+
+  .admin-tab {
+    padding: 6px 14px;
+    font-size: 0.82rem;
+    white-space: nowrap;
+    flex: 0 0 auto;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+  }
+
+  /* Forms: stack vertically, full width */
+  .admin-create-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .admin-create-row input,
+  .admin-create-row select,
+  .admin-create-row button {
+    width: 100%;
+    min-height: 40px;
+    padding: 8px 10px;
+    font-size: 16px;
+  }
+
+  .admin-create-row button {
+    padding: 10px 14px;
+  }
+
+  /* Search row: stack vertically */
+  .admin-search-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .admin-search-row input {
+    width: 100%;
+    min-height: 40px;
+    font-size: 16px;
+  }
+
+  /* Tables: scrollable with proper padding */
+  .admin-table-scroll {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-left: 1px solid rgba(28, 28, 28, 0.13);
+    border-right: 1px solid rgba(28, 28, 28, 0.13);
+  }
+
+  .admin-table {
+    font-size: 0.82rem;
+  }
+
+  .admin-table th {
+    padding: 6px 8px;
+    font-size: 0.8rem;
+  }
+
+  .admin-table td {
+    padding: 6px 8px;
+    white-space: normal;
+  }
+
+  .admin-table td:last-child {
+    white-space: normal;
+  }
+
+  /* Action buttons in tables: minimum 36px height with wrapping support */
+  .admin-table td:last-child {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .admin-table button {
+    min-height: 36px;
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+
+  /* Stat cards: two per row */
+  .admin-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .admin-stat-card {
+    padding: 12px 10px;
+  }
+
+  .admin-stat-value {
+    font-size: 1.3rem;
+  }
+
+  .admin-stat-label {
+    font-size: 0.75rem;
+  }
+
+  /* Build status: wrap text */
+  .admin-build {
+    margin: 0 0 16px;
+    padding: 10px 12px;
+    font-size: 12px;
+    word-break: break-word;
+    white-space: normal;
+  }
+
+  .admin-build code {
+    word-break: break-all;
+  }
+
+  /* Orphan row: stack on mobile */
+  .admin-orphan-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .admin-orphan-row .admin-hint {
+    margin: 0;
+  }
+
+  .admin-orphan-row button {
+    width: 100%;
+    min-height: 40px;
+  }
+
+  /* Reports section */
+  .admin-reports-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .admin-report-filters {
+    display: flex;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    gap: 5px;
+    padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .admin-report-filters::-webkit-scrollbar { display: none; }
+
+  .admin-report-filter {
+    flex-shrink: 0;
+    min-height: 40px;
+    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+  }
+
+  .admin-report {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .admin-report-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .admin-report-actions .admin-btn {
+    flex: 1;
+    min-height: 38px;
+    min-width: 80px;
+  }
+
+  /* General button sizing */
+  .admin-btn {
+    min-height: 36px;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+  }
+
+  /* Ensure inputs across the panel have proper sizing */
+  .admin-panel input[type="text"],
+  .admin-panel input[type="password"],
+  .admin-panel input[type="number"],
+  .admin-panel input[type="file"],
+  .admin-panel select,
+  .admin-panel textarea {
+    font-size: 16px;
+    min-height: 40px;
+  }
+
+  /* Reduce section padding */
+  .admin-section {
+    padding: 0;
+  }
 }
 
 @media (max-width: 460px) {
