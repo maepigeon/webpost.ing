@@ -122,3 +122,12 @@ export async function raw(v, name, opts = {}) {
   await v.page.screenshot({ path: f, animations: 'allow', caret: 'hide', ...opts });
   return f;
 }
+
+/** Elements anywhere on the page that still carry a blur or backdrop filter. */
+export function blurScan(page) {
+  return page.evaluate(() => [...document.querySelectorAll('*')].filter(e => { const s = getComputedStyle(e); return (s.backdropFilter && s.backdropFilter !== 'none') || /blur/.test(s.filter); }).slice(0, 8).map(e => e.tagName + '.' + String(e.className).split(' ')[0] + ' ' + getComputedStyle(e).backdropFilter.slice(0, 30)));
+}
+/** Focus facts for one element handle or for the active element. */
+export async function ringOf(page, loc) {
+  return page.evaluate(e => { e = e || document.activeElement; if (!e) return null; const s = getComputedStyle(e); return { el: (e.tagName + '.' + String(e.className).split(' ')[0] + ':' + (e.innerText || e.getAttribute('aria-label') || '').trim().slice(0, 16)), focused: document.activeElement === e, focusVisible: e.matches(':focus-visible'), outline: `${s.outlineStyle} ${s.outlineWidth} ${s.outlineColor}`, shadow: s.boxShadow.slice(0, 80) }; }, loc ? await loc.first().elementHandle() : null);
+}
