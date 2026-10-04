@@ -115,10 +115,19 @@ check('profile: tabs Posts, Notes, Drafts, Subscribers; ?tab=notes survives a re
 check('profile: a visitor gets no Drafts or Subscribers tab, even by address', async t => {
   const owner = await t.newUser('test');
   const draft = uniq('smoke hidden draft');
+  const subs = uniq('smoke hidden subscribers');
+  const open = uniq('smoke open post');
   await createDraftPost(owner, { title: draft, published: false }, t);
+  await createDraftPost(owner, { title: subs, published: true, section: 'subscribers' }, t);
+  await createDraftPost(owner, { title: open, published: true }, t);
   const page = await t.visitor();
-  await page.goto('/test?tab=drafts');
-  await tab(page, 'Posts').waitFor();
-  assert(await tab(page, 'Drafts').count() === 0 && await tab(page, 'Subscribers').count() === 0, 'a visitor sees owner-only tabs');
-  assert(await page.getByText(draft).count() === 0, 'a visitor reaches a draft through ?tab=drafts');
+  // A visitor who can see only Posts gets no tab bar at all, so this does not wait for one.
+  for (const query of ['', '?tab=drafts', '?tab=subscribers']) {
+    await page.goto('/test' + query);
+    await page.getByText(open).first().waitFor();   // the published post is shown
+    await sleep(500);                                // and the owner-only tabs had time to appear
+    assert(await tab(page, 'Drafts').count() === 0 && await tab(page, 'Subscribers').count() === 0, `a visitor sees owner-only tabs at /test${query}`);
+    assert(await page.getByText(draft).count() === 0, `a visitor reaches a draft at /test${query}`);
+    assert(await page.getByText(subs).count() === 0, `a visitor reaches a subscribers-only post at /test${query}`);
+  }
 }, { area: 'profile' });

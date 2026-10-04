@@ -1,3 +1,4 @@
+import { useEffect, useReducer } from 'react';
 import { useLocation } from 'react-router-dom';
 import Navbutton from './Navbutton/Navbutton';
 import NavMenu from './NavMenu.jsx';
@@ -7,16 +8,35 @@ import { useUnreadCounts } from './useUnreadCounts.js';
 import './Navbar.css'
 import { AUTHORIZE_SESSION } from "../Pages/Posts/BasicTextPostServerApi"
 
-function authorize() {
-  const username = localStorage.getItem("userName");
-  return (username != null && username != "" && AUTHORIZE_SESSION());
+/**
+ * Who the browser says is signed in, re-read when the session is cleared. On the
+ * sign-in pages a 401 clears the stored name without a reload, and localStorage
+ * tells no one in its own tab, so the bar kept the old account menu.
+ */
+export function useSignedIn(pathname) {
+  const [, refresh] = useReducer(n => n + 1, 0);
+  const username = localStorage.getItem("userName") || "";
+  useEffect(() => {
+    window.addEventListener('wp:session-cleared', refresh);   // sent by clearLocalSession
+    window.addEventListener('storage', refresh);   // another tab signing in or out
+    return () => {
+      window.removeEventListener('wp:session-cleared', refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, []);
+  // Asks the server (shared, cached 30 s). The 401 interceptor clears the name
+  // before this catch runs, so the re-read sees it.
+  useEffect(() => {
+    if (username) AUTHORIZE_SESSION().catch(refresh);
+  }, [username, pathname]);
+  return username;
 }
 
 function Navbar() {
-  const loggedIn = authorize();
-  const username = localStorage.getItem("userName");
-  const isAdmin = localStorage.getItem("isAdmin") === "1";
   const { pathname } = useLocation();
+  const username = useSignedIn(pathname);
+  const loggedIn = username !== "";
+  const isAdmin = localStorage.getItem("isAdmin") === "1";
   const unread = useUnreadCounts(loggedIn, pathname);
 
   /**

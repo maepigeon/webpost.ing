@@ -86,7 +86,7 @@ function Choices({ legend, value, options, onChange }) {
   );
 }
 
-function ButtonEditor({ data, onChange }) {
+function ButtonEditor({ data, onChange, onEscape }) {
   const [targetText, setTargetText] = useState(data.target);
   const [problem, setProblem] = useState('');
   const [posts, setPosts] = useState(null);
@@ -130,7 +130,10 @@ function ButtonEditor({ data, onChange }) {
     }
   };
 
-  const stop = (e) => e.stopPropagation();   // typing here is not the editor's typing
+  const stop = (e) => {   // typing here is not the editor's typing
+    e.stopPropagation();
+    if (e.type === 'keydown' && e.key === 'Escape') onEscape?.();
+  };
   return (
     <div className="pb-form" onKeyDown={stop} onMouseDown={stop} onClick={stop}>
       <label className="pb-field">
@@ -230,8 +233,24 @@ function ButtonComponent({ data, nodeKey, editable = true }) {
     editor.getElementByKey(nodeKey)?.setAttribute('data-run', leads ? 'lead' : 'join');
   });
   const [selected, setSelected, clearSelection] = useLexicalNodeSelection(nodeKey);
-  // A button with no target yet is brand new: open its form straight away.
-  const open = editable && (selected || Boolean(validateTarget(data.action, data.target)));
+  // The form opens when the block is selected or is new (no valid target yet) and
+  // then stays open while focus is inside it: clicking into a field deselects the
+  // block, and a target turning valid mid-typing must not close the form.
+  const wantsOpen = selected || Boolean(validateTarget(data.action, data.target));
+  const [held, setHeld] = useState(false);
+  useEffect(() => { if (wantsOpen) setHeld(true); }, [wantsOpen]);
+  const open = editable && (held || wantsOpen);
+  const wrapRef = useRef(null);
+  const pressing = useRef(false);   // a click inside the block moves focus to nowhere for a moment
+  const pressInside = () => {   // capture: the form stops mousedown from bubbling
+    pressing.current = true;
+    window.addEventListener('mouseup', () => { pressing.current = false; }, { once: true });
+  };
+  const leaveForm = (e) => {
+    if (pressing.current || wrapRef.current?.contains(e.relatedTarget)) return;
+    if (!validateTarget(data.action, data.target)) setHeld(false);
+  };
+  const closeForm = () => { setHeld(false); clearSelection(); };
 
   const withNode = useCallback((fn) => {
     editor.update(() => {
@@ -257,11 +276,13 @@ function ButtonComponent({ data, nodeKey, editable = true }) {
   const host = leads ? null : editor.getElementByKey(run.leader);
   const content = (
     <div className={`pb-wrap pb-align--${data.align}${open ? ' is-editing' : ''}${selected ? ' is-selected' : ''}`}
-      style={{ order: run.index }} onClick={select}>
+      style={{ order: run.index }} onClick={select} ref={wrapRef}
+      onMouseDownCapture={pressInside}
+      onBlur={open ? leaveForm : undefined}>
       <ButtonFace data={data} editable={editable} />
       {open && (
         <>
-          <ButtonEditor data={data} onChange={change} />
+          <ButtonEditor data={data} onChange={change} onEscape={closeForm} />
           <div className="pb-row" onClick={(e) => e.stopPropagation()}>
             <GridButton label="Move up" text="Up" onClick={() => move('up')} />
             <GridButton label="Move down" text="Down" onClick={() => move('down')} />
