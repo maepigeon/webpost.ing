@@ -232,3 +232,30 @@ The full list, in her words, is [DESIGN-RULES.md](DESIGN-RULES.md). Add to it th
 Tick the backlog, add anything new she asked for, update this file if the way
 of working changed, commit, push to `main`, and pull her checkout at
 `/Users/mae/workspace/webposting` (fast-forward only).
+
+## Added 2026-10-03, late evening (things Mae said that were only in conversation)
+
+- **Two sessions, one usage pool.** A session on Mae's Mac and one on her
+  Windows PC work at once (split: `guide/HANDOFF-WINDOWS.md`). Both draw on
+  the same account limits. Mae's rule: stop at 90% of the 5-hour limit for
+  deploy and review; check before launching workers, and prefer Sonnet workers.
+- **The visual gate.** Mae: "dont fogrget to do a lot of visual and
+  interactive combined checks and record clips and review using computer
+  vision". Before anything goes to her: testers click through real flows on
+  the built site at 1300 and 390 wide, record clips (`tools/visual/`), open
+  frame sheets and judge them by eye; each tester has its own account (five
+  sessions per user); fix, rebuild, recheck what failed. Both products.
+- **Names.** "the app name is webpaint.ing not webpaint": both products are
+  written with the dot wherever a person sees them.
+- **Notifications** always name and link their subject and show what was said
+  ("otherwise they are useless").
+- **Mac app** must never show "AppleEvent timed out"; anything Mae has to run
+  for either product should be a row in the app (and in `tools/menu.mjs`).
+- **webpaint.ing decisions:** the engine stays Godot; six GPU features are
+  committed scope; multitouch; opening `.webpaint` files from the interface;
+  low drawing latency; an unsigned Electron desktop build later; WebGPU by
+  modifying Godot, on the PC. Details: webpaint.ing `guide/HANDOFF-WINDOWS.md`.
+- **Honesty about readiness.** Say "not ready" with the list of what failed;
+  never hand over on tests alone.
+- **Target:** 100 users on webpost.ing by 2026-11-03 (`guide/PLAN-OCTOBER.md`).
+  New ideas are welcome and recorded, and the release work comes first.
