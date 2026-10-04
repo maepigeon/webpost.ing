@@ -107,6 +107,17 @@ export default {
     // ---- Save as font: in-page field ----------------------------------------------------------------
     await v.click(page.locator('button[aria-label^="Draw your own characters"]'));
     await sleep(800);
+    const gd = page.getByRole('dialog', { name: 'Custom characters' });
+    if (await gd.count()) {
+      await gd.scrollIntoViewIfNeeded(); await sleep(500);
+      await v.click(gd.locator('input.tilegrid-char')); await page.keyboard.type('A', { delay: 80 });
+      const cells = gd.locator('.tilegrid-bitmap span');
+      v.note('glyph bitmap cells: ' + await cells.count());
+      for (const i of [40, 41, 56, 57, 72, 73, 88, 89]) { const c = cells.nth(i); await c.scrollIntoViewIfNeeded().catch(() => {}); const b = await c.boundingBox(); if (b) { await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 3 }); await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2); } }
+      await sleep(300);
+      await v.click(gd.getByRole('button', { name: /^Save .A.$/ })); await sleep(500);
+      await v.shot('glyph-drawn', { fullPage: false, dynamic: true });
+    }
     const saveBtn = page.getByRole('button', { name: /Save as font/ });
     v.note('glyph editor open: Save as font present=' + await saveBtn.count() + ' enabled=' + (await saveBtn.count() ? await saveBtn.first().isEnabled() : null));
     if (await saveBtn.count() && await saveBtn.first().isEnabled()) {
@@ -139,6 +150,7 @@ export default {
 
     // ---- Theme dialog (dark post theme: strip, no blur) ----------------------------------------------
     await page.evaluate(() => window.scrollTo(0, 0)); await sleep(400);
+    { const pg = page.locator('.pe-section-head[title$=" Page"]').first(); if (/^Show/.test(await pg.getAttribute('title').catch(() => '') || '')) await v.click(pg); }
     await v.click(page.getByRole('button', { name: 'Theme', exact: true }));
     await page.getByRole('dialog', { name: /Theme for this post/ }).waitFor({ timeout: 4000 }).catch(() => v.note('theme dialog did not open'));
     await sleep(800);
