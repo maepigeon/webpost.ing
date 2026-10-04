@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { GET_POST_CARD } from '../Pages/Posts/BasicTextPostServerApi.js';
-import { firstGridOfPost } from '../../utils/gridPost.js';
+import { cardGridOf } from '../../utils/gridPost.js';
 import { postPath } from '../../utils/postUrl.js';
 import TileGrid from '../Pages/Posts/PostRenderer/RichTextPost/TileGrid/TileGrid.jsx';
 import './PostMessageCard.css';
@@ -26,7 +26,7 @@ export default function PostMessageCard({ id }) {
     return () => { live = false; };
   }, [id]);
 
-  const grid = useMemo(() => firstGridOfPost(post?.description), [post]);
+  const grid = useMemo(() => cardGridOf(post), [post]);
 
   if (missing) return <div className="post-msg-card post-msg-card--missing">This post isn&apos;t available.</div>;
   if (!post) return <div className="post-msg-card post-msg-card--loading">Loading post…</div>;

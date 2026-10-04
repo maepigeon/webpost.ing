@@ -36,9 +36,9 @@ have well made timeline features and well placed UI considerations."
   https://github.com/maepigeon/Drawing-app. Read it first and reuse its
   architecture where it fits.
 - **Link between the sites**: a direct "upload/post to webpost.ing" (and
-  into webpaint.ing) button for finished work. She wrote "direct upload to
-  webpaint.ing button" for webpaint.ing content; confirm which direction(s)
-  she means before building.
+  into webpaint.ing) button for finished work. **Both directions, confirmed
+  by Mae on 2026-10-03**: finished work can be posted to webpost.ing, and
+  saved or published into webpaint.ing itself.
 - Must have: a well-made timeline, careful UI/UX, 3D model reference, export
   to standard video formats, scripting and shaders in the animation editor.
 
@@ -72,6 +72,48 @@ animation wips".
   to subscribers (early or only). This depends on the Subscribers feature,
   which today is a private section with no subscriptions behind it.
 - **Animation WIPs**: the same quick-update flow for unfinished animation.
+
+## Testing and design enforcement (Mae, 2026-10-03)
+
+The `visual-tester` (recorded flows, baselines, pixel diffs) and the
+`design-guardian` (her design rules, checked in a browser) "should be used in
+both webpost.ing and in webpaint.ing". Copy the agent definitions and
+`guide/DESIGN-RULES.md` into the new repository when it is created, and give
+the Godot client a test bridge (query state, set a known document) so flows
+can be driven and checked.
+
+## Scope: a full paint and comic studio (Mae, 2026-10-03)
+
+"i want webpainting to do a lot of what clip studio paint can do ... or
+really cs paint ex". The target class is a professional illustration, comic
+and animation studio: layers with masks and blend modes, a strong brush
+engine, selections and transforms, rulers and perspective, tones, text and
+balloons, multi-page comic management, 3D reference, cel animation with a
+timeline. Far too much for a first version: the architecture document maps
+each capability to a phase and says what the data model must allow from day
+one. She also asked whether a downloadable version could be an Electron app
+wrapping the Godot web build; the architecture document answers that.
+
+## Offline and installable (Mae, 2026-10-03)
+
+"it should also work offline" and "add a way to add the app to your phone
+home screen as web app". The editor must open and work with no connection
+(projects saved on the device, synced or uploaded when back online), and the
+site must be installable to a phone or tablet home screen the way
+webpost.ing now is (manifest, icons, service worker, an Install button).
+With a Godot web build this means the service worker caches the engine and
+project files, which are large: plan the cache and its updates.
+
+## The Mac app (Mae, 2026-10-03)
+
+"add buttons to my deployment app for webpainting": the Webposting app in
+`~/Applications` (source `tools/mac-app/`) gets webpaint.ing entries (view
+locally, rebuild, stop, deploy) once that project has scripts to run. Do not
+add buttons that do nothing: add them in the same change that adds the
+webpaint.ing `run-local` and `deploy` scripts.
+
+She also asked to be told when each site is ready for her review, and what
+to do to connect the domain (next section).
 
 ## The domain (GoDaddy)
 

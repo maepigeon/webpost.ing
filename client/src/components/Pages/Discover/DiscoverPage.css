@@ -5,13 +5,14 @@
   min-height: 40px; padding: 0 20px;
   border: 0; border-bottom: 3px solid transparent; border-radius: 0;
   background: transparent; color: #111;
-  font: 500 14px var(--app-font); opacity: 0.7; cursor: pointer;
+  font: 600 14px var(--app-font); opacity: 0.7; cursor: pointer;
   transition: opacity 0.12s, transform 0.12s;
 }
 .discover-tab:hover { opacity: 1; }
 .discover-tab:active { transform: scale(0.96); }
 .discover-tab:focus-visible { outline: 2px solid #111; outline-offset: -4px; }
-.discover-tab.is-active { opacity: 1; font-weight: 700; border-bottom-color: #111; }
+/* One weight for every tab, so choosing one does not change its width. */
+.discover-tab.is-active { opacity: 1; border-bottom-color: #111; }
 
 .discover-avatar--initial {
   display: inline-flex; align-items: center; justify-content: center;

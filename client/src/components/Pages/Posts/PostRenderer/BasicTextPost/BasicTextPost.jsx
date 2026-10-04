@@ -1,11 +1,10 @@
-import {UPDATE_POST, DELETE_POST} from '../../BasicTextPostServerApi.js'
-import {useState, useRef, useMemo} from 'react';
+import {DELETE_POST} from '../../BasicTextPostServerApi.js'
+import {useMemo} from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import './BasicTextPost.css'
-import ContentEditable from 'react-contenteditable';
 import { useDialog } from '../../../../Dialog/Dialog.jsx';
 import { postPath } from '../../../../../utils/postUrl.js';
-import { firstGridOfPost } from '../../../../../utils/gridPost.js';
+import { cardGridOf } from '../../../../../utils/gridPost.js';
 import TileGrid from '../RichTextPost/TileGrid/TileGrid.jsx';
 import { postDateline } from '../../../../../utils/postDate.js';
 
@@ -13,80 +12,19 @@ import { postDateline } from '../../../../../utils/postDate.js';
 function BasicTextPost(props) {
     const { confirm } = useDialog();
     var postdata = props.postdata;
-    var editMode = props.editMode;
     var hasModifyPermissions = props.hasModifyPermissions;
     var ownerUsername = props.ownerUsername || '';
 
-    const Modes = Object.freeze({
-        VIEW: 0,
-        EDIT: 1,
-        NEW: 2
-    });
-
-    const [currentPostMode, setCurrentPostMode] = useState(editMode ? Modes.EDIT : Modes.VIEW);
     const navigate = useNavigate();
     // The card previews the post's first grid, unless its author turned that off.
-    const showGrid = postdata.cardGrid !== false;
-    const grid = useMemo(() => (showGrid ? firstGridOfPost(postdata.description) : null),
-        [showGrid, postdata.description]);
+    const grid = useMemo(() => cardGridOf(postdata),
+        [postdata.cardGrid, postdata.preview, postdata.description]);
     // Taller than half its width, the grid is cut off: the card is a preview.
     const gridCropped = grid && grid.rows / grid.cols > 0.5;
 
     const viewPath = ownerUsername
         ? postPath(ownerUsername, postdata)
         : `/editor/${postdata.id}`;
-
-    const submitEditPost = () => {
-        UPDATE_POST(postdata.id, titlehtml.current, descriptionhtml.current, postdata.published,
-            postdata.backgroundPattern, postdata.folder, postdata.slug, postdata.summary, postdata.section).then(
-        () => {props.updatePostsFlagCallback();}
-        );
-        setCurrentPostMode(Modes.VIEW);
-    }
-
-    const titlehtml = useRef("Title");
-    var handleEditTitle = event => {
-        if (event.target.value) {
-            titlehtml.current = event.target.value;
-    }};
-    const descriptionhtml = useRef("Description");
-    var handleEditDescription = event => {
-        if (event.target.value) {
-            descriptionhtml.current = event.target.value;
-    } };
-
-
-    const Editable = ({editEventHandler, typeTag, initialContent}) => {
-        const content = initialContent;
-        return (
-            <ContentEditable
-                onChange={editEventHandler}
-                onBlur={editEventHandler}
-                html={content}
-                tagName={typeTag}/>
-        )
-    }
-
-    function renderPostDataFields(postMode) {
-        if (postMode == Modes.VIEW) {
-            return(
-                <Link to={viewPath} className="post-title-link">
-                    <h1>{postdata.title}</h1>
-                </Link>
-            );
-        }
-        else if (postMode == Modes.EDIT) {
-            return(
-                <>
-                    <Editable editEventHandler={handleEditTitle}
-                        typeTag="h1" initialContent={postdata.title}>
-                    </Editable>
-                    <Editable editEventHandler={handleEditDescription}
-                        typeTag="p" initialContent={postdata.description}>
-                     </Editable>
-                </>);
-        }
-    }
 
     function deleteButtonRender() {
         if (!hasModifyPermissions) {
@@ -95,7 +33,7 @@ function BasicTextPost(props) {
         else {
             return(
                 <button type="button" className="post-delete-btn" onClick={async () => {
-                        if (!(await confirm('Are you sure you want to delete this post? This cannot be undone.'))) return;
+                        if (!(await confirm('Delete this post? This cannot be undone.', 'Delete post', 'Delete'))) return;
                         DELETE_POST(postdata.id).then(
                         () => {
                             props.updatePostsFlagCallback();
@@ -109,34 +47,22 @@ function BasicTextPost(props) {
             }
         }
 
-    function editButtonRender(postMode) {
+    function editButtonRender() {
         if (!hasModifyPermissions) {
             return <></>
         }
-        if (postMode == Modes.VIEW) {
-            return(
-                // A button that navigates, not a button inside a link (invalid
-                // HTML, and two tab stops for one control).
-                <button type="button" onClick={() => navigate(`/editor/${postdata.id}`, { state: { postID: postdata.id } })}>Edit</button>
-            );
-        }
-        else if (postMode == Modes.EDIT) {
-            return(
-                <>
-                    <button onClick={() => setCurrentPostMode(Modes.VIEW) }>Cancel Edit</button>
-                    <button onClick={() => submitEditPost() }>Submit</button>
-                </>
-                );
-        }
+        return(
+            // A button that navigates, not a button inside a link (invalid
+            // HTML, and two tab stops for one control).
+            <button type="button" onClick={() => navigate(`/editor/${postdata.id}`, { state: { postID: postdata.id } })}>Edit</button>
+        );
     }
 
     const dateline = postDateline(postdata.date);
 
     return (
         <div className="post basicTextPost" data-post-id={postdata.id}>
-            {currentPostMode === Modes.VIEW && (
-                <Link to={viewPath} className="post-card-overlay" aria-label={postdata.title} tabIndex={-1} />
-            )}
+            <Link to={viewPath} className="post-card-overlay" aria-label={postdata.title} tabIndex={-1} />
             <div className="datestring">
                 {dateline.text && <p><time dateTime={dateline.iso} title={dateline.full}>{dateline.text}</time></p>}
             </div>
@@ -145,11 +71,13 @@ function BasicTextPost(props) {
                     {!postdata.published && (
                         <span className="draft-badge">DRAFT</span>
                     )}
-                    {renderPostDataFields(currentPostMode)}
-                    {postdata.summary && currentPostMode === Modes.VIEW && (
+                    <Link to={viewPath} className="post-title-link">
+                        <h1>{postdata.title}</h1>
+                    </Link>
+                    {postdata.summary && (
                         <p className="post-card-summary">{postdata.summary}</p>
                     )}
-                    {grid && currentPostMode === Modes.VIEW && (
+                    {grid && (
                         <div className="post-card-grid">
                             <div className={`post-card-grid-window${gridCropped ? ' is-cropped' : ''}`}>
                                 <TileGrid data={grid} editable={false} onChange={() => {}} linksActive={false} />
@@ -161,7 +89,7 @@ function BasicTextPost(props) {
             {hasModifyPermissions && (
                 <div className="bottom-nav">
                     <div className="editor">
-                        {editButtonRender(currentPostMode)}
+                        {editButtonRender()}
                         {deleteButtonRender()}
                     </div>
                 </div>

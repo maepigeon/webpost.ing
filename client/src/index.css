@@ -68,9 +68,18 @@ button {
   transition: border-color 0.25s;
 }
 
-button:focus,
+/* Keyboard focus only: the house grey ring. A mouse click leaves no ring. */
+button:focus { outline: none; }
 button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+/* The same ring on every other focusable that is not a field (headings that
+   fold, links, tabs, role=button). :where() keeps this at the lowest weight so
+   a component's own focus style still wins. Fields keep their own. */
+:where(summary, a, [role="tab"], [role="button"], [tabindex]:not([tabindex="-1"], input, select, textarea)):focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 @media (prefers-color-scheme: light) {

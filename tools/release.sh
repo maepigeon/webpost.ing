@@ -13,21 +13,29 @@
 #   1. run the server tests (needs the local webposting_test database, see
 #      guide/MIGRATIONS.md) and the client tests
 #   2. build the website (client/dist) and the server JAR
-#   3. pack them with install-release.sh into release/webposting-<date>-<commit>.tar.gz
+#   3. pack them, with install-release.sh and server-start.sh, into
+#      release/webposting-<date>-<commit>.tar.gz
 #   4. upload it to the server's ~/incoming (over ssh; asks for your SSH
 #      password once, for this and the next step)
 #   5. unpack it there and run its install.sh with sudo (asks for your sudo
-#      password). That backs up the database, JAR and website, swaps in the
-#      new ones, restarts, checks /api/health, and rolls back if it fails.
+#      password). That backs up the database, JAR, start script and website,
+#      swaps in the new ones, restarts, checks /api/health, and rolls back
+#      if it fails.
+#
+# Nothing here talks to GitHub, and neither does the server: the release is
+# built on this computer and uploaded over ssh.
 #
 # Settings: release.env in the repository root (not in git; copy
 # config/release.env.example). Nothing about the server is written in this
-# script or anywhere else in the repository, which is public:
+# script or anywhere else in the repository. It is private now, but private
+# repositories get cloned to laptops and may be opened again:
 #   DEPLOY_HOST    ssh destination, user@host
 #   SERVER_ENV     where deploy.env is on the server
 #   DEPLOY_INBOX   upload directory there, in your home (default incoming)
 #
-# Needs: Java 21, Node 20.19 or later, and git.
+# Needs: Java 21, Node 20.19 or later, and git. Runs in bash on macOS, Linux
+# and Windows (Git Bash); on Windows ssh asks for the password at every step,
+# because Git's ssh cannot share one connection.
 
 set -euo pipefail
 
@@ -40,7 +48,7 @@ for arg in "$@"; do
     --skip-tests) TESTS=0 ;;
     --no-install) INSTALL=0 ;;
     --build-only) UPLOAD=0; INSTALL=0 ;;
-    -h|--help) sed -n '2,32p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,38p' "$0"; exit 0 ;;
     *) echo "Unknown option: $arg (try --help)"; exit 2 ;;
   esac
 done
@@ -90,10 +98,15 @@ OUT="$ROOT/release/$NAME"
 rm -rf "$OUT"
 mkdir -p "$OUT"
 cp server/target/server-0.0.1-SNAPSHOT.jar "$OUT/server.jar"
+# The start script (JVM memory flags) is installed next to the live one.
+[ -f server-start.sh ] || fail "server-start.sh is missing from the repository root."
+bash -n server-start.sh || fail "server-start.sh has a syntax error."
+cp server-start.sh "$OUT/server-start.sh"
 cp -R client/dist "$OUT/html"
 cp tools/install-release.sh "$OUT/install.sh"
 # One-off server scripts travel with every release, so they are at hand.
 mkdir -p "$OUT/server-tools" && cp tools/server/*.sh "$OUT/server-tools/"
+cp tools/backup.sh "$OUT/server-tools/"
 printf '%s\ncommit %s (%s)\nbuilt %s on %s\n' "$NAME" "$(git rev-parse HEAD)" "$BRANCH" "$(date)" "$(hostname)" > "$OUT/RELEASE"
 tar -czf "$ROOT/release/$NAME.tar.gz" -C "$ROOT/release" "$NAME"
 echo "Built release/$NAME.tar.gz ($(du -h "$ROOT/release/$NAME.tar.gz" | cut -f1))"
@@ -107,9 +120,13 @@ fi
 step "4/5 Upload to $DEPLOY_HOST:~/$DEPLOY_INBOX"
 # One connection for every step below, so the SSH password is asked once
 # rather than once per step. It closes when the script ends.
-SSH_SOCKET="$(mktemp -d)/ssh"
-SSH_OPTS=(-o ControlMaster=auto -o "ControlPath=$SSH_SOCKET" -o ControlPersist=10m)
-trap 'ssh "${SSH_OPTS[@]}" -O exit "$DEPLOY_HOST" 2>/dev/null || true' EXIT
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) SSH_OPTS=(-o ServerAliveInterval=30) ;;   # no connection sharing on Windows
+  *)
+    SSH_SOCKET="$(mktemp -d)/ssh"
+    SSH_OPTS=(-o ControlMaster=auto -o "ControlPath=$SSH_SOCKET" -o ControlPersist=10m)
+    trap 'ssh "${SSH_OPTS[@]}" -O exit "$DEPLOY_HOST" 2>/dev/null || true' EXIT ;;
+esac
 ssh "${SSH_OPTS[@]}" "$DEPLOY_HOST" "mkdir -p ~/$DEPLOY_INBOX" || fail "could not log in to $DEPLOY_HOST."
 
 # The archive goes down the ssh connection itself (not scp, which needs the

@@ -50,6 +50,8 @@ class DatabaseSchemaTest {
                 "pixel_fonts", "stickers", "stickies", "shared_packs", "shared_pack_saves",
                 // security log (V018)
                 "security_events",
+                // linked sign-in providers (V021)
+                "user_identities",
                 // migration tracking
                 "schema_migrations"
         );
@@ -94,6 +96,121 @@ class DatabaseSchemaTest {
         assertColumnExists("posts", "section");         // V017
         for (String c : List.of("user_id", "kind", "detail", "ip_prefix", "user_agent", "created_at"))
             assertColumnExists("security_events", c);       // V018
+        for (String c : List.of("card_preview", "search_text", "preview_version"))
+            assertColumnExists("posts", c);                 // V020
+        for (String c : List.of("user_id", "provider", "subject", "email", "email_verified", "created_at", "last_used_at"))
+            assertColumnExists("user_identities", c);       // V021
+    }
+
+    // ── V021: linked sign-in providers ────────────────────────────────────────
+
+    /** One member per provider account, one account per provider for a member, and the rows leave with the member. */
+    @Test
+    void userIdentities_areUniqueBothWaysAndGoWithTheAccount() {
+        assertIndexExists("user_identities_provider_subject", true);
+        assertIndexExists("user_identities_user_provider", true);
+        jdbc.update("DELETE FROM users WHERE username IN ('v021_one_junit', 'v021_two_junit')");
+        int one = jdbc.queryForObject("INSERT INTO users (username, password) VALUES ('v021_one_junit', 'x') RETURNING id", Integer.class);
+        int two = jdbc.queryForObject("INSERT INTO users (username, password) VALUES ('v021_two_junit', 'x') RETURNING id", Integer.class);
+        try {
+            jdbc.update("INSERT INTO user_identities (user_id, provider, subject) VALUES (?, 'google', 'v021-sub-a')", one);
+            org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                    jdbc.update("INSERT INTO user_identities (user_id, provider, subject) VALUES (?, 'google', 'v021-sub-a')", two))
+                    .as("the same provider account on a second member")
+                    .isInstanceOf(org.springframework.dao.DuplicateKeyException.class);
+            org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                    jdbc.update("INSERT INTO user_identities (user_id, provider, subject) VALUES (?, 'google', 'v021-sub-b')", one))
+                    .as("a second account of the same provider on one member")
+                    .isInstanceOf(org.springframework.dao.DuplicateKeyException.class);
+            // The same subject at another provider is somebody else.
+            jdbc.update("INSERT INTO user_identities (user_id, provider, subject) VALUES (?, 'microsoft', 'v021-sub-a')", two);
+
+            jdbc.update("DELETE FROM users WHERE id = ?", one);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM user_identities WHERE user_id = ?", Integer.class, one)).isZero();
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM user_identities WHERE user_id = ?", Integer.class, two)).isEqualTo(1);
+        } finally {
+            jdbc.update("DELETE FROM users WHERE username IN ('v021_one_junit', 'v021_two_junit')");
+        }
+    }
+
+    /** V021 is safe to run twice: a second run changes nothing and keeps the rows. */
+    @Test
+    void userIdentities_migrationCanRunAgainWithoutLosingAnything() throws Exception {
+        String tracking = "test_v021_again_junit";
+        String sql = new String(getClass().getResourceAsStream("/db/migrations/V021__user_identities.sql").readAllBytes(),
+                java.nio.charset.StandardCharsets.UTF_8);
+        jdbc.update("DELETE FROM users WHERE username = 'v021_again_junit'");
+        int id = jdbc.queryForObject("INSERT INTO users (username, password) VALUES ('v021_again_junit', 'x') RETURNING id", Integer.class);
+        jdbc.update("INSERT INTO user_identities (user_id, provider, subject) VALUES (?, 'google', 'v021-again')", id);
+        try {
+            new com.springbootprojects.webpostingserver.migration.DatabaseMigrator(jdbc, tracking).migrate(List.of(
+                    new com.springbootprojects.webpostingserver.migration.DatabaseMigrator.MigrationScript("V021__user_identities", "again", sql)));
+
+            assertThat(jdbc.queryForObject("SELECT subject FROM user_identities WHERE user_id = ?", String.class, id))
+                    .isEqualTo("v021-again");
+            assertIndexExists("user_identities_provider_subject", true);
+            assertIndexExists("user_identities_user_provider", true);
+        } finally {
+            jdbc.update("DELETE FROM users WHERE id = ?", id);
+            jdbc.execute("DROP TABLE IF EXISTS " + tracking);
+        }
+    }
+
+    // ── V020: card previews and search text ───────────────────────────────────
+
+    @Test
+    void postPreviews_startUncomputedAndSearchIsIndexed() {
+        // Rows that existed before V020, and rows an import inserts, are at 0: "the sweep has this to do".
+        String versionDefault = jdbc.queryForObject("""
+                SELECT column_default FROM information_schema.columns
+                 WHERE table_schema = 'public' AND table_name = 'posts' AND column_name = 'preview_version'""", String.class);
+        assertThat(versionDefault).isEqualTo("0");
+        assertIndexExists("idx_posts_search_trgm", true);
+        String definition = jdbc.queryForObject(
+                "SELECT indexdef FROM pg_indexes WHERE schemaname = 'public' AND indexname = 'idx_posts_search_trgm'", String.class);
+        assertThat(definition).contains("gin").contains("search_text").contains("gin_trgm_ops").contains("WHERE published");
+    }
+
+    /** A migration half-applied before a crash is retried whole: V020 must pass over what is there and keep what was computed. */
+    @Test
+    void postPreviews_migrationCanRunAgainWithoutLosingAnything() throws Exception {
+        String tracking = "test_v020_again_junit";
+        String sql = new String(getClass().getResourceAsStream("/db/migrations/V020__post_previews.sql").readAllBytes(),
+                java.nio.charset.StandardCharsets.UTF_8);
+        int id = jdbc.queryForObject("""
+                INSERT INTO posts (title, description, published, card_preview, search_text, preview_version)
+                VALUES ('v020 again', 'body', false, '{"cols":1}', 'body', 1) RETURNING id""", Integer.class);
+        try {
+            new com.springbootprojects.webpostingserver.migration.DatabaseMigrator(jdbc, tracking).migrate(List.of(
+                    new com.springbootprojects.webpostingserver.migration.DatabaseMigrator.MigrationScript("V020__post_previews", "again", sql)));
+
+            assertThat(jdbc.queryForObject("SELECT card_preview || '|' || search_text || '|' || preview_version FROM posts WHERE id = ?",
+                    String.class, id)).isEqualTo("{\"cols\":1}|body|1");
+            assertIndexExists("idx_posts_search_trgm", true);
+        } finally {
+            jdbc.update("DELETE FROM posts WHERE id = ?", id);
+            jdbc.execute("DROP TABLE IF EXISTS " + tracking);
+        }
+    }
+
+    // ── Indexes added by V019 ─────────────────────────────────────────────────
+
+    @Test
+    void performanceIndexes_exist() {
+        for (String index : List.of("idx_posts_pub_date", "idx_notifications_unread",
+                "idx_notifications_new_post", "idx_conversations_user2", "idx_comments_user",
+                "idx_post_uploads_upload", "idx_hashtags_tag_prefix", "idx_users_username_trgm")) {
+            assertIndexExists(index, true);
+        }
+    }
+
+    @Test
+    void duplicateIndexes_areGone() {
+        assertIndexExists("idx_notifications_recipient", false);
+        assertIndexExists("idx_follows_follower", false);
+        // the copies they duplicated stay
+        assertIndexExists("idx_notif_recipient", true);
+        assertIndexExists("follows_pkey", true);
     }
 
     // ── conversations columns ─────────────────────────────────────────────────
@@ -257,6 +374,13 @@ class DatabaseSchemaTest {
                 "WHERE table_schema = 'public' AND table_name = ?",
                 Integer.class, table);
         assertThat(count).as("Table '%s' should exist", table).isEqualTo(1);
+    }
+
+    private void assertIndexExists(String index, boolean expected) {
+        Integer count = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM pg_indexes WHERE schemaname = 'public' AND indexname = ?",
+                Integer.class, index);
+        assertThat(count).as("Index '%s' existence", index).isEqualTo(expected ? 1 : 0);
     }
 
     private void assertColumnExists(String table, String column) {

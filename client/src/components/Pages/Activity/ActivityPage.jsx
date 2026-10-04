@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { GET_USER_ACTIVITY } from '../Posts/BasicTextPostServerApi.js';
+import '../Posts/PostsViewer/ProfileTabs.css';
 import './ActivityPage.css';
+import { activityTabs, nextTabId } from './activityTabs.js';
 import { postPath } from '../../../utils/postUrl.js';
 
 function timeAgo(date) {
@@ -29,6 +31,7 @@ export default function ActivityPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [denied, setDenied] = useState(false);
+  const tabRefs = useRef({});
 
   useEffect(() => {
     if (!me) { setDenied(true); setLoading(false); return; }
@@ -62,13 +65,17 @@ export default function ActivityPage() {
     ...commentReactions.map(r => ({ ...r, context: 'comment' })),
   ].sort((a, b) => (b.post_id ?? 0) - (a.post_id ?? 0));
 
-  const TABS = [
-    ['posts',     `Posts (${posts.length})`],
-    ['comments',  `Comments (${comments.length})`],
-    ['reactions', `Reactions (${allReactions.length})`],
-    ['uploads',   `Uploads (${uploads.length})`],
-    ['deletions', `Deletions (${deletions.length})`],
-  ];
+  const TABS = activityTabs({
+    posts: posts.length, comments: comments.length, reactions: allReactions.length,
+    uploads: uploads.length, deletions: deletions.length,
+  });
+  const onTabKeyDown = (e) => {
+    const id = nextTabId(TABS, tab, e.key);
+    if (!id) return;
+    e.preventDefault();
+    setTab(id);
+    tabRefs.current[id]?.focus();
+  };
 
   return (
     <div className="activity-page">
@@ -78,13 +85,21 @@ export default function ActivityPage() {
           <Link to={`/${username}`} className="activity-back-link">← Profile</Link>
         </div>
 
-        <div className="activity-tabs">
-          {TABS.map(([key, label]) => (
+        <div className="profile-tabs activity-tabs" role="tablist" aria-label="Activity" onKeyDown={onTabKeyDown}>
+          {TABS.map(t => (
             <button
-              key={key}
-              className={`activity-tab${tab === key ? ' activity-tab--active' : ''}`}
-              onClick={() => setTab(key)}
-            >{label}</button>
+              key={t.id}
+              type="button"
+              role="tab"
+              ref={el => { tabRefs.current[t.id] = el; }}
+              aria-selected={tab === t.id}
+              tabIndex={tab === t.id ? 0 : -1}
+              className={`profile-tab${tab === t.id ? ' is-active' : ''}`}
+              onClick={() => setTab(t.id)}
+            >
+              <span>{t.label}</span>
+              {t.count > 0 && <span className="profile-tab-count">{t.count}</span>}
+            </button>
           ))}
         </div>
 

@@ -42,6 +42,7 @@ import { ButtonNode, $createButtonNode } from './ButtonNode.jsx';
 import { MathNode, $createMathNode } from './MathNode.jsx';
 import { TileGridNode, $createTileGridNode } from './TileGrid/TileGridNode.jsx';
 import axios from 'axios';
+import katex from 'katex';
 import { BASE_URL } from '../../../../../config.js';
 import { useBodyWallpaper, serialiseWallpaper } from '../../../../TileArt/wallpaper.js'
 import { usePostTheme, useAuthorTheme } from '../../../../PageTheme/PageTheme.jsx';;
@@ -53,6 +54,7 @@ import { postPath, slugify } from '../../../../../utils/postUrl.js';
 import { cleanSummary, SUMMARY_MAX } from '../../../../../utils/postSummary.js';
 import ColourPicker from '../../../../TileArt/ColourPicker.jsx';
 import { useAutosave } from '../../../../../utils/useAutosave.js';
+import { ensureFontsIn, watchFontsIn } from '../../../../../utils/fontLoader.js';
 import { StickerCenter } from '../../../../TileArt/StickerCenter.jsx';
 
 const EDITOR_NODES = [HeadingNode, ListNode, ListItemNode, CustomCodeNode, CodeHighlightNode, ImageNode, AudioNode, ButtonNode, MathNode, TileGridNode, LinkNode];
@@ -184,6 +186,13 @@ function InlineStylePlugin() {
     });
   }, [editor]);
 
+  // Fonts already in the text (a loaded draft, pasted text) are loaded as it appears.
+  useEffect(() => {
+    let stop = () => {};
+    const off = editor.registerRootListener((root) => { stop(); stop = watchFontsIn(root); });
+    return () => { off(); stop(); };
+  }, [editor]);
+
   const applyColor = (value) => {
     setColor(value);
     editor.update(() => {
@@ -202,6 +211,7 @@ function InlineStylePlugin() {
 
   const applyFontFamily = (value) => {
     setFontFamily(value);
+    ensureFontsIn(value);
     editor.update(() => {
       const selection = $getSelection();
       if ($isRangeSelection(selection)) $patchStyleText(selection, { 'font-family': value || '' });
@@ -417,6 +427,11 @@ function CodeEscapePlugin() {
   return null;
 }
 
+/** A code block's own name, tidied: letters, digits and a few signs, 24 long at most. */
+export function cleanCodeLabel(text) {
+  return String(text ?? '').trim().replace(/[^A-Za-z0-9+#.\- ]/g, '').slice(0, 24).trim();
+}
+
 function CodeHoverControlsPlugin() {
   const [editor] = useLexicalComposerContext();
   useEffect(() => {
@@ -524,6 +539,16 @@ function CodeHoverControlsPlugin() {
       if (language && !LANGS.includes(language)) addOption(language, language);
       select.value = language || '';
 
+      // A name of your own is typed into a small field in the bar itself,
+      // not a browser prompt.
+      const labelInput = document.createElement('input');
+      labelInput.type = 'text';
+      labelInput.className = 'code-ctrl-input';
+      labelInput.placeholder = 'Name, e.g. Shell';
+      labelInput.setAttribute('aria-label', 'Name for this code block');
+      labelInput.maxLength = 24;
+      labelInput.hidden = true;
+
       const showSelect = () => {
         select.hidden = false;
         langLabel.hidden = true;
@@ -531,7 +556,7 @@ function CodeHoverControlsPlugin() {
       };
       const hideSelect = () => {
         select.hidden = true;
-        langLabel.hidden = false;
+        langLabel.hidden = !labelInput.hidden;
       };
 
       const applyLanguage = (value) => {
@@ -549,17 +574,12 @@ function CodeHoverControlsPlugin() {
       select.addEventListener('blur', hideSelect);
       select.addEventListener('change', () => {
         if (select.value === CUSTOM) {
-          const typed = window.prompt('Label this code block:', langLabel.textContent);
-          hideSelect();
-          if (typed === null) { select.value = language || ''; return; }
-          // Free text, but it becomes an attribute and a label, so keep it to
-          // something that cannot carry markup.
-          const clean = typed.trim().replace(/[^A-Za-z0-9+#.\- ]/g, '').slice(0, 24);
-          if (!clean) { select.value = language || ''; return; }
-          if (!Array.from(select.options).some(o => o.value === clean)) addOption(clean, clean);
-          select.value = clean;
-          language = clean;
-          applyLanguage(clean);
+          select.value = language || '';
+          select.hidden = true;
+          langLabel.hidden = true;
+          labelInput.value = '';
+          labelInput.hidden = false;
+          labelInput.focus();
           return;
         }
         language = select.value;
@@ -567,8 +587,33 @@ function CodeHoverControlsPlugin() {
         hideSelect();
       });
 
+      const closeInput = () => {
+        labelInput.hidden = true;
+        langLabel.hidden = false;
+      };
+      const commitInput = () => {
+        if (labelInput.hidden) return;
+        // Free text, but it becomes an attribute and a label, so keep it to
+        // something that cannot carry markup.
+        const clean = cleanCodeLabel(labelInput.value);
+        closeInput();
+        if (!clean) return;
+        if (!Array.from(select.options).some(o => o.value === clean)) addOption(clean, clean);
+        select.value = clean;
+        language = clean;
+        applyLanguage(clean);
+      };
+      labelInput.addEventListener('mousedown', ev => ev.stopPropagation());
+      labelInput.addEventListener('keydown', ev => {
+        ev.stopPropagation();   // typing here is not the code block's typing
+        if (ev.key === 'Enter') { ev.preventDefault(); commitInput(); }
+        if (ev.key === 'Escape') { ev.preventDefault(); closeInput(); }
+      });
+      labelInput.addEventListener('blur', commitInput);
+
       overlay.appendChild(langLabel);
       overlay.appendChild(select);
+      overlay.appendChild(labelInput);
       overlay.appendChild(document.createElement('span')).className = 'code-header-spacer';
 
       if (nodeKey) {
@@ -655,6 +700,8 @@ function CodeHoverControlsPlugin() {
       overlay.addEventListener('mouseenter', cancelRemove);
       select.addEventListener('focus', cancelRemove);
       select.addEventListener('blur', () => { if (!el.matches(':hover') && !overlay.matches(':hover')) scheduleRemove(); });
+      labelInput.addEventListener('focus', cancelRemove);
+      labelInput.addEventListener('blur', () => { if (!el.matches(':hover') && !overlay.matches(':hover')) scheduleRemove(); });
 
       state.cleanupFns.push(
         () => el.removeEventListener('mouseleave', scheduleRemove),
@@ -765,6 +812,7 @@ function DecoratorKeyboardPlugin() {
 // Handles drag-and-drop and clipboard paste of image files into the editor
 function ImageDragPastePlugin() {
   const [editor] = useLexicalComposerContext();
+  const { alert: showError } = useDialog();
 
   const uploadFile = useCallback(async (file) => {
     if (!file || !file.type.startsWith('image/')) return;
@@ -780,9 +828,9 @@ function ImageDragPastePlugin() {
       console.error('Image upload failed:', err);
       // The server explains the specific reason — a size cap, an unreadable
       // file, a full quota — so show that rather than replacing it.
-      alert(describeUploadError(err));
+      showError(describeUploadError(err));
     }
-  }, [editor]);
+  }, [editor, showError]);
 
   useEffect(() => {
     const root = editor.getRootElement();
@@ -827,8 +875,9 @@ function ImageDragPastePlugin() {
 }
 
 // An MP3 from the Insert row: picked, uploaded, and placed as an audio block.
-function AudioToolbarPlugin() {
+export function AudioToolbarPlugin() {
   const [editor] = useLexicalComposerContext();
+  const { alert: showError } = useDialog();
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
 
@@ -844,7 +893,7 @@ function AudioToolbarPlugin() {
       });
     } catch (err) {
       console.error('Audio upload failed:', err);
-      alert(describeUploadError(err));
+      showError(describeUploadError(err));
     } finally {
       setBusy(false);
     }
@@ -852,7 +901,8 @@ function AudioToolbarPlugin() {
 
   return (
     <>
-      <input ref={inputRef} type="file" accept=".mp3,audio/mpeg" onChange={onPick}
+      {/* The Audio button opens this hidden picker; it still carries a name, since it sits in the tool row. */}
+      <input ref={inputRef} type="file" accept=".mp3,audio/mpeg" onChange={onPick} aria-label="Choose an MP3 file"
         style={{ display: 'none' }} tabIndex={-1} aria-hidden="true" />
       <GridButton symbol="audio" label="Audio" title="Add an MP3" disabled={busy}
         onClick={() => inputRef.current?.click()} />
@@ -871,6 +921,7 @@ function ButtonToolbarPlugin() {
 
 function ImageToolbarPlugin() {
   const [editor] = useLexicalComposerContext();
+  const { alert: showError } = useDialog();
   const [infoOpen, setInfoOpen] = useState(false);
   const infoRef = useRef(null);
   const [pendingFile, setPendingFile] = useState(null);
@@ -902,7 +953,7 @@ function ImageToolbarPlugin() {
       });
     } catch (err) {
       console.error('Image upload failed:', err);
-      alert(describeUploadError(err));
+      showError(describeUploadError(err));
     }
   };
 
@@ -1217,14 +1268,60 @@ function CodeToolbarPlugin() {
   return <GridButton symbol="code" label="Code" title="Code block" onClick={onClick} />;
 }
 
+/**
+ * Whether some LaTeX can be drawn: the rendered result when it can, and the
+ * reason when it cannot. An empty entry is not an equation.
+ */
+export function checkEquation(text) {
+  const equation = String(text ?? '').trim();
+  if (!equation) return { ok: false, equation, html: '', error: '' };
+  try {
+    return { ok: true, equation, html: katex.renderToString(equation, { throwOnError: true, displayMode: true }), error: '' };
+  } catch (err) {
+    const why = String(err?.message || '').replace(/^KaTeX parse error:\s*/, '').split('\n')[0];
+    return { ok: false, equation, html: '', error: why || 'That is not valid LaTeX.' };
+  }
+}
+
+/** One field for the equation, with the result shown as you type; refuses what cannot be drawn. */
+function MathModal({ onConfirm, onCancel }) {
+  const [text, setText] = useState('');
+  const inputRef = useRef(null);
+  useEffect(() => { inputRef.current?.focus(); }, []);
+  const check = checkEquation(text);
+  const submit = () => { if (check.ok) onConfirm(check.equation); };
+  return createPortal(
+    <div className="editor-modal-overlay" onMouseDown={e => { if (e.target === e.currentTarget) onCancel(); }}>
+      <div className="editor-modal" role="dialog" aria-label="Insert math" onMouseDown={e => e.stopPropagation()}>
+        <div className="editor-modal-title">Insert math</div>
+        <input ref={inputRef} className="editor-modal-input" type="text" value={text}
+          placeholder="LaTeX, for example \frac{a}{b}" aria-label="LaTeX equation"
+          onChange={e => setText(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } if (e.key === 'Escape') { e.preventDefault(); onCancel(); } }} />
+        {check.ok && <div className="editor-modal-preview" dangerouslySetInnerHTML={{ __html: check.html }} />}
+        {check.error && <div className="editor-modal-status editor-modal-status--error" role="alert">{check.error}</div>}
+        <div className="editor-modal-actions">
+          <button className="editor-modal-btn editor-modal-btn--confirm" onClick={submit} disabled={!check.ok}>Insert</button>
+          <button className="editor-modal-btn editor-modal-btn--cancel" onClick={onCancel}>Cancel</button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 function MathToolbarPlugin() {
   const [editor] = useLexicalComposerContext();
-  const onClick = () => {
-    const equation = window.prompt('Enter LaTeX equation (e.g. \\frac{a}{b}):');
-    if (equation === null) return;
-    insertBlock(editor, () => $createMathNode(equation.trim()));
-  };
-  return <GridButton symbol="math" label="Math" title="Insert LaTeX math block" onClick={onClick} />;
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <GridButton symbol="math" label="Math" title="Insert LaTeX math block" onClick={() => setOpen(true)} />
+      {open && (
+        <MathModal onCancel={() => setOpen(false)}
+          onConfirm={(equation) => { setOpen(false); insertBlock(editor, () => $createMathNode(equation)); }} />
+      )}
+    </>
+  );
 }
 
 function TileGridToolbarPlugin() {
@@ -1496,7 +1593,7 @@ function PostSummaryField({ summary, onSummaryChange }) {
 }
 
 const SECTION_CHOICES = [
-  { id: 'profile', label: 'Post', hint: 'Shown on your profile when published.' },
+  { id: 'profile', label: 'Post', hint: '' },
   { id: 'notes', label: 'Note', hint: 'A quieter place. Published notes are public; drafts stay private.' },
   { id: 'subscribers', label: 'Subscribers', hint: 'Only you can see these for now.' },
 ];
@@ -1506,20 +1603,20 @@ function sectionFromParam(value) {
   return SECTION_CHOICES.some(c => c.id === value) ? value : 'profile';
 }
 
-/** Where the post goes: Post (profile), Note or Subscribers, with a hint that follows the choice. */
-function PostSectionField({ section, onSectionChange }) {
-  const current = SECTION_CHOICES.find(c => c.id === section) || SECTION_CHOICES[0];
+/** Where the post goes: Post (profile), Note or Subscribers. Each pill's hint is its hover title. */
+export function PostSectionField({ section, onSectionChange }) {
   return (
     <div className="post-section-row">
+      {/* Named for screen readers only; the pills say what they are. */}
       <span className="post-summary-label" id="post-section-label">Goes in</span>
       <div className="post-section-choices" role="radiogroup" aria-labelledby="post-section-label">
         {SECTION_CHOICES.map(c => (
           <button key={c.id} type="button" role="radio" aria-checked={c.id === section}
             className={`post-section-pill${c.id === section ? ' is-on' : ''}`}
+            title={c.hint || 'Shown on your profile when published.'}
             onClick={() => onSectionChange(c.id)}>{c.label}</button>
         ))}
       </div>
-      <span className="post-section-hint">{current.hint}</span>
     </div>
   );
 }
@@ -1532,7 +1629,7 @@ const AUTOSAVE_MAX_BACKOFF_MS = 300_000;
 
 const clock = ts => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublishedChange, titleRef, onSaved, username, folder, features, slug, summary, section, bus, localSavedAt, onAutoSaved, onCreated }) {
+export function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublishedChange, titleRef, onSaved, username, folder, features, slug, summary, section, bus, localSavedAt, onAutoSaved, onCreated }) {
   const { confirm } = useDialog();
   const [editor] = useLexicalComposerContext();
   const [saveStatus, setSaveStatus] = useState('');
@@ -1609,7 +1706,7 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
     if (saving) return;
     const postTitle = titleText();
     if (published) {
-      if (!postTitle) { showStatus('Add a title before uploading.', true); return; }
+      if (!postTitle) { showStatus('Add a title before publishing.', true); return; }
       // Text, or any block that is content by itself — an image, a grid, a
       // math block. A post that is only a picture or a song is still a post.
       const hasContent = editor.getEditorState().read(() => {
@@ -1617,7 +1714,7 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
         return root.getTextContent().trim().length > 0
           || root.getChildren().some(n => ['image', 'audio', 'button', 'tilegrid', 'math'].includes(n.getType()));
       });
-      if (!hasContent) { showStatus('Add some content before uploading.', true); return; }
+      if (!hasContent) { showStatus('Add some content before publishing.', true); return; }
     }
     if (!published && postPublished) {
       if (!(await confirm('Unpublish this post? It will no longer be visible to other users.'))) return;
@@ -1645,7 +1742,11 @@ function SaveToolbarPlugin({ postid, backgroundPattern, postPublished, onPublish
     } else {
       CREATE_POST(1, postTitle, editorState, published, backgroundPattern, folder, slug, summary, section)
         .then((newId) => {
-          showStatus(published ? 'Uploaded — your post is live.' : 'Draft saved.');
+          showStatus(published ? 'Published.' : 'Draft saved.');
+          // The editor is now holding a saved post: say whether it is live, so
+          // the buttons read Unpublish / Save changes and Save draft cannot
+          // quietly take it down.
+          onPublishedChange(published);
           setSavedId(newId);
           savedRev.current = at;
           if (rev.current === at) setUnsynced(false);
@@ -1826,6 +1927,12 @@ function blankState(editor) {
   });
 }
 
+/** Puts the caret back in the writing surface (a bar that closes would leave focus on the page). */
+function focusWriting(editor) {
+  editor.focus();
+  editor.getRootElement()?.focus({ preventScroll: true });
+}
+
 /**
  * Keeps the post as a draft on this device (never the server) a moment after
  * each change, and offers it back when the editor opens and finds one that the
@@ -1879,8 +1986,9 @@ function PostAutosavePlugin({ draftKey, getFields, applyFields, bus, notify, flu
   return (
     <div className="draft-found" role="status">
       <span>Unsaved changes from {clock(offer.savedAt)} were found.</span>
-      <button type="button" onClick={() => { applyFields(offer.data, editor); restoredNow.current = true; setOffer(null); }}>Restore</button>
-      <button type="button" onClick={() => { auto.clear(); setOffer(null); }}>Discard</button>
+      {/* The bar goes away with the press, so focus moves to the writing surface instead of falling to the page. */}
+      <button type="button" onClick={() => { applyFields(offer.data, editor); restoredNow.current = true; setOffer(null); focusWriting(editor); }}>Restore</button>
+      <button type="button" onClick={() => { auto.clear(); setOffer(null); focusWriting(editor); }}>Discard</button>
     </div>
   );
 }
@@ -1984,22 +2092,42 @@ function onError(error) {
   console.error(error);
 }
 
-function LoadEditorStatePlugin({ ready }) {
+// The loaded body comes through a ref, in memory. It used to go through
+// localStorage ("currentPostData"), where a full store stopped the post from
+// opening and another tab loading a different post at that moment could put
+// its text here, to be saved over this post.
+function LoadEditorStatePlugin({ ready, bodyRef }) {
   const [editor] = useLexicalComposerContext();
   useEffect(() => {
     if (!ready) return;
-    const saved = localStorage.getItem("currentPostData");
+    const saved = bodyRef.current;
     if (saved) {
       const state = editor.parseEditorState(saved);
       editor.setEditorState(state, { tag: LOAD_TAG });
     }
-  }, [editor, ready]);
+  }, [editor, ready, bodyRef]);
   return null;
+}
+
+/**
+ * Puts a new post's address in the address bar once it has an id, so a reload
+ * opens that post instead of a blank one. Done on the browser's history, not
+ * through the router: a route change would restart the page (App's Fresh) and
+ * lose the cursor, undo history and the unsaved text. The router keeps its
+ * idea of the location until the next real navigation, which is harmless here.
+ */
+export function showSavedPostAddress(id, win = window) {
+  if (!(Number(id) > 0)) return false;
+  try {
+    win.history.replaceState(win.history.state, '', `/editor/${id}`);
+    return true;
+  } catch { return false; }
 }
 
 export default function RichTextEditor() {
   let { id } = useParams();
   const navigate = useNavigate();
+  const { confirm } = useDialog();
   const [postDate, setPostDate] = useState("");
   const [postPublished, setPostPublished] = useState(false);
   const titlehtml = useRef("");
@@ -2026,9 +2154,14 @@ export default function RichTextEditor() {
   const flushRef = useRef(null);          // writes the local draft now; true when it is safe
   const clearRef = useRef(null);          // drops the local draft
   const loadedRef = useRef({});           // what the server had when the post opened
+  const bodyRef = useRef(null);           // its body, for LoadEditorStatePlugin
   const fieldsRef = useRef({});
   const [localSavedAt, setLocalSavedAt] = useState(null);
   const [createdId, setCreatedId] = useState(null);
+  const handleCreated = useCallback((newId) => {
+    setCreatedId(newId);
+    showSavedPostAddress(newId);
+  }, []);
   const [titleKey, setTitleKey] = useState(0);
   const markChanged = useCallback(() => {
     setIsDirty(true);
@@ -2047,16 +2180,15 @@ export default function RichTextEditor() {
       const href = link.getAttribute('href');
       if (!href || href.startsWith('http') || href.startsWith('#')) return;
       if (!needsPrompt()) return;
-      // Can't use async dialog here since we need synchronous prevent/allow;
-      // fall back to native confirm for navigation-intercept only
-      if (!window.confirm('You have unsaved changes. Leave anyway? All unsaved data will be lost.')) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-      }
+      // Stop the click, ask in the app's own dialog, and go on only if told to.
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      confirm('You have unsaved changes. Leave anyway? All unsaved data will be lost.', 'Unsaved changes', 'Leave')
+        .then(leave => { if (leave) navigate(href); });
     };
     document.addEventListener('click', handler, { capture: true });
     return () => document.removeEventListener('click', handler, { capture: true });
-  }, [isDirty]);
+  }, [isDirty, confirm, navigate]);
 
   const me = localStorage.getItem('userName');
 
@@ -2087,7 +2219,7 @@ export default function RichTextEditor() {
     if (!id) return;
     READ_POST(id).then((data) => {
       titlehtml.current = (data.title || '').replace(/<[^>]*>/g, '').trim();
-      localStorage.setItem("currentPostTitle", titlehtml.current);
+      try { localStorage.setItem("currentPostTitle", titlehtml.current); } catch { /* not kept */ }
       setPostDate(data.date);
       setPostPublished(data.published);
       setBackgroundPattern(data.backgroundPattern || '');
@@ -2097,7 +2229,9 @@ export default function RichTextEditor() {
       setPostSlug(data.slug && data.slug !== slugify(data.title || '') ? data.slug : null);
       setPostSummary(data.summary || '');
       setPostSection(sectionFromParam(data.section));
-      localStorage.setItem("currentPostData", data.description);
+      bodyRef.current = data.description;
+      // The copy earlier versions kept in localStorage is no longer read: drop it, local drafts need the room.
+      try { localStorage.removeItem("currentPostData"); } catch { /* storage blocked: nothing kept */ }
       loadedRef.current = {
         title: titlehtml.current,
         summary: data.summary || '',
@@ -2202,7 +2336,7 @@ export default function RichTextEditor() {
         <DecoratorKeyboardPlugin />
         <ImageDragPastePlugin />
         <MyOnChangePlugin onChange={onChange} />
-        <LoadEditorStatePlugin ready={dataReady} />
+        <LoadEditorStatePlugin ready={dataReady} bodyRef={bodyRef} />
         <EnterScrollPlugin />
         <HeadingEnterPlugin />
         <div className="editor-centered">
@@ -2235,7 +2369,7 @@ export default function RichTextEditor() {
               flushRef={flushRef} clearRef={clearRef} onLocalSaved={setLocalSavedAt}
               ready={!id || dataReady > 0} loaded={getLoaded}
             />
-            <ToolbarPlugin postid={id} backgroundPattern={backgroundPattern} onPatternChange={changePattern} username={postAuthor || me} postPublished={postPublished} onPublishedChange={setPostPublished} features={features} onFeaturesChange={setFeatures} titleRef={titlehtml} onSaved={handleSaved} folder={postFolder} onFolderChange={changeFolder} slug={postSlug} onSlugChange={changeSlug} summary={cleanSummary(postSummary)} section={postSection} bus={bus} localSavedAt={localSavedAt} onAutoSaved={handleAutoSaved} onCreated={setCreatedId} />
+            <ToolbarPlugin postid={Number(id) > 0 ? id : createdId} backgroundPattern={backgroundPattern} onPatternChange={changePattern} username={postAuthor || me} postPublished={postPublished} onPublishedChange={setPostPublished} features={features} onFeaturesChange={setFeatures} titleRef={titlehtml} onSaved={handleSaved} folder={postFolder} onFolderChange={changeFolder} slug={postSlug} onSlugChange={changeSlug} summary={cleanSummary(postSummary)} section={postSection} bus={bus} localSavedAt={localSavedAt} onAutoSaved={handleAutoSaved} onCreated={handleCreated} />
             {/* The post itself, in its theme's fonts; the controls above stay in the app's. */}
             <div className="th-scope" style={{ position: 'relative' }}>
               <RichTextPlugin

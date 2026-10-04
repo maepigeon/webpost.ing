@@ -237,10 +237,22 @@ public class DiscussionController {
 
         // @name mentions: only people who may read the post, never the author
         List<String> mentioned = Mentions.extract(content);
-        if (!mentioned.isEmpty()) {
-            for (int recipient : social.findMentionRecipients(mentioned, session.userId, postId))
-                if (recipient != notifiedOwnerId) social.createNotification(recipient, "mention", username, postId, commentId);
+        List<Integer> mentionRecipients = mentioned.isEmpty()
+            ? List.of() : social.findMentionRecipients(mentioned, session.userId, postId);
+
+        // A reply also tells the author of the comment replied to, unless that is
+        // the replier, the post owner (told above) or someone @mentioned here
+        // (told below): nobody gets two notifications for one comment. Blocks are
+        // applied when a notification is read, as for the comment notification.
+        if (parentId != null) {
+            int parentAuthorId = social.getCommentAuthorId(parentId);
+            if (parentAuthorId > 0 && parentAuthorId != session.userId
+                    && parentAuthorId != notifiedOwnerId && !mentionRecipients.contains(parentAuthorId))
+                social.createNotification(parentAuthorId, "reply", username, postId, commentId);
         }
+
+        for (int recipient : mentionRecipients)
+            if (recipient != notifiedOwnerId) social.createNotification(recipient, "mention", username, postId, commentId);
 
         Map<String, Object> resp = new HashMap<>();
         resp.put("id", commentId);

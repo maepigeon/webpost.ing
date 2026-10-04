@@ -40,15 +40,14 @@
   padding: 6px 18px;
   border-radius: 20px;
   border: 1.5px solid rgba(0, 0, 0, 0.15);
-  background: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(8px);
+  background: #f4f4f4;
   color: #444;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 }
 
 .viewer-share-btn:hover {
-  background: rgba(255, 255, 255, 0.8);
+  background: #fff;
   color: #111;
 }
 
@@ -58,8 +57,7 @@
   right: 0;
   left: auto;
   min-width: 160px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(12px);
+  background: #fff;
   border: 1px solid rgba(0, 0, 0, 0.12);
   border-radius: 10px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);

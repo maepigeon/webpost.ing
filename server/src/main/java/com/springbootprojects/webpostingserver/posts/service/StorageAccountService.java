@@ -68,11 +68,6 @@ public class StorageAccountService {
         return v == null ? 0L : v;
     }
 
-    private long count(String sql, Object... args) {
-        Number v = jdbc.queryForObject(sql, Number.class, args);
-        return v == null ? 0L : v.longValue();
-    }
-
     private static Map<String, Object> item(long count, long bytes) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("count", count);
@@ -125,65 +120,114 @@ public class StorageAccountService {
     public boolean fitsQuota(int userId, long addBytes, long freedBytes) {
         Long limit = fileLimitBytes(userId);
         if (limit == null) return true;
-        long used = ((Number) usage(userId).get("totalBytes")).longValue();
+        // A limit of 0 is a frozen account (a moderation state): nothing is saved,
+        // not even a rewrite of the same size.
+        if (limit == 0) return false;
+        // A save that does not grow can never breach the quota, and a user who
+        // is over a lowered limit can still shrink what they have.
+        if (addBytes <= freedBytes) return true;
+        long used = ((Number) usage(userId, limit).get("totalBytes")).longValue();
         return used - freedBytes + addBytes <= limit;
+    }
+
+    /** One sub-select of the usage statement, aliased `alias`; every one reads the user from the `me` row. */
+    private static void figure(StringBuilder sql, String alias, String select, String from, String where) {
+        sql.append(",\n  (SELECT ").append(select).append(" FROM ").append(from).append(", me WHERE ").append(where)
+                .append(") AS ").append(alias);
+    }
+
+    /** A count and a byte total over the same rows: alias_n and alias_b. */
+    private static void counted(StringBuilder sql, String alias, String bytes, String from, String where) {
+        figure(sql, alias + "_n", "COUNT(*)", from, where);
+        figure(sql, alias + "_b", "COALESCE(SUM(" + bytes + "), 0)", from, where);
+    }
+
+    /** The users columns that hold text the user wrote: name shown, column. */
+    private static final String[][] PROFILE_COLUMNS = {
+            {"banner", "banner_grid"}, {"theme", "page_theme"}, {"wallpaper", "background_pattern"},
+            {"bio", "bio"}, {"links", "bio_links"}, {"wallpaperPresets", "pattern_presets"}};
+
+    /** The whole breakdown as one statement: every figure usage() reports, read in one pass. */
+    private static final String USAGE_SQL = buildUsageSql();
+
+    private static String buildUsageSql() {
+        StringBuilder q = new StringBuilder("WITH me AS (SELECT CAST(? AS INTEGER) AS id)\nSELECT 1 AS one");
+        String mine = "posts p JOIN users_posts_junctions j ON j.post_id = p.id";
+        counted(q, "post_images", "size_bytes", "uploads", "user_id = me.id AND " + POST_IMAGES);
+        counted(q, "avatars", "size_bytes", "uploads", "user_id = me.id AND filename LIKE 'avatar/%'");
+        counted(q, "headers", "size_bytes", "uploads", "user_id = me.id AND filename LIKE 'header/%'");
+        counted(q, "audio", "size_bytes", "uploads", "user_id = me.id AND filename LIKE 'audio/%'");
+        figure(q, "renditions_b", "COALESCE(SUM(v.size_bytes), 0)", "upload_variants v JOIN uploads up ON up.id = v.upload_id", "up.user_id = me.id");
+        figure(q, "post_content_n", "COUNT(*)", mine, "j.user_id = me.id");
+        figure(q, "post_content_b", "COALESCE(SUM(octet_length(p.description)), 0)", mine, "j.user_id = me.id");
+        figure(q, "post_themes_n", "COUNT(p.page_theme)", mine, "j.user_id = me.id");
+        figure(q, "post_themes_b", "COALESCE(SUM(octet_length(p.page_theme)), 0)", mine, "j.user_id = me.id");
+        figure(q, "post_wallpapers_n", "COUNT(p.background_pattern)", mine, "j.user_id = me.id");
+        figure(q, "post_wallpapers_b", "COALESCE(SUM(octet_length(p.background_pattern)), 0)", mine, "j.user_id = me.id");
+        for (String[] col : PROFILE_COLUMNS)
+            figure(q, "profile_" + col[0], "COALESCE(octet_length(users." + col[1] + "), 0)", "users", "users.id = me.id");
+        counted(q, "stickers", "octet_length(grid) + octet_length(name)", "stickers", "user_id = me.id");
+        counted(q, "pixel_fonts", "octet_length(glyphs) + octet_length(name)", "pixel_fonts", "user_id = me.id");
+        counted(q, "shared_packs", "octet_length(body) + octet_length(name)", "shared_packs", "sender_id = me.id");
+        counted(q, "comments", "octet_length(content)", "comments", "user_id = me.id");
+        // Direct and group messages count as one figure; deleted ones are not kept.
+        for (String suffix : new String[] {"n", "b"}) {
+            String what = "n".equals(suffix) ? "COUNT(*)" : "COALESCE(SUM(octet_length(content)), 0)";
+            q.append(",\n  (SELECT (SELECT ").append(what).append(" FROM direct_messages WHERE sender_id = me.id AND deleted_at IS NULL)")
+                    .append(" + (SELECT ").append(what).append(" FROM group_messages WHERE sender_id = me.id AND deleted_at IS NULL)")
+                    .append(") AS messages_").append(suffix);
+        }
+        counted(q, "notifications", "octet_length(COALESCE(message, ''))", "notifications", "recipient_id = me.id");
+        return q.append("\nFROM me").toString();
+    }
+
+    private static long num(Map<String, Object> row, String alias) {
+        Object v = row.get(alias.toLowerCase());
+        return v instanceof Number n ? n.longValue() : 0L;
+    }
+
+    private static Map<String, Object> pair(Map<String, Object> row, String alias) {
+        return item(num(row, alias + "_n"), num(row, alias + "_b"));
     }
 
     /** The full breakdown, by section, with totals and the quota. */
     public Map<String, Object> usage(int userId) {
+        return usage(userId, fileLimitBytes(userId));
+    }
+
+    private Map<String, Object> usage(int userId, Long limit) {
         recordOldHeader(userId);
+        Map<String, Object> row = jdbc.queryForMap(USAGE_SQL, userId);
+
         Map<String, Object> files = new LinkedHashMap<>();
-        files.put("postImages", item(
-                count("SELECT COUNT(*) FROM uploads WHERE user_id = ? AND " + POST_IMAGES, userId),
-                sum("SELECT COALESCE(SUM(size_bytes), 0) FROM uploads WHERE user_id = ? AND " + POST_IMAGES, userId)));
-        files.put("profilePicture", item(
-                count("SELECT COUNT(*) FROM uploads WHERE user_id = ? AND filename LIKE 'avatar/%'", userId),
-                sum("SELECT COALESCE(SUM(size_bytes), 0) FROM uploads WHERE user_id = ? AND filename LIKE 'avatar/%'", userId)));
-        files.put("headerImage", item(
-                count("SELECT COUNT(*) FROM uploads WHERE user_id = ? AND filename LIKE 'header/%'", userId),
-                sum("SELECT COALESCE(SUM(size_bytes), 0) FROM uploads WHERE user_id = ? AND filename LIKE 'header/%'", userId)));
-        files.put("audio", item(
-                count("SELECT COUNT(*) FROM uploads WHERE user_id = ? AND filename LIKE 'audio/%'", userId),
-                sum("SELECT COALESCE(SUM(size_bytes), 0) FROM uploads WHERE user_id = ? AND filename LIKE 'audio/%'", userId)));
+        files.put("postImages", pair(row, "post_images"));
+        files.put("profilePicture", pair(row, "avatars"));
+        files.put("headerImage", pair(row, "headers"));
+        files.put("audio", pair(row, "audio"));
         long itemBytes = bytesOf(files);
-        long renditions = renditionBytes(userId);
+        long renditions = num(row, "renditions_b");
         long charged = itemBytes + renditions;
 
-        String mine = "FROM posts p JOIN users_posts_junctions j ON j.post_id = p.id WHERE j.user_id = ?";
         Map<String, Object> posts = new LinkedHashMap<>();
-        posts.put("content", item(count("SELECT COUNT(*) " + mine, userId),
-                sum("SELECT COALESCE(SUM(octet_length(p.description)), 0) " + mine, userId)));
-        posts.put("themes", item(count("SELECT COUNT(p.page_theme) " + mine, userId),
-                sum("SELECT COALESCE(SUM(octet_length(p.page_theme)), 0) " + mine, userId)));
-        posts.put("wallpapers", item(count("SELECT COUNT(p.background_pattern) " + mine, userId),
-                sum("SELECT COALESCE(SUM(octet_length(p.background_pattern)), 0) " + mine, userId)));
+        posts.put("content", pair(row, "post_content"));
+        posts.put("themes", pair(row, "post_themes"));
+        posts.put("wallpapers", pair(row, "post_wallpapers"));
 
         Map<String, Object> profile = new LinkedHashMap<>();
-        for (String[] col : new String[][] {
-                {"banner", "banner_grid"}, {"theme", "page_theme"}, {"wallpaper", "background_pattern"},
-                {"bio", "bio"}, {"links", "bio_links"}, {"wallpaperPresets", "pattern_presets"}}) {
-            long b = sum("SELECT COALESCE(octet_length(" + col[1] + "), 0) FROM users WHERE id = ?", userId);
+        for (String[] col : PROFILE_COLUMNS) {
+            long b = num(row, "profile_" + col[0]);
             profile.put(col[0], item(b > 0 ? 1 : 0, b));
         }
 
         Map<String, Object> library = new LinkedHashMap<>();
-        library.put("stickers", item(count("SELECT COUNT(*) FROM stickers WHERE user_id = ?", userId),
-                sum("SELECT COALESCE(SUM(octet_length(grid) + octet_length(name)), 0) FROM stickers WHERE user_id = ?", userId)));
-        library.put("pixelFonts", item(count("SELECT COUNT(*) FROM pixel_fonts WHERE user_id = ?", userId),
-                sum("SELECT COALESCE(SUM(octet_length(glyphs) + octet_length(name)), 0) FROM pixel_fonts WHERE user_id = ?", userId)));
-        library.put("sharedPacks", item(count("SELECT COUNT(*) FROM shared_packs WHERE sender_id = ?", userId),
-                sum("SELECT COALESCE(SUM(octet_length(body) + octet_length(name)), 0) FROM shared_packs WHERE sender_id = ?", userId)));
+        library.put("stickers", pair(row, "stickers"));
+        library.put("pixelFonts", pair(row, "pixel_fonts"));
+        library.put("sharedPacks", pair(row, "shared_packs"));
 
         Map<String, Object> social = new LinkedHashMap<>();
-        social.put("comments", item(count("SELECT COUNT(*) FROM comments WHERE user_id = ?", userId),
-                sum("SELECT COALESCE(SUM(octet_length(content)), 0) FROM comments WHERE user_id = ?", userId)));
-        social.put("messages", item(
-                count("SELECT (SELECT COUNT(*) FROM direct_messages WHERE sender_id = ? AND deleted_at IS NULL)"
-                        + " + (SELECT COUNT(*) FROM group_messages WHERE sender_id = ? AND deleted_at IS NULL)", userId, userId),
-                sum("SELECT (SELECT COALESCE(SUM(octet_length(content)), 0) FROM direct_messages WHERE sender_id = ? AND deleted_at IS NULL)"
-                        + " + (SELECT COALESCE(SUM(octet_length(content)), 0) FROM group_messages WHERE sender_id = ? AND deleted_at IS NULL)", userId, userId)));
-        social.put("notifications", item(count("SELECT COUNT(*) FROM notifications WHERE recipient_id = ?", userId),
-                sum("SELECT COALESCE(SUM(octet_length(COALESCE(message, ''))), 0) FROM notifications WHERE recipient_id = ?", userId)));
+        social.put("comments", pair(row, "comments"));
+        social.put("messages", pair(row, "messages"));
+        social.put("notifications", pair(row, "notifications"));
 
         Map<String, Object> sections = new LinkedHashMap<>();
         sections.put("files", Map.of("items", files, "bytes", itemBytes, "renditionBytes", renditions));
@@ -193,7 +237,6 @@ public class StorageAccountService {
         sections.put("social", Map.of("items", social, "bytes", bytesOf(social)));
 
         long total = charged + bytesOf(posts) + bytesOf(profile) + bytesOf(library) + bytesOf(social);
-        Long limit = fileLimitBytes(userId);
         Map<String, Object> quota = new LinkedHashMap<>();
         quota.put("counts", "everything");
         quota.put("usedBytes", total);

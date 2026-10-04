@@ -1,12 +1,13 @@
 import './App.css';
 import { useEffect, Fragment, lazy, Suspense } from 'react';
-import { AUTHORIZE_SESSION, SEND_HEARTBEAT } from "./components/Pages/Posts/BasicTextPostServerApi"
+import { AUTHORIZE_SESSION } from "./components/Pages/Posts/BasicTextPostServerApi"
 
 import { Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
 
 import Navbar from './components/Navbar/Navbar';
 import Login from './components/Pages/Auth/Login/Login'
 import Registration from './components/Pages/Auth/Registration/Registration'
+import ChooseUsername from './components/Pages/Auth/Login/ChooseUsername'
 import Logout from './components/Pages/Auth/Logout/Logout'
 const AdminPanel = lazy(() => import('./components/Pages/Auth/AdminPanel/AdminPanel'));
 const PostsViewer = lazy(() => import('./components/Pages/Posts/PostsViewer/PostsViewer'));
@@ -14,7 +15,6 @@ const RichTextEditor = lazy(() => import('./components/Pages/Posts/PostRenderer/
 const RichTextViewer = lazy(() => import('./components/Pages/Posts/PostRenderer/RichTextPost/Viewer'));
 import Home from './components/Pages/Home/Home';
 import ScrollToTop from './components/ScrollToTop/ScrollToTop';
-import CursorGlow from './components/CursorGlow/CursorGlow.jsx';
 import MiniPlayer from './components/AudioPlayer/MiniPlayer.jsx';
 const InboxPage = lazy(() => import('./components/Social/InboxPage.jsx'));
 const FollowingPage = lazy(() => import('./components/Social/FollowingPage.jsx'));
@@ -65,21 +65,10 @@ function App() {
     if (localStorage.getItem("userName")) AUTHORIZE_SESSION().catch(() => {});
   }, []);
 
-  // Heartbeat: keep online status fresh every 2 minutes
-  useEffect(() => {
-    const username = localStorage.getItem('userName');
-    if (!username) return;
-    SEND_HEARTBEAT(username);
-    const id = setInterval(() => {
-      const u = localStorage.getItem('userName');
-      if (u) SEND_HEARTBEAT(u);
-    }, 2 * 60 * 1000);
-    return () => clearInterval(id);
-  }, []);
+  // (No heartbeat timer: the Navbar's unread-count poll tells the server the user is active.)
 
   return (
     <div id="appBody">
-      <CursorGlow />
       <Navbar />
       <ScrollToTop />
 
@@ -97,6 +86,7 @@ function App() {
           <Route path="/routes/Logout" element={<Logout />} />
           <Route path="/routes/AdminPanel" element={<AdminPanel />} />
           <Route path="/routes/NewAccount" element={<Registration />} />
+          <Route path="/routes/ChooseUsername" element={<ChooseUsername />} />
           <Route path="/inbox" element={<InboxPage />} />
           <Route path="/following" element={<FollowingPage />} />
           <Route path="/discover" element={<DiscoverPage />} />

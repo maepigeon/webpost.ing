@@ -105,6 +105,61 @@ class StorageAccountTest {
     }
 
     @Test
+    void aSaveThatDoesNotGrowAlwaysFits_evenOverALoweredLimit() {
+        jdbc.update("UPDATE users SET role = 'restricted' WHERE id = ?", userId);
+        long limit = storage.fileLimitBytes(userId);
+        // Over the limit by a margin, as when an admin lowers a role's limit.
+        jdbc.update("INSERT INTO stickers (user_id, name, grid) VALUES (?, 'big', ?)", userId, "g".repeat((int) limit));
+        assertThat(total()).isGreaterThan(limit);
+
+        assertThat(storage.fitsQuota(userId, 5, 5)).isTrue();    // same size: nothing grows
+        assertThat(storage.fitsQuota(userId, 3, 900)).isTrue();  // shrinking is always allowed
+        assertThat(storage.fitsQuota(userId, 6, 5)).isFalse();   // one byte more is not
+    }
+
+    @Test
+    void noLimitMeansEverythingFits() {
+        jdbc.update("INSERT INTO role_limits (role, max_storage_bytes, max_posts_per_day) VALUES ('unlimited_test', -1, 1)");
+        try {
+            jdbc.update("UPDATE users SET role = 'unlimited_test' WHERE id = ?", userId);
+            assertThat(storage.fileLimitBytes(userId)).isNull();
+            assertThat(storage.fitsQuota(userId, Long.MAX_VALUE / 4, 0)).isTrue();
+        } finally {
+            jdbc.update("UPDATE users SET role = 'user' WHERE id = ?", userId);
+            jdbc.update("DELETE FROM role_limits WHERE role = 'unlimited_test'");
+        }
+    }
+
+    @Test
+    void aFrozenAccountCannotSaveAnything_notEvenTheSameSize() {
+        jdbc.update("UPDATE users SET role = 'frozen' WHERE id = ?", userId);   // V001: the frozen role's limit is 0 bytes
+        assertThat(storage.fileLimitBytes(userId)).isEqualTo(0L);
+        assertThat(storage.fitsQuota(userId, 5, 5)).isFalse();    // a rewrite of the same size
+        assertThat(storage.fitsQuota(userId, 3, 900)).isFalse();  // even a shrink
+        assertThat(storage.fitsQuota(userId, 1, 0)).isFalse();
+    }
+
+    @Test
+    void anOrdinaryLimitLetsASaveThatDoesNotGrowThrough() {
+        assertThat(storage.fileLimitBytes(userId)).isGreaterThan(0L);
+        assertThat(storage.fitsQuota(userId, 5, 5)).isTrue();
+        assertThat(storage.fitsQuota(userId, 3, 900)).isTrue();
+    }
+
+    @Test
+    void theBreakdownCoversEverySectionItReports() {
+        jdbc.update("INSERT INTO pixel_fonts (user_id, name, glyphs) VALUES (?, 'pf', '{1}')", userId);
+        Map<String, Object> u = storage.usage(userId);
+        assertThat(at(u, "sections", "library", "items", "pixelFonts")).containsEntry("count", 1L).containsEntry("bytes", 5L);
+        assertThat(at(u, "sections", "social", "items", "comments")).containsEntry("count", 0L).containsEntry("bytes", 0L);
+        assertThat(at(u, "sections", "social", "items", "messages")).containsEntry("count", 0L).containsEntry("bytes", 0L);
+        assertThat(at(u, "sections", "library", "items").keySet()).containsExactly("stickers", "pixelFonts", "sharedPacks");
+        assertThat(at(u, "sections", "profile", "items").keySet())
+                .containsExactly("banner", "theme", "wallpaper", "bio", "links", "wallpaperPresets");
+        assertThat(at(u, "quota")).containsKey("limitBytes");
+    }
+
+    @Test
     void renditionsAreChargedToTheQuota() {
         long before = storage.filesChargedBytes(userId);
         assertThat(before).isEqualTo(1000 + 500 + 200 + 700 + 300);   // a.png, b.png, avatar, header, a-480w.png

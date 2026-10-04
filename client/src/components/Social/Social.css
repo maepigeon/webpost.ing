@@ -58,8 +58,7 @@
   align-items: center;
   gap: 4px;
   padding: 4px 10px;
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(8px);
+  background: #f4f4f4;
   border: 1px solid rgba(255,255,255,0.75);
   border-radius: 20px;
   cursor: pointer;
@@ -228,8 +227,7 @@
   border-radius: 8px;
   margin-bottom: 6px;
   cursor: pointer;
-  background: rgba(255,255,255,0.6);
-  backdrop-filter: blur(8px);
+  background: #f4f4f4;
   border: 1px solid rgba(0,0,0,0.08);
   font-size: 14px;
   color: #555;
@@ -335,11 +333,9 @@
   text-align: left;
 }
 
-/* Glass panel wrapping everything on the discussion page */
+/* Solid panel wrapping everything on the discussion page */
 .discussion-glass-panel {
-  background: rgba(255, 255, 255, 0.42);
-  backdrop-filter: blur(22px) saturate(180%) brightness(1.04);
-  -webkit-backdrop-filter: blur(22px) saturate(180%) brightness(1.04);
+  background: #f4f4f4;
   border: 1px solid rgba(255,255,255,0.78);
   border-radius: 20px;
   padding: 26px 28px 32px;
@@ -368,7 +364,6 @@
 
 .discussion-back-btn {
   background: rgba(255,255,255,0.45);
-  backdrop-filter: blur(8px);
   border: 1px solid rgba(255,255,255,0.6);
   border-radius: 20px;
   color: #444;
@@ -434,7 +429,6 @@
 
 .discussion-sort button {
   background: rgba(255,255,255,0.45);
-  backdrop-filter: blur(6px);
   border: 1px solid rgba(255,255,255,0.6);
   border-radius: 20px;
   padding: 4px 14px;
@@ -455,7 +449,7 @@
 }
 .discussion-sort .sort-active:hover { background: #868686; transform: translateY(-1px); }
 
-/* Compose box — glass card */
+/* Compose box */
 .discussion-compose {
   display: flex;
   flex-direction: column;
@@ -463,8 +457,6 @@
   margin-bottom: 24px;
   padding: 16px 18px;
   background: rgba(255,255,255,0.45);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255,255,255,0.68);
   border-radius: 14px;
   box-shadow:
@@ -753,3 +745,9 @@
 .reaction-picker-item:hover {
   opacity: 1;
 }
+
+/* Phone: the discussion header wraps instead of running off the screen. */
+.discussion-page-header { flex-wrap: wrap; row-gap: 8px; }
+.discussion-page-header > div { flex: 1 1 160px; min-width: 0; }
+.discussion-post-subtitle { overflow-wrap: anywhere; }
+.discussion-style-badge { margin-left: auto; }

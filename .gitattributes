@@ -1,2 +1,5 @@
 server/mvnw text eol=lf
 server/*.cmd text eol=crlf
+*.sh text eol=lf
+*.mjs text eol=lf
+tools/*.cmd text eol=crlf

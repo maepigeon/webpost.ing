@@ -140,7 +140,35 @@ public class JdbcLoginRepository implements LoginRepository {
 
     private static final SecureRandom secureRandom = new SecureRandom(); //threadsafe
     private static final Base64.Encoder base64Encoder = Base64.getUrlEncoder(); //threadsafe
-    private static final BCryptPasswordEncoder bcrypt = new BCryptPasswordEncoder();
+
+    /**
+     * BCrypt work factor for new hashes. The library default is 10; 12 is four
+     * times the work for an attacker holding a stolen table and still about a
+     * quarter of a second to sign in. Older hashes are upgraded at sign-in.
+     */
+    public static final int BCRYPT_COST = 12;
+    private static final BCryptPasswordEncoder bcrypt = new BCryptPasswordEncoder(BCRYPT_COST);
+
+    /** Every new password hash in the app comes from here, so the cost is set in one place. */
+    public static String hashPassword(String plain) {
+        return bcrypt.encode(plain);
+    }
+
+    private static final java.util.regex.Pattern BCRYPT_HEADER =
+            java.util.regex.Pattern.compile("^\\$2[abxy]?\\$(\\d{2})\\$.{53}$");
+
+    /** True when a stored hash was made with a lower cost than we use now. */
+    public static boolean needsRehash(String storedHash) {
+        if (storedHash == null) return false;
+        java.util.regex.Matcher m = BCRYPT_HEADER.matcher(storedHash);
+        return m.matches() && Integer.parseInt(m.group(1)) < BCRYPT_COST;
+    }
+
+    /**
+     * Longest password the sign-in check will hash. Registration allows 128;
+     * anything longer cannot be a real password and would only cost CPU.
+     */
+    private static final int MAX_CHECKED_PASSWORD_CHARS = 128;
 
     /** Compared against when the username is unknown, so timing does not reveal which names exist. */
     private static final String DUMMY_HASH = bcrypt.encode("not-a-real-password-timing-pad");
@@ -276,6 +304,7 @@ public class JdbcLoginRepository implements LoginRepository {
      * @return
      */
     public int authenticate(String username, String password) {
+        if (username == null || password == null || password.length() > MAX_CHECKED_PASSWORD_CHARS) return -1;
         List<LoginInfo> loginInfo = jdbcTemplate.query(
                 "SELECT * FROM users WHERE username = ?",
                 BeanPropertyRowMapper.newInstance(LoginInfo.class), username);
@@ -295,7 +324,17 @@ public class JdbcLoginRepository implements LoginRepository {
         }
 
         // Every password is stored as a BCrypt hash.
-        return bcrypt.matches(password, stored) ? user.getID() : -1;
+        if (!bcrypt.matches(password, stored)) return -1;
+        if (needsRehash(stored)) {
+            // We hold the plaintext only now, so this is the one moment to
+            // move an older hash to the current cost.
+            try {
+                jdbcTemplate.update("UPDATE users SET password = ? WHERE id = ?", bcrypt.encode(password), user.getID());
+            } catch (RuntimeException e) {
+                log.warn("Could not upgrade a password hash: {}", e.toString());
+            }
+        }
+        return user.getID();
     }
 
     /**
@@ -346,8 +385,9 @@ public class JdbcLoginRepository implements LoginRepository {
         authSession.idleExpiresAt = now.plus(sessionIdleMinutes, ChronoUnit.MINUTES);
         authSession.token = "-1";
 
-        // Verify the credentials are not empty
-        if (loginInfo.getUsername().isEmpty() || loginInfo.getPassword().isEmpty()) {
+        // Verify the credentials are present and not empty
+        if (loginInfo.getUsername() == null || loginInfo.getPassword() == null
+                || loginInfo.getUsername().isEmpty() || loginInfo.getPassword().isEmpty()) {
             authSession.loginHttpStatusCodeResult = HttpStatus.BAD_REQUEST;
             return authSession;
         }
@@ -376,6 +416,32 @@ public class JdbcLoginRepository implements LoginRepository {
         } else {
             authSession.loginHttpStatusCodeResult = HttpStatus.FORBIDDEN;
         }
+        return authSession;
+    }
+
+    @Override
+    public AuthSession createSession(int userId) {
+        purgeExpiredSessions();
+
+        Instant now = Instant.now();
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT username, role FROM users WHERE id = ?", userId);
+        AuthSession authSession = new AuthSession(rows.isEmpty() ? null : (String) rows.get(0).get("username"));
+        authSession.expiresAt = now.plus(sessionLifetimeMinutes, ChronoUnit.MINUTES);
+        authSession.idleExpiresAt = now.plus(sessionIdleMinutes, ChronoUnit.MINUTES);
+        authSession.token = "-1";
+        authSession.loginHttpStatusCodeResult = HttpStatus.FORBIDDEN;
+        if (rows.isEmpty()) return authSession;
+
+        authSession.userId = userId;
+        Object role = rows.get(0).get("role");
+        authSession.role = role == null ? "user" : role.toString();
+        // Frozen users are refused here exactly as in login().
+        if ("frozen".equals(authSession.role)) return authSession;
+
+        authSession.token = generateNewToken();
+        authSession.loginHttpStatusCodeResult = HttpStatus.OK;
+        storeSession(authSession, MAX_SESSIONS_PER_USER, MAX_SESSIONS);
         return authSession;
     }
 

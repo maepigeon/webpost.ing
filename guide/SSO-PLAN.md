@@ -1,8 +1,92 @@
 # SSO, recovery and account repair — plan
 
-Status: proposal, 2026-10-03. Provider console steps and Apple/Microsoft
-requirements are from memory and were not re-checked online. Re-check each
-provider's current docs before registering. **[recheck]**
+## What to do to switch it on (owner's checklist)
+
+Built on 2026-10-03: **Google and Microsoft**. Both are off, and the site is
+unchanged, until their values are in `deploy.env`. **Apple is not built** (see
+"What is built" below). The console steps are from memory and were not
+re-checked online; check each provider's current pages as you go. **[recheck]**
+
+**Google** (free, about an hour)
+- [ ] Google Cloud Console: create a project.
+- [ ] "OAuth consent screen" (Google Auth Platform > Branding): app name
+      webpost.ing, support email, authorised domain `webpost.ing`, link to the
+      privacy page. Audience: External. Scopes: only `openid` and `email` (no
+      review is needed for these).
+- [ ] Publish it ("In production"). In "Testing" only the listed test users
+      can sign in.
+- [ ] Credentials > Create credentials > OAuth client ID > **Web application**.
+      Authorised redirect URI, exactly:
+      `https://webpost.ing/api/auth/sso/google/callback`
+- [ ] Put the client ID and secret in `deploy.env` as `SSO_GOOGLE_CLIENT_ID`
+      and `SSO_GOOGLE_CLIENT_SECRET` (never in chat or the repository).
+
+**Microsoft** (free, about an hour)
+- [ ] Microsoft Entra admin centre > App registrations > New registration.
+      Supported account types: "Accounts in any organizational directory and
+      personal Microsoft accounts" (so Outlook.com people can sign in).
+- [ ] Redirect URI, platform **Web**, exactly:
+      `https://webpost.ing/api/auth/sso/microsoft/callback`
+- [ ] Certificates & secrets > New client secret. Copy its **Value** (shown
+      once). Note the expiry (24 months at most) in your calendar: Microsoft
+      sign-in stops the day it runs out, until a new one is put in.
+- [ ] Put the Application (client) ID and the secret value in `deploy.env` as
+      `SSO_MICROSOFT_CLIENT_ID` and `SSO_MICROSOFT_CLIENT_SECRET`. Leave
+      `SSO_MICROSOFT_TENANT` unset (it defaults to `common`, which matches the
+      account types above).
+
+**Then**
+- [ ] Check `APP_BASE_URL=https://webpost.ing` in `deploy.env` (the redirect
+      addresses are built from it), and restart the server.
+- [ ] Open the sign-in page: "Continue with Google" / "Continue with
+      Microsoft" appear. Sign in with your own Google account: you are asked
+      for a username (and an invite code while those are required), and land
+      signed in. Sign out and in again with Google: straight in.
+- [ ] To use Google with the account you already have: sign in with your
+      password, Settings > Sign-in methods > Link.
+- [ ] Decide whether a provider sign-up needs an invite code. Today it follows
+      the same switch as password sign-up ("Invite code needed to sign up").
+
+To switch a provider off again, remove its two values and restart. People who
+only had that provider can then not sign in until it is back; one with a
+confirmed email can get in with "Forgot password?" once mail is on, and an
+admin can set a password for anyone (admin dashboard, Users).
+
+Environment names and the local-testing addresses: [CONFIGURATION.md](CONFIGURATION.md),
+"Sign in with Google and Microsoft".
+
+### What is built, and what is not (2026-10-03)
+
+Built and tested (`SsoFlowTest`, `SsoProviderClientTest`, `SsoOffTest`):
+sections 3.1 (flow), 3.2 (`user_identities`, migration V021), 3.3 (linking
+rules, never by email), 3.4 (choose a username; invite policy and sign-up
+limits) and 3.5 (set a first password, unlink guard), for Google and
+Microsoft. Differences from the text below:
+
+- The page after a first sign-in is `/routes/ChooseUsername` (not
+  `/sso/choose-username`): `routes` is already a reserved name, `sso` is not.
+- No `users.has_password` column. An account made through a provider has
+  `'!sso'` in `users.password`; having a password is "the value is a bcrypt
+  hash". Reset by email and an admin setting a password therefore just work.
+- State, nonce and the pending identity are kept in the server's memory (like
+  sessions) and tied to the browser by an HttpOnly cookie; nothing is signed.
+- Re-authentication for an account with no password is a provider sign-in in
+  the last 5 minutes (Settings offers "Continue with ..." for it). The
+  emailed-link alternative in 3.5 is not built.
+
+Not built: **Apple** (step 6: it posts the callback from another site, which
+needs a change to the cross-site check in `OriginCheckFilter` and a
+`SameSite=None` state cookie, plus the paid account; `SSO_APPLE_*` values are
+ignored and Apple answers 404), security emails and "This wasn't me" (4.2),
+`locked_at`, the new-device notice, the admin tools in 4.2, the "set a
+password" banner, identities in the data export, and the Help and privacy page
+text (step 7).
+
+---
+
+Status of the rest of this document: proposal, 2026-10-03. Provider console
+steps and Apple/Microsoft requirements are from memory and were not re-checked
+online. Re-check each provider's current docs before registering. **[recheck]**
 
 ---
 

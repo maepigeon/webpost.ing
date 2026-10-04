@@ -78,6 +78,25 @@ class PostCardGridTest {
         assertThat(posts.getPostsFromUsername(AUTHOR)).singleElement().extracting(Post::isCardGrid).isEqualTo(false);
     }
 
+    /** Turning the grid off hides the stored preview from every list; it is not thrown away. */
+    @Test
+    void theSwitchHidesThePreviewWithoutRecomputingIt() {
+        String grid = "{\"cols\":16,\"rows\":8,\"layers\":[]}";
+        Post p = new Post();
+        p.setTitle("gridded");
+        p.setDescription("{\"root\":{\"type\":\"root\",\"children\":[{\"type\":\"tilegrid\",\"version\":1,\"grid\":" + grid + "}]}}");
+        p.setPublished(true);
+        int id = posts.save(p, authorId);
+        assertThat(posts.getPostsFromUsername(AUTHOR)).singleElement().extracting(Post::getPreview).isEqualTo(grid);
+
+        assertThat(discussion.setCardGrid(id, Map.of("enabled", false), AUTHOR, signIn(AUTHOR)).getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(posts.getPostsFromUsername(AUTHOR)).singleElement().extracting(Post::getPreview).isNull();
+        assertThat(jdbc.queryForObject("SELECT card_preview FROM posts WHERE id = ?", String.class, id)).isEqualTo(grid);
+
+        assertThat(discussion.setCardGrid(id, Map.of("enabled", true), AUTHOR, signIn(AUTHOR)).getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(posts.getPostsFromUsername(AUTHOR)).singleElement().extracting(Post::getPreview).isEqualTo(grid);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private int newPost() {

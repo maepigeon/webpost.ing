@@ -4,7 +4,6 @@ import com.springbootprojects.webpostingserver.posts.model.AuthSession;
 import com.springbootprojects.webpostingserver.posts.repository.JdbcLoginRepository;
 import com.springbootprojects.webpostingserver.posts.repository.LoginRepository;
 import com.springbootprojects.webpostingserver.posts.repository.SocialRepository;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -23,7 +22,6 @@ public class AdminController {
     @Autowired private LoginRepository loginRepository;
     @Autowired private JdbcTemplate jdbc;
     @Autowired private SocialRepository social;
-    private static final BCryptPasswordEncoder bcrypt = new BCryptPasswordEncoder();
 
     @Value("${app.upload-dir:uploads}")
     private String uploadDir;
@@ -107,7 +105,7 @@ public class AdminController {
                 "SELECT COUNT(*) FROM users WHERE LOWER(username) = LOWER(?)", Integer.class, newUsername.trim());
             if (sameName != null && sameName > 0)
                 return ResponseEntity.status(HttpStatus.CONFLICT).body("Username already taken.");
-            jdbc.update("INSERT INTO users(username, password) VALUES(?,?)", newUsername.trim(), bcrypt.encode(newPassword));
+            jdbc.update("INSERT INTO users(username, password) VALUES(?,?)", newUsername.trim(), JdbcLoginRepository.hashPassword(newPassword));
             return ResponseEntity.status(HttpStatus.CREATED).body("User created.");
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body("Username already exists.");
@@ -221,7 +219,7 @@ public class AdminController {
         String err = validatePassword(newPassword);
         if (err != null) return ResponseEntity.badRequest().body(err);
 
-        int updated = jdbc.update("UPDATE users SET password=? WHERE username=?", bcrypt.encode(newPassword), targetUsername);
+        int updated = jdbc.update("UPDATE users SET password=? WHERE username=?", JdbcLoginRepository.hashPassword(newPassword), targetUsername);
         if (updated == 0) return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found.");
         // Whoever was signed in with the old password is signed out.
         loginRepository.evictSession(targetUsername);
@@ -415,7 +413,7 @@ public class AdminController {
         if (existing.isEmpty()) {
             byte[] rand = new byte[16];
             new java.security.SecureRandom().nextBytes(rand);
-            String tempPw = bcrypt.encode(java.util.Base64.getUrlEncoder().encodeToString(rand));
+            String tempPw = JdbcLoginRepository.hashPassword(java.util.Base64.getUrlEncoder().encodeToString(rand));
             jdbc.update("INSERT INTO users(username, password) VALUES(?,?)", targetUsername, tempPw);
             userCreated = true;
         }
@@ -575,6 +573,8 @@ public class AdminController {
         for (Map<String, Object> row : rows) result.put((String) row.get("key"), (String) row.get("value"));
         // Switches show even before they have been set once.
         SWITCH_DEFAULTS.forEach(result::putIfAbsent);
+        // The daily limit register() falls back to when there is no row.
+        result.putIfAbsent("max_daily_registrations", "5");
         return ResponseEntity.ok(result);
     }
 

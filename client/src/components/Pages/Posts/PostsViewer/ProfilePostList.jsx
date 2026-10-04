@@ -172,10 +172,11 @@ function ProfilePost({ post, canEdit, username, onRefresh, folderNames, onMoveTo
  * @param pinned    the pinned post's block, drawn under the bar, above the rest
  * @param arrangeable      false hides Arrange and the folder menu (every tab but Posts)
  * @param showDestination  true labels each post with where it will go (Drafts)
+ * @param hideDrafts       true leaves unpublished posts out of the list (arranging still shows them)
  */
 export default function ProfilePostList({
   posts, pinnedId, canEdit, username, onRefresh, onArrange, hasMore, loadAll, leading = null, pinned = null, onPin,
-  arrangeable = true, showDestination = false,
+  arrangeable = true, showDestination = false, hideDrafts = false,
 }) {
   const [collapsedFolders, setCollapsedFolders] = useState(new Set());
   const [arranging, setArranging] = useState(false);
@@ -292,8 +293,10 @@ export default function ProfilePostList({
           onVisibility={setVisibility} onDelete={removePost} onPin={onPin} />;
   }
 
-  const blocks = toBlocks(posts.filter(p => p.id !== pinnedId));
-  const folderNames = toBlocks(posts).filter(b => b.type === 'folder').map(b => b.name);
+  // The arrange view above keeps every post, drafts and their badges included.
+  const listed = hideDrafts ? posts.filter(p => p.published) : posts;
+  const blocks = toBlocks(listed.filter(p => p.id !== pinnedId));
+  const folderNames = toBlocks(listed).filter(b => b.type === 'folder').map(b => b.name);
   const renderPost = (post) => (
     <ProfilePost key={post.id} post={post} canEdit={canEdit} username={username} onRefresh={onRefresh}
       folderNames={folderNames} folderMenu={arrangeable} showDestination={showDestination} onMoveToFolder={moveToFolderAndSave} onRemoveFromFolder={removeFromFolderAndSave} />

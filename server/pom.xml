@@ -48,6 +48,15 @@
 	    <artifactId>spring-boot-starter-security</artifactId> 
         </dependency>
 
+        <!-- Single sign-on: checks the signature on a provider's ID token
+             against its published keys (posts/service/SsoIdTokens). The
+             sign-in flow itself is written by hand; see guide/SSO-PLAN.md. -->
+        <dependency>
+            <groupId>com.nimbusds</groupId>
+            <artifactId>nimbus-jose-jwt</artifactId>
+            <version>10.5</version>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

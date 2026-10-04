@@ -13,6 +13,7 @@
   color: var(--th-ink, #111111);
   border: 1.5px solid var(--th-ink, #111111);
   border-radius: 10px;
+  font-family: var(--app-font);
 }
 .profile-tab {
   display: inline-flex;
@@ -79,7 +80,7 @@
 .profile-tab-actions { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px; margin-top: 8px; }
 .profile-tab-actions .new-grid-post { width: auto; margin: 0; }
 .profile-tab-actions .new-grid-post button,
-.profile-tab-actions .profile-owner-btn { height: 34px; border-style: solid; border-radius: 6px; }
+.profile-tab-actions .profile-owner-btn { height: 32px; border-style: solid; border-radius: 6px; }
 
 /* On the Drafts tab: where the post will go once published. */
 .profile-post-destination {

@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react';
 import TileGrid from '../PostRenderer/RichTextPost/TileGrid/TileGrid.jsx';
-import { normaliseGrid, pixelLayer } from '../PostRenderer/RichTextPost/TileGrid/tileGrid.js';
 import { SET_PROFILE_BANNER } from '../BasicTextPostServerApi.js';
 import { errorMessage } from '../../../../utils/errorMessage.js';
 import { BANNER_COLS } from './bannerGrid.js';
+import { startBanner, bannerIsDirty } from './bannerDraft.js';
 import { useUnsavedGuard } from '../../../../utils/useUnsavedGuard.js';
 import { useDialog } from '../../../Dialog/Dialog.jsx';
 import { loadDraft } from '../../../../utils/autosave.js';
@@ -23,34 +23,27 @@ function pageInk() {
  * the draft, Remove takes the rows away, Cancel leaves everything as it was.
  */
 export default function BannerEditor({ username, saved, onSaved, onClose }) {
-  const start = () => saved || normaliseGrid({
-    v: 3, cols: BANNER_COLS, rows: 4, layers: [pixelLayer('Background'), pixelLayer('Text')],
-  });
   // Unsaved work from an earlier visit comes back by itself, with a way out.
   const draftKey = `banner:${username}`;
-  const [init] = useState(() => {
-    const kept = loadDraft(draftKey);
-    if (kept?.data && typeof kept.data === 'object') {
-      try { return { grid: normaliseGrid(kept.data), restored: true }; } catch { /* use the saved rows */ }
-    }
-    return { grid: start(), restored: false };
-  });
+  // `base` is built once: the draft starts as that same object, and "unsaved"
+  // is measured against it (a second build would have fresh layer ids).
+  const [init] = useState(() => startBanner(saved, loadDraft(draftKey)));
   const [draft, setDraft] = useState(init.grid);
   const [restored, setRestored] = useState(init.restored);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  // Unsaved once the draft differs from what it started as; leaving the page,
-  // or Cancel, then asks first.
-  const first = useRef(null);
-  if (first.current === null) first.current = JSON.stringify(start());
+  // Unsaved once the draft differs from what it started as (or came back from
+  // an earlier visit); leaving the page, or Cancel, then asks first.
+  const baseJson = useRef(null);
+  if (baseJson.current === null) baseJson.current = JSON.stringify(init.base);
   const [savedNow, setSavedNow] = useState(false);
-  const dirty = !savedNow && JSON.stringify(draft) !== first.current;
+  const dirty = bannerIsDirty({ draft, baseJson: baseJson.current, restored, savedNow });
   useUnsavedGuard(dirty, 'your banner');
   const auto = useAutosave(draftKey, draft, { enabled: !savedNow });
   const undoRestore = () => {
     auto.clear();
-    setDraft(start());
+    setDraft(init.base);
     setRestored(false);
   };
   const { confirm } = useDialog();
@@ -89,11 +82,11 @@ export default function BannerEditor({ username, saved, onSaved, onClose }) {
         <button type="button" className="edit-bio-btn" disabled={busy} onClick={() => save(draft)}>
           {busy ? 'Saving…' : 'Save banner'}
         </button>
-        {dirty && !busy && <span className="banner-editor-unsaved" role="status">Not saved yet</span>}
         <button type="button" className="edit-bio-btn" disabled={busy} onClick={cancel}>Cancel</button>
         {saved && (
           <button type="button" className="edit-bio-btn" disabled={busy} onClick={() => save(null)}>Remove my rows</button>
         )}
+        {dirty && !busy && <span className="banner-editor-unsaved" role="status">Not saved yet</span>}
         {error && <span className="profile-inline-error" role="alert">{error}</span>}
       </div>
     </div>

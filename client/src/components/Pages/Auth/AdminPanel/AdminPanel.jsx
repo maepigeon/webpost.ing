@@ -6,12 +6,13 @@ import {
   ADMIN_SET_ADMIN, ADMIN_SET_ROLE, ADMIN_GET_STATS, ADMIN_GET_ROLE_LIMITS,
   ADMIN_SET_ROLE_LIMIT, ADMIN_GET_FLAGGED, ADMIN_CLEANUP_ORPHANS,
   ADMIN_EXPORT_USER, ADMIN_IMPORT_USER,
-  ADMIN_CHANGE_PASSWORD, ADMIN_GET_INVITE_CODES, ADMIN_CREATE_INVITE_CODE, ADMIN_DELETE_INVITE_CODE,
-  ADMIN_GET_SETTINGS, ADMIN_UPDATE_SETTING
+  ADMIN_CHANGE_PASSWORD, ADMIN_GET_INVITE_CODES, ADMIN_CREATE_INVITE_CODE, ADMIN_DELETE_INVITE_CODE
 } from '../../Posts/BasicTextPostServerApi.js';
 import { PasswordRequirements } from '../Registration/Registration.jsx';
 import './AdminPanel.css';
 import BuildStatus from './BuildStatus.jsx';
+import SettingsTab from './SettingsTab.jsx';
+import PreviewLine from './PreviewLine.jsx';
 import { ADMIN_GET_REPORTS, ADMIN_UPDATE_REPORT } from '../../Posts/BasicTextPostServerApi.js';
 import { errorMessage } from '../../../../utils/errorMessage.js';
 
@@ -56,8 +57,6 @@ export default function AdminPanel() {
   const [secPwError, setSecPwError]   = useState('');
   const [inviteCodes, setInviteCodes] = useState([]);
   const [copiedCode, setCopiedCode]   = useState(null);
-  const [settings, setSettings] = useState({});
-  const [settingEdits, setSettingEdits] = useState({});
 
   useEffect(() => {
     ADMIN_GET_STATUS()
@@ -72,7 +71,6 @@ export default function AdminPanel() {
     if (tab === 'limits') ADMIN_GET_ROLE_LIMITS().then(d => { setRoleLimits(d); setLimitEdits({}); }).catch(() => {});
     if (tab === 'flagged') ADMIN_GET_FLAGGED().then(setFlagged).catch(() => {});
     if (tab === 'security') ADMIN_GET_INVITE_CODES().then(setInviteCodes).catch(() => {});
-    if (tab === 'settings') ADMIN_GET_SETTINGS().then(d => { setSettings(d); setSettingEdits({}); }).catch(() => {});
     if (tab === 'reports') loadReports(reportFilter);
   }, [isAdmin, tab]);
 
@@ -250,7 +248,7 @@ export default function AdminPanel() {
             <h3>Create User</h3>
             <div className="admin-create-row">
               <input placeholder="Username" value={newUsername} onChange={e => setNewUsername(e.target.value)} maxLength={32} />
-              <input placeholder="Password" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} maxLength={32} />
+              <input placeholder="Password" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} maxLength={128} />
               <button onClick={createUser} disabled={!newUsername || !newPassword}>Create</button>
             </div>
             {createError && <p className="admin-error">{createError}</p>}
@@ -261,7 +259,7 @@ export default function AdminPanel() {
             <span className="admin-count">{filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''}</span>
           </div>
 
-          <div className="admin-table-scroll"><table className="admin-table">
+          <div className="admin-table-scroll"><table className="admin-table admin-table--stack">
             <thead>
               <tr>
                 <th className="admin-th-sort" onClick={() => sortUser('username')}>Username{sortArrow('username')}</th>
@@ -282,22 +280,22 @@ export default function AdminPanel() {
                   u.is_admin ? 'admin-row--admin' : '',
                   u.role === 'frozen' ? 'admin-row--frozen' : '',
                 ].filter(Boolean).join(' ')}>
-                  <td>
+                  <td data-label="Username">
                     <Link to={`/${u.username}`} className="admin-user-link">{u.username}</Link>
                   </td>
-                  <td>
+                  <td data-label="Role">
                     <select value={u.role || 'user'} onChange={e => setRole(u.username, e.target.value)}
                       style={{ color: u.role === 'frozen' ? '#ef4444' : 'inherit' }}>
                       {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
                   </td>
-                  <td>{u.post_count ?? 0}</td>
-                  <td>{u.comment_count ?? 0}</td>
-                  <td>{fmt(Number(u.storage_bytes ?? 0))}</td>
-                  <td>{fmt(Number(u.post_bytes ?? 0))}</td>
-                  <td>{fmt(Number(u.comment_bytes ?? 0))}</td>
-                  <td>{fmt(Number(u.bg_pattern_bytes ?? 0))}</td>
-                  <td>
+                  <td data-label="Posts">{u.post_count ?? 0}</td>
+                  <td data-label="Comments">{u.comment_count ?? 0}</td>
+                  <td data-label="Uploads">{fmt(Number(u.storage_bytes ?? 0))}</td>
+                  <td data-label="Post text">{fmt(Number(u.post_bytes ?? 0))}</td>
+                  <td data-label="Comment text">{fmt(Number(u.comment_bytes ?? 0))}</td>
+                  <td data-label="BG pattern">{fmt(Number(u.bg_pattern_bytes ?? 0))}</td>
+                  <td data-label="Admin">
                     <input type="checkbox" checked={!!u.is_admin} onChange={() => toggleAdmin(u.username, !!u.is_admin)} />
                   </td>
                   <td style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
@@ -333,6 +331,7 @@ export default function AdminPanel() {
               </div>
             ))}
           </div>
+          <PreviewLine flash={flash} />
           <div className="admin-orphan-row">
             <p className="admin-hint">Orphaned uploads are files no longer referenced by any post (grace period: 1 hour).</p>
             <button className="admin-btn" onClick={async () => {
@@ -351,15 +350,15 @@ export default function AdminPanel() {
       {tab === 'limits' && (
         <div>
           <p className="admin-hint">Set default limits for each user role. Use -1 for unlimited.</p>
-          <div className="admin-table-scroll"><table className="admin-table">
+          <div className="admin-table-scroll"><table className="admin-table admin-table--stack">
             <thead>
               <tr><th>Role</th><th>Max Storage (bytes)</th><th>Max Posts/Day</th><th></th></tr>
             </thead>
             <tbody>
               {roleLimits.map(rl => (
                 <tr key={rl.role}>
-                  <td><strong>{rl.role}</strong></td>
-                  <td>
+                  <td data-label="Role"><strong>{rl.role}</strong></td>
+                  <td data-label="Storage">
                     <input
                       type="number"
                       value={limitEdits[rl.role]?.maxStorageBytes ?? rl.max_storage_bytes}
@@ -368,7 +367,7 @@ export default function AdminPanel() {
                     />
                     <span className="admin-hint-small"> ({fmt(Number(limitEdits[rl.role]?.maxStorageBytes ?? rl.max_storage_bytes))})</span>
                   </td>
-                  <td>
+                  <td data-label="Posts/day">
                     <input
                       type="number"
                       value={limitEdits[rl.role]?.maxPostsPerDay ?? rl.max_posts_per_day}
@@ -561,43 +560,7 @@ export default function AdminPanel() {
         </div>
       )}
 
-      {tab === 'settings' && (
-        <div className="admin-card">
-          <h3>System Settings</h3>
-          <p style={{ fontSize: 13, color: '#666', marginBottom: 16 }}>
-            These settings take effect immediately. Use -1 for unlimited.
-          </p>
-          <div className="admin-table-scroll"><table className="admin-table">
-            <thead><tr><th>Setting</th><th>Value</th><th>Action</th></tr></thead>
-            <tbody>
-              {Object.entries(settings).map(([key, val]) => (
-                <tr key={key}>
-                  <td style={{ fontFamily: 'monospace', fontSize: 13 }}>{key}</td>
-                  <td>
-                    <input
-                      type="text"
-                      value={settingEdits[key] !== undefined ? settingEdits[key] : val}
-                      onChange={e => setSettingEdits(s => ({ ...s, [key]: e.target.value }))}
-                      style={{ width: 80, padding: '3px 6px', borderRadius: 6, border: '1px solid #ccc', fontSize: 13 }}
-                    />
-                  </td>
-                  <td>
-                    <button className="admin-btn" onClick={async () => {
-                      const newVal = settingEdits[key] !== undefined ? settingEdits[key] : val;
-                      try {
-                        await ADMIN_UPDATE_SETTING(key, newVal);
-                        setSettings(s => ({ ...s, [key]: newVal }));
-                        setSettingEdits(s => { const n = { ...s }; delete n[key]; return n; });
-                        flash('Setting saved.');
-                      } catch { flash('Failed to save setting.'); }
-                    }}>Save</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table></div>
-        </div>
-      )}
+      {tab === 'settings' && <SettingsTab flash={flash} />}
     </div>
   );
 }

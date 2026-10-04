@@ -1,4 +1,4 @@
-/* Image picker — the app's glass dialog language, flat fills. */
+/* Image picker — the app's dialog language, solid fills. */
 
 .imgpick-overlay {
   position: fixed;
@@ -8,9 +8,7 @@
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background: rgba(28, 28, 28, 0.34);
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
+  background: rgba(0, 0, 0, 0.45);
 }
 
 .imgpick-dialog {
@@ -20,9 +18,7 @@
   flex-direction: column;
   padding: 20px 22px 16px;
   border-radius: var(--radius-lg, 18px);
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: var(--blur-glass, blur(22px) saturate(165%));
-  -webkit-backdrop-filter: var(--blur-glass, blur(22px) saturate(165%));
+  background: #fff;
   border: 1.5px solid rgba(255, 255, 255, 0.9);
   box-shadow: var(--raise-3, 0 14px 44px rgba(28, 28, 28, 0.2));
 }

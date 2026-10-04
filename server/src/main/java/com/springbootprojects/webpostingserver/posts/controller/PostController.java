@@ -9,9 +9,9 @@ import java.util.regex.Pattern;
 
 import com.springbootprojects.webpostingserver.posts.model.AuthSession;
 import com.springbootprojects.webpostingserver.posts.model.Post;
-import com.springbootprojects.webpostingserver.posts.model.LoginInfo;
 
 import com.springbootprojects.webpostingserver.posts.repository.JdbcLoginRepository;
+import com.springbootprojects.webpostingserver.posts.service.PostPreview;
 import com.springbootprojects.webpostingserver.posts.repository.LoginRepository;
 import com.springbootprojects.webpostingserver.posts.validator.WallpaperValidator;
 import org.slf4j.Logger;
@@ -212,7 +212,7 @@ public class PostController {
 
     /**
      * What a post card in a message needs: title, address, author and the
-     * content (for the first grid). A post shared in a direct message is seen
+     * grid it shows (the stored preview, never the body). A post shared in a direct message is seen
      * by whoever reads that conversation, so this answers by the same rule as
      * the address lookups: a draft is the author's alone, and for anyone else
      * it is indistinguishable from a post that does not exist.
@@ -222,18 +222,24 @@ public class PostController {
             @CookieValue(name = "username", required = false) String authUsername,
             @CookieValue(name = "authToken", required = false) String token) {
         List<Map<String, Object>> rows = jdbc.queryForList("""
-                SELECT p.id, p.title, p.slug, p.published, p.section, p.description, COALESCE(u.username, '') AS username
+                SELECT p.id, p.title, p.slug, p.published, p.section, COALESCE(u.username, '') AS username,
+                       CASE WHEN p.card_grid THEN p.card_preview END AS card_preview,
+                       CASE WHEN p.card_grid AND p.preview_version < %d THEN p.description END AS body
                   FROM posts p
                   LEFT JOIN users_posts_junctions j ON j.post_id = p.id
                   LEFT JOIN users u ON u.id = j.user_id
                  WHERE p.id = ?
-                """, id);
+                """.formatted(PostPreview.VERSION), id);
         if (rows.isEmpty() || String.valueOf(rows.get(0).get("username")).isEmpty())
             return ResponseEntity.notFound().build();
         Map<String, Object> row = rows.get(0);
         if (!canSee(Boolean.TRUE.equals(row.get("published")), (String) row.get("section"), (String) row.get("username"), authUsername, token))
             return ResponseEntity.notFound().build();
-        return ResponseEntity.ok(row);
+        Map<String, Object> card = new java.util.LinkedHashMap<>();
+        for (String key : new String[] {"id", "title", "slug", "published", "section", "username"}) card.put(key, row.get(key));
+        // A row the sweep has not reached yet has no stored preview; its grid is found in the body (nothing is written).
+        card.put("preview", PostPreview.previewValue((String) row.get("card_preview"), (String) row.get("body")));
+        return ResponseEntity.ok(card);
     }
 
     /**
@@ -292,6 +298,11 @@ public class PostController {
 
     private static final Pattern UPLOAD_PATTERN = Pattern.compile("/uploads/([^\"\\s]+)");
 
+    /**
+     * Links a post to the uploads it names, in two statements however many it
+     * names. Kept for drafts too: orphan cleanup has to see a draft's images.
+     * Upload names are UUID paths, so a newline never occurs inside one.
+     */
     private void syncPostUploads(long postId, String description) {
         Set<String> filenames = new HashSet<>();
         if (description != null) {
@@ -299,13 +310,22 @@ public class PostController {
             while (m.find()) filenames.add(m.group(1));
         }
         jdbc.update("DELETE FROM post_uploads WHERE post_id=?", postId);
-        for (String fn : filenames) {
-            List<Integer> ids = jdbc.queryForList("SELECT id FROM uploads WHERE filename=?", Integer.class, fn);
-            if (!ids.isEmpty()) {
-                jdbc.update("INSERT INTO post_uploads(post_id, upload_id) VALUES(?,?) ON CONFLICT DO NOTHING",
-                    postId, ids.get(0));
-            }
-        }
+        if (filenames.isEmpty()) return;
+        jdbc.update("INSERT INTO post_uploads(post_id, upload_id) SELECT CAST(? AS INTEGER), id FROM uploads"
+                + " WHERE filename = ANY(string_to_array(?, E'\\n')) ON CONFLICT DO NOTHING",
+                postId, String.join("\n", filenames));
+    }
+
+    /**
+     * The username of a post's author, or null when the post has no author row.
+     * Callers that only compare names use this instead of loading the author's
+     * whole row; compare with equals, as LoginInfo.compareUsername does.
+     */
+    private String ownerOf(long postId) {
+        List<String> names = jdbc.queryForList(
+                "SELECT u.username FROM users_posts_junctions j JOIN users u ON u.id = j.user_id WHERE j.post_id = ?",
+                String.class, postId);
+        return names.isEmpty() ? null : names.get(0);
     }
 
     @GetMapping("/posts/{id}")
@@ -315,8 +335,6 @@ public class PostController {
             @CookieValue(name = "authToken", required = false) String token) {
         Post post = postRepository.findById(id);
         if (post == null) return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-
-        LoginInfo postOwnerInfo = postRepository.getUsernameFromPostId((int) id);
 
         if (!post.isPublished() || SECTION_SUBSCRIBERS.equals(post.getSection())) {
             // Draft, or a subscribers post — only the owner may read it
@@ -328,7 +346,7 @@ public class PostController {
                 return new ResponseEntity<>(HttpStatus.NOT_FOUND);
             }
             if (session == null) return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-            if (postOwnerInfo == null || !postOwnerInfo.compareUsername(username))
+            if (!username.equals(ownerOf(id)))
                 return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
 
@@ -339,11 +357,19 @@ public class PostController {
     public ResponseEntity<String> getUserByPostID(@PathVariable("id") long id,
             @CookieValue(name = "username", required = false) String authUsername,
             @CookieValue(name = "authToken", required = false) String token) {
-        Post post = postRepository.findById(id);
-        LoginInfo userLogin = post == null ? null : postRepository.getUsernameFromPostId((int) id);
+        // One row, no body: all the answer needs is whether the post is public and who wrote it.
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+                SELECT p.published, p.section, u.username
+                  FROM posts p
+                  JOIN users_posts_junctions j ON j.post_id = p.id
+                  JOIN users u ON u.id = j.user_id
+                 WHERE p.id = ?
+                """, id);
+        Map<String, Object> row = rows.isEmpty() ? null : rows.get(0);
 
-        if (userLogin != null && canSee(post.isPublished(), post.getSection(), userLogin.getUsername(), authUsername, token)) {
-            return new ResponseEntity<>(userLogin.getUsername(), HttpStatus.OK);
+        if (row != null && canSee(Boolean.TRUE.equals(row.get("published")), (String) row.get("section"),
+                (String) row.get("username"), authUsername, token)) {
+            return new ResponseEntity<>((String) row.get("username"), HttpStatus.OK);
         } else {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
@@ -465,10 +491,9 @@ public class PostController {
                 return new ResponseEntity<>(STORAGE_FULL, HttpStatus.PAYLOAD_TOO_LARGE);
             // Enforce daily post limit from role_limits
             try {
-                String role = jdbc.queryForObject("SELECT role FROM users WHERE id=?", String.class, loginResult.userId);
-                if (role == null) role = "user";
                 Integer maxPerDay = jdbc.queryForObject(
-                    "SELECT max_posts_per_day FROM role_limits WHERE role=?", Integer.class, role);
+                    "SELECT rl.max_posts_per_day FROM users u LEFT JOIN role_limits rl ON rl.role = COALESCE(u.role, 'user') WHERE u.id=?",
+                    Integer.class, loginResult.userId);
                 if (maxPerDay != null && maxPerDay >= 0) {
                     Integer todayCount = jdbc.queryForObject(
                         "SELECT COUNT(*) FROM posts p " +
@@ -486,7 +511,9 @@ public class PostController {
                 post.setSlug(uniqueSlugFor(slugFor(post), username, null));
                 int postId = postRepository.save(post, userId);
                 syncPostUploads(postId, post.getDescription());
-                social.parseAndSaveHashtags(postId, post.getDescription());
+                // Hashtags only matter once a post is public (listings filter on it);
+                // publishing later, from the editor or the arrange menu, adds them.
+                if (post.isPublished()) social.parseAndSaveHashtags(postId, post.getDescription());
                 if (post.isPublished()) {
                     social.votePost(postId, userId, 1);
                     if (announces(post.getSection())) {
@@ -519,46 +546,42 @@ public class PostController {
         if (loginResult == null) {
             return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
         }
-        LoginInfo postOwner = postRepository.getUsernameFromPostId((int) id);
-        if (postOwner == null || !postOwner.compareUsername(username)) {
+        if (!username.equals(ownerOf(id))) {
             return new ResponseEntity<>("Forbidden", HttpStatus.FORBIDDEN);
         }
         if (post.isPublished() && postingGate.mustVerifyFirst(loginResult.userId)) return postingGate.refusal();
         ResponseEntity<String> invalid = validatePost(post);
         if (invalid != null) return invalid;
-        Post _post = postRepository.findById(id);
-        if (_post != null) {
-            // What the post held is freed as the new version is stored.
-            if (!storage.fitsQuota(loginResult.userId, storedBytes(post.getDescription(), post.getBackgroundPattern()),
-                    storedBytes(_post.getDescription(), _post.getBackgroundPattern())))
-                return new ResponseEntity<>(STORAGE_FULL, HttpStatus.PAYLOAD_TOO_LARGE);
-            boolean wasPublished = _post.isPublished();
-            _post.setId((int) id);
-            _post.setTitle(post.getTitle());
-            _post.setDescription(post.getDescription());
-            _post.setPublished(post.isPublished());
-            _post.setDate(post.getDate());
-            _post.setBackgroundPattern(post.getBackgroundPattern());
-            _post.setFolder(post.getFolder() != null && !post.getFolder().isBlank() ? post.getFolder().trim() : null);
-            _post.setSlug(uniqueSlugFor(slugFor(post), username, (int) id));
-            _post.setSummary(post.getSummary());
-            _post.setSection(post.getSection());
-            postRepository.update(_post);
-            syncPostUploads(id, post.getDescription());
-            social.parseAndSaveHashtags((int) id, post.getDescription());
-            // Notify followers when a draft is published for the first time
-            if (!wasPublished && post.isPublished()) {
-                if (announces(post.getSection()) && !alreadyAnnounced(id)) {
-                    int authorId = social.getUserIdByUsername(username);
-                    if (authorId > 0) social.notifyFollowers(authorId, username, (int) id);
-                    emailNotifications.notifyFollowersOfPost(username, post.getTitle(), id);
-                }
-                emailNotifications.sendPublishReceipt(username, post.getTitle(), id);
-            }
-            return new ResponseEntity<>("Post was updated successfully.", HttpStatus.OK);
-        } else {
+        // What the post holds now: whether it was public, and how many bytes it
+        // frees as the new version is stored. The old body itself is never read.
+        List<Map<String, Object>> stored = jdbc.queryForList("""
+                SELECT published,
+                       COALESCE(octet_length(description), 0) + COALESCE(octet_length(background_pattern), 0) AS stored
+                  FROM posts WHERE id = ?""", id);
+        if (stored.isEmpty()) {
             return new ResponseEntity<>("Cannot find Post with id=" + id, HttpStatus.NOT_FOUND);
         }
+        boolean wasPublished = Boolean.TRUE.equals(stored.get(0).get("published"));
+        long freedBytes = ((Number) stored.get(0).get("stored")).longValue();
+        if (!storage.fitsQuota(loginResult.userId, storedBytes(post.getDescription(), post.getBackgroundPattern()), freedBytes))
+            return new ResponseEntity<>(STORAGE_FULL, HttpStatus.PAYLOAD_TOO_LARGE);
+        // update() writes the columns the editor owns; the request is the row.
+        post.setId((int) id);
+        post.setFolder(post.getFolder() != null && !post.getFolder().isBlank() ? post.getFolder().trim() : null);
+        post.setSlug(uniqueSlugFor(slugFor(post), username, (int) id));
+        postRepository.update(post);
+        syncPostUploads(id, post.getDescription());
+        if (post.isPublished()) social.parseAndSaveHashtags((int) id, post.getDescription());
+        // Notify followers when a draft is published for the first time
+        if (!wasPublished && post.isPublished()) {
+            if (announces(post.getSection()) && !alreadyAnnounced(id)) {
+                int authorId = social.getUserIdByUsername(username);
+                if (authorId > 0) social.notifyFollowers(authorId, username, (int) id);
+                emailNotifications.notifyFollowersOfPost(username, post.getTitle(), id);
+            }
+            emailNotifications.sendPublishReceipt(username, post.getTitle(), id);
+        }
+        return new ResponseEntity<>("Post was updated successfully.", HttpStatus.OK);
     }
 
     /**
@@ -577,21 +600,26 @@ public class PostController {
             return loginRepository.deleteCookie();
         }
         if (loginResult == null) return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
-        Post post = postRepository.findById(id);
-        if (post == null) return new ResponseEntity<>("Cannot find Post with id=" + id, HttpStatus.NOT_FOUND);
-        LoginInfo owner = postRepository.getUsernameFromPostId((int) id);
-        if (owner == null || !owner.compareUsername(username)) return new ResponseEntity<>("Forbidden", HttpStatus.FORBIDDEN);
+        List<Map<String, Object>> rows = jdbc.queryForList("SELECT published, section, title FROM posts WHERE id = ?", id);
+        if (rows.isEmpty()) return new ResponseEntity<>("Cannot find Post with id=" + id, HttpStatus.NOT_FOUND);
+        if (!username.equals(ownerOf(id))) return new ResponseEntity<>("Forbidden", HttpStatus.FORBIDDEN);
         if (body == null || !body.containsKey("published")) return new ResponseEntity<>("Say whether it is published.", HttpStatus.BAD_REQUEST);
 
         boolean published = Boolean.TRUE.equals(body.get("published"));
         if (published && postingGate.mustVerifyFirst(loginResult.userId)) return postingGate.refusal();
-        boolean was = post.isPublished();
-        post.setPublished(published);
-        postRepository.update(post);
-        if (!was && published && announces(post.getSection()) && !alreadyAnnounced(id)) {
-            int authorId = social.getUserIdByUsername(username);
-            if (authorId > 0) social.notifyFollowers(authorId, username, (int) id);
-            emailNotifications.notifyFollowersOfPost(username, post.getTitle(), id);
+        boolean was = Boolean.TRUE.equals(rows.get(0).get("published"));
+        String section = (String) rows.get(0).get("section");
+        // Only the flag changes: the post's body is neither read nor rewritten.
+        jdbc.update("UPDATE posts SET published = ? WHERE id = ?", published, id);
+        if (!was && published) {
+            // Hashtags are saved for public posts only, so this is where a draft's tags appear.
+            List<String> text = jdbc.queryForList("SELECT description FROM posts WHERE id = ?", String.class, id);
+            if (!text.isEmpty()) social.parseAndSaveHashtags((int) id, text.get(0));
+            if (announces(section) && !alreadyAnnounced(id)) {
+                int authorId = social.getUserIdByUsername(username);
+                if (authorId > 0) social.notifyFollowers(authorId, username, (int) id);
+                emailNotifications.notifyFollowersOfPost(username, (String) rows.get(0).get("title"), id);
+            }
         }
         return new ResponseEntity<>(published ? "The post is public." : "The post is private.", HttpStatus.OK);
     }
@@ -606,8 +634,9 @@ public class PostController {
             return loginRepository.deleteCookie();
         }
         if (loginResult != null) {
-            LoginInfo postOwner = postRepository.getUsernameFromPostId((int)id);
-            if (postOwner.compareUsername(username) == false) {
+            String postOwner = ownerOf(id);
+            if (postOwner == null) return new ResponseEntity<>("Cannot find Post with id=" + id, HttpStatus.NOT_FOUND);
+            if (!postOwner.equals(username)) {
                 log.info("Refused delete of post {} by {}", id, username);
                 return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
             }
@@ -675,8 +704,7 @@ public class PostController {
         if (session == null) return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
         int postId = body.getOrDefault("postId", 0);
         if (postId <= 0) return new ResponseEntity<>("Invalid postId", HttpStatus.BAD_REQUEST);
-        LoginInfo owner = postRepository.getUsernameFromPostId(postId);
-        if (owner == null || !owner.compareUsername(username))
+        if (!username.equals(ownerOf(postId)))
             return new ResponseEntity<>("Forbidden", HttpStatus.FORBIDDEN);
         jdbc.update("UPDATE users SET pinned_post_id=? WHERE username=?", postId, username);
         return ResponseEntity.ok("Post pinned");
@@ -735,7 +763,7 @@ public class PostController {
                 "JOIN users_posts_junctions j ON j.post_id = p.id " +
                 "JOIN users u ON u.id = j.user_id " +
                 "WHERE p.published = true AND p.section <> 'subscribers' " +
-                "  AND (p.title ILIKE ? OR p.description ILIKE ?) " +
+                "  AND (p.title ILIKE ? OR p.search_text ILIKE ?) " +
                 "  AND u.username = ? " +
                 "ORDER BY p.date DESC LIMIT 25",
                 pattern, pattern, from.trim());
@@ -753,7 +781,7 @@ public class PostController {
                 "JOIN users_posts_junctions j ON j.post_id = p.id " +
                 "JOIN users u ON u.id = j.user_id " +
                 "WHERE p.published = true AND p.section <> 'subscribers' " +
-                "  AND (p.title ILIKE ? OR p.description ILIKE ?) " +
+                "  AND (p.title ILIKE ? OR p.search_text ILIKE ?) " +
                 "ORDER BY p.date DESC LIMIT 25",
                 pattern, pattern);
         }

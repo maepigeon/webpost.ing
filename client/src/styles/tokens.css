@@ -53,8 +53,6 @@
   --surface-3:      #ffffff;   /* inputs, inner wells */
   --surface-sunken: #f1efe9;   /* recessed areas */
 
-  --blur-glass:     blur(22px) saturate(165%);
-
   /* ── Raised surface: a flat fill plus edges ──────────────────────────── */
   --raise-1:
     0 0 0 1px var(--hairline),
@@ -113,7 +111,7 @@
    text, all on a dark page.
 
    Until token adoption is complete, readability is guaranteed the narrower way:
-   content sits on its own light surface (--surface-1/2/3 plus backdrop-filter),
+   content sits on its own solid light surface (--surface-1/2/3, never blurred),
    and anything that would otherwise sit directly on the user's wallpaper gets
    a scrim. A background goes *behind* content; it is never the thing text is
    read against.

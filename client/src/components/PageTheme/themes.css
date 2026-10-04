@@ -70,6 +70,32 @@ html[data-th-hide-wallpaper]:not([data-own-wallpaper]) body { background-image: 
 
 .navBar, .navBar * { font-family: var(--app-font); }
 
+/* One interface font. The theme's body font styles what the owner wrote (post
+   title, post text, bio, comments, a Button block's label), never the
+   controls around it. Specific enough to beat the components' own
+   "font-family: inherit"; the containers listed set the font for the plain
+   text inside them (status lines, counts, popover labels).
+   Left in their own font on purpose: .title-input (the post's title, a
+   heading), .pb (the Button block, content that wears the theme font),
+   .editor-math-input and .code-lang-label (formula and code text, monospace),
+   .tg-size input, .grid-stepper-input and .tg-link-label input (the grid
+   panels' monospace number and address fields), and the theme previews
+   (.theme-preview shows a theme, so it uses that theme's font). */
+#appBody .th-scope :is(
+  button, input, select, textarea, summary, label, legend,
+  [role="tab"], [role="tablist"], [role="menu"], [role="menuitem"], [role="listbox"],
+  [role="option"], [role="status"], [role="toolbar"], [role="dialog"], [role="tooltip"],
+  .edit-bio-btn, .view-as-bar, .storage-summary, .profile-tabs, .profile-list-bar,
+  .profile-post-folder-menu, .profile-folder-badge, .profile-folder-preview-chip,
+  .profile-tab-count, .profile-links-count, .arrange, .share-menu, .reaction-bar,
+  .comment-reaction-bar, .post-vote-bar, .discussion-sort, .discussion-style-badge,
+  .mention-list, .floating-link-toolbar, .autosave-status, .draft-found, .stickies-bar,
+  .toolbar-sticky, .post-slug-row, .post-summary-row, .post-section-row, .viewer-discussion-link
+):not(.title-input, .pb, .editor-math-input, .code-lang-label, .tg-size input,
+  .grid-stepper-input, .tg-link-label input, .theme-preview *) {
+  font-family: var(--app-font);
+}
+
 :is(#appBody, .theme-preview) :is(h1, h2, h3):not(.navBar *) {
   color: var(--th-heading-ink);
   text-transform: var(--th-heading-case);
@@ -242,16 +268,12 @@ html[data-th-hide-wallpaper]:not([data-own-wallpaper]) body { background-image: 
   box-shadow: none;
 }
 
-/* A post card's Edit and Delete: small quiet pills in the app's font, the
-   same on every theme. Delete is an outline only, red, and fills on hover. */
+/* A post card's Edit and Delete: quiet, flat, the same on every theme (size,
+   corners and font come from ProfilePostList.css). Delete is an outline only,
+   red, and fills on hover. */
 #appBody .basicTextPost .bottom-nav .editor { display: flex; align-items: center; gap: 8px; }
 #appBody .basicTextPost .bottom-nav button {
   margin: 0;
-  padding: 5px 16px;
-  border-width: 1px;
-  border-radius: 999px;
-  font: 600 12px/1.3 var(--app-font);
-  letter-spacing: 0.02em;
   box-shadow: none;
   text-shadow: none;
 }
@@ -299,21 +321,23 @@ html[data-th-hide-wallpaper]:not([data-own-wallpaper]) body { background-image: 
   --th-text-glow: 0 1px 2px rgba(255, 255, 255, 0.7);
 }
 
-/* ── Inputs on a themed card: ink text, a faint ink tint, an ink border ──── */
+/* ── Inputs on a themed card: ink text, a faint ink tint, an ink border ────
+   Not the ones on a dark tool surface (Button block form, grid panels), which
+   keep their own light-on-dark colours. */
 #appBody :is(.profile-header-card, .editor-post-card, .discussion-glass-panel)
-  :is(textarea, input:is([type="text"], [type="url"], [type="search"], [type="email"], [type="number"], :not([type]))):not(.title-input):not(.toolbar-sticky *) {
+  :is(textarea, input:is([type="text"], [type="url"], [type="search"], [type="email"], [type="number"], :not([type]))):not(.title-input):not(.toolbar-sticky *):not(:is(.pb-form, .tilegrid, .pe-panel, .tg-link-panel) *) {
   color: var(--th-ink, #222) !important;
   background: var(--th-tint);
   border: 1px solid var(--th-hair) !important;
   box-shadow: none;
 }
 #appBody :is(.profile-header-card, .editor-post-card, .discussion-glass-panel)
-  :is(textarea, input):not(.title-input):not(.toolbar-sticky *)::placeholder {
+  :is(textarea, input):not(.title-input):not(.toolbar-sticky *):not(:is(.pb-form, .tilegrid, .pe-panel, .tg-link-panel) *)::placeholder {
   color: color-mix(in srgb, var(--th-ink, #222) 50%, transparent);
   opacity: 1;
 }
 #appBody :is(.profile-header-card, .editor-post-card, .discussion-glass-panel)
-  :is(textarea, input):not(.title-input):not(.toolbar-sticky *):focus {
+  :is(textarea, input):not(.title-input):not(.toolbar-sticky *):not(:is(.pb-form, .tilegrid, .pe-panel, .tg-link-panel) *):focus {
   border-color: color-mix(in srgb, var(--th-ink, #222) 75%, transparent) !important;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--th-ink, #222) 28%, transparent);
   outline: none;
@@ -392,9 +416,7 @@ html[data-th-hide-wallpaper]:not([data-own-wallpaper]) body { background-image: 
 }
 #appBody .editor-post-card :is(.post-slug-edit, .post-slug-reset):hover { background: var(--th-tint-strong); color: var(--th-ink, #222); border-color: var(--th-ink, #222); }
 #appBody .editor-post-card :is(.post-summary-label, .post-summary-count) { color: var(--th-ink, #222); opacity: 0.75; }
-/* The tool band is a solid light strip of its own, so its text is fixed dark,
-   not the card's ink (which may be pale). */
-#appBody .editor-post-card .toolbar-sticky { color: var(--ink, #1c1c1c); background: var(--th-card-bg, #fbfaf6); }
+/* The tool band takes the card's own colours (Editor.css). */
 #appBody .editor-post-card .toolbar-sticky :is(span, p, a, label) { text-shadow: none; }
 
 /* ── Discussion page ──────────────────────────────────────────────────────── */

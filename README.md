@@ -109,7 +109,7 @@ Email (verification, notifications, password reset) is off until
 
 The server only runs releases; it never builds. Install Java 21 (a JRE is
 enough), PostgreSQL and nginx. Do not install Node or Maven, and do not clone
-the repository there.
+the repository there (it is private, and the server holds no GitHub credential).
 
 **1. Create the production database** with your real name and user, as in
 [guide/MIGRATIONS.md](guide/MIGRATIONS.md#a-fresh-database). The server builds

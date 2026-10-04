@@ -8,6 +8,16 @@ import java.util.List;
 
 public interface LoginRepository {
     AuthSession login(LoginInfo loginInfo);
+
+    /**
+     * Starts a session for a member who has already proved who they are by
+     * other means than a password (single sign-on). Everything after the
+     * password check is the same as {@link #login}: a frozen account is
+     * refused, the token is fresh, and the per-account and overall session
+     * caps apply. The result's {@code loginHttpStatusCodeResult} is OK, or
+     * FORBIDDEN when the account is frozen or gone.
+     */
+    AuthSession createSession(int userId);
     boolean logout(String username, String token);
     int authenticate(String username, String password);
     AuthSession authorize(String username, String token) throws JdbcLoginRepository.TokenExpiredException;

@@ -41,6 +41,21 @@
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
 }
 
+/* A card's Edit and Delete: the same size, weight and corners as every other
+   owner button on the profile (themes.css gives their colours; Delete stays
+   red). Written with the card's own id so it wins over the theme's pill. */
+#appBody .basicTextPost .bottom-nav .editor button {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 14px;
+  border-width: 1.5px;
+  border-radius: 6px;
+  font: 600 13px/1 var(--app-font);
+  letter-spacing: 0;
+}
+
 .profile-list-error {
   flex: 1;
   min-width: 200px;
@@ -66,38 +81,41 @@
 .profile-post-folder-btn-wrap.is-open { z-index: 600; }
 
 .profile-post-folder-btn {
-  background: #fff;
-  border: 1.5px solid rgba(119, 119, 119, 0.5);
-  border-radius: 20px;
-  padding: 4px 11px 4px 9px;
-  font-size: 11.5px;
-  font-weight: 700;
-  color: #434343;
+  /* The same pill as every owner button on the profile. */
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  height: 32px;
+  padding: 0 12px;
+  background: var(--th-card-solid, #ffffff);
+  border: 1.5px solid color-mix(in srgb, var(--th-ink, #111111) 40%, transparent);
+  border-radius: 6px;
+  font: 600 13px var(--app-font);
+  color: var(--th-ink, #111111);
   cursor: pointer;
   white-space: nowrap;
   transition: background 0.12s, border-color 0.12s;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.85), 0 2px 7px rgba(28, 28, 28, 0.18);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
 }
 .profile-post-folder-btn:hover {
-  background: #ffffff;
-  color: #373737;
-  border-color: rgba(119, 119, 119, 0.75);
+  background: color-mix(in srgb, var(--th-ink, #111111) 10%, var(--th-card-solid, #ffffff));
   filter: none;
 }
 .profile-post-folder-btn:active { transform: scale(0.95); }
 
+/* The menu is a small card of the profile's theme: its colour, its ink. */
 .profile-post-folder-menu {
   position: absolute;
   right: 0;
   top: calc(100% + 6px);
   z-index: 500;
-  background: #fff;
-  border-radius: 14px;
-  border: 1px solid rgba(0, 0, 0, 0.14);
-  box-shadow:
-    inset 0 2px 0 rgba(255,255,255,0.95),
-    0 12px 32px rgba(0,0,0,0.18),
-    0 4px 10px rgba(119, 119, 119, 0.12);
+  background: var(--th-card-solid, #ffffff);
+  color: var(--th-ink, #111111);
+  font-family: var(--app-font);
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--th-ink, #111111) 30%, transparent);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
   min-width: 190px;
   padding: 8px 0;
   animation: popup-spring 0.18s cubic-bezier(0.34,1.56,0.64,1);
@@ -109,12 +127,12 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #6a6a6a;
+  color: color-mix(in srgb, var(--th-ink, #111111) 65%, transparent);
 }
 
 .profile-post-folder-menu-divider {
   height: 1px;
-  background: rgba(0,0,0,0.07);
+  background: color-mix(in srgb, var(--th-ink, #111111) 16%, transparent);
   margin: 4px 10px;
 }
 
@@ -125,16 +143,16 @@
   background: none;
   border: none;
   padding: 7px 14px;
-  font-size: 13px;
-  color: #333;
+  font: 13px var(--app-font);
+  color: inherit;
   cursor: pointer;
   transition: background 0.1s;
   box-shadow: none;
 }
-.profile-post-folder-menu-item:hover { background: rgba(119, 119, 119, 0.08); filter: none; transform: none !important; }
-.profile-post-folder-menu-item.active { color: #565656; font-weight: 600; }
-.profile-post-folder-menu-item--remove { color: #a01515; }
-.profile-post-folder-menu-item--remove:hover { background: rgba(204,68,68,0.08); }
+.profile-post-folder-menu-item:hover { background: color-mix(in srgb, var(--th-ink, #111111) 10%, transparent); filter: none; transform: none !important; }
+.profile-post-folder-menu-item.active { font-weight: 700; }
+.profile-post-folder-menu-item--remove { color: var(--th-danger, #a01515); }
+.profile-post-folder-menu-item--remove:hover { background: color-mix(in srgb, var(--th-danger, #a01515) 12%, transparent); }
 
 .profile-post-folder-new-row {
   display: flex;
@@ -144,27 +162,30 @@
 
 .profile-post-folder-new-input {
   flex: 1;
-  border: 1px solid rgba(119, 119, 119, 0.25);
-  border-radius: 8px;
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--th-ink, #111111) 35%, transparent);
+  border-radius: 6px;
   padding: 5px 9px;
-  font-size: 12px;
+  font: 12px var(--app-font);
+  color: inherit;
   outline: none;
-  background: rgba(255,255,255,0.7);
+  background: transparent;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
+.profile-post-folder-new-input::placeholder { color: color-mix(in srgb, var(--th-ink, #111111) 55%, transparent); }
 .profile-post-folder-new-input:focus {
-  border-color: #565656;
-  box-shadow: 0 0 0 2px rgba(119, 119, 119, 0.14);
+  border-color: var(--th-ink, #111111);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--th-ink, #111111) 20%, transparent);
 }
 
 .profile-post-folder-new-btn {
-  background: #a1a1a1;
+  background: var(--th-ink, #111111);
   border: none !important;
-  border-radius: 8px !important;
+  border-radius: 6px !important;
   width: 28px;
   height: 28px;
   font-size: 16px;
-  color: #fff !important;
+  color: var(--th-card-solid, #ffffff) !important;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -173,7 +194,7 @@
   box-shadow: none !important;
 }
 .profile-post-folder-new-btn:disabled { opacity: 0.38; cursor: not-allowed; }
-.profile-post-folder-new-btn:not(:disabled):hover { filter: brightness(1.1) !important; }
+.profile-post-folder-new-btn:not(:disabled):hover { opacity: 0.85; }
 
 /* ── Folder section ──────────────────────────────────────────────────────
    Page themes restyle this as one of their cards (PageTheme/themes.css);
@@ -295,21 +316,21 @@
 
 
 .profile-folder-toggle-btn {
-  background: rgba(255, 255, 255, 0.94);
-  border: 1.5px solid rgba(119, 119, 119, 0.4);
-  border-radius: 8px;
+  background: var(--th-card-solid, #ffffff);
+  border: 1.5px solid color-mix(in srgb, var(--th-ink, #111111) 40%, transparent);
+  border-radius: 6px;
   width: 32px;
   height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: #434343;
+  color: var(--th-ink, #111111);
   font-weight: 700;
   transition: background 0.12s;
   box-shadow: none;
 }
-.profile-folder-toggle-btn:hover { background: rgba(119, 119, 119, 0.10); color: #565656; filter: none; transform: none !important; }
+.profile-folder-toggle-btn:hover { background: color-mix(in srgb, var(--th-ink, #111111) 10%, var(--th-card-solid, #ffffff)); filter: none; transform: none !important; }
 
 .profile-folder-chevron {
   font-size: 11px;

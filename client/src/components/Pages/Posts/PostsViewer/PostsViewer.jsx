@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { visiblePostsFor } from '../../../../utils/viewAs.js';
-import {AUTHORIZE_SESSION, READ_POSTS_BY_USER, GET_POST_SECTIONS, GET_USER_BACKGROUND, GET_USER_BIO, UPDATE_USER_BIO, GET_USER_BIO_LINKS, UPDATE_USER_BIO_LINKS, GET_USER_STORAGE, GET_FOLLOWERS, GET_FOLLOWING, GET_BLOCK_MESSAGE_STATUS, BLOCK_MESSAGES, UNBLOCK_MESSAGES, EXPORT_MY_DATA, GET_PINNED_POST, SET_PINNED_POST, UNPIN_POST, GET_USER_AVATAR, POST_USER_AVATAR, GET_USER_ONLINE} from '../BasicTextPostServerApi.js'
+import {AUTHORIZE_SESSION, READ_POSTS_BY_USER, GET_POST_SECTIONS, GET_PROFILE_SUMMARY, UPDATE_USER_BIO, UPDATE_USER_BIO_LINKS, GET_USER_STORAGE, GET_FOLLOWERS, GET_FOLLOWING, BLOCK_MESSAGES, UNBLOCK_MESSAGES, EXPORT_MY_DATA, SET_PINNED_POST, UNPIN_POST, POST_USER_AVATAR} from '../BasicTextPostServerApi.js'
 import ProfilePostList from './ProfilePostList.jsx';
 import { mergePosts, applyChanges } from './profileOrder.js';
 import { IMAGES_BASE_URL } from '../../../../config.js';
@@ -16,10 +16,9 @@ import {useParams, Link, useNavigate, useSearchParams} from "react-router-dom";
 import { usePageTitle } from '../../../../utils/usePageTitle.js';
 import { usePageMeta } from '../../../../utils/pageMeta.js';
 import { describeUploadError } from '../../../../utils/responsiveImage.js';
-import { GET_PROFILE_HEADER, GET_PROFILE_BANNER } from '../BasicTextPostServerApi.js';
 import ProfileBanner from './ProfileBanner.jsx';
 import ProfileTabs from './ProfileTabs.jsx';
-import { tabFromSearch, searchForTab, sectionForTab, visibleTabs } from './profileTabs.js';
+import { tabFromSearch, searchForTab, sectionForTab, visibleTabs, showTabBar, publicPostCount, hidesDrafts, listedPosts, listRunsOn, profileFromSummary } from './profileTabs.js';
 import StorageSummary from './StorageSummary.jsx';
 import ProfileStickies from './ProfileStickies.jsx';
 import BannerEditor from './BannerEditor.jsx';
@@ -111,6 +110,8 @@ function PostsViewer() {
     // previewing) how many notes a visitor would see.
     const [counts, setCounts] = useState({});
     const [publicNotes, setPublicNotes] = useState(null);
+    // The server says there is no such user: one plain line instead of an empty profile.
+    const [notFound, setNotFound] = useState(false);
     const avatarInputRef = useRef(null);
     const sentinelRef = useRef(null);
     const { username } = useParams();
@@ -209,63 +210,51 @@ function PostsViewer() {
     }, []);
 
     // Switching tab (or profile) starts the list over with that section.
+    const autoLoadedAtRef = useRef(-1);   // the offset a drafts-only page was already followed up from
     useEffect(() => {
       setPostsArray([]);
       offsetRef.current = 0;
+      autoLoadedAtRef.current = -1;
       setHasMore(true);
       loadPosts(true);
     }, [loadPosts]);
 
-    // Tab counts. Refreshed after the owner changes a post from the list.
+    // Tab counts. They arrive with the summary below; this refreshes them
+    // after the owner changes a post from the list.
     const loadCounts = useCallback(() => {
-      GET_POST_SECTIONS(username).then(c => setCounts(c || {})).catch(() => {});
-    }, [username]);
-    useEffect(() => { setCounts({}); loadCounts(); }, [loadCounts]);
-
-    // The owner previewing needs the public note count, which the counts do
-    // not give (they include the owner's note drafts).
-    useEffect(() => {
-      setPublicNotes(null);
-      if (!previewing) return undefined;
-      let current = true;
-      READ_POSTS_BY_USER(username, 50, 0, 'notes')
-        .then(list => { if (current) setPublicNotes((Array.isArray(list) ? list : []).filter(p => p.published).length); })
-        .catch(() => { if (current) setPublicNotes(0); });
-      return () => { current = false; };
-    }, [previewing, username]);
-
-    useEffect(() => {
-      GET_USER_BACKGROUND(username).then(p => setBgPattern(p || '')).catch(() => {});
-      GET_PROFILE_HEADER(username)
-        .then(d => setHeader({ headerPath: d.headerPath || null, headerInk: d.headerInk || 'auto' }))
-        .catch(() => {});
-      setBanner({ joined: null, publicPosts: 0, grid: null });
-      GET_PROFILE_BANNER(username)
-        .then(d => setBanner({ joined: d.joined || null, publicPosts: d.publicPosts || 0, grid: d.grid || null }))
-        .catch(() => {});
-      GET_USER_BIO(username).then(b => setBio(b || '')).catch(() => {});
-      GET_USER_BIO_LINKS(username).then(d => {
-        const links = Array.isArray(d) ? d : (typeof d === 'string' ? JSON.parse(d) : []);
-        setBioLinks(links);
+      GET_POST_SECTIONS(username).then(c => {
+        setCounts(c || {});
+        // With counts as published posts, a visitor's note count is the same number.
+        if (typeof c?.notes === 'number') setPublicNotes(c.notes);
       }).catch(() => {});
-      // Only the owner and admins may see how much space a profile uses.
+    }, [username]);
+
+    // Everything the profile draws besides the posts, the theme and the
+    // storage figure comes in this one request.
+    useEffect(() => {
+      let current = true;
+      const empty = profileFromSummary(null);
+      setNotFound(false);
+      setBgPattern(empty.bgPattern); setHeader(empty.header); setBio(empty.bio); setBioLinks(empty.bioLinks);
+      setAvatar(empty.avatar); setOnlineStatus(empty.onlineStatus); setBanner(empty.banner);
+      setCounts(empty.counts); setPublicNotes(empty.publicNotes); setFollowCounts(empty.followCounts);
+      setFollowsMe(empty.followsMe); setPinnedPost(empty.pinnedPost);
+      setDmBlocked(empty.dmBlocked); setDmBlockedByThem(empty.dmBlockedByThem);
+      GET_PROFILE_SUMMARY(username).then(data => {
+        if (!current) return;
+        const p = profileFromSummary(data);
+        setBgPattern(p.bgPattern); setHeader(p.header); setBio(p.bio); setBioLinks(p.bioLinks);
+        setAvatar(p.avatar); setOnlineStatus(p.onlineStatus); setBanner(p.banner);
+        setCounts(p.counts); setPublicNotes(p.publicNotes); setFollowCounts(p.followCounts);
+        setFollowsMe(p.followsMe); setPinnedPost(p.pinnedPost);
+        setDmBlocked(p.dmBlocked); setDmBlockedByThem(p.dmBlockedByThem);
+      }).catch(err => { if (current && err?.response?.status === 404) setNotFound(true); });
+      return () => { current = false; };
+    }, [username]);
+
+    // Only the owner and admins may see how much space a profile uses.
+    useEffect(() => {
       if (isOwner || localStorage.getItem('isAdmin') === '1') GET_USER_STORAGE(username).then(setStorage).catch(() => {});
-      const me = localStorage.getItem('userName');
-      Promise.all([GET_FOLLOWERS(username), GET_FOLLOWING(username)])
-        .then(([followers, following]) => {
-          setFollowCounts({ followers: followers.length, following: following.length });
-          if (me && !isOwner) setFollowsMe(following.includes(me));
-        })
-        .catch(() => {});
-      if (loggedIn && !isOwner) {
-        GET_BLOCK_MESSAGE_STATUS(username).then(d => {
-          setDmBlocked(d.blocked);
-          setDmBlockedByThem(d.blockedByThem ?? false);
-        }).catch(() => {});
-      }
-      GET_PINNED_POST(username).then(setPinnedPost).catch(() => setPinnedPost(null));
-      GET_USER_AVATAR(username).then(d => setAvatar(d?.avatarPath || '')).catch(() => {});
-      GET_USER_ONLINE(username).then(setOnlineStatus).catch(() => {});
     }, [username]);
 
     // IntersectionObserver for infinite scroll
@@ -323,6 +312,22 @@ function PostsViewer() {
     }
 
     const visiblePosts = visiblePostsFor(postsArray, { previewing });
+    // The owner's Posts and Notes list what is published, so a list is as long
+    // as its tab's count; drafts are under Drafts. The arrange view gets every
+    // post (ProfilePostList, which is told to hide drafts only outside it).
+    const hideDrafts = hidesDrafts(tab, canEdit);
+    const listed = listedPosts(visiblePosts, { tab, canEdit });
+    const nothingListed = !Array.isArray(listed) || listed.length === 0;
+    const listRunsOnPast = listRunsOn({ listedCount: listed?.length ?? 0, loadedCount: postsArray.length, hasMore });
+
+    // A page made only of drafts: go on to the next one rather than leave an
+    // empty tab with more behind it. Once per offset, so a failed page is not
+    // retried in a loop.
+    useEffect(() => {
+      if (!listRunsOnPast || loadingMore || autoLoadedAtRef.current === offsetRef.current) return;
+      autoLoadedAtRef.current = offsetRef.current;
+      loadPosts(false);
+    }, [listRunsOnPast, loadingMore, loadPosts, postsArray]);
     const baseTabs = visibleTabs({ isOwner: canEdit, counts, publicNotes });
     // A visitor who follows a link to ?tab=notes on a profile with no public
     // notes still lands on that tab (empty) rather than on a different list.
@@ -333,6 +338,12 @@ function PostsViewer() {
       drafts: 'No drafts. Anything you save without publishing shows up here.',
       subscribers: 'Nothing here yet.',
     }[tab];
+
+    // Posts are loaded, though maybe all drafts: the list (with Arrange) is drawn.
+    const hasLoadedPosts = Array.isArray(visiblePosts) && visiblePosts.length > 0;
+
+    // Nothing to list, and nothing more coming: one quiet panel.
+    const showEmptyPanel = nothingListed && !loadingMore && !listRunsOnPast;
 
     // Drawn by the post list, under its owner bar and above the other posts.
     // Only on the Posts tab: pinning is part of arranging the profile.
@@ -346,8 +357,20 @@ function PostsViewer() {
       </div>
     ) : null;
 
+    if (notFound) {
+      return (
+        <div className="window th-scope" style={{ minHeight: '100vh', justifyContent: 'flex-start' }}>
+          <div className="postsViewerContainer">
+            <p className="profile-tab-empty" role="status">This profile does not exist.</p>
+          </div>
+        </div>
+      );
+    }
+
+    // Top-aligned: the window centres its children, which moved the header
+    // down whenever the list was short.
     return (
-      <div className="window th-scope" style={{ minHeight: '100vh' }}>
+      <div className="window th-scope" style={{ minHeight: '100vh', justifyContent: 'flex-start' }}>
         {previewing && (
           <div className="view-as-bar" role="status">
             <span>Viewing your profile as a visitor</span>
@@ -380,7 +403,7 @@ function PostsViewer() {
               followers={followCounts.followers}
               following={followCounts.following}
               joined={banner.joined}
-              publicPosts={banner.publicPosts}
+              publicPosts={publicPostCount(counts, banner.publicPosts)}
               grid={banner.grid}
               avatarSrc={avatar ? IMAGES_BASE_URL + avatar : null}
               online={Boolean(onlineStatus?.online)}
@@ -455,8 +478,8 @@ function PostsViewer() {
                   placeholder="Write a short bio..."
                 />
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button type="button" onClick={saveBio}>Save</button>
-                  <button type="button" onClick={() => { setEditingBio(false); setBioError(''); }}>Cancel</button>
+                  <button type="button" className="edit-bio-btn" onClick={saveBio}>Save</button>
+                  <button type="button" className="edit-bio-btn" onClick={() => { setEditingBio(false); setBioError(''); }}>Cancel</button>
                 </div>
                 {bioError && <p style={{ margin: '4px 0 0', color: '#d32f2f', fontSize: '12px' }}>{bioError}</p>}
               </div>
@@ -581,7 +604,7 @@ function PostsViewer() {
               {(!isOwner || previewing) && loggedIn && (
                 <>
                   {!dmBlockedByThem && (
-                    <button type="button" disabled={previewing} title={previewing ? 'Shown as a visitor sees it' : undefined} onClick={() => navigate(`/messages?with=${username}`)}>Send message</button>
+                    <button type="button" className="edit-bio-btn" disabled={previewing} title={previewing ? 'Shown as a visitor sees it' : undefined} onClick={() => navigate(`/messages?with=${username}`)}>Send message</button>
                   )}
                   <button
                     type="button"
@@ -606,17 +629,17 @@ function PostsViewer() {
             {canEdit && storage && <StorageSummary storage={storage} />}
           </div>
           <ProfileTabs tabs={tabs} active={tab} onSelect={selectTab} />
-          <div id="profile-tabpanel" role="tabpanel" aria-labelledby={`profile-tab-${tab}`}>
+          <div id="profile-tabpanel" {...(showTabBar(tabs) ? { role: 'tabpanel', 'aria-labelledby': `profile-tab-${tab}` } : {})}>
           {/* An empty tab is one quiet panel: what this place is, then what
               you can do here, side by side. A tab with posts keeps only its
               "new" button above the list. */}
-          {(!Array.isArray(visiblePosts) || !visiblePosts.length) && !loadingMore ? (
+          {showEmptyPanel && (
             <div className="profile-tab-panel">
               <p className="profile-tab-empty">{emptyText}</p>
               {tab === 'subscribers' && (
                 <p className="profile-tab-sub">Only you can see these for now. Subscriptions are coming later.</p>
               )}
-              {canEdit && tab !== 'drafts' && (
+              {canEdit && tab !== 'drafts' && !hasLoadedPosts && (
                 <div className="profile-tab-actions">
                   <Link className="profile-owner-btn" to={tab === 'posts' ? '/editor' : `/editor?section=${tab}`}>
                     {tab === 'notes' ? '+ New note' : '+ New post'}
@@ -625,7 +648,8 @@ function PostsViewer() {
                 </div>
               )}
             </div>
-          ) : (
+          )}
+          {(!showEmptyPanel || hasLoadedPosts) && (
             <>
               {tab === 'subscribers' && (
                 <p className="profile-tab-sub profile-tab-sub--bar">Only you can see these for now. Subscriptions are coming later.</p>
@@ -639,11 +663,12 @@ function PostsViewer() {
               )}
             </>
           )}
-          {(!Array.isArray(visiblePosts) || !visiblePosts.length) && !loadingMore
+          {!hasLoadedPosts && !loadingMore
             ? null
             : <ProfilePostList
                 key={tab}
                 posts={visiblePosts}
+                hideDrafts={hideDrafts}
                 pinnedId={tab === 'posts' ? (pinnedPost?.id ?? null) : null}
                 canEdit={canEdit}
                 arrangeable={tab === 'posts'}

@@ -110,9 +110,23 @@ CREATE TABLE posts (
   slug               VARCHAR,                 -- /{username}/{slug}
   votes_enabled      BOOLEAN      NOT NULL DEFAULT false, -- up/down votes and score (V007)
   page_theme         TEXT,                    -- the post's own theme, copied from the author's at creation (V009)
-  card_grid          BOOLEAN      NOT NULL DEFAULT true   -- profile card previews the first grid (V010)
+  card_grid          BOOLEAN      NOT NULL DEFAULT true,  -- profile card previews the first grid (V010)
+  card_preview       TEXT,                    -- the first grid's JSON, for cards; NULL for none or over the size cap (V020)
+  search_text        TEXT,                    -- the body's plain text, at most 20 000 characters; what search reads (V020)
+  preview_version    SMALLINT     NOT NULL DEFAULT 0      -- 0 = the two above are not computed yet (V020)
 );
 ```
+
+`card_preview`, `search_text` and `preview_version` (V020) are derived from
+`description` by `PostPreview` so that lists and search never read the body.
+`JdbcPostRepository.save`/`update` write them with the body; rows inserted any
+other way (an import, posts older than V020) start at `preview_version = 0`
+and are filled by the background `PreviewSweep`, a few rows every two seconds.
+A row below `PostPreview.VERSION` is "not computed": lists find its grid in
+the body on the fly and search finds it by title only. Anything that changes
+`description` outside the repository must also set `preview_version = 0`.
+They do not count toward the author's quota. `idx_posts_search_trgm` is a
+trigram GIN index over `search_text` for published posts.
 
 **Common queries:**
 ```sql
@@ -385,6 +399,41 @@ CREATE TABLE security_events (
 CREATE INDEX security_events_user_time ON security_events (user_id, created_at DESC);
 ```
 
+Sign-in methods also write `identity_linked` and `identity_unlinked` (the
+provider's name in `detail`), and a provider sign-in is a `sign_in` with the
+provider's name in `detail`.
+
+---
+
+## user_identities
+
+The Google or Microsoft account a member can sign in with (V021). A person is
+recognised by `(provider, subject)`, the provider's own stable id for them, and
+never by email; `email` is only what the provider last reported, shown in
+Settings > Sign-in methods. No tokens are stored. A member has at most one
+account per provider.
+
+```sql
+CREATE TABLE user_identities (
+  id             SERIAL PRIMARY KEY,
+  user_id        INTEGER      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  provider       VARCHAR(16)  NOT NULL,   -- 'google' | 'microsoft'
+  subject        VARCHAR(255) NOT NULL,   -- the provider's "sub"
+  email          VARCHAR(255),
+  email_verified BOOLEAN      NOT NULL DEFAULT FALSE,
+  created_at     TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  last_used_at   TIMESTAMPTZ
+);
+CREATE UNIQUE INDEX user_identities_provider_subject ON user_identities (provider, subject);
+CREATE UNIQUE INDEX user_identities_user_provider    ON user_identities (user_id, provider);
+```
+
+**An account without a password.** An account made through a provider has
+`users.password = '!sso'`: not a bcrypt hash, so no password matches it. "Has a
+password" means the value starts with `$2`. Any path that stores a real hash
+(Settings > Sign-in methods > Set a password, reset by email, an admin setting
+one) makes it an ordinary account; there is no separate flag to keep in step.
+
 ---
 
 ## role_limits
@@ -623,7 +672,7 @@ bitmap hex), `created_at`, `updated_at`. A user's own symbol sets.
 ## Cascade delete summary
 
 When you DELETE a user, these cascade automatically:
-- `uploads`, `security_events`
+- `uploads`, `security_events`, `user_identities`
 - `stickers`, `stickies`, `pixel_fonts`, `shared_packs`, `shared_pack_saves`, `post_views`
 - `follows` (both follower and followed rows)
 - `notifications`

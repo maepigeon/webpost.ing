@@ -1,9 +1,7 @@
 .follow-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.35);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.45);
   z-index: 1000;
   display: flex;
   align-items: center;
@@ -12,9 +10,7 @@
 }
 
 .follow-modal {
-  background: rgba(255,255,255,0.75);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  background: #fff;
   border: 1px solid rgba(255,255,255,0.85);
   border-radius: 16px;
   padding: 0;

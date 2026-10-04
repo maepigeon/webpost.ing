@@ -96,6 +96,9 @@ public class AuthController {
     @Autowired(required = false)
     com.springbootprojects.webpostingserver.posts.service.EmailTokenService emailTokens;
 
+    @Autowired(required = false)
+    com.springbootprojects.webpostingserver.posts.service.SsoProviders ssoProviders;
+
     /** Returns the background pattern for a user's profile page (public). */
     @GetMapping("/users/{username}/background")
     public ResponseEntity<String> getUserBackground(@PathVariable("username") String username) {
@@ -515,7 +518,7 @@ public class AuthController {
             return ResponseEntity.badRequest().body(Map.of("message", "The new password is the same as the current one."));
 
         jdbc.update("UPDATE users SET password = ? WHERE username = ?",
-                new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().encode(next), username);
+                JdbcLoginRepository.hashPassword(next), username);
         loginRepository.evictSession(username);
         securityLog.recordForUsername(username, "password_changed", null, request);
         log.info("Password changed by {}", username);
@@ -524,13 +527,18 @@ public class AuthController {
 
     // ── Public registration (invite code required) ────────────────────────────
 
-    /** What the sign-up form needs to know: whether to ask for an invite code, and the Turnstile site key if on. */
+    /**
+     * What the sign-in and sign-up forms need to know: whether to ask for an
+     * invite code, the Turnstile site key if on, and which "Continue with ..."
+     * providers are switched on ([{id, name}], empty when none).
+     */
     @GetMapping("/signup/config")
     public Map<String, Object> signupConfig() {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("inviteRequired", inviteRequired());
         m.put("turnstileSiteKey", signupGuard == null ? null : signupGuard.siteKey());
         m.put("mailEnabled", emailService != null && emailService.isEnabled());
+        m.put("ssoProviders", ssoProviders == null ? List.of() : ssoProviders.publicList());
         return m;
     }
 
@@ -606,8 +614,11 @@ public class AuthController {
 
         // Check daily registration limit
         try {
-            String limitStr = jdbc.queryForObject(
+            // No row means the default of 5. It used to mean "no limit at all":
+            // queryForObject throws on an empty result and the catch below let it through.
+            List<String> limits = jdbc.queryForList(
                 "SELECT value FROM system_settings WHERE key='max_daily_registrations'", String.class);
+            String limitStr = limits == null || limits.isEmpty() ? null : limits.get(0);
             int limit = limitStr != null ? Integer.parseInt(limitStr.trim()) : 5;
             if (limit >= 0) {
                 Integer todayCount = jdbc.queryForObject(
@@ -652,11 +663,9 @@ public class AuthController {
         }
 
         // Create the user account
-        org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder bcrypt =
-            new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
         try {
             jdbc.update("INSERT INTO users(username, password, email) VALUES(?,?,?)",
-                username, bcrypt.encode(password), email);
+                username, JdbcLoginRepository.hashPassword(password), email);
         } catch (Exception e) {
             // The name was taken after all: hand the code back.
             if (needCode) jdbc.update("UPDATE invite_codes SET used_by=NULL, used_at=NULL WHERE code=? AND used_by=?", code.trim(), username);

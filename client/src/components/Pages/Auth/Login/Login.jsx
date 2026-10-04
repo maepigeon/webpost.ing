@@ -1,11 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import './Login.css';
+import { AuthField } from './AuthFields.jsx';
 import { BASE_URL as baseUrl } from '../../../../config.js';
 import { ADMIN_GET_STATUS } from '../../Posts/BasicTextPostServerApi.js';
 import { usePageTitle } from '../../../../utils/usePageTitle.js';
 import { errorMessage } from '../../../../utils/errorMessage.js';
+import SsoButtons from './SsoButtons.jsx';
+import { rememberSignIn } from './signedIn.js';
+import { ssoLoginMessage, ssoProvidersOf } from './ssoOutcome.js';
 
 function Login() {
   usePageTitle('Sign in');
@@ -14,11 +18,47 @@ function Login() {
   // Set by handleExpiredSession when a 401 bounced the user here, so the
   // redirect explains itself instead of looking like a random sign-out.
   const sessionExpired = new URLSearchParams(location.search).get('expired') === '1';
+  // Back from Google or Microsoft: "ok" means the server has set the session
+  // cookies; any other word is why nobody was signed in.
+  const ssoOutcome = new URLSearchParams(location.search).get('sso');
+  const ssoMessage = ssoLoginMessage(ssoOutcome);
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError]       = useState('');
   const [loading, setLoading]   = useState(false);
+  // null until /api/signup/config answers; while null we assume mail is on.
+  const [config, setConfig]     = useState(null);
+  const [showNoMail, setShowNoMail] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    axios.get(baseUrl + '/api/signup/config')
+      .then(r => { if (live && r.data && typeof r.data === 'object') setConfig(r.data); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, []);
+  const mailOff = config?.mailEnabled === false;
+
+  useEffect(() => {
+    if (ssoOutcome !== 'ok') return undefined;
+    let live = true;
+    setLoading(true);
+    // The cookies are HttpOnly, so ask the server who they belong to.
+    axios.post(baseUrl + '/api/authorizeSession', {}, { withCredentials: true })
+      .then(async (r) => {
+        const name = typeof r.data === 'string' ? r.data.trim() : '';
+        if (!name) throw new Error('no session');
+        await rememberSignIn(name);
+        window.location.href = `/${name}`;
+      })
+      .catch(() => {
+        if (!live) return;
+        setError(ssoLoginMessage('failed'));
+        setLoading(false);
+      });
+    return () => { live = false; };
+  }, [ssoOutcome]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -62,6 +102,8 @@ function Login() {
           <div className="login-success">{location.state.notice}</div>
         )}
 
+        {ssoMessage && <div className="login-expired" role="status">{ssoMessage}</div>}
+
         {sessionExpired && (
           <div className="login-expired">
             Your session ended, so you were signed out. Sign in again to continue.
@@ -69,51 +111,59 @@ function Login() {
         )}
 
         <form onSubmit={handleSubmit} noValidate>
-          <div className="login-field">
-            <label className="login-label" htmlFor="username">Username</label>
-            <input
-              className="login-input"
-              type="text"
-              id="username"
-              autoComplete="username"
-              value={username}
-              onChange={e => setUsername(e.target.value)}
-              placeholder="your username"
-              autoFocus
-              required
-            />
-          </div>
-          <div className="login-field">
-            <label className="login-label" htmlFor="password">Password</label>
-            <input
-              className="login-input"
-              type="password"
-              id="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder=""
-              required
-            />
-          </div>
+          <AuthField
+            id="username"
+            name="username"
+            label="Username"
+            placeholder="Username"
+            autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            value={username}
+            onChange={e => setUsername(e.target.value)}
+            autoFocus
+            required
+          />
+          <AuthField
+            id="password"
+            name="password"
+            label="Password"
+            placeholder="Password"
+            password
+            autoComplete="current-password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            required
+          />
 
-          {error && <div className="login-error">{error}</div>}
+          {error && <div className="login-error" role="alert">{error}</div>}
 
           <button type="submit" className="login-submit-btn" disabled={loading}>
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
 
+        <SsoButtons providers={ssoProvidersOf(config)} />
+
         <div className="login-have-code">
-          Have an invite code?{' '}
+          New here?{' '}
           <Link to="/routes/NewAccount" className="login-register-link">Create an account</Link>
+          {config?.inviteRequired === true && ' (invite code needed)'}
         </div>
 
-        {/* Only useful once an address has been confirmed, which the endpoint
-            enforces — it reports the same thing either way so an unregistered
-            address cannot be told apart from a registered one. */}
+        {/* Reset links go by email; without mail there is nothing to send. */}
         <div className="login-have-code">
-          <Link to="/forgot-password" className="login-register-link">Forgot your password?</Link>
+          {mailOff ? (
+            <button type="button" className="login-link-button" onClick={() => setShowNoMail(true)}>
+              Forgot your password?
+            </button>
+          ) : (
+            <Link to="/forgot-password" className="login-register-link">Forgot password?</Link>
+          )}
+          <div role="status" className="login-nomail">
+            {mailOff && showNoMail && 'Email is not switched on yet, so passwords cannot be reset by email. Ask the site admin to set a new one.'}
+          </div>
         </div>
       </div>
     </div>

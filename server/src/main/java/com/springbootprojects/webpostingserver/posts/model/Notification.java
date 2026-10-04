@@ -15,6 +15,25 @@ public class Notification {
     private Date createdAt;
     private String postTitle;
     private String postOwner;
+    private String commentExcerpt;
+    private boolean subjectGone;
+
+    /** Longest comment excerpt a notification carries, the ellipsis included. */
+    public static final int EXCERPT_MAX = 160;
+
+    /**
+     * A comment's text as a one-line excerpt: whitespace collapsed, at most
+     * {@link #EXCERPT_MAX} characters, cut between characters (never inside an
+     * emoji) with an ellipsis. Null in, null out; blank text gives null.
+     */
+    public static String excerptOf(String text) {
+        if (text == null) return null;
+        String flat = text.replaceAll("[\\s\\p{Cntrl}]+", " ").trim();
+        if (flat.isEmpty()) return null;
+        if (flat.codePointCount(0, flat.length()) <= EXCERPT_MAX) return flat;
+        int end = flat.offsetByCodePoints(0, EXCERPT_MAX - 1);
+        return flat.substring(0, end).stripTrailing() + "\u2026";
+    }
 
     public Notification() {}
 
@@ -41,4 +60,9 @@ public class Notification {
     public void setPostTitle(String postTitle) { this.postTitle = postTitle; }
     public String getPostOwner() { return postOwner; }
     public void setPostOwner(String postOwner) { this.postOwner = postOwner; }
+    public String getCommentExcerpt() { return commentExcerpt; }
+    public void setCommentExcerpt(String commentExcerpt) { this.commentExcerpt = commentExcerpt; }
+    /** True when the post or comment this is about is gone or hidden from the recipient. */
+    public boolean isSubjectGone() { return subjectGone; }
+    public void setSubjectGone(boolean subjectGone) { this.subjectGone = subjectGone; }
 }

@@ -1,0 +1,94 @@
+/* Notifications. Loaded after Social.css, which has the page's card and the
+   rest of its rows; this file lays out the header and what a row says. */
+
+/* Title on the left, the two actions on the right; on a phone they drop under
+   the title rather than covering it. */
+.inbox-page .inbox-header {
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.inbox-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+@media (max-width: 520px) {
+  .inbox-header-actions { flex: 1 0 100%; justify-content: flex-end; }
+}
+
+/* The page's general button look (App.css) weighs one class and an element,
+   so these are named with the page to say what they mean: two quiet pills in
+   the header, and a tick and a cross that are plain until hovered. */
+.inbox-page .inbox-header-actions button {
+  padding: 4px 12px;
+  border: 1px solid #cfcfcf;
+  border-radius: 999px;
+  background: #f4f4f4;
+  box-shadow: none;
+  color: #333;
+  font: 500 13px var(--app-font);
+}
+.inbox-page .inbox-header-actions button:hover { background: #e8e8e8; box-shadow: none; }
+.inbox-page .inbox-header-actions .inbox-clear-btn { color: #b71c1c; }
+.inbox-page .inbox-item-side button {
+  padding: 2px 4px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  box-shadow: none;
+  color: #8a8a8a;
+}
+.inbox-page .inbox-item-side button:hover,
+.inbox-page .inbox-item-side button:active { background: rgba(86, 86, 86, 0.1); color: #222; box-shadow: none; }
+.inbox-page .inbox-item-side .inbox-delete-btn:hover { color: #b71c1c; background: rgba(183, 28, 28, 0.08); }
+
+/* No blur: the row is a plain pale plate. */
+.inbox-page .inbox-item {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  gap: 12px;
+  text-align: left;
+}
+.inbox-item:focus-visible { outline: 2px solid #111; outline-offset: 2px; }
+
+/* The sentence, and under it what was said. */
+.inbox-item-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-wrap: anywhere;
+}
+.inbox-item-excerpt {
+  font-weight: 400;
+  font-size: 13px;
+  line-height: 1.35;
+  color: #666;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.inbox-item-side {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.inbox-item-side .inbox-item-time { margin-left: 0; }
+
+/* On a phone the sentence gets the whole row and the time and buttons sit under it. */
+@media (max-width: 520px) {
+  .inbox-page .inbox-item { flex-wrap: wrap; }
+  .inbox-item-label { flex-basis: 100%; }
+  .inbox-item-side { margin-left: auto; }
+}
+
+@media (pointer: coarse) {
+  .inbox-page .inbox-header-actions button { min-height: 40px; }
+  .inbox-page .inbox-item-side button { min-width: 40px; min-height: 40px; }
+}

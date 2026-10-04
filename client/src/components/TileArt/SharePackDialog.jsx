@@ -11,7 +11,7 @@ import './Packs.css';
  * you give the pack, or one of your pixel fonts as a symbols pack. On share it
  * hands the message text to `onSend`, which posts it like any other message.
  *
- * Rendered into <body>: the messages page's backdrop-filter would otherwise
+ * Rendered into <body>: an ancestor's transform or filter would otherwise
  * trap the fixed overlay inside it. Focus moves in on open, stays in while it
  * is open, and goes back to whatever opened it on close.
  */

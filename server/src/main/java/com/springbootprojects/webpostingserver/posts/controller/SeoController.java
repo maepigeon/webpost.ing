@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.springbootprojects.webpostingserver.posts.service.PostPreview;
 import com.springbootprojects.webpostingserver.posts.service.PostTextExtractor;
 import com.springbootprojects.webpostingserver.posts.service.PostTextExtractor.Block;
 import com.springbootprojects.webpostingserver.posts.service.PostTextExtractor.Extracted;
@@ -275,6 +276,11 @@ public class SeoController {
     private static String describe(Map<String, Object> post) {
         Object s = post.get("summary");
         if (s != null && !s.toString().isBlank()) return PostTextExtractor.shorten(s.toString(), 300);
+        // Rows the sweep has done carry their plain text; the others, the body.
+        Object version = post.get("preview_version");
+        Object text = post.get("search_text");
+        if (version instanceof Number n && n.intValue() >= PostPreview.VERSION)
+            return text == null ? "" : PostTextExtractor.shorten(text.toString(), 160);
         Object body = post.get("description");
         return body == null ? "" : PostTextExtractor.extract(body.toString()).excerpt(160);
     }
@@ -361,15 +367,15 @@ public class SeoController {
         String name = (String) user.get("username");
         String bio = user.get("bio") == null ? "" : user.get("bio").toString().trim();
         List<Map<String, Object>> posts = jdbc.queryForList("""
-                SELECT p.id, p.title, p.slug, p.summary,
-                       CASE WHEN p.summary IS NULL OR p.summary = '' THEN p.description END AS description,
+                SELECT p.id, p.title, p.slug, p.summary, left(p.search_text, 1000) AS search_text, p.preview_version,
+                       CASE WHEN (p.summary IS NULL OR p.summary = '') AND p.preview_version < ? THEN p.description END AS description,
                        p.date
                   FROM posts p
                   JOIN users_posts_junctions j ON j.post_id = p.id
                  WHERE j.user_id = ? AND p.published = TRUE AND p.section <> 'subscribers'
                  ORDER BY p.date DESC, p.id DESC
                  LIMIT ?
-                """, user.get("id"), PROFILE_POSTS);
+                """, PostPreview.VERSION, user.get("id"), PROFILE_POSTS);
         // A profile with nothing published is not worth indexing.
         if (posts.isEmpty()) return notFound();
 

@@ -8,6 +8,7 @@ import java.util.List;
 import com.springbootprojects.webpostingserver.posts.model.AuthSession;
 import com.springbootprojects.webpostingserver.posts.model.LoginInfo;
 import com.springbootprojects.webpostingserver.posts.model.Post;
+import com.springbootprojects.webpostingserver.posts.service.PostPreview;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.IncorrectResultSizeDataAccessException;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
@@ -48,6 +49,28 @@ public class JdbcPostRepository implements PostRepository {
     };
 
     /**
+     * A post as a list shows it: no body and no wallpaper, and the card's grid
+     * under "preview" (V020). "body" is only selected for a row whose preview
+     * is not computed yet; the grid is then found in it on the fly, as the
+     * client used to do.
+     */
+    private static final RowMapper<Post> CARD_MAPPER = (rs, rowNum) -> {
+        Post p = new Post();
+        p.setId(rs.getInt("id"));
+        p.setTitle(rs.getString("title"));
+        p.setPublished(rs.getBoolean("published"));
+        p.setDate(rs.getTimestamp("date"));
+        p.setFolder(rs.getString("folder"));
+        p.setSlug(rs.getString("slug"));
+        p.setSummary(rs.getString("summary"));
+        p.setSection(rs.getString("section"));
+        p.setSortOrder(rs.getInt("sort_order"));
+        p.setCardGrid(rs.getBoolean("card_grid"));
+        p.setPreview(PostPreview.previewJson(rs.getString("card_preview"), rs.getString("body")));
+        return p;
+    };
+
+    /**
      * Position order: the author's arrangement, then newest first among posts
      * sharing a position (a new post has position 0, so it lands at the top),
      * then id, so the order is total.
@@ -56,7 +79,8 @@ public class JdbcPostRepository implements PostRepository {
 
     /**
      * An author's posts in the order their profile shows them, which is what
-     * pages of the profile are sliced from.
+     * pages of the profile are sliced from. Cards, like every page of it: see
+     * getPostsPage.
      *
      * The profile draws a folder where its first post would be, with all its
      * posts together. Ordering post by post put a folder's posts wherever their
@@ -83,6 +107,11 @@ public class JdbcPostRepository implements PostRepository {
      * all the author's posts of that section and only then are drafts dropped
      * for visitors: a folder's place does not move because its first post is a
      * draft. Drafts are ordered over all sections together.
+     *
+     * The posts come back as cards: description and backgroundPattern are
+     * null and preview holds the card's grid, or null when the post has none,
+     * the author turned "Grid on card" off, or the grid is over the size cap.
+     * Use findById for the body.
      */
     @Override
     public List<Post> getPostsPage(String username, String section, boolean owner, int limit, int offset) {
@@ -91,7 +120,9 @@ public class JdbcPostRepository implements PostRepository {
         if ((drafts || subscribers) && !owner) return new java.util.ArrayList<>();
         String sectionFilter = drafts ? null : subscribers ? "subscribers" : "notes".equals(section) ? "notes" : "profile";
         return jdbcTemplate.query("""
-            SELECT id, title, description, published, date, background_pattern, folder, slug, summary, section, sort_order, card_grid
+            SELECT id, title, published, date, folder, slug, summary, section, sort_order, card_grid,
+                   CASE WHEN card_grid THEN card_preview END AS card_preview,
+                   CASE WHEN card_grid AND preview_version < ? THEN description END AS body
               FROM (
                 SELECT post.*,
                        first_value(post.sort_order) OVER block AS block_sort,
@@ -111,28 +142,29 @@ public class JdbcPostRepository implements PostRepository {
              ORDER BY block_sort, block_date DESC, block_id DESC,
                       post.sort_order, post.date DESC, post.id DESC
              LIMIT ? OFFSET ?
-            """, POST_MAPPER, username, sectionFilter, sectionFilter, owner, drafts, limit, offset);
+            """, CARD_MAPPER, PostPreview.VERSION, username, sectionFilter, sectionFilter, owner, drafts, limit, offset);
     }
 
     /**
-     * What a profile's tabs count, as the reader may see them: published posts
-     * of "profile" and "notes" for everyone; for the owner also every
-     * "subscribers" post and every unpublished post ("drafts"), with
-     * "profile" and "notes" counting everything of theirs, drafts included.
-     * Keys the reader may not see are left out.
+     * What a profile's tabs count, as the reader may see them. "profile" and
+     * "notes" are published posts only, for the owner as for anyone, so a
+     * tab's number is how many posts it lists; a draft is counted under
+     * "drafts" (every unpublished post) and lives in the Drafts tab. For the
+     * owner also every "subscribers" post. Keys the reader may not see are
+     * left out.
      */
     @Override
     public java.util.Map<String, Integer> countSections(String username, boolean owner) {
         java.util.Map<String, Object> row = jdbcTemplate.queryForMap("""
-            SELECT COUNT(*) FILTER (WHERE post.section = 'profile' AND (? OR post.published)) AS profile,
-                   COUNT(*) FILTER (WHERE post.section = 'notes'   AND (? OR post.published)) AS notes,
+            SELECT COUNT(*) FILTER (WHERE post.section = 'profile' AND post.published) AS profile,
+                   COUNT(*) FILTER (WHERE post.section = 'notes'   AND post.published) AS notes,
                    COUNT(*) FILTER (WHERE post.section = 'subscribers') AS subscribers,
                    COUNT(*) FILTER (WHERE NOT post.published) AS drafts
               FROM posts post
               JOIN users_posts_junctions junction ON junction.post_id = post.id
               JOIN users selected_user ON selected_user.id = junction.user_id
              WHERE selected_user.username = ?
-            """, owner, owner, username);
+            """, username);
         java.util.Map<String, Integer> out = new java.util.LinkedHashMap<>();
         out.put("profile", ((Number) row.get("profile")).intValue());
         out.put("notes", ((Number) row.get("notes")).intValue());
@@ -161,12 +193,17 @@ public class JdbcPostRepository implements PostRepository {
      * between them leaves a post with no author — invisible on every profile,
      * failing every ownership check, so nobody can edit or delete it. Half the
      * posts in one development database were in exactly that state.
+     *
+     * The card preview and search text are worked out from the body here and
+     * written in the same statement, so they can never describe another body
+     * than the one stored.
      */
     @Transactional
     public int save(Post post, int userId) {
         log.debug("Saving post \"{}\" (published={})", post.getTitle(), post.isPublished());
 
-        final String INSERT_SQL = "INSERT INTO posts (title, description, published, background_pattern, folder, slug, summary, section) VALUES(?,?,?,?,?,?,?,?) RETURNING \"id\";";
+        final PostPreview.Result preview = PostPreview.of(post.getDescription());
+        final String INSERT_SQL = "INSERT INTO posts (title, description, published, background_pattern, folder, slug, summary, section, card_preview, search_text, preview_version) VALUES(?,?,?,?,?,?,?,?,?,?,?) RETURNING \"id\";";
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(
                 new PreparedStatementCreator() {
@@ -180,6 +217,9 @@ public class JdbcPostRepository implements PostRepository {
                         ps.setString(6, post.getSlug());
                         ps.setString(7, post.getSummary());
                         ps.setString(8, post.getSection() == null ? "profile" : post.getSection());
+                        ps.setString(9, preview.gridJson());
+                        ps.setString(10, preview.searchText());
+                        ps.setInt(11, PostPreview.VERSION);
                         return ps;
                     }
                 },
@@ -199,13 +239,21 @@ public class JdbcPostRepository implements PostRepository {
         return (int) post.getId();
     }
 
+    /**
+     * Writes every field of the post, and with the body its card preview and
+     * search text (unconditionally: a save always wins over the sweep, whose
+     * own update only touches rows still below the current version).
+     */
     @Override
     public int update(Post post) {
+        PostPreview.Result preview = PostPreview.of(post.getDescription());
         return jdbcTemplate.update(
-            "UPDATE posts SET title=?, description=?, published=?, background_pattern=?, folder=?, slug=?, summary=?, section=? WHERE id=?",
+            "UPDATE posts SET title=?, description=?, published=?, background_pattern=?, folder=?, slug=?, summary=?, section=?, " +
+            "card_preview=?, search_text=?, preview_version=? WHERE id=?",
             post.getTitle(), post.getDescription(), post.isPublished(),
             post.getBackgroundPattern(), post.getFolder(), post.getSlug(), post.getSummary(),
-            post.getSection() == null ? "profile" : post.getSection(), post.getId());
+            post.getSection() == null ? "profile" : post.getSection(),
+            preview.gridJson(), preview.searchText(), PostPreview.VERSION, post.getId());
     }
 
     @Override

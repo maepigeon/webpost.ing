@@ -111,7 +111,7 @@ button:active {
 }
 
 /* Global page section transition — fade+slide for route changes */
-#appBody > *:not(nav):not(.cursor-glow) {
+#appBody > *:not(nav) {
   animation: page-fade-in 0.22s ease both;
 }
 
@@ -121,24 +121,24 @@ button:active {
 }
 
 /* ── Global neoskeuomorphic button utility class ─────────────────────────── */
-/* Use .neo-btn anywhere for the raised-glass look. The CSS vars live in
-   PostWindow.css :root so they are always available globally.              */
+/* The raised button look. The CSS vars live in PostWindow.css :root so they
+   are always available globally.                                           */
 
 /* ── Auto-apply neo to content-area action buttons ───────────────────────── */
 /* Covers post cards, inbox, activity, search, viewer — skips toolbars,     */
 /* navbuttons, reactions, pattern swatches, and other special controls.     */
 /* Never reaches into the grid, wallpaper or theme editors, which draw     */
-/* their own controls.                                                       */
-.basicTextPost button:not(.reaction-btn):not(.comment-reaction-btn):not(.navButton):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *),
-.inbox-page button:not(.reaction-btn):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *),
-.activity-page button:not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *),
-.search-page button:not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *),
-.discussion-page button:not(.reaction-btn):not(.comment-reaction-btn):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *),
-.editor-post-card button:not(.reaction-btn):not(.toolbar-btn-save):not(.toolbar-btn-draft):not(.toolbar-btn-view):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *),
-.admin-panel button:not(.admin-tab):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *) {
-  background: rgba(255, 255, 255, 0.65);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+/* their own controls. The skip lists sit in :where() so this rule weighs   */
+/* one class and an element: a pill's own `.x.is-on` state outranks it, and */
+/* the editor's pill rows are skipped outright.                              */
+.basicTextPost button:where(:not(.pb):not(.post-section-pill):not(.pb-pill):not(.reaction-btn):not(.comment-reaction-btn):not(.navButton):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *)),
+.inbox-page button:where(:not(.pb):not(.reaction-btn):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *)),
+.activity-page button:where(:not(.pb):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *)),
+.search-page button:where(:not(.pb):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *)),
+.discussion-page button:where(:not(.pb):not(.reaction-btn):not(.comment-reaction-btn):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *)),
+.editor-post-card button:where(:not(.pb):not(.post-section-pill):not(.pb-pill):not(.reaction-btn):not(.toolbar-btn-save):not(.toolbar-btn-draft):not(.toolbar-btn-view):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *)),
+.admin-panel button:where(:not(.pb):not(.admin-tab):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *)) {
+  background: #f4f4f4;
   border: 1.5px solid rgba(255,255,255,0.82);
   border-radius: 10px;
   color: #444;
@@ -149,24 +149,24 @@ button:active {
   transition: box-shadow 0.18s ease, transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.12s ease;
   will-change: transform;
 }
-.basicTextPost button:not(.reaction-btn):not(.comment-reaction-btn):not(.navButton):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *):hover,
-.inbox-page button:not(.reaction-btn):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *):hover,
-.activity-page button:not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *):hover,
-.search-page button:not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *):hover,
-.discussion-page button:not(.reaction-btn):not(.comment-reaction-btn):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *):hover,
-.editor-post-card button:not(.reaction-btn):not(.toolbar-btn-save):not(.toolbar-btn-draft):not(.toolbar-btn-view):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *):hover,
-.admin-panel button:not(.admin-tab):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *):hover {
+.basicTextPost button:where(:not(.pb):not(.post-section-pill):not(.pb-pill):not(.reaction-btn):not(.comment-reaction-btn):not(.navButton):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *)):hover,
+.inbox-page button:where(:not(.pb):not(.reaction-btn):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *)):hover,
+.activity-page button:where(:not(.pb):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *)):hover,
+.search-page button:where(:not(.pb):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *)):hover,
+.discussion-page button:where(:not(.pb):not(.reaction-btn):not(.comment-reaction-btn):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *)):hover,
+.editor-post-card button:where(:not(.pb):not(.post-section-pill):not(.pb-pill):not(.reaction-btn):not(.toolbar-btn-save):not(.toolbar-btn-draft):not(.toolbar-btn-view):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *)):hover,
+.admin-panel button:where(:not(.pb):not(.admin-tab):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *)):hover {
   filter: none;
   box-shadow: var(--neo-shadow-hover);
   transform: translateY(-2px) scale(1.015);
 }
-.basicTextPost button:not(.reaction-btn):not(.comment-reaction-btn):not(.navButton):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *):active,
-.inbox-page button:not(.reaction-btn):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *):active,
-.activity-page button:not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *):active,
-.search-page button:not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *):active,
-.discussion-page button:not(.reaction-btn):not(.comment-reaction-btn):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *):active,
-.editor-post-card button:not(.reaction-btn):not(.toolbar-btn-save):not(.toolbar-btn-draft):not(.toolbar-btn-view):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *):active,
-.admin-panel button:not(.admin-tab):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *):active {
+.basicTextPost button:where(:not(.pb):not(.post-section-pill):not(.pb-pill):not(.reaction-btn):not(.comment-reaction-btn):not(.navButton):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *)):active,
+.inbox-page button:where(:not(.pb):not(.reaction-btn):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *)):active,
+.activity-page button:where(:not(.pb):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *)):active,
+.search-page button:where(:not(.pb):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *)):active,
+.discussion-page button:where(:not(.pb):not(.reaction-btn):not(.comment-reaction-btn):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *)):active,
+.editor-post-card button:where(:not(.pb):not(.post-section-pill):not(.pb-pill):not(.reaction-btn):not(.toolbar-btn-save):not(.toolbar-btn-draft):not(.toolbar-btn-view):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *)):active,
+.admin-panel button:where(:not(.admin-tab):not(:is(.tilegrid, .wp-editor, .theme-editor, .editor-image-controls, .audio-block, .pe-panel) *)):active {
   filter: none;
   transform: translateY(1px) scale(0.97) !important;
   transition: transform 0.07s ease !important;

@@ -1,10 +1,12 @@
 import { DecoratorNode, $getNodeByKey } from 'lexical';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { useLexicalNodeSelection } from '@lexical/react/useLexicalNodeSelection';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useLocation } from 'react-router-dom';
 import GridButton from './TileGrid/GridButton.jsx';
 import PixelText from './TileGrid/PixelText.jsx';
+import { GridSelect } from './TileGrid/GridUI.jsx';
 import * as player from '../../../../../utils/audioPlayer.js';
 import { useAudioPlayer } from '../../../../AudioPlayer/useAudioPlayer.js';
 import { UPLOAD_AUDIO, READ_POSTS_BY_USER } from '../../BasicTextPostServerApi.js';
@@ -21,6 +23,20 @@ const ACTION_CHOICES = [
   { value: 'audio', text: 'Play audio' },
 ];
 const cap = (s) => s[0].toUpperCase() + s.slice(1);
+
+/** Posts a visitor can open: drafts would send them to a page that is not there. */
+export function publishedOnly(list) {
+  return (Array.isArray(list) ? list : []).filter(p => p && p.published);
+}
+
+/** The picker's options: [path, name] for each post, with the placeholder first. */
+export function postOptions(me, posts) {
+  const named = publishedOnly(posts).map(p => {
+    const name = (p.title || `Post #${p.id}`).replace(/<[^>]*>/g, '').trim() || `Post #${p.id}`;
+    return [postPath(me, p), name.length > 28 ? `${name.slice(0, 27)}…` : name];
+  });
+  return [['', named.length ? 'Choose a post' : 'No published posts yet'], ...named];
+}
 
 /** The button as readers see it. Audio buttons follow the app-wide player. */
 function ButtonFace({ data, editable }) {
@@ -70,7 +86,7 @@ function Choices({ legend, value, options, onChange }) {
   );
 }
 
-function ButtonEditor({ data, onChange }) {
+function ButtonEditor({ data, onChange, onEscape }) {
   const [targetText, setTargetText] = useState(data.target);
   const [problem, setProblem] = useState('');
   const [posts, setPosts] = useState(null);
@@ -83,6 +99,8 @@ function ButtonEditor({ data, onChange }) {
     if (data.action !== 'post' || posts || !me) return;
     READ_POSTS_BY_USER(me, 50, 0).then(list => setPosts(Array.isArray(list) ? list : [])).catch(() => setPosts([]));
   }, [data.action, posts, me]);
+
+  const postChoices = posts ? postOptions(me, posts) : [['', 'Loading']];
 
   // Only a valid target is saved; the last good one stays until the field is valid again.
   const setTarget = (value, patch = {}) => {
@@ -112,7 +130,10 @@ function ButtonEditor({ data, onChange }) {
     }
   };
 
-  const stop = (e) => e.stopPropagation();   // typing here is not the editor's typing
+  const stop = (e) => {   // typing here is not the editor's typing
+    e.stopPropagation();
+    if (e.type === 'keydown' && e.key === 'Escape') onEscape?.();
+  };
   return (
     <div className="pb-form" onKeyDown={stop} onMouseDown={stop} onClick={stop}>
       <label className="pb-field">
@@ -131,17 +152,11 @@ function ButtonEditor({ data, onChange }) {
       )}
       {data.action === 'post' && (
         <>
-          <label className="pb-field">
+          <div className="pb-field">
             <span className="pb-field-name">Your posts</span>
-            <select className="pb-input" value="" onChange={(e) => e.target.value && setTarget(e.target.value)}
-              disabled={!posts || posts.length === 0}>
-              <option value="">{posts ? (posts.length ? 'Choose a post' : 'No posts yet') : 'Loading'}</option>
-              {(posts || []).map(p => {
-                const path = postPath(me, p);
-                return <option key={p.id} value={path}>{(p.title || `Post #${p.id}`).replace(/<[^>]*>/g, '')}</option>;
-              })}
-            </select>
-          </label>
+            <GridSelect label="Your posts" value={postChoices.some(([v]) => v === targetText) ? targetText : ''}
+              options={postChoices} onChange={(v) => v && setTarget(v)} />
+          </div>
           <label className="pb-field">
             <span className="pb-field-name">or a path</span>
             <input type="text" className="pb-input" value={targetText} placeholder="/name/post"
@@ -152,7 +167,7 @@ function ButtonEditor({ data, onChange }) {
       {data.action === 'audio' && (
         <div className="pb-field">
           <span className="pb-field-name">Audio file</span>
-          <input ref={fileRef} type="file" accept=".mp3,audio/mpeg" onChange={upload}
+          <input ref={fileRef} type="file" accept=".mp3,audio/mpeg" onChange={upload} aria-label="Choose an MP3 file"
             style={{ display: 'none' }} tabIndex={-1} aria-hidden="true" />
           <span className="pb-pills">
             <GridButton label="Upload audio" disabled={busy} onClick={() => fileRef.current?.click()} />
@@ -170,11 +185,72 @@ function ButtonEditor({ data, onChange }) {
   );
 }
 
+/**
+ * Where a button sits among its neighbours: a run is consecutive buttons with
+ * the same alignment, and they share one row. `leader` is the key of the run's
+ * first button, `index` this button's place in it. Call inside editor.read/update.
+ */
+export function $buttonRun(node) {
+  const align = node.getData().align;
+  let leader = node;
+  let index = 0;
+  for (let p = node.getPreviousSibling(); $isButtonNode(p) && p.getData().align === align; p = p.getPreviousSibling()) {
+    leader = p;
+    index += 1;
+  }
+  return { leader: leader.getKey(), index };
+}
+
+/**
+ * Follows this button's run as the document changes. Every button stays its
+ * own node (so moving, deleting and selecting work as before); the row is made
+ * by the run's first button, whose element is a flex row that the others draw
+ * their content into (see ButtonComponent).
+ */
+function useButtonRun(editor, nodeKey) {
+  const read = useCallback((state) => state.read(() => {
+    const node = $getNodeByKey(nodeKey);
+    return $isButtonNode(node) ? $buttonRun(node) : null;
+  }), [nodeKey]);
+  const [run, setRun] = useState(() => read(editor.getEditorState()) || { leader: nodeKey, index: 0 });
+  useEffect(() => {
+    const follow = (state) => {
+      const next = read(state);
+      if (next) setRun(prev => (prev.leader === next.leader && prev.index === next.index ? prev : next));
+    };
+    follow(editor.getEditorState());
+    return editor.registerUpdateListener(({ editorState }) => follow(editorState));
+  }, [editor, read]);
+  return run;
+}
+
 function ButtonComponent({ data, nodeKey, editable = true }) {
   const [editor] = useLexicalComposerContext();
+  const run = useButtonRun(editor, nodeKey);
+  const leads = run.leader === nodeKey;
+  // The element Lexical made for this block says whether it holds the row or only an empty place for a button drawn elsewhere.
+  useLayoutEffect(() => {
+    editor.getElementByKey(nodeKey)?.setAttribute('data-run', leads ? 'lead' : 'join');
+  });
   const [selected, setSelected, clearSelection] = useLexicalNodeSelection(nodeKey);
-  // A button with no target yet is brand new: open its form straight away.
-  const open = editable && (selected || Boolean(validateTarget(data.action, data.target)));
+  // The form opens when the block is selected or is new (no valid target yet) and
+  // then stays open while focus is inside it: clicking into a field deselects the
+  // block, and a target turning valid mid-typing must not close the form.
+  const wantsOpen = selected || Boolean(validateTarget(data.action, data.target));
+  const [held, setHeld] = useState(false);
+  useEffect(() => { if (wantsOpen) setHeld(true); }, [wantsOpen]);
+  const open = editable && (held || wantsOpen);
+  const wrapRef = useRef(null);
+  const pressing = useRef(false);   // a click inside the block moves focus to nowhere for a moment
+  const pressInside = () => {   // capture: the form stops mousedown from bubbling
+    pressing.current = true;
+    window.addEventListener('mouseup', () => { pressing.current = false; }, { once: true });
+  };
+  const leaveForm = (e) => {
+    if (pressing.current || wrapRef.current?.contains(e.relatedTarget)) return;
+    if (!validateTarget(data.action, data.target)) setHeld(false);
+  };
+  const closeForm = () => { setHeld(false); clearSelection(); };
 
   const withNode = useCallback((fn) => {
     editor.update(() => {
@@ -197,13 +273,16 @@ function ButtonComponent({ data, nodeKey, editable = true }) {
     setSelected(true);
   };
 
-  return (
+  const host = leads ? null : editor.getElementByKey(run.leader);
+  const content = (
     <div className={`pb-wrap pb-align--${data.align}${open ? ' is-editing' : ''}${selected ? ' is-selected' : ''}`}
-      onClick={select}>
+      style={{ order: run.index }} onClick={select} ref={wrapRef}
+      onMouseDownCapture={pressInside}
+      onBlur={open ? leaveForm : undefined}>
       <ButtonFace data={data} editable={editable} />
       {open && (
         <>
-          <ButtonEditor data={data} onChange={change} />
+          <ButtonEditor data={data} onChange={change} onEscape={closeForm} />
           <div className="pb-row" onClick={(e) => e.stopPropagation()}>
             <GridButton label="Move up" text="Up" onClick={() => move('up')} />
             <GridButton label="Move down" text="Down" onClick={() => move('down')} />
@@ -213,6 +292,8 @@ function ButtonComponent({ data, nodeKey, editable = true }) {
       )}
     </div>
   );
+  // Later buttons of a run are drawn inside the first one's row.
+  return host ? createPortal(content, host) : content;
 }
 
 export class ButtonNode extends DecoratorNode {

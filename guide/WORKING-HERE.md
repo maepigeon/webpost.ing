@@ -41,7 +41,7 @@ without Mae having to explain it again. Last updated 2026-10-03.
 
 ## How many agents
 
-- **At most 15 agents running at once** (raised from 10 by Mae on 2026-10-03), counting agents started by agents.
+- **Up to 10 high-level workers at once, each of which may run 3 to 5 helpers of its own** (Mae, 2026-10-03, replacing the earlier flat limits). A high-level worker owns an area (for example "webpost.ing performance" or "webpaint.ing phase 0"), splits it, briefs and checks its helpers, and reports once.
 - A Sonnet worker with a large task may split it and start its own helpers
   (say so in its brief, with a number it may use, so the total stays under
   15). It is responsible for them: disjoint files, the same rules as below,
@@ -58,10 +58,13 @@ task: the files, Mae's words, and the design.
 | Type | Model | Use it for |
 |---|---|---|
 | `implementer` | Sonnet | One scoped feature or fix inside a named file list, with tests. |
+| `senior-engineer` | Opus | The hard engineering tasks: core code where a subtle mistake breaks many things (grid drawing and input, the save path, auth, migrations with backfills). Mae asked for an Opus engineer; use it where Sonnet would likely need rework, not for routine features. |
 | `integrator` | Sonnet | After a batch: apply the cross-file insertions workers left, fix broken tests, run the full suites. |
 | `auditor` | Sonnet | Read-only security, performance, accessibility or code-health audit ending in ranked findings and work packages. |
 | `ui-reviewer` | Sonnet | Exploratory testing in a real browser; a bug report with evidence. |
 | `screen-checker` | Sonnet | Before a deploy hand-over: look at the changed screens and say Ship, Fix first, or Show Mae first. |
+| `visual-tester` | Sonnet | Tests by watching: records user flows as video, captures steps and bursts of frames, pixel-compares against baselines in `tools/visual/`, and looks at the images. Leaves recordings Mae can watch. Run it after each rebuild in a batch. |
+| `design-guardian` | Opus | Enforces [DESIGN-RULES.md](DESIGN-RULES.md), Mae's own likes and dislikes collected from the sessions: works mostly in the browser, looking at every changed screen and state; pass/fail per screen with exact fixes. In every batch that changes what a user sees, before hand-over. |
 | `design-reviewer` | Fable | Occasionally: a feature's design before building, an architecture choice, a deep review of a risky change. Mae asked for this model on high-intelligence review and design tasks; it costs more, so use it where being wrong is expensive. |
 
 **Name every worker and keep its brief** (Mae, 2026-10-03: "name your
@@ -115,6 +118,12 @@ the lead commits and hands over.
   Webposting app in `~/Applications`.
 - Always look at UI changes on screen, at desktop and phone width, and on a
   dark theme as well as a light one. Tests alone have missed real bugs here.
+- **Smoke suite**: before a deploy hand-over, against the local copy only,
+  run `node tools/smoke/run.mjs` (about a minute; `--only seo,security`,
+  `--phone`; see `tools/smoke/README.md`). It prints PASS/FAIL/SKIP per check,
+  exits non-zero on a failure and leaves screenshots in `tools/smoke/out/`. A
+  check that fails on a real bug stays failing and goes in the report; add a
+  check there when a feature ships instead of writing a throwaway script.
 
 ## Process lessons (keep these; add to them)
 
@@ -160,13 +169,15 @@ the lead commits and hands over.
 - **Production:** never build, test or run extra processes on the server
   (that crashed it once). Never log in to it, never ask for or store
   passwords. Server details live only in her local `release.env` and the
-  server's `deploy.env`; the repository is public.
+  server's `deploy.env`. The repository is private (since 2026-10-03), and the
+  rule stays: private repositories leak, get cloned to laptops, and may be
+  opened again, so no secret or server detail is ever committed.
 - **Deploying** is Mae's: the Webposting app's Deploy button, or
   `tools/deploy.sh` → `tools/release.sh` (build on her Mac, upload, install
   with backup and rollback). See [DEPLOYMENT.md](DEPLOYMENT.md). nginx is
   never changed by a release; give her snippets.
 - **Database:** changes only through numbered migrations in
-  `server/src/main/resources/db/migrations/` (latest: V017), each safe to run
+  `server/src/main/resources/db/migrations/` (latest: V020; V021 is in progress), each safe to run
   twice. See [MIGRATIONS.md](MIGRATIONS.md).
 - **Do not commit:** `client/public/fonts/*.woff2` (licensed fonts),
   `release.env`, `guide/HANDOFF-2026-09-30.txt`,
@@ -177,12 +188,20 @@ the lead commits and hands over.
 
 ## Design taste (from Mae's feedback)
 
+The full list, in her words, is [DESIGN-RULES.md](DESIGN-RULES.md). Add to it the same day she gives new feedback. The short version:
+
 - Grayscale app chrome; tactile, springy controls; **no glass/blur panels**;
   never rotate or tilt posts.
 - Everything in grids speaks one visual language: pixel buttons
   (`GridButton`), pixel text, symbols from the Basics pack.
 - No emojis in the UI (reaction emojis are content and stay).
 - Plain words in the interface; short hints; long notes behind an "i".
+- **No little notes floating above controls.** Mae called the "Description"
+  and "Goes in" labels over the editor's fields bad design (2026-10-03). A
+  field says what it is with its placeholder; a control reads on its own; a
+  label that is needed for screen readers is visually hidden, not shown.
+  Don't add helper sentences under controls either unless the choice is
+  genuinely surprising.
 - Profiles and posts are themed by their owner; anything drawn on a themed
   card takes its colours from the theme variables (`--th-ink`, `--th-link`,
   `--th-danger`, …) so it stays readable. `theme.js` checks text colours
@@ -213,3 +232,30 @@ the lead commits and hands over.
 Tick the backlog, add anything new she asked for, update this file if the way
 of working changed, commit, push to `main`, and pull her checkout at
 `/Users/mae/workspace/webposting` (fast-forward only).
+
+## Added 2026-10-03, late evening (things Mae said that were only in conversation)
+
+- **Two sessions, one usage pool.** A session on Mae's Mac and one on her
+  Windows PC work at once (split: `guide/HANDOFF-WINDOWS.md`). Both draw on
+  the same account limits. Mae's rule: stop at 90% of the 5-hour limit for
+  deploy and review; check before launching workers, and prefer Sonnet workers.
+- **The visual gate.** Mae: "dont fogrget to do a lot of visual and
+  interactive combined checks and record clips and review using computer
+  vision". Before anything goes to her: testers click through real flows on
+  the built site at 1300 and 390 wide, record clips (`tools/visual/`), open
+  frame sheets and judge them by eye; each tester has its own account (five
+  sessions per user); fix, rebuild, recheck what failed. Both products.
+- **Names.** "the app name is webpaint.ing not webpaint": both products are
+  written with the dot wherever a person sees them.
+- **Notifications** always name and link their subject and show what was said
+  ("otherwise they are useless").
+- **Mac app** must never show "AppleEvent timed out"; anything Mae has to run
+  for either product should be a row in the app (and in `tools/menu.mjs`).
+- **webpaint.ing decisions:** the engine stays Godot; six GPU features are
+  committed scope; multitouch; opening `.webpaint` files from the interface;
+  low drawing latency; an unsigned Electron desktop build later; WebGPU by
+  modifying Godot, on the PC. Details: webpaint.ing `guide/HANDOFF-WINDOWS.md`.
+- **Honesty about readiness.** Say "not ready" with the list of what failed;
+  never hand over on tests alone.
+- **Target:** 100 users on webpost.ing by 2026-11-03 (`guide/PLAN-OCTOBER.md`).
+  New ideas are welcome and recorded, and the release work comes first.
