@@ -83,3 +83,18 @@ Proof: list each call site you changed; in the scratch build leave the menu
 open for three minutes and then choose an entry (no error); run "Build and
 view locally" and "Stop" from the menu; make the status check face a closed
 port and time it.
+
+## Added: one list for both sites, and the split with the Windows session (2026-10-03)
+- The server-side script and launcher now EXIST in the webpaint.ing repository
+  (`tools/server/setup-site.sh`, `tools/setup-server.sh check|apply|certificate|status`,
+  `guide/DEPLOYMENT.md` there). Do not rewrite them: the app rows and the menu
+  actions call them. Item 1 of "Build" above is done.
+- `tools/menu.mjs`'s action table gains a **site switch**: a second site
+  (webpaint.ing: its repository path, local address http://localhost:5184,
+  build / stop / deploy, the four server-setup actions, no backup rows), so
+  the Mac app and the menu stay one list. `--actions` prints both sites.
+- The Windows session owns `tools/webposting.cmd`, `.ps1`, `.sh`,
+  `tools/linux/*`, `tools/docker/*` and the Windows branches of
+  `tools/run-local.sh` on its branch `pc/deploy-app`. You own `tools/menu.mjs`,
+  `tools/menu.test.mjs` and `tools/mac-app/*`. Do not edit its files; it sends
+  exact lines for any bug it finds in yours.
