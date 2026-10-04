@@ -288,8 +288,6 @@
 /* Orphan cleanup */
 .admin-orphan-row {
   margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid #e0e0e0;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -300,6 +298,9 @@
   margin: 0;
   flex: 1;
   min-width: 200px;
+  padding: 0;
+  background: none;
+  border: 0;
 }
 
 /* Flagged cells */
@@ -930,10 +931,62 @@
 /* Stats: the card-previews line, one quiet row. */
 .admin-preview-line {
   display: flex;
+  padding: 10px 14px;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px 12px;
   margin: 16px 0 0;
   font-size: 0.85rem;
   color: #555;
+}
+
+/* Every line of text sits on the panel's card surface, never straight on the
+   wallpaper: the same fill and edge as the create form and stat cards. */
+.admin-hint,
+.admin-empty,
+.admin-count,
+.admin-preview-line,
+.admin-orphan-row {
+  background: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+}
+.admin-hint,
+.admin-empty { padding: 10px 14px; }
+.admin-count { padding: 6px 12px; }
+.admin-orphan-row { padding: 12px 14px; }
+
+/* Phone: Limits and Users tables become stacked rows (one card per row, a
+   label before each value), so nothing is clipped and every button is whole. */
+@media (max-width: 640px) {
+  .admin-table--stack,
+  .admin-table--stack tbody,
+  .admin-table--stack tr { display: block; }
+  .admin-table--stack thead { display: none; }
+  .admin-table--stack tr {
+    margin-bottom: 10px;
+    padding: 6px 0;
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+  }
+  .admin-table--stack td,
+  .admin-table.admin-table--stack td:last-child {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
+    padding: 6px 12px;
+    border: 0;
+    white-space: normal;
+  }
+  .admin-table--stack td::before {
+    content: attr(data-label);
+    flex: 0 0 7em;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #555;
+  }
+  .admin-table--stack td:last-child::before { display: none; }
 }

@@ -102,6 +102,14 @@
 }
 
 .settings-btn:disabled { opacity: 0.45; cursor: default; }
+/* A disabled plain button stays readable as a button: outline and muted label,
+   not faded to nothing. (The primary one keeps its fill.) */
+.settings-btn:disabled:not(.settings-btn--primary) {
+  opacity: 1;
+  color: #6b6b6b;
+  background: #efefef;
+  border: 1px solid #8a8a8a;
+}
 .settings-btn:not(:disabled):active { transform: translateY(1px); }
 
 .settings-btn--primary {
@@ -378,7 +386,7 @@
   border: 1.5px solid #1c1c1c;
   background: transparent;
   color: #1c1c1c;
-  font: italic 700 13px Georgia, serif;
+  font: 700 14px var(--app-font);
   line-height: 1;
   cursor: pointer;
 }

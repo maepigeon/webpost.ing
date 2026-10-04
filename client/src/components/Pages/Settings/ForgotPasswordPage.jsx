@@ -42,8 +42,7 @@ export default function ForgotPasswordPage() {
         </div>
 
         <p className="login-note">
-          Enter the email address on your account and we will send you a link to
-          choose a new password. The link is good for one hour.
+          We will email you a link to choose a new password.
         </p>
 
         <form onSubmit={submit} noValidate>

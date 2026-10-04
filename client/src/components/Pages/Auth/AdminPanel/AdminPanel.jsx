@@ -259,7 +259,7 @@ export default function AdminPanel() {
             <span className="admin-count">{filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''}</span>
           </div>
 
-          <div className="admin-table-scroll"><table className="admin-table">
+          <div className="admin-table-scroll"><table className="admin-table admin-table--stack">
             <thead>
               <tr>
                 <th className="admin-th-sort" onClick={() => sortUser('username')}>Username{sortArrow('username')}</th>
@@ -280,22 +280,22 @@ export default function AdminPanel() {
                   u.is_admin ? 'admin-row--admin' : '',
                   u.role === 'frozen' ? 'admin-row--frozen' : '',
                 ].filter(Boolean).join(' ')}>
-                  <td>
+                  <td data-label="Username">
                     <Link to={`/${u.username}`} className="admin-user-link">{u.username}</Link>
                   </td>
-                  <td>
+                  <td data-label="Role">
                     <select value={u.role || 'user'} onChange={e => setRole(u.username, e.target.value)}
                       style={{ color: u.role === 'frozen' ? '#ef4444' : 'inherit' }}>
                       {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
                   </td>
-                  <td>{u.post_count ?? 0}</td>
-                  <td>{u.comment_count ?? 0}</td>
-                  <td>{fmt(Number(u.storage_bytes ?? 0))}</td>
-                  <td>{fmt(Number(u.post_bytes ?? 0))}</td>
-                  <td>{fmt(Number(u.comment_bytes ?? 0))}</td>
-                  <td>{fmt(Number(u.bg_pattern_bytes ?? 0))}</td>
-                  <td>
+                  <td data-label="Posts">{u.post_count ?? 0}</td>
+                  <td data-label="Comments">{u.comment_count ?? 0}</td>
+                  <td data-label="Uploads">{fmt(Number(u.storage_bytes ?? 0))}</td>
+                  <td data-label="Post text">{fmt(Number(u.post_bytes ?? 0))}</td>
+                  <td data-label="Comment text">{fmt(Number(u.comment_bytes ?? 0))}</td>
+                  <td data-label="BG pattern">{fmt(Number(u.bg_pattern_bytes ?? 0))}</td>
+                  <td data-label="Admin">
                     <input type="checkbox" checked={!!u.is_admin} onChange={() => toggleAdmin(u.username, !!u.is_admin)} />
                   </td>
                   <td style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
@@ -350,15 +350,15 @@ export default function AdminPanel() {
       {tab === 'limits' && (
         <div>
           <p className="admin-hint">Set default limits for each user role. Use -1 for unlimited.</p>
-          <div className="admin-table-scroll"><table className="admin-table">
+          <div className="admin-table-scroll"><table className="admin-table admin-table--stack">
             <thead>
               <tr><th>Role</th><th>Max Storage (bytes)</th><th>Max Posts/Day</th><th></th></tr>
             </thead>
             <tbody>
               {roleLimits.map(rl => (
                 <tr key={rl.role}>
-                  <td><strong>{rl.role}</strong></td>
-                  <td>
+                  <td data-label="Role"><strong>{rl.role}</strong></td>
+                  <td data-label="Storage">
                     <input
                       type="number"
                       value={limitEdits[rl.role]?.maxStorageBytes ?? rl.max_storage_bytes}
@@ -367,7 +367,7 @@ export default function AdminPanel() {
                     />
                     <span className="admin-hint-small"> ({fmt(Number(limitEdits[rl.role]?.maxStorageBytes ?? rl.max_storage_bytes))})</span>
                   </td>
-                  <td>
+                  <td data-label="Posts/day">
                     <input
                       type="number"
                       value={limitEdits[rl.role]?.maxPostsPerDay ?? rl.max_posts_per_day}

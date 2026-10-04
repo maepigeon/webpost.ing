@@ -28,6 +28,8 @@ export function isSignedIn() {
 export function clearLocalSession() {
   localStorage.removeItem('userName');
   localStorage.removeItem('isAdmin');
+  // The top bar listens, so it drops the account menu at once.
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('wp:session-cleared'));
 }
 
 /**
