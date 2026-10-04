@@ -54,3 +54,26 @@ panel, and does so after `gate-profile` has reported.
 Per flow: PASS / FAIL, the clip path, the frame that shows the failure, the
 rule it breaks, file and line if you can find it. End with one line: "Area
 ready for Mae: yes / no".
+
+## Added when the gate was launched (2026-10-03, late evening)
+- The site under test is the build of commit `0bede03` at
+  http://localhost:5175 (API 8081). It runs with placeholder sign-in keys so
+  the "Continue with Google / Microsoft" buttons show; they cannot sign anyone
+  in, do not click through to the provider.
+- Accounts and passwords: `<scratchpad>/run/gate-accounts.txt` (`vt4` and
+  `vt5` have long passwords; the name is no longer accepted as a password).
+- Recorder: `node tools/visual/run.mjs --flow <a,b> --out <your area name>`
+  (your own `--out`, always); frames:
+  `node tools/visual/frames.mjs out/<name>/videos/<flow>-<size>.webm --fps 4`
+  writes a `sheet.png` beside the video. New flow: copy
+  `tools/visual/flows/topbar.mjs`. Write new flow files as
+  `flows/gate-<area>-<flow>.mjs` so testers never edit the same file. Do not
+  run `--update` (baselines are shared; the lead has them re-taken once).
+- **Budget.** Usage is limited tonight. Judge from frame sheets and a few
+  full-size crops, not from every frame: at most about 40 images opened in
+  total. Keep tool output short (write logs to files, read tails). Aim to
+  finish within 25 minutes. A short, exact report beats a long one.
+- Known and already being fixed, do not spend time on them: the Button block's
+  form closing while its address is typed; the account menu on the "session
+  ended" screen; Settings' explanatory paragraphs and clipped code preview
+  (next cycle).
