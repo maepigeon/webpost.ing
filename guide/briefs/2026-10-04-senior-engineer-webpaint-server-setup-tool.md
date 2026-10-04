@@ -58,3 +58,28 @@ do not press Deploy or any server row for real. Never ssh to the server.
 ## Report
 What each entry runs, the rehearsal results, what only the real server can
 prove, and the exact order of buttons for Mae. No commit.
+
+## Added: no more "AppleEvent timed out" (Mae, 2026-10-03: "also prevent the apple event timed out thing on that webposting macos app")
+The Deploy row was moved to a `.command` file opened in Terminal for this
+reason; the error still appears elsewhere. Find every place it can happen and
+close them all, in both app variants:
+- **Dialogs left open.** An AppleScript `display dialog` / `choose from list`
+  that waits on the person times out after two minutes (error -1712). Wrap
+  every dialog and list in `with timeout of 86400 seconds … end timeout`, and
+  catch -1712 and -128 (cancel) so the app returns to its menu or quits
+  quietly, never shows the error.
+- **Work run inside the app.** No `do shell script` may run anything that can
+  take more than a second or two (build, start, stop, status that waits on a
+  port, git, ssh, curl). Long work goes to Terminal through the `.command`
+  file, or runs detached (`… > logfile 2>&1 &`) with the app polling a file or
+  port in short steps. A status check uses a short connect timeout and can
+  never hang on a dead port.
+- **Telling other apps.** Any `tell application "Terminal"` / `"System
+  Events"` / `"Finder"` block gets its own `with timeout` and a `try`; prefer
+  `open -a Terminal file.command` and `open URL` (shell) over `tell` blocks.
+- **Idle.** If the app stays open between actions, its menu loop must not hold
+  an Apple event open while it waits.
+Proof: list each call site you changed; in the scratch build leave the menu
+open for three minutes and then choose an entry (no error); run "Build and
+view locally" and "Stop" from the menu; make the status check face a closed
+port and time it.
