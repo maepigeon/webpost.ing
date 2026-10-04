@@ -1,0 +1,71 @@
+# Development in a container (written for Windows with Docker Desktop).
+# From the repository root:
+#
+#     docker compose -f tools/docker/docker-compose.yml up -d --build
+#     docker compose -f tools/docker/docker-compose.yml exec dev bash
+#     docker compose -f tools/docker/docker-compose.yml down        (add -v to drop the databases too)
+#
+# Only the repository is visible inside. Java, Node, Maven's cache,
+# node_modules and PostgreSQL live in the container and its volumes.
+name: webposting
+
+services:
+  db:
+    # 15 matches the postgresql-client in the dev image (pg_dump must not be
+    # older than the server). Local development only: no port is published.
+    image: postgres:15
+    environment:
+      POSTGRES_USER: dev
+      POSTGRES_PASSWORD: dev
+      POSTGRES_DB: testdb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dev -d testdb"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  dev:
+    build: .
+    init: true
+    command: sleep infinity
+    working_dir: /workspace
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Read by the server and by its tests (guide/CONFIGURATION.md).
+      DB_HOST: db
+      DB_USER: dev
+      DB_PASSWORD: dev
+      TEST_DB_HOST: db
+      TEST_DB_USER: dev
+      TEST_DB_PASSWORD: dev
+      # For psql, createdb and pg_dump typed by hand.
+      PGHOST: db
+      PGUSER: dev
+      PGPASSWORD: dev
+      # File-change events do not cross from Windows into the container.
+      CHOKIDAR_USEPOLLING: "true"
+    volumes:
+      - ../..:/workspace
+      - m2:/root/.m2
+      - npm-cache:/root/.npm
+      # Linux builds of the dependencies, kept off the Windows disk.
+      - root-modules:/workspace/node_modules
+      - client-modules:/workspace/client/node_modules
+    ports:
+      # This computer only. Vite must be started with --host 0.0.0.0 to answer here.
+      - "127.0.0.1:5173:5173"   # vite dev
+      - "127.0.0.1:5174:5174"   # vite preview (tools/run-local.sh)
+      - "127.0.0.1:8080:8080"   # server
+      - "127.0.0.1:8090:8090"   # server (tools/run-local.sh)
+
+volumes:
+  pgdata:
+  m2:
+  npm-cache:
+  root-modules:
+  client-modules:
