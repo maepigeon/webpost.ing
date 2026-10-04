@@ -399,6 +399,41 @@ CREATE TABLE security_events (
 CREATE INDEX security_events_user_time ON security_events (user_id, created_at DESC);
 ```
 
+Sign-in methods also write `identity_linked` and `identity_unlinked` (the
+provider's name in `detail`), and a provider sign-in is a `sign_in` with the
+provider's name in `detail`.
+
+---
+
+## user_identities
+
+The Google or Microsoft account a member can sign in with (V021). A person is
+recognised by `(provider, subject)`, the provider's own stable id for them, and
+never by email; `email` is only what the provider last reported, shown in
+Settings > Sign-in methods. No tokens are stored. A member has at most one
+account per provider.
+
+```sql
+CREATE TABLE user_identities (
+  id             SERIAL PRIMARY KEY,
+  user_id        INTEGER      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  provider       VARCHAR(16)  NOT NULL,   -- 'google' | 'microsoft'
+  subject        VARCHAR(255) NOT NULL,   -- the provider's "sub"
+  email          VARCHAR(255),
+  email_verified BOOLEAN      NOT NULL DEFAULT FALSE,
+  created_at     TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  last_used_at   TIMESTAMPTZ
+);
+CREATE UNIQUE INDEX user_identities_provider_subject ON user_identities (provider, subject);
+CREATE UNIQUE INDEX user_identities_user_provider    ON user_identities (user_id, provider);
+```
+
+**An account without a password.** An account made through a provider has
+`users.password = '!sso'`: not a bcrypt hash, so no password matches it. "Has a
+password" means the value starts with `$2`. Any path that stores a real hash
+(Settings > Sign-in methods > Set a password, reset by email, an admin setting
+one) makes it an ordinary account; there is no separate flag to keep in step.
+
 ---
 
 ## role_limits
@@ -637,7 +672,7 @@ bitmap hex), `created_at`, `updated_at`. A user's own symbol sets.
 ## Cascade delete summary
 
 When you DELETE a user, these cascade automatically:
-- `uploads`, `security_events`
+- `uploads`, `security_events`, `user_identities`
 - `stickers`, `stickies`, `pixel_fonts`, `shared_packs`, `shared_pack_saves`, `post_views`
 - `follows` (both follower and followed rows)
 - `notifications`

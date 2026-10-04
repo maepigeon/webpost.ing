@@ -1,0 +1,33 @@
+/* Settings > Sign-in methods: one row per way to sign in. Name, what state it
+   is in, and one button at the right; on a phone the button drops below. */
+.signin-list { list-style: none; margin: 0 0 8px; padding: 0; }
+
+.signin-row {
+  display: grid;
+  grid-template-columns: minmax(96px, auto) 1fr auto;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.25);
+  text-align: left;
+}
+
+.signin-name { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; }
+.signin-name .login-sso-mark { width: 16px; height: 16px; }
+.signin-state { font-size: 0.85rem; opacity: 0.75; min-width: 0; overflow-wrap: anywhere; }
+.signin-row .settings-btn { min-height: 40px; }
+
+.signin-form-row { padding: 10px 0 12px; border-bottom: 1px solid rgba(128, 128, 128, 0.25); }
+.signin-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.signin-confirm .settings-input,
+.signin-form-row .settings-password-form .settings-input { width: 100%; max-width: 260px; box-sizing: border-box; }
+.signin-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+.signin-reauth { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin: 10px 0; text-align: left; }
+.signin-again { display: inline-flex; align-items: center; gap: 8px; }
+.signin-again .login-sso-mark { width: 16px; height: 16px; }
+
+@media (max-width: 480px) {
+  .signin-row { grid-template-columns: 1fr auto; }
+  .signin-state { grid-column: 1 / -1; grid-row: 2; }
+}

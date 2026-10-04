@@ -212,6 +212,46 @@ needs two CSP additions, see [DEPLOYMENT.md](DEPLOYMENT.md) section 8.
 
 ---
 
+## Sign in with Google and Microsoft (off by default)
+
+A provider is off until **both** of its values are in `deploy.env`. With none
+set the site behaves exactly as before: no "Continue with ..." buttons, and
+every `/api/auth/sso/...` provider address answers 404. `GET /api/signup/config`
+lists the providers that are on (`ssoProviders`). What the owner does at each
+provider is the checklist at the top of [SSO-PLAN.md](SSO-PLAN.md).
+
+| Name | Where | Effect |
+|---|---|---|
+| `SSO_GOOGLE_CLIENT_ID` | `deploy.env` | The OAuth client ID of the "Web application" client in Google Cloud Console. |
+| `SSO_GOOGLE_CLIENT_SECRET` | `deploy.env` | Its client secret. A secret: `deploy.env` only. |
+| `SSO_MICROSOFT_CLIENT_ID` | `deploy.env` | The "Application (client) ID" of the app registration in Microsoft Entra. |
+| `SSO_MICROSOFT_CLIENT_SECRET` | `deploy.env` | The client secret's **Value** (not its ID). A secret; it expires (24 months at most), and Microsoft sign-in stops when it does. |
+| `SSO_MICROSOFT_TENANT` | `deploy.env` | Default `common` (work, school and personal accounts). `consumers` = personal accounts only, `organizations` = work and school only, or one tenant's ID. It must match the "Supported account types" chosen in Entra. Any other value switches Microsoft off. |
+| `SSO_REDIRECT_BASE` | `deploy.env`, optional | Where the provider sends people back, when that is not `APP_BASE_URL`. Not needed in production. Locally, set it to the API's address when the pages are served from another port (`http://localhost:8080` beside the dev server on 5173). |
+| `SSO_APPLE_*` | not used yet | Sign in with Apple is not built. Setting `SSO_APPLE_CLIENT_ID` only logs a warning; Apple stays off. |
+
+The server restarts to pick these up. The start-up log warns when a provider
+has only one of its two values, and never prints a secret.
+
+### Redirect addresses to register (exactly: https, no trailing slash)
+
+```
+https://webpost.ing/api/auth/sso/google/callback
+https://webpost.ing/api/auth/sso/microsoft/callback
+```
+
+The rule is `APP_BASE_URL` (or `SSO_REDIRECT_BASE` when set) followed by
+`/api/auth/sso/<provider>/callback`; `APP_BASE_URL` must therefore be the real
+public address. For a local run add the matching local address at the
+provider too, for example `http://localhost:5174/api/auth/sso/google/callback`
+for `tools/run-local.sh` (Google and Microsoft both allow `http://localhost`).
+
+nginx needs no change: these are ordinary `/api/` addresses. Nothing from a
+provider is stored except its id for the person, the email it reported and
+whether it called that email verified (table `user_identities`); no tokens.
+
+---
+
 ## Migrating an existing server to this layout
 
 Done on production on 2026-09-30 (settings moved from an untracked

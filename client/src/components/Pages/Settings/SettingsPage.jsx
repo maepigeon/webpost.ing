@@ -14,6 +14,7 @@ import { Steps } from '../../PageTheme/ThemeEditor.jsx';
 /** Code text sizes offered as buttons (it used to be a slider). */
 const CODE_SIZE_STEPS = [11, 12, 13, 14, 16, 18, 20].filter(n => n >= MIN_CODE_SIZE && n <= MAX_CODE_SIZE);
 import ChangePassword from './ChangePassword.jsx';
+import SignInMethods from './SignInMethods.jsx';
 import SecuritySection from './SecuritySection.jsx';
 import DeleteAccount from './DeleteAccount.jsx';
 import InstallApp from '../../InstallApp/InstallApp.jsx';
@@ -325,6 +326,9 @@ export default function SettingsPage() {
         <Section id="password" title="Password">
           <ChangePassword username={username} />
         </Section>
+
+        {/* Sign-in methods: draws its own Section, and nothing when single sign-on is off. */}
+        <SignInMethods Section={Section} />
 
         {/* ── Security ─────────────────────────────────────────────────────── */}
         <Section id="security" title="Security">

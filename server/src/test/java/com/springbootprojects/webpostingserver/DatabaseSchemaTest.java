@@ -50,6 +50,8 @@ class DatabaseSchemaTest {
                 "pixel_fonts", "stickers", "stickies", "shared_packs", "shared_pack_saves",
                 // security log (V018)
                 "security_events",
+                // linked sign-in providers (V021)
+                "user_identities",
                 // migration tracking
                 "schema_migrations"
         );
@@ -96,6 +98,62 @@ class DatabaseSchemaTest {
             assertColumnExists("security_events", c);       // V018
         for (String c : List.of("card_preview", "search_text", "preview_version"))
             assertColumnExists("posts", c);                 // V020
+        for (String c : List.of("user_id", "provider", "subject", "email", "email_verified", "created_at", "last_used_at"))
+            assertColumnExists("user_identities", c);       // V021
+    }
+
+    // ── V021: linked sign-in providers ────────────────────────────────────────
+
+    /** One member per provider account, one account per provider for a member, and the rows leave with the member. */
+    @Test
+    void userIdentities_areUniqueBothWaysAndGoWithTheAccount() {
+        assertIndexExists("user_identities_provider_subject", true);
+        assertIndexExists("user_identities_user_provider", true);
+        jdbc.update("DELETE FROM users WHERE username IN ('v021_one_junit', 'v021_two_junit')");
+        int one = jdbc.queryForObject("INSERT INTO users (username, password) VALUES ('v021_one_junit', 'x') RETURNING id", Integer.class);
+        int two = jdbc.queryForObject("INSERT INTO users (username, password) VALUES ('v021_two_junit', 'x') RETURNING id", Integer.class);
+        try {
+            jdbc.update("INSERT INTO user_identities (user_id, provider, subject) VALUES (?, 'google', 'v021-sub-a')", one);
+            org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                    jdbc.update("INSERT INTO user_identities (user_id, provider, subject) VALUES (?, 'google', 'v021-sub-a')", two))
+                    .as("the same provider account on a second member")
+                    .isInstanceOf(org.springframework.dao.DuplicateKeyException.class);
+            org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                    jdbc.update("INSERT INTO user_identities (user_id, provider, subject) VALUES (?, 'google', 'v021-sub-b')", one))
+                    .as("a second account of the same provider on one member")
+                    .isInstanceOf(org.springframework.dao.DuplicateKeyException.class);
+            // The same subject at another provider is somebody else.
+            jdbc.update("INSERT INTO user_identities (user_id, provider, subject) VALUES (?, 'microsoft', 'v021-sub-a')", two);
+
+            jdbc.update("DELETE FROM users WHERE id = ?", one);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM user_identities WHERE user_id = ?", Integer.class, one)).isZero();
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM user_identities WHERE user_id = ?", Integer.class, two)).isEqualTo(1);
+        } finally {
+            jdbc.update("DELETE FROM users WHERE username IN ('v021_one_junit', 'v021_two_junit')");
+        }
+    }
+
+    /** V021 is safe to run twice: a second run changes nothing and keeps the rows. */
+    @Test
+    void userIdentities_migrationCanRunAgainWithoutLosingAnything() throws Exception {
+        String tracking = "test_v021_again_junit";
+        String sql = new String(getClass().getResourceAsStream("/db/migrations/V021__user_identities.sql").readAllBytes(),
+                java.nio.charset.StandardCharsets.UTF_8);
+        jdbc.update("DELETE FROM users WHERE username = 'v021_again_junit'");
+        int id = jdbc.queryForObject("INSERT INTO users (username, password) VALUES ('v021_again_junit', 'x') RETURNING id", Integer.class);
+        jdbc.update("INSERT INTO user_identities (user_id, provider, subject) VALUES (?, 'google', 'v021-again')", id);
+        try {
+            new com.springbootprojects.webpostingserver.migration.DatabaseMigrator(jdbc, tracking).migrate(List.of(
+                    new com.springbootprojects.webpostingserver.migration.DatabaseMigrator.MigrationScript("V021__user_identities", "again", sql)));
+
+            assertThat(jdbc.queryForObject("SELECT subject FROM user_identities WHERE user_id = ?", String.class, id))
+                    .isEqualTo("v021-again");
+            assertIndexExists("user_identities_provider_subject", true);
+            assertIndexExists("user_identities_user_provider", true);
+        } finally {
+            jdbc.update("DELETE FROM users WHERE id = ?", id);
+            jdbc.execute("DROP TABLE IF EXISTS " + tracking);
+        }
     }
 
     // ── V020: card previews and search text ───────────────────────────────────

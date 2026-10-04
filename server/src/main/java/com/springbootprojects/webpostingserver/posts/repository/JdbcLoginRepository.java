@@ -419,6 +419,32 @@ public class JdbcLoginRepository implements LoginRepository {
         return authSession;
     }
 
+    @Override
+    public AuthSession createSession(int userId) {
+        purgeExpiredSessions();
+
+        Instant now = Instant.now();
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT username, role FROM users WHERE id = ?", userId);
+        AuthSession authSession = new AuthSession(rows.isEmpty() ? null : (String) rows.get(0).get("username"));
+        authSession.expiresAt = now.plus(sessionLifetimeMinutes, ChronoUnit.MINUTES);
+        authSession.idleExpiresAt = now.plus(sessionIdleMinutes, ChronoUnit.MINUTES);
+        authSession.token = "-1";
+        authSession.loginHttpStatusCodeResult = HttpStatus.FORBIDDEN;
+        if (rows.isEmpty()) return authSession;
+
+        authSession.userId = userId;
+        Object role = rows.get(0).get("role");
+        authSession.role = role == null ? "user" : role.toString();
+        // Frozen users are refused here exactly as in login().
+        if ("frozen".equals(authSession.role)) return authSession;
+
+        authSession.token = generateNewToken();
+        authSession.loginHttpStatusCodeResult = HttpStatus.OK;
+        storeSession(authSession, MAX_SESSIONS_PER_USER, MAX_SESSIONS);
+        return authSession;
+    }
+
     /** Immediately invalidate a user's sessions, e.g. when a user is frozen. */
     public void evictSession(String username) {
         evictAllSessionsFor(username);

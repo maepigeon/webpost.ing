@@ -7,6 +7,9 @@ import { BASE_URL as baseUrl } from '../../../../config.js';
 import { ADMIN_GET_STATUS } from '../../Posts/BasicTextPostServerApi.js';
 import { usePageTitle } from '../../../../utils/usePageTitle.js';
 import { errorMessage } from '../../../../utils/errorMessage.js';
+import SsoButtons from './SsoButtons.jsx';
+import { rememberSignIn } from './signedIn.js';
+import { ssoLoginMessage, ssoProvidersOf } from './ssoOutcome.js';
 
 function Login() {
   usePageTitle('Sign in');
@@ -15,6 +18,10 @@ function Login() {
   // Set by handleExpiredSession when a 401 bounced the user here, so the
   // redirect explains itself instead of looking like a random sign-out.
   const sessionExpired = new URLSearchParams(location.search).get('expired') === '1';
+  // Back from Google or Microsoft: "ok" means the server has set the session
+  // cookies; any other word is why nobody was signed in.
+  const ssoOutcome = new URLSearchParams(location.search).get('sso');
+  const ssoMessage = ssoLoginMessage(ssoOutcome);
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -32,6 +39,26 @@ function Login() {
     return () => { live = false; };
   }, []);
   const mailOff = config?.mailEnabled === false;
+
+  useEffect(() => {
+    if (ssoOutcome !== 'ok') return undefined;
+    let live = true;
+    setLoading(true);
+    // The cookies are HttpOnly, so ask the server who they belong to.
+    axios.post(baseUrl + '/api/authorizeSession', {}, { withCredentials: true })
+      .then(async (r) => {
+        const name = typeof r.data === 'string' ? r.data.trim() : '';
+        if (!name) throw new Error('no session');
+        await rememberSignIn(name);
+        window.location.href = `/${name}`;
+      })
+      .catch(() => {
+        if (!live) return;
+        setError(ssoLoginMessage('failed'));
+        setLoading(false);
+      });
+    return () => { live = false; };
+  }, [ssoOutcome]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -75,6 +102,8 @@ function Login() {
           <div className="login-success">{location.state.notice}</div>
         )}
 
+        {ssoMessage && <div className="login-expired" role="status">{ssoMessage}</div>}
+
         {sessionExpired && (
           <div className="login-expired">
             Your session ended, so you were signed out. Sign in again to continue.
@@ -114,6 +143,8 @@ function Login() {
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
+
+        <SsoButtons providers={ssoProvidersOf(config)} />
 
         <div className="login-have-code">
           New here?{' '}

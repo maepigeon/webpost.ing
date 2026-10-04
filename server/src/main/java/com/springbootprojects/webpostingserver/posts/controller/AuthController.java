@@ -96,6 +96,9 @@ public class AuthController {
     @Autowired(required = false)
     com.springbootprojects.webpostingserver.posts.service.EmailTokenService emailTokens;
 
+    @Autowired(required = false)
+    com.springbootprojects.webpostingserver.posts.service.SsoProviders ssoProviders;
+
     /** Returns the background pattern for a user's profile page (public). */
     @GetMapping("/users/{username}/background")
     public ResponseEntity<String> getUserBackground(@PathVariable("username") String username) {
@@ -524,13 +527,18 @@ public class AuthController {
 
     // ── Public registration (invite code required) ────────────────────────────
 
-    /** What the sign-up form needs to know: whether to ask for an invite code, and the Turnstile site key if on. */
+    /**
+     * What the sign-in and sign-up forms need to know: whether to ask for an
+     * invite code, the Turnstile site key if on, and which "Continue with ..."
+     * providers are switched on ([{id, name}], empty when none).
+     */
     @GetMapping("/signup/config")
     public Map<String, Object> signupConfig() {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("inviteRequired", inviteRequired());
         m.put("turnstileSiteKey", signupGuard == null ? null : signupGuard.siteKey());
         m.put("mailEnabled", emailService != null && emailService.isEnabled());
+        m.put("ssoProviders", ssoProviders == null ? List.of() : ssoProviders.publicList());
         return m;
     }
 

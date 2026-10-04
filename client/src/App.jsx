@@ -7,6 +7,7 @@ import { Routes, Route, Navigate, useParams, useLocation } from 'react-router-do
 import Navbar from './components/Navbar/Navbar';
 import Login from './components/Pages/Auth/Login/Login'
 import Registration from './components/Pages/Auth/Registration/Registration'
+import ChooseUsername from './components/Pages/Auth/Login/ChooseUsername'
 import Logout from './components/Pages/Auth/Logout/Logout'
 const AdminPanel = lazy(() => import('./components/Pages/Auth/AdminPanel/AdminPanel'));
 const PostsViewer = lazy(() => import('./components/Pages/Posts/PostsViewer/PostsViewer'));
@@ -85,6 +86,7 @@ function App() {
           <Route path="/routes/Logout" element={<Logout />} />
           <Route path="/routes/AdminPanel" element={<AdminPanel />} />
           <Route path="/routes/NewAccount" element={<Registration />} />
+          <Route path="/routes/ChooseUsername" element={<ChooseUsername />} />
           <Route path="/inbox" element={<InboxPage />} />
           <Route path="/following" element={<FollowingPage />} />
           <Route path="/discover" element={<DiscoverPage />} />

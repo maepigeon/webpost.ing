@@ -10,6 +10,8 @@ import { errorMessage } from '../../../../utils/errorMessage.js';
 import { AuthField } from '../Login/AuthFields.jsx';
 import { passwordRuleItems } from './passwordRules.js';
 import { FIELD_ORDER, mapRegisterError, validateRegistration } from './registrationValidation.js';
+import SsoButtons from '../Login/SsoButtons.jsx';
+import { ssoProvidersOf } from '../Login/ssoOutcome.js';
 
 // Imported by the reset form, settings and the admin panel; keep the props.
 export function PasswordRequirements({ password, id }) {
@@ -259,6 +261,8 @@ function Registration() {
             {loading ? 'Creating account…' : 'Create account'}
           </button>
         </form>
+
+        <SsoButtons providers={ssoProvidersOf(config)} />
 
         <div className="login-have-code">
           Already have an account?{' '}
